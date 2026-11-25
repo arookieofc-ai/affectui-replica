@@ -140,7 +140,11 @@ body {
 .hs-ctl:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 
 /* ---- canvas ---- */
-.hs-scroll { margin: 0 -18px; padding: 0 18px; overflow-x: auto; }
+/* The original bundle never scrolls horizontally: its scroll wrapper is
+   `overflow: hidden` and the canvas is shrunk to fit (column shrink + CSS
+   `zoom`). Round-1 used `overflow-x: auto`, which left the wide event-label
+   pills unreachable behind the sticky lane column / past the right edge. */
+.hs-scroll { margin: 0 -18px; padding: 0 18px; overflow: hidden; }
 .hs-canvas { position: relative; direction: ltr; min-height: 60px; }
 .hs-lane { position: relative; border-top: 1px solid var(--border); }
 .hs-lane:first-child { border-top: 0; }
@@ -233,6 +237,12 @@ body {
   font-size: 12px; line-height: 15px; max-height: 30px;
 }
 .hs-box-text .hs-mark { margin-right: 6px; }
+/* Running-state mark must flow INLINE with the title text (as in the
+   original `.ui-hs__box-text > .ui-hs__mark`, `display: inline-grid`).
+   As a block-level grid it became a separate -webkit-box item and consumed
+   one of the two clamped lines, leaving running cards with 1 title line. */
+.hs-box-text > .hs-mark { display: inline-grid; vertical-align: top; margin: 1.5px 5px 0 0; }
+.hs-box-text > .hs-glyph { vertical-align: top; margin: 1.5px 5px 0 0; }
 .hs-box-text > span:last-child { min-width: 0; }
 .hs-glyph { display: inline-grid; place-items: center; margin-right: 6px; flex: none; }
 .hs-node[data-status="done"] .hs-glyph { color: var(--done-fg); }
@@ -272,6 +282,13 @@ html[data-theme="dark"] .hs-node[data-status="done"] .hs-glyph { color: var(--la
 .hs-event { width: 18px; height: 18px; border-radius: 50%; background: var(--surface); border: 2px solid var(--edge); }
 .hs-node[data-kind="end"] .hs-event { border-width: 4px; border-color: var(--edge-next); }
 .hs-node[data-kind="end"][data-status="done"] .hs-event { border-color: var(--done-fg); }
+/* Start/end labels are a round-1 addition (the original paints bare
+   circles). A centered pill overflows the canvas: the start pill slides
+   under the sticky lane column (unreachable at scroll-left 0) and the end
+   pill runs past the right edge. Anchor them inward instead so both edges
+   stay inside the canvas. */
+.hs-node[data-kind="start"] .hs-event-label { left: 0; transform: none; }
+.hs-node[data-kind="end"] .hs-event-label { left: auto; right: 0; transform: none; }
 
 /* ---- narrow: stacked list ---- */
 .hs-list { display: grid; gap: 8px; }
@@ -455,7 +472,9 @@ var TWINKLE = [0, 140, 280, 140, 280, 420, 280, 420, 560];
 
 /* Layout metrics: widened vs the original bundle (104px boxes / 112px labels
    truncated "Split into tasks", "Splits the work", etc.) so every title and
-   lane subtitle renders in full; task boxes use the original's 2-line clamp. */
+   lane subtitle renders in full; task boxes use the original's 2-line clamp.
+   The wider natural width is kept inside the viewport by the original's
+   overflow-hidden + zoom-to-fit mechanism (see applyFit), not scrolling. */
 var LANE_H = 60, LABEL_W = 152;
 var COL_W = { start: 44, task: 160, gate: 72, end: 72 };
 var NODE_W = { task: 132, gate: 26, other: 18 };
@@ -665,6 +684,29 @@ var pauseBtn = document.getElementById("hsPause");
 var hintEl = document.getElementById("hsHint");
 var nodeEls = {}, edgeEls = [], dotEls = {};
 
+/* ---------------- fit-to-width (mirrors the original bundle) ----------------
+   The original never scrolls: `.ui-hs__scroll` is `overflow: hidden` and the
+   canvas gets `zoom: fit<1 ? fit : undefined` where fit = avail / natural
+   width (floored at 0.4). Do the same so the first-to-last card span is
+   always fully visible instead of clipping past the scrollport edges. */
+function availWidth() {
+  var sc = document.getElementById("hsScroll");
+  var w = sc ? sc.clientWidth : 0;
+  if (!w && typeof window !== "undefined" && window.innerWidth) w = window.innerWidth - 38;
+  return w || 0;
+}
+function fitFor(avail) {
+  if (!avail || avail <= 0) return 1;
+  if (layout.width <= avail) return 1;
+  return Math.max(0.4, avail / layout.width);
+}
+function applyFit() {
+  var f = fitFor(availWidth());
+  try { canvas.style.zoom = f < 1 ? String(f) : ""; } catch (e) {}
+  state.fit = f;
+  return f;
+}
+
 function laneById(id) {
   for (var i = 0; i < LANES.length; i++) if (LANES[i].id === id) return LANES[i];
   return LANES[0];
@@ -675,6 +717,7 @@ function buildCanvas() {
   nodeEls = {}; edgeEls = []; dotEls = {};
   canvas.style.width = layout.width + "px";
   canvas.style.height = layout.height + "px";
+  applyFit();
   var li;
   for (li = 0; li < LANES.length; li++) {
     (function (lane, idx) {
@@ -1157,6 +1200,16 @@ paintTheme();
 
 /* ---------------- boot ---------------- */
 if (state.narrow) buildList(); else buildCanvas();
+if (typeof window !== "undefined") {
+  try {
+    if (typeof ResizeObserver !== "undefined") {
+      new ResizeObserver(function () { if (!state.narrow) applyFit(); })
+        .observe(document.getElementById("hsScroll"));
+    } else if (window.addEventListener) {
+      window.addEventListener("resize", function () { if (!state.narrow) applyFit(); });
+    }
+  } catch (e) {}
+}
 refresh();
 schedule();
 
@@ -1165,7 +1218,11 @@ if (typeof window !== "undefined") {
   window.__hs = {
     state: state, LANES: LANES, TASKS: TASKS, FRAMES: FRAMES, HOLDS: HOLDS,
     DURATIONS: DURATIONS, LANE_COLORS: LANE_COLORS,
-    layout: layout, nodeEls: function () { return nodeEls; },
+    layout: layout, LABEL_W: LABEL_W, NODE_W: NODE_W,
+    fitFor: fitFor, applyFit: applyFit,
+    canvasEl: function () { return canvas; },
+    scrollEl: function () { return document.getElementById("hsScroll"); },
+    nodeEls: function () { return nodeEls; },
     advance: advance, goFrame: goFrame, refresh: refresh,
     markCells: markCells, statusOf: statusOf, overall: overall,
     applyNarrow: applyNarrow, dialog: function () { return dialog; }

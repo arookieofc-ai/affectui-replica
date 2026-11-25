@@ -19,18 +19,38 @@ appear, and the best is auto-picked (clicking another dims the rest).
 - `Gemini 3.8 Pro` / `Wait for the network to settle` / ends 6.1 s / **fails** /
   cost $0.18 / steps `Reading checkout.spec.ts → Adding the waits → Running tests` /
   note `Still flaky – 3 of 20 runs failed`
-- Timings/behaviour: 100 ms tick, 15 s loop restart, took = ends × 17 × 1000 ms
-  (`2m 36s`, `2m 06s`, `1m 44s`), failed bar caps at 62 %, running floor 3 %,
-  `Running tests k/20` counter, cost accrues proportionally while running
-  (total `$0.76`), `$x.xx` / `Nm SSs` / `NNms` formatters as in the original.
-
+- Timings/behaviour: 100 ms tick, 15 s loop restart (`_=15`), took = ends × v
+  × 1000 ms with `v=17` (`2m 36s`, `2m 06s`, `1m 44s`). The ×17 is the
+  original's own demo time-dilation, NOT a bug: `demo-original.js` defines
+  `_=15,v=17` and its `y=e=>g.map(...)` view-model line computes
+  `took:t.ends*v*1e3`, displayed through the original's own `s` duration
+  formatter (the `i=1e3` / `m + pad2(t%60) + s` formatter). So the ORIGINAL
+  itself displays `2m 36s · $0.31` / `2m 06s · $0.27` / `1m 44s · $0.18`.
+  The 9.2s/7.4s/6.1s values are the `ends` demo-time finish points, not the
+  displayed durations — an earlier QA brief mistook them for the displayed
+  metas, and a prior replica revision wrongly dropped the ×17 (showing
+  `9.2s`/`7.4s`/`6.1s`). Restored to the original behaviour now. Failed bar
+  caps at 62 %, running floor 3 %, `Running tests k/20` counter, cost accrues proportionally
+  while running (total `$0.76`), `$x.xx` / `NNms` / `NNs` formatters as in the
+  original.
 ## Interactions
 - Live progress bars with sweep/glow while running; stale results replaced by
   fade-swap animations (no full rebuild — rows are built once and patched in
   place, so clicks are never lost across ticks).
-- Pick via **pointerdown (capture) + click delegation** on the persistent panel;
+- Pick via `pointerdown (capture) + click` delegation on the persistent panel;
   ArrowUp/Down/Home/End move between Use options; `role=radiogroup/radio`,
   `aria-checked`, focus-visible outlines.
+- Overlap fix (visual QA defect a): mid-run, the picked row's live score %
+  and its stale `✓ In use` pill used to paint in the same spot. Root causes:
+  (1) author CSS `display:inline-flex` on `.ui-pa__use` beats the UA
+  `[hidden]{display:none}`, so `hidden=true` alone never hid the pill, and
+  (2) the tick's running branch never cleared the previous completion's
+  `data-on`/pill content, leaving it at `opacity:1` over/under the live `%`.
+  Fix: explicit `.ui-pa__use[hidden]{display:none}`, the running branch clears
+  stale `data-on` (pill rebuilds fresh at the next completion), and
+  `.ui-pa__end` stacks score and meta-slot as separate grid rows with a 2px
+  row-gap. The pill now exists only for done rows once everything settles,
+  exactly like the original.
 - Theme toggle (top-right, sun/moon) flips `data-theme`; default follows
   `prefers-color-scheme`, override persisted to localStorage.
 - Narrow (≤560 px): rows stack, lane spans full width, approach hidden, status
@@ -62,10 +82,15 @@ grey 1.8 — purely decorative, adjacent to passing text.)
 
 ## Verification
 - `node --check .page-script.check.js` (page script extracted from index.html) — passes.
-- `node harness.mjs` — 43 headless checks pass: 3 rows, exactly 9 pixel-mark
+- `node harness.mjs` — 89 headless checks pass: 3 rows, exactly 9 pixel-mark
   cells per row (27 total), tick animation of `--p`/steps/pct, tests counter,
-  fail at 6.1 s, done scores/metas, Best badge + auto-pick, pointerdown pick
-  switch, arrow-key focus, 15 s loop reset with pick persistence, dark/light toggle.
+  fail at 6.1 s, done scores/metas (`2m 36s · $0.31`, `2m 06s · $0.27`,
+  `1m 44s · $0.18`), Best badge + auto-pick, pointerdown pick switch,
+  arrow-key focus, 15 s loop reset with pick persistence, plus a mid-run
+  layout-model check across two loop cycles proving the live score box and
+  the Use box are disjoint (pill hidden, no stale `data-on`, score and pill
+  in different rows) while the pick persists, and the CSS `[hidden]` guard
+  that makes it true in a real browser.
 - Checked light AND dark: toggle verified in harness; visually the dark theme
   re-skins every token (no inverted-text artefacts).
 

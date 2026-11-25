@@ -19,13 +19,16 @@ click-to-open detail cards.
 - Wires: agent→memory, memory→memory (related `p5↔p1`, replaces `p4→p1`), memory→tool
   (via). Active wires animate (dash flow); outdated dashed grey. Recomputed only on
   render/resize, never in a tick loop.
-- Detail cards open on **pointerdown/mousedown capture** (separate overlay, so a click
-  can never be lost to a re-render): memory card (tag chip, text, file row, source,
-  "Replaces/Replaced by" + "Linked to" jump links, "Use this memory" switch,
-  "Learned Sep 5 · Used 63×" + Forget button), tool card (access/scope chips,
-  "Allow access" switch, "Taught" links, "Used 42m ago · 318 calls"), agent card
-  (drop-a-file row + "Connect a tool" catalog list; connecting adds the tool,
-  dropping files adds File memories).
+- Detail cards open on **click** (matching the original's `onClick` on each node;
+  the card itself is `role="dialog"` with an `aria-label` of the node name, like the
+  original's `popover="manual"` + `role="dialog"` card). A prior version opened on
+  `pointerdown`+`mousedown` capture with toggle logic, which meant a real mouse click
+  fired open-then-instant-close and keyboard Enter (which only emits `click`) did
+  nothing — exactly the reported QA failure. `Enter`/`Space` on a focused node now
+  open the same card (with `preventDefault` so the button's synthetic click does not
+  double-toggle). Clicks inside the card are ignored by the stage handler so
+  switches, Forget, file drop/browse and connect-a-tool all work; outside
+  `pointerdown` and `Esc` close (Esc refocuses the anchor).
 - Hover highlights linked nodes; ←/→ arrows move focus between columns; Esc closes.
   `aria-live` announces status; `prefers-reduced-motion` disables animation.
 - Loops on the exact original schedule and resets with a fade (deferred while hovered,
@@ -46,9 +49,12 @@ click-to-open detail cards.
   7200 use notion · 8300 learn "Redesign ships Dec 11" (standup-nov-14.md, replaces p1,
   related p5, Lea moved it) · 9200 idle · 11400 use github/recall p4+p5 · 14200 idle ·
   17500 fade + reset.
+- The 10 timeline steps above ARE the auto-replay loop sequence itself (the
+  original's `R` array + 17500 ms reset): the original demo has no separate timeline
+  scrubber/control UI, so none was added.
 
 ## Interactions
-Hover-link highlight, click/Enter/pointerdown detail cards, memory on/off + tool
+Hover-link highlight, click/Enter/Space detail cards, memory on/off + tool
 allow-access switches, Forget, file drop/browse, connect-a-tool, theme toggle
 (persisted, defaults to `prefers-color-scheme`), keyboard (←/→/Esc), responsive
 stack under 820 px (wires hidden, list mode).
@@ -70,12 +76,18 @@ Checked in both themes; borders never carry meaning alone.
 ## Verification
 - `node --check` on the extracted page script: passes.
 - Real headless run: `node verify-harness.js` (DOM-stub harness kept in this
-  directory) boots the actual page script, advances virtual timers through the full
-  17.5 s loop and asserts **39 checks pass**: node counts, exact texts, all 10
-  timeline steps, outdated marking, wire drawing + hot state, pointerdown card open,
-  Escape close, tool card scope, theme toggle both ways, loop reset restoring p1,
-  pixel-mark exactly 9 cells and deterministic. (One harness ordering fix was needed:
-  hot-wire assertion must run at t=11400 while active, not at idle t=14200.)
+  directory, now with bubbling click events) boots the actual page script, advances
+  virtual timers through the full 17.5 s loop and asserts **61 checks pass**: node
+  counts, exact texts, all 10 timeline steps, outdated marking, wire drawing + hot
+  state, **click opens a `role="dialog"` memory card** with detail/`Used 63×`/
+  `Learned Sep 5` and `aria-expanded=true`, **Enter opens the same card**, Space/click
+  open the tool card (scope `lumen/web`, `Allow access`), click opens the agent card
+  (file drop + `Connect a tool`, connecting adds a tool), **card switches toggle
+  off/on** (a previously inverted toggle that never flipped state is fixed),
+  **Forget removes the memory and closes the card**, Escape close, theme toggle both
+  ways, loop reset restoring 4 memories + 5 tools, pixel-mark exactly 9 cells and
+  deterministic. (One harness ordering fix was needed: hot-wire assertion must run
+  at t=11400 while active, not at idle t=14200.)
 
 ## What could not be verified
 Pixel-exact match to the original (no screenshot of the original available); file-type

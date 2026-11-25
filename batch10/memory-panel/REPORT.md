@@ -74,12 +74,30 @@ radii 16/10/6px, shadow per spec). Component vars (`--tray/--card/--well/--hover
   on the well fill). Light theme only, those radios use `#6e6863` (same hue family) = 5.0.
   Borders/track/knob are non-text and remain token-driven.
 
+## Search fix (2026-11-25, browser visual QA failure)
+Browser QA failed search: it filtered by GROUP only — searching `fintech` still showed the
+unrelated `Keeps design tokens…` under Projects; searching `TypeScript` showed all 3
+Preferences items instead of 1.
+Root cause: `visible(m)` already implemented the original predicate correctly, but
+`renderList()` ignored it per-row — it rendered every row in the group and only used
+`visible()` to decide the group's open flag.
+Original predicate (`demo-original.js`): `K = (filter===null || cat===filter)
+&& (!q || text.toLowerCase().includes(q) || category.toLowerCase().includes(q))`
+— per-memory text-or-category match. Fix: `renderList()` now keeps only rows with
+`(m.category||'')===g && visible(m)`; groups with zero matching rows are skipped
+(hidden). `visible()` itself unchanged. Demo tour untouched (auto-pause of
+`Likes short answers…` at ~700ms is the original's behaviour, left as-is).
+
 ## Verification
 - `node --check` on the extracted page script: passes.
-- `node harness.cjs` (DOM-stub + virtual-clock harness kept in this directory): 19 checks
-  pass — script loads, 8 verbatim seeds, tour auto-fires at ~700ms, pause/forget/undo/
-  expiry/filter/search/add/edit/switch all mutate state correctly, tween advances with no
-  extra renders, theme toggles `data-theme`, no 8-cell grid, 45KB < 200KB, no network refs.
+- `node harness.cjs` (DOM-stub + virtual-clock harness kept in this directory): all
+checks pass — script loads, 8 verbatim seeds, tour auto-fires at ~700ms, pause/forget/
+undo/expiry/filter/search/add/edit/switch all mutate state correctly, tween advances with
+no extra renders, theme toggles `data-theme`, no 8-cell grid, 45KB < 200KB, no network refs.
+  Search specifically: `fintech` → exactly 1 item (the fintech row; tokens row absent,
+  empty Preferences/Work groups absent), `TypeScript` → exactly 1 item (`ts`),
+  `tailwind` → 1, clearing search restores all 8 rows. `__mp.visible()` / `__mp.listHTML()`
+  test helpers added for these assertions only.
 - Checked in headless stub (no full browser available here); open `index.html` in a browser
   and toggle the sun/moon button to confirm both themes visually.
 

@@ -269,7 +269,7 @@ html[data-theme="dark"] .sw[data-on]{background:var(--accent)}
           <ul class="mg__list" id="toolList" aria-label="Tools"></ul>
         </div>
       </div>
-      <div class="card" id="card" hidden></div>
+      <div class="card" id="card" hidden role="dialog" aria-modal="false" aria-label="Details"></div>
     </div>
     <p class="sr" aria-live="polite" id="live"></p>
   </section>
@@ -653,7 +653,7 @@ function narrowMode(){
   return false;
 }
 
-/* ---------- detail card (opened on pointerdown capture; separate overlay) ---------- */
+/* ---------- detail card (opened on click, like the original's onClick) ---------- */
 function closeCard(refocus){
   openKey = null;
   if(card) card.hidden = true;
@@ -680,6 +680,8 @@ function openCard(key, anchor){
 function fillCard(key, keepPos){
   clear(card);
   var m = memById(key), t = (key.slice(0,2)==="t:") ? toolById(key.slice(2)) : null;
+  card.setAttribute("role","dialog");
+  card.setAttribute("aria-label", m ? m.text : (t ? t.name : (key==="@agent" ? "Add to Assistant" : "Details")));
   var top = h("div", {"class":"card-top"});
   if(m){
     if(m.tag) top.appendChild(h("span", {"class":"chip", text:m.tag}));
@@ -842,7 +844,7 @@ function switchRow(label, on, onChange){
   sw.appendChild(h("i", null));
   b.appendChild(sw);
   b.addEventListener("click", function(){
-    var v = !(sw.getAttribute("data-on")==="");
+    var v = (sw.getAttribute("data-on")==="");
     if(v) sw.removeAttribute("data-on"); else sw.setAttribute("data-on","");
     b.setAttribute("aria-checked", v?"false":"true");
     onChange(!v);
@@ -910,13 +912,23 @@ function maybeReset(){
   }, FADE_MS);
 }
 
-/* ---------- events (dialog opens on pointerdown capture) ---------- */
+/* ---------- events (dialog opens on click; Enter/Space activate focused nodes) ---------- */
 function onPress(e){
-  var t = e.target && e.target.closest ? e.target.closest("[data-node]") : null;
-  if(!t || !stage.contains(t)) return;
-  var key = t.getAttribute("data-node");
+  var t = e.target;
+  if(!t || !t.closest) return;
+  if(card && !card.hidden && (card.contains(t) || t.closest(".card"))) return;
+  var n = t.closest("[data-node]");
+  if(!n || !stage.contains(n)){ closeCard(false); return; }
+  var key = n.getAttribute("data-node");
   if(openKey===key){ closeCard(false); return; }
-  openCard(key, t);
+  openCard(key, n);
+}
+function onOutside(e){
+  if(!openKey || !card || card.hidden) return;
+  var t = e.target;
+  if(!t || !t.closest) return;
+  if(card.contains(t) || t.closest(".card") || t.closest("[data-node]")) return;
+  closeCard(false);
 }
 function onHover(e){
   var t = e.target && e.target.closest ? e.target.closest("[data-node]") : null;
@@ -931,6 +943,17 @@ function onHover(e){
   });
 }
 function onKey(e){
+  if(e.key==="Enter" || e.key===" "){
+    var t = e.target && e.target.closest ? e.target.closest("[data-node]") : null;
+    if(t && stage.contains(t)){
+      /* preventDefault suppresses the synthetic click a button would emit,
+         so the card toggles exactly once */
+      e.preventDefault();
+      var key = t.getAttribute("data-node");
+      if(openKey===key) closeCard(false); else openCard(key, t);
+      return;
+    }
+  }
   if(e.key==="Escape" && openKey){ e.preventDefault(); closeCard(true); return; }
   if(e.key!=="ArrowRight" && e.key!=="ArrowLeft") return;
   var cols = [["@agent"], liveMemories().map(function(m){return m.id;}),
@@ -995,8 +1018,8 @@ function boot(){
     renderAll();
   });
   document.body.appendChild(fileInput);
-  stage.addEventListener("pointerdown", onPress, true);
-  stage.addEventListener("mousedown", onPress, true);
+  stage.addEventListener("click", onPress);
+  document.addEventListener("pointerdown", onOutside, true);
   stage.addEventListener("mouseover", onHover);
   stage.addEventListener("mouseout", onHover);
   stage.addEventListener("keydown", onKey);

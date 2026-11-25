@@ -329,11 +329,14 @@ function renderFilters(){
 }
 function renderList(){
   var groups=cats();
+  /* Original predicate (demo-original.js): K = (filter===null || cat===filter)
+     && (!q || text.includes(q) || category.includes(q)).
+     Filter INDIVIDUAL rows so non-matching items are removed from the DOM;
+     groups with zero matching rows are skipped entirely (hidden). */
   var html=groups.map(function(g){
-    var rows=state.items.filter(function(m){return (m.category||'')===g;});
+    var rows=state.items.filter(function(m){return (m.category||'')===g&&visible(m);});
     if(!rows.length)return '';
-    var open=rows.some(function(m){return visible(m);});
-    return '<section class="ui-mp__fold" data-open="'+(open?'1':'')+'"'+(open?'':' inert')+' aria-label="'+esc(g||'Other')+'">'
+    return '<section class="ui-mp__fold" data-open aria-label="'+esc(g||'Other')+'">'
       +'<div class="ui-mp__clip"><h3 class="ui-mp__group" dir="auto">'+esc(g||'Other')+'</h3><ul class="ui-mp__items">'
       +rows.map(itemHTML).join('')+'</ul></div></section>';
   }).join('');
@@ -728,6 +731,8 @@ try{
     get renders(){return renders;},
     get shown(){return {total:shown.total,paused:shown.paused};},
     totals:totals,
+    visible:function(){return state.items.filter(visible).map(function(m){return m.id;});},
+    listHTML:function(){return listEl?listEl.innerHTML:'';},
     pause:function(id){var m=itemById(id);if(m)doPause(m);},
     forget:function(id){var m=itemById(id);if(m)doForget(m);},
     undo:doUndo,

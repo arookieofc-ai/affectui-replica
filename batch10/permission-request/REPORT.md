@@ -47,9 +47,29 @@ twinkle while pending), circular tool icons, and a sun/moon theme toggle.
 - Scope radio, Show more/less (40 recipients scroll), Deny / Allow with kbd
   hints, Revoke / Change / Ask again ghost button, drain bar + live countdown
   that expires to `Access expired` → `will ask again`.
-- Keyboard: card-level Enter/Esc, scope arrow keys, visible focus outlines.
+- Keyboard: Enter = Allow, Escape = Deny for the open pending run, scoped to
+  `once`/`timed`/`always`; works focused (on the dialog) AND unfocused (body
+  focus) via a document-level `keydown` handler plus the card-level handler.
+  Matches `demo-original.js` (`ye`: `Enter`+`target.tagName!=="BUTTON"` → allow,
+  `Escape` → deny, ignored once decided): `Enter` on a `BUTTON` is left to the
+  native click (so scope radios don't mis-fire), `Escape` denies even from a
+  focused button. Scope arrow keys + visible focus outlines unchanged.
 - Responsive: ≤360 px compacts reason margin/scope text and hides kbd hints;
   `prefers-reduced-motion` disables animation.
+
+## Keyboard fix (2026-11-25 visual-QA failure)
+- Failure: buttons are labelled `Deny Esc` / `Allow once Enter`, but `Esc`/`Enter`
+  did nothing (focused or unfocused); only mouse clicks worked.
+- Root cause: the card-only `ask` keydown handler (a) never fired when focus was
+  outside the card, and (b) returned early for ANY `BUTTON` target, so `Esc` on a
+  focused Deny/Allow/scope button was swallowed — stricter than the original,
+  which only guards `Enter` on `BUTTON`.
+- Fix in `index.html`: kept the card handler but aligned it with the original
+  (`if(run.decision)return`, `Enter`+not-`BUTTON` → allow, `Escape` → deny incl.
+  from buttons), and added a document-level bubble `keydown` handler for the
+  latest pending run (same guards + `INPUT`/`TEXTAREA`/`SELECT` exclusion) so
+  unfocused `Enter`/`Escape` also decide. Both paths call `takeOver()` + `decide()`
+  and are no-ops once decided, so mouse click paths are untouched.
 
 ## Render-safety measures (per past component failures)
 - The 100 ms tick **never rebuilds the DOM** — it only updates the drain-bar
@@ -80,13 +100,21 @@ Dark: ink 14.52, muted 6.63 (5.88 on subtle), amber 12.03, ok 6.88,
 danger 6.73, on-primary 16.11. All pass; no grey-on-grey or invisible borders.
 
 ## Verification
-- `node harness.js` (kept in this directory): extracts the inline script,
-  `node --check` passes, then a DOM-stub headless run asserts 33 checks —
-  initial pending card, 9-cell pixel-marks, 1500/2900/4700 ms autoplay steps,
-  timed `until`, countdown note, drain transform, 600× fast-forward to
-  `expired`, scenario advance, manual takeover, destructive `always` hiding,
-  formatters — **ALL HEADLESS CHECKS PASSED** (exit 0). Syntax check alone was
-  not relied on.
+- `node harness.js` (kept in this directory): extracts the inline script, then a
+  DOM-stub headless run asserts 50 checks — initial pending card, 9-cell
+  pixel-marks, 1500/2900/4700 ms autoplay steps, timed `until`, countdown note,
+  drain transform, 600× fast-forward to `expired`, scenario advance, manual
+  takeover, destructive `always` hiding, formatters, PLUS keyboard/mouse: unfocused
+  `Enter` allows (`once`), focused `Enter` allows (`timed`, `until=at+1h`),
+  unfocused `Esc` denies (`always` scope), focused `Esc` denies, `Esc` on a
+  focused Deny `BUTTON` denies, `Enter` on a scope `BUTTON` does not auto-decide,
+  mouse Allow/Deny clicks still work — **ALL HEADLESS CHECKS PASSED** (exit 0).
+  The stub dispatches event objects (`{key, target, preventDefault, isTrusted}`) 
+  through the real listener chain (target bubble → document), with `parent`
+  links and uppercase `tagName`, not direct `decide()` calls. Syntax check alone
+  was not relied on.
+- `node --check harness.js` → pass; `node --check .page-script.js` (extracted
+  inline script) → pass.
 - Could not verify: pixel-perfect match to the Pro marketing screenshot
   (no screenshot available); avatar/tool artwork is redrawn originals, not the
   vendors' logos.

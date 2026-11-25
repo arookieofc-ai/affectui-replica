@@ -205,7 +205,7 @@ html[data-theme="dark"] .pixel-mark i[data-f="1"]{background:hsl(var(--pm-h,210)
   animation:pa-glow 1100ms ease-in-out infinite alternate;
 }
 .ui-pa__row[data-best] .ui-pa__fill{background:var(--best-bg);box-shadow:inset 0 0 0 1px var(--best-edge)}
-.ui-pa__end{display:grid;justify-items:end;min-width:0;text-align:right}
+.ui-pa__end{display:grid;justify-items:end;align-content:start;row-gap:2px;min-width:0;text-align:right}
 .ui-pa__score{
   display:inline-flex;align-items:center;gap:6px;
   font-size:14px;font-weight:600;line-height:20px;color:var(--ink);
@@ -242,6 +242,10 @@ html[data-theme="dark"] .pixel-mark i[data-f="1"]{background:hsl(var(--pm-h,210)
 .ui-pa__use[data-on]:hover{background:none}
 .ui-pa__use:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
 .ui-pa__use svg{width:12px;height:12px}
+/* Author display:inline-flex beats the UA [hidden]{display:none}, so without
+   this the Use/In-use pill from a settled run stays painted (opacity:1 via
+   [data-on]) and overlaps the live score % during the next run. */
+.ui-pa__use[hidden]{display:none}
 .ui-pa [data-status="running"]{--k-bg:var(--running-bg);--k-edge:var(--running-edge);--k-ink:var(--running-ink)}
 .ui-pa [data-status="done"]{--k-bg:var(--done-bg);--k-edge:var(--done-edge);--k-ink:var(--done-ink)}
 .ui-pa [data-status="failed"]{--k-bg:var(--failed-bg);--k-edge:var(--failed-edge);--k-ink:var(--failed-ink)}
@@ -308,7 +312,8 @@ html[data-theme="dark"] .pixel-mark i[data-f="1"]{background:hsl(var(--pm-h,210)
 /* Exact demo data + timings observed in the original compiled demo. */
 var TASK = "Fix the flaky checkout test";
 var LOOP_SECONDS = 15;
-var TOOK_SCALE = 17; /* finished "took" shown = ends * 17 * 1000 ms */
+/* finished "took" shown = ends * 17 * 1000 ms, i.e. 2m 36s / 2m 06s / 1m 44s,
+   matching the original's own demo time-dilation (v=17) and displayed durations. */
 var FAIL_PROGRESS = 0.62;
 var ATTEMPTS = [
   { id:"a", name:"Opus 5.5", approach:"Add a retry with backoff", ends:9.2,
@@ -388,10 +393,10 @@ function viewFor(a, t){
   }
   if (a.fails){
     return { status:"failed", progress:FAIL_PROGRESS, line:a.note,
-             took:a.ends*TOOK_SCALE*1000, cost:a.cost };
+             took:a.ends*17*1000, cost:a.cost };
   }
   return { status:"done", progress:1, line:a.note, score:a.score,
-           took:a.ends*TOOK_SCALE*1000, cost:a.cost };
+           took:a.ends*17*1000, cost:a.cost };
 }
 
 function el(tag, cls, text){
@@ -602,6 +607,13 @@ function tick(){
       }
     } else {
       r.meta.removeAttribute("data-hide");
+      /* The Use/In-use pill exists only for done rows once everything has
+         settled (like the original). Clear any stale pill now so a persisted
+         pick can never leave a visible "In use" badge overlapping the live
+         score % during the next run; useKey is reset so the pill rebuilds
+         fresh at the next completion. */
+      if (r.use.getAttribute("data-on") !== null) r.use.removeAttribute("data-on");
+      r.last.useKey = "";
     }
   });
 

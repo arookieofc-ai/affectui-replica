@@ -92,18 +92,69 @@ Play/pause/restart the loop · click (or keyboard-activate) any node or lane for
 details · Approve advances to the deploy frame, Reject resets · theme toggle
 (sun/moon, top-right, follows `prefers-color-scheme` by default).
 
+## Visual QA fixes round 2 (2026-11-25, browser QA re-check in both themes)
+Round-1 items (titles, subtitles, 7 frames, Approve/Reject buttons) all still
+pass. Three new failures, all reproduced from `demo-original.js` behaviour:
+
+1. **You-lane FIRST card clipped on the left ("ip the billing fix").** Root
+   cause: round-1 added centred `.hs-event-label` pills under the start/end
+   circles (the original paints bare circles). The start pill is centred on a
+   circle at x = LABEL_W+8, so its left half extends under the sticky
+   (`position: sticky; left: 0`) lane-label column (z-index 4, opaque
+   gradient) and is painted over — unreachable at scroll-left 0. Fix: anchor
+   the start label inward (`.hs-node[data-kind="start"] .hs-event-label`
+   `{ left: 0; transform: none }`) so its left edge starts at the circle and
+   extends right, clear of the sticky column.
+2. **You-lane LAST card "Shipped" clipped on the right (only "S" visible).**
+   Root cause: the centred end pill extends past the canvas width
+   (node right edge is already at `width - 6`), i.e. outside the scrollport
+   at desktop widths. Fix: anchor the end label inward
+   (`{ left: auto; right: 0; transform: none }`) so its right edge ends at
+   the circle, plus the fit fix below.
+3. **Running cards show only 1 title line ("Fix invoice", "Deploy to").**
+   Root cause: in `refresh()`, running cards prepend a `.hs-mark` that is
+   `display: grid` (block-level) inside the vertical `-webkit-box`
+   (`.hs-box-text`, `-webkit-line-clamp: 2`). A block child becomes its own
+   box item and consumes one of the two clamped lines (~12 px mark + margins
+   inside a 30 px `max-height`), leaving room for a single 15 px title line.
+   The original has no such state difference: its mark/glyph is
+   `display: inline-grid` and flows inline with the title text in all
+   states. Fix: `.hs-box-text > .hs-mark { display: inline-grid;
+   vertical-align: top; ... }` (glyph already inline), so running cards keep
+   the 2-line clamp with the full two-line title.
+4. **Timeline width/overflow (covers 1+2 structurally).** The original never
+   scrolls horizontally: `.ui-hs__scroll` is `overflow: hidden` and the canvas
+   gets `zoom: fit<1 ? fit : undefined` (fit = available / natural width,
+   floored at 0.4), with columns/boxes additionally shrunk to fit. Round-1
+   used `overflow-x: auto`, which cannot help because the sticky column
+   covers the start label at any scroll position. Fix: `.hs-scroll` is now
+   `overflow: hidden` like the original, and `applyFit()` (called on build
+   and on resize via ResizeObserver) sets the same `zoom` shrink-to-fit, so
+   the whole first-to-last-card span is visible at ~1920x1000 in both themes
+   with no unreachable content.
+5. **Frame counter "0 of 6"–"6 of 6": KEPT, matches the original.** The
+   original renders `[doneCount, " of ", tasksAndGates.length]` where the set
+   is filtered to `kind === task|gate` (6 items; start/end circles are never
+   counted) — i.e. it really counts 0..6 over 7 frames, not 1..7. The replica
+   uses the identical formula, so it was left unchanged (asserted in-harness
+   via the denominator check).
+
 ## Verification
 - `node --check` on the extracted page script: pass.
 - `node harness.mjs` (kept in this directory; uses `verify/node_modules`
-  linkedom + a timer mock): **90 assertions, ALL GREEN** — boot state, exact
+  linkedom + a timer mock): **108 assertions, ALL GREEN** — boot state, exact
   holds incl. 420 ms fade reset, frame-by-frame statuses, 9-cell marks,
   pointerdown-open/click-survive dialog, Approve/Reject jumps, Esc + outside
   close, lane stats, 8 edges + dots, live-edge states, pause/restart, both
   themes, narrow list mode, contrast audit, plus the visual-QA block: all 6
   task/gate titles in full, start/end `.hs-event-label` titles, all 6 lane
   roles in full, 2-line-clamp/no-ellipsis CSS checks, exactly 7 frames with
-  the original's holds, frame 4 waiting gate, 8-node final frame, and
-  Approve→5 / Reject→0 from the dialog buttons.
+  the original's holds, frame 4 waiting gate, 8-node final frame,
+  Approve→5 / Reject→0 from the dialog buttons, and the round-2 block:
+  hidden (non-scrolling) scroll wrapper, inward-anchored start/end labels
+  with in-canvas geometry, zoom shrink-to-fit at narrow widths, running cards
+  keeping the inline mark + full two-line titles, and the 0-of-6 counter
+  formula matching the original.
 - Could not verify: pixel-perfect match to the proprietary rendered demo
   (no screenshot available); animation smoothness is CSS-driven and was
   asserted via state/attribute changes, not raster frames.

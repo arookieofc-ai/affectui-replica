@@ -287,6 +287,25 @@ themeBtn.addEventListener("click",function(){setTheme(document.documentElement.g
 /* capture trusted input early: stop autoplay like the original */
 document.addEventListener("pointerdown",function(e){if(e.isTrusted)takeOver();},true);
 document.addEventListener("keydown",function(e){if(e.isTrusted&&(e.key==="Enter"||e.key==="Escape"))takeOver();},true);
+/* global keys: Enter -> Allow, Escape -> Deny for the open pending run.
+   Mirrors the original card onKeyDown (Enter allow unless on BUTTON, Escape
+   always denies) but also works when focus is outside the card (e.g. body),
+   which the card-only handler can't reach. Guarded so native BUTTON Enter
+   clicks still win and decided runs are untouched. */
+document.addEventListener("keydown",function(e){
+  if(!e||(e.key!=="Enter"&&e.key!=="Escape"))return;
+  var cur=runs[runs.length-1];
+  if(!cur||cur.decision)return;
+  var t=e.target&&e.target.tagName;
+  if(e.key==="Enter"){
+    if(t==="BUTTON"||t==="INPUT"||t==="TEXTAREA"||t==="SELECT")return;
+    if(e.preventDefault)e.preventDefault();
+    takeOver();decide(cur,true);
+  }else{
+    if(e.preventDefault)e.preventDefault();
+    takeOver();decide(cur,false);
+  }
+});
 /* ---------- card builders (built once per state change, never in tick) ---------- */
 function el(tag,cls,html){var d=document.createElement(tag);if(cls)d.className=cls;if(html!=null)d.innerHTML=html;return d;}
 function pxMark(id){
@@ -405,9 +424,10 @@ function buildCard(run){
     ask.appendChild(body);
     ask.tabIndex=0;
     ask.addEventListener("keydown",function(e){
-      if(e.target!==ask&&e.target.tagName==="BUTTON")return;
-      if(e.key==="Enter"&&e.target.tagName!=="BUTTON"){e.preventDefault();decide(run,true);}
-      else if(e.key==="Escape"){e.preventDefault();decide(run,false);}
+      if(run.decision)return;
+      var t=e.target&&e.target.tagName;
+      if(e.key==="Enter"&&t!=="BUTTON"){if(e.preventDefault)e.preventDefault();decide(run,true);}
+      else if(e.key==="Escape"){if(e.preventDefault)e.preventDefault();decide(run,false);}
     });
     wrap.appendChild(ask);
   }else{
