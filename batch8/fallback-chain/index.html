@@ -150,9 +150,8 @@ html[data-theme="dark"] .icon-sun{display:block}
   position:relative;z-index:1;display:flex;align-items:center;gap:8px;
   min-width:0;height:52px;padding:0 8px;border-radius:var(--radius);
   background:var(--surface);box-shadow:var(--shadow-card);
-  transition:box-shadow 150ms ease,transform 150ms ease;
+  transition:box-shadow 150ms ease;
 }
-.fbk-node:hover{transform:translateY(-1px)}
 .fbk-node:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
 .fbk-node-icon{
   flex:none;width:26px;height:26px;border-radius:999px;
@@ -175,10 +174,9 @@ html[data-theme="dark"] .icon-sun{display:block}
   column-gap:10px;row-gap:7px;min-width:0;
   padding:0 12px 0 10px;border-radius:calc(var(--radius-lg) - 4px);
   background:var(--surface);box-shadow:var(--shadow-card);
-  transition:box-shadow 200ms ease,opacity 200ms ease,transform 150ms ease;
+  transition:box-shadow 200ms ease,opacity 200ms ease;
   cursor:default;
 }
-.fbk-model:hover{transform:translateY(-1px)}
 .fbk-model:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
 .fbk-model[data-status="trying"]{box-shadow:0 0 0 1.5px var(--try-line),0 4px 14px rgba(37,99,235,.12)}
 .fbk-model[data-status="answered"]{box-shadow:0 0 0 1.5px var(--ok-line),0 4px 14px rgba(22,163,74,.10)}
@@ -225,28 +223,25 @@ html[data-theme="dark"] .icon-sun{display:block}
 .fbk-model[data-status="trying"] .fbk-bars i.on{background:var(--try-dot);opacity:.7}
 .fbk-model[data-status="failed"] .fbk-bars i.on{background:var(--fail-dot);opacity:.75}
 .fbk-model[data-status="answered"] .fbk-bars i.on{background:var(--ok-dot);opacity:.75}
-/* popover tooltip: hover / focus / pinned-by-click.
-   Matches the original: opaque card, z-index above the chart, centred
-   below (rows 1-2) / above (rows 3-4), start/end aligned for nodes. */
+/* popover tooltip: portalled to document.body as position:fixed so no
+   chart ancestor (row/node stacking context, hover transform, link svg)
+   can ever paint over it. Opaque card, z-index far above the chart,
+   explicit 280px width; JS positions it near its anchor (rows 1-2 below,
+   rows 3-4 above, request/response below, edge-aligned). */
+.fbk-hov:hover,.fbk-hov:focus-visible,.fbk-hov.pinned{position:relative;z-index:20}
 .fbk-pop{
-  position:absolute;z-index:30;display:grid;gap:10px;
+  position:fixed;z-index:9999;display:grid;gap:10px;
   width:280px;max-width:min(280px,calc(100vw - 48px));
-  left:50%;top:calc(100% + 8px);transform:translate(-50%,-4px);
+  left:0;top:0;margin:0;transform:none;
   background:var(--surface);border:1px solid var(--border);border-radius:16px;
   box-shadow:0 0 0 1px var(--border),0 8px 24px -6px rgba(0,0,0,.16);
   padding:12px;
   opacity:0;visibility:hidden;
-  transition:opacity 150ms ease,transform 150ms var(--ease),visibility 150ms;
+  transition:opacity 150ms ease,visibility 150ms;
   pointer-events:none;text-align:left;white-space:normal;
   isolation:isolate;
 }
-.fbk-node--from .fbk-pop{left:0;right:auto;top:calc(100% + 8px);bottom:auto;transform:translateY(-4px)}
-.fbk-node--to .fbk-pop{left:auto;right:0;top:calc(100% + 8px);bottom:auto;transform:translateY(-4px)}
-.fbk-model:nth-child(n+3) .fbk-pop{top:auto;bottom:calc(100% + 8px);transform:translate(-50%,4px)}
-.fbk-hov:hover>.fbk-pop,.fbk-hov:focus-visible>.fbk-pop,.fbk-hov.pinned>.fbk-pop{opacity:1;visibility:visible;pointer-events:auto}
-.fbk-model:nth-child(-n+2).fbk-hov:hover>.fbk-pop,.fbk-model:nth-child(-n+2).fbk-hov:focus-visible>.fbk-pop,.fbk-model:nth-child(-n+2).fbk-hov.pinned>.fbk-pop{transform:translate(-50%,0)}
-.fbk-model:nth-child(n+3).fbk-hov:hover>.fbk-pop,.fbk-model:nth-child(n+3).fbk-hov:focus-visible>.fbk-pop,.fbk-model:nth-child(n+3).fbk-hov.pinned>.fbk-pop{transform:translate(-50%,0)}
-.fbk-node.fbk-hov:hover>.fbk-pop,.fbk-node.fbk-hov:focus-visible>.fbk-pop,.fbk-node.fbk-hov.pinned>.fbk-pop{transform:none}
+.fbk-pop.open{opacity:1;visibility:visible;pointer-events:auto}
 .fbk-pop-head{display:flex;align-items:center;gap:9px;min-width:0}
 .fbk-pop-logo{
   flex:none;width:24px;height:24px;border-radius:999px;background:var(--subtle);
@@ -586,35 +581,147 @@ function measureBars(){
   }
 }
 
+/* ---- detail popovers: portalled to document.body as position:fixed ----
+   Root cause (vs demo-original.js): the original lifts the hovered
+   ancestor above its siblings (.ui-fbk__hov:hover{z-index:20}) and never
+   transforms rows/nodes on hover, so its absolute .ui-fbk__pop (z-30)
+   paints above the chart. This replica had no hover lift, kept
+   .fbk-node{z-index:1}, and added hover translateY(-1px) transforms on
+   rows/nodes — each hovered row/node became its own trapped stacking
+   context, so later siblings (row 2/3/4 text, icons, links) painted OVER
+   the opaque popover (truncated titles, "o many requests", icons poking
+   through). Fix: move every .fbk-pop to document.body once, show it as
+   position:fixed + z-index 9999 (opaque, 280px), positioned by JS near
+   its anchor. No overflow:hidden/transform/filtered ancestor remains. */
+var POP_IDS = ["popReq", "popRes", "pop0", "pop1", "pop2", "pop3"];
+var ANCHOR_FOR = { popReq:"nodeReq", popRes:"nodeRes", pop0:"m0", pop1:"m1", pop2:"m2", pop3:"m3" };
+function popEl(id){ return $(id); }
+function anchorFor(popId){ return $(ANCHOR_FOR[popId]); }
+function placePop(anchor, pop){
+  if (!anchor || !pop || !pop.style) return;
+  var r = null;
+  try { if (anchor.getBoundingClientRect) r = anchor.getBoundingClientRect(); } catch(e){ r = null; }
+  if (!r || (typeof r.width === "number" && !r.width && !r.left && !r.top && !r.bottom)){
+    return; /* headless stub: no layout — leave at CSS default */
+  }
+  var vw = 800, vh = 600;
+  try {
+    if (typeof window !== "undefined"){
+      if (typeof window.innerWidth === "number") vw = window.innerWidth;
+      if (typeof window.innerHeight === "number") vh = window.innerHeight;
+    }
+  } catch(e){}
+  var pw = 280, ph = 220;
+  try {
+    if (pop.offsetWidth) pw = pop.offsetWidth;
+    if (pop.offsetHeight) ph = pop.offsetHeight;
+  } catch(e){}
+  var id = anchor.id || "";
+  var x, y, below = !(id === "m2" || id === "m3");
+  if (id === "nodeReq"){ x = r.left; y = r.bottom + 8; }
+  else if (id === "nodeRes"){ x = r.right - pw; y = r.bottom + 8; }
+  else if (below){ x = r.left + r.width / 2 - pw / 2; y = r.bottom + 8; }
+  else { x = r.left + r.width / 2 - pw / 2; y = r.top - 8 - ph; }
+  if (typeof x !== "number" || typeof y !== "number") return;
+  if (x < 8) x = 8;
+  if (x + pw > vw - 8) x = Math.max(8, vw - pw - 8);
+  if (y < 8) y = 8;
+  if (y + ph > vh - 8) y = Math.max(8, vh - ph - 8);
+  pop.style.left = Math.round(x) + "px";
+  pop.style.top = Math.round(y) + "px";
+}
+function openPop(popId){
+  var pop = popEl(popId);
+  if (!pop || !pop.classList) return;
+  pop.classList.add("open");
+  placePop(anchorFor(popId), pop);
+}
+function closePop(popId){
+  var pop = popEl(popId);
+  if (!pop || !pop.classList) return;
+  pop.classList.remove("open");
+}
+function closeAllPops(){
+  for (var i = 0; i < POP_IDS.length; i++) closePop(POP_IDS[i]);
+}
+function repositionOpenPops(){
+  for (var i = 0; i < POP_IDS.length; i++){
+    var pop = popEl(POP_IDS[i]);
+    if (pop && pop.classList && pop.classList.contains("open")) placePop(anchorFor(POP_IDS[i]), pop);
+  }
+}
+/* move popovers out of the chart grid: body has no overflow/transform/filter */
+(function portalPops(){
+  var body = null;
+  try { body = document.body || null; } catch(e){ body = null; }
+  if (!body || !body.appendChild) return;
+  for (var i = 0; i < POP_IDS.length; i++){
+    var pop = popEl(POP_IDS[i]);
+    if (!pop) continue;
+    try {
+      if (pop.parentNode && pop.parentNode.removeChild && pop.parentNode !== body){
+        pop.parentNode.removeChild(pop);
+        body.appendChild(pop);
+      } else if (!pop.parentNode && body.appendChild){
+        body.appendChild(pop);
+      }
+    } catch(e){}
+  }
+})();
+
 /* ---- click-to-open details: pointerdown capture so a real click is never lost ---- */
 function clearPinned(except){
   var hovs = document.querySelectorAll ? document.querySelectorAll(".fbk-hov.pinned") : [];
   for (var i = 0; i < hovs.length; i++) if (hovs[i] !== except) hovs[i].classList.remove("pinned");
+  if (!except) closeAllPops();
+  else {
+    var keep = null;
+    try { keep = except.getAttribute && except.getAttribute("aria-describedby"); } catch(e){}
+    for (var j = 0; j < POP_IDS.length; j++) if (POP_IDS[j] !== keep) closePop(POP_IDS[j]);
+  }
 }
-[["nodeReq"],["nodeRes"],["m0"],["m1"],["m2"],["m3"]].forEach(function(pair){
-  var el = $(pair[0]);
+[["nodeReq","popReq"],["nodeRes","popRes"],["m0","pop0"],["m1","pop1"],["m2","pop2"],["m3","pop3"]].forEach(function(pair){
+  var el = $(pair[0]), pid = pair[1];
   if (!el || !el.addEventListener) return;
   el.addEventListener("pointerdown", function(){
     var was = el.classList.contains("pinned");
     clearPinned(el);
-    if (was) el.classList.remove("pinned");
-    else el.classList.add("pinned");
+    if (was){ el.classList.remove("pinned"); closePop(pid); }
+    else { el.classList.add("pinned"); openPop(pid); }
   }, true);
+  el.addEventListener("mouseenter", function(){
+    openPop(pid);
+  });
+  el.addEventListener("mouseleave", function(){
+    if (!el.classList.contains("pinned")) closePop(pid);
+  });
+  el.addEventListener("focus", function(){ openPop(pid); });
+  el.addEventListener("blur", function(){
+    if (!el.classList.contains("pinned")) closePop(pid);
+  });
   el.addEventListener("keydown", function(ev){
     if (ev.key === "Enter" || ev.key === " "){
       ev.preventDefault();
       var w = el.classList.contains("pinned");
       clearPinned(el);
-      if (!w) el.classList.add("pinned");
-    } else if (ev.key === "Escape"){ el.classList.remove("pinned"); }
+      if (!w){ el.classList.add("pinned"); openPop(pid); }
+      else closePop(pid);
+    } else if (ev.key === "Escape"){ el.classList.remove("pinned"); closePop(pid); }
   });
 });
 if (document.addEventListener){
   document.addEventListener("pointerdown", function(e){
     var t = e.target;
-    if (t && t.closest && t.closest(".fbk-hov.pinned")) return;
+    if (t && t.closest){
+      try {
+        if (t.closest(".fbk-hov.pinned") || t.closest(".fbk-pop.open")) return;
+      } catch(err){}
+    }
     clearPinned(null);
   }, true);
+  document.addEventListener("keydown", function(e){
+    if (e && e.key === "Escape"){ clearPinned(null); }
+  });
 }
 
 /* retry restarts the loop (visible only if every model failed) */
@@ -625,8 +732,9 @@ var resizeT = null;
 if (typeof window !== "undefined" && window.addEventListener){
   window.addEventListener("resize", function(){
     if (resizeT) return;
-    resizeT = setTimeout(function(){ resizeT = null; measureBars(); lastSig = { head:null, 0:null, 1:null, 2:null, 3:null }; tick(); }, 150);
+    resizeT = setTimeout(function(){ resizeT = null; measureBars(); lastSig = { head:null, 0:null, 1:null, 2:null, 3:null }; tick(); repositionOpenPops(); }, 150);
   });
+  window.addEventListener("scroll", function(){ repositionOpenPops(); }, true);
 }
 
 /* ---- tick: attribute/text updates only, and only when state changed ---- */
@@ -712,6 +820,7 @@ function tick(force){
   if (popResQuote) popResQuote.hidden = overall !== "answered";
   if (popOutRow) popOutRow.hidden = overall !== "answered";
   lastSig.rows = rows;
+  repositionOpenPops();
 }
 function resSubTxt(rows, answeredIdx, allFailed){
   if (answeredIdx >= 0){
@@ -736,6 +845,8 @@ if (typeof window !== "undefined"){
     fmtDur: fmtDur, fmtCost: fmtCost,
     get t0(){ return t0; }, set t0(v){ t0 = v; },
     tick: tick,
+    openPop: openPop, closePop: closePop, placePop: placePop,
+    popIds: POP_IDS,
     get lastRows(){ return lastSig.rows || null; }
   };
 }

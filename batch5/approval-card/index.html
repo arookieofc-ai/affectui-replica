@@ -347,7 +347,13 @@ function h(tag, attrs){
   if(attrs) for(var k in attrs){
     var v = attrs[k];
     if(v === null || v === undefined || v === false) continue;
-    if(k === "class") el.className = v;
+    /* NOTE: SVGElement.className is a read-only SVGAnimatedString in real
+       browsers; assigning el.className on an <svg>/<path>/<circle> throws a
+       TypeError in strict mode ("use strict" is on). Use setAttribute. */
+    if(k === "class"){
+      if(ns) el.setAttribute("class", v);
+      else el.className = v;
+    }
     else if(k === "text") el.textContent = v;
     else el.setAttribute(k, v);
   }
@@ -561,10 +567,14 @@ function createApprovalCard(mount, opts){
   function stopClock(){ if(timers.clock){ clearInterval(timers.clock); timers.clock = null; } }
 
   function restoreApproveBtn(){
-    okB.removeAttribute("aria-disabled");
-    var old = okB.querySelector(".ap-spinner");
-    if(old) okB.removeChild(old);
-    if(okKbd && okKbd.parentNode !== okB) okB.appendChild(okKbd);
+    try{ okB.removeAttribute("aria-disabled"); }catch(e){}
+    try{
+      var old = okB.querySelector(".ap-spinner");
+      if(old && old.parentNode === okB) okB.removeChild(old);
+    }catch(e){}
+    try{
+      if(okKbd && okKbd.parentNode !== okB) okB.appendChild(okKbd);
+    }catch(e){}
   }
 
   function approve(){
@@ -573,21 +583,34 @@ function createApprovalCard(mount, opts){
     try{ r = opts.onApprove ? opts.onApprove({always:state.always}) : undefined; }
     catch(e){ return; }
     if(r && typeof r.then === "function"){
-      state.busy = true; root.setAttribute("data-busy", ""); root.setAttribute("aria-busy", "true");
-      okB.setAttribute("aria-disabled", "true");
-      if(okKbd && okKbd.parentNode === okB) okB.removeChild(okKbd);
-      var sp = h("svg", {"class":"ap-spinner", viewBox:"0 0 16 16", "aria-hidden":"true"});
-      sp.appendChild(h("circle", {cx:"8", cy:"8", r:"6"}));
-      okB.appendChild(sp);
-      r.then(function(){
+      /* Attach the settlement handlers FIRST so a DOM exception below can
+         never strand the card with busy=true and no resolve path (that was
+         the round-3 browser freeze: spinner creation threw, .then was never
+         attached, header stuck at "2 pending", Deny blocked by the busy
+         guard). */
+      var onOk = function(){
         state.busy = false;
         restoreApproveBtn();
         setStatus("approved", state.reason);
-      }, function(){
-        state.busy = false; root.removeAttribute("data-busy"); root.removeAttribute("aria-busy");
+      };
+      var onErr = function(){
+        state.busy = false;
+        try{ root.removeAttribute("data-busy"); root.removeAttribute("aria-busy"); }catch(e){}
         restoreApproveBtn();
         renderClock();
-      });
+      };
+      try{ r.then(onOk, onErr); }catch(e){ onErr(); return; }
+      state.busy = true;
+      try{ root.setAttribute("data-busy", ""); root.setAttribute("aria-busy", "true"); }catch(e){}
+      try{ okB.setAttribute("aria-disabled", "true"); }catch(e){}
+      try{ if(okKbd && okKbd.parentNode === okB) okB.removeChild(okKbd); }catch(e){}
+      try{
+        var sp = h("svg", {"class":"ap-spinner", viewBox:"0 0 16 16", "aria-hidden":"true"});
+        sp.appendChild(h("circle", {cx:"8", cy:"8", r:"6"}));
+        okB.appendChild(sp);
+      }catch(e){
+        /* Spinner is cosmetic; the promise handlers above still resolve. */
+      }
     } else setStatus("approved", state.reason);
   }
 

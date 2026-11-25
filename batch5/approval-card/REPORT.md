@@ -87,16 +87,73 @@ and are fixed in `index.html`:
    `display:none` 350 ms after resolve (after the 280 ms leave animation);
    `reset()` restores it. Leaving cards also get `inert`, as in the original.
 
+## Round 3 — real root cause (browser still failed after round-2 fix)
+Card 1 Approve never resolved in real browsers (auto ~3.0 s click or manual
+click): button went disabled, no `Approved` row, header stuck at `2 pending`,
+no 3200 ms reset, second approve impossible, later Deny dead too.
+
+Root cause: `h()` did `el.className = v` for every element. The page script
+runs under `"use strict"`, and in real browsers `SVGElement.className` is a
+**read-only** `SVGAnimatedString` — assigning it on `<svg>/<path>/<circle>`
+throws a `TypeError`. The approve path was the ONLY path that created an SVG
+element **with** a class (`h("svg", {"class":"ap-spinner", ...})`), so:
+
+1. `approve()` set `state.busy = true`, set `aria-disabled`, removed the kbd
+   hint — then called `h("svg", {class:"ap-spinner", ...})`, which threw;
+2. the `r.then(onOk, onErr)` was attached *after* the spinner creation, so it
+   was never attached;
+3. the 700 ms `onApprove` promise resolved with no handler → `setStatus`
+   never ran → `busy` stayed `true` forever → header never left `2 pending`,
+   `deny("user")` early-returned on the `state.busy` guard, reset never
+   scheduled.
+
+Manual Deny on a fresh load worked because `setStatus("denied")` builds its
+checkmark SVG with **no** `class` on the `<svg>` itself (class lives on the
+parent HTML `<span>`), so it never hit the throwing assignment. Card 2
+countdown/hover/amber/`Expired` collapse likewise never create a classed SVG.
+
+Why round 2's 40/40 stub passed while the browser failed: the stub `El` used
+a plain writable `className` string for every tag, so `el.className = v` on
+SVG never threw there. The stub also asserted `row.textContent`, while a
+page-wide `textContent` search can match the hidden `aria-live` `.ap-sr`
+node (`Approved: ...`) even when NO visible row exists — the false-positive
+`Approved` text-wait seen in QA.
+
+Fixes in `index.html`:
+- `h()` now uses `el.setAttribute("class", v)` for SVG-namespace elements
+  (HTML path unchanged), so the spinner gets its class without throwing.
+- `approve()` is hardened: `r.then(onOk, onErr)` is attached **before** any
+  busy-flag/spinner DOM mutation, and every DOM mutation after that
+  (`setAttribute`/`removeChild`/`appendChild`/spinner creation) is guarded,
+  so a cosmetic DOM failure can never again strand `busy=true` with no
+  resolve path. `restoreApproveBtn()` guards `removeChild` with a
+  `parentNode === okB` check + try/catch.
+- No behaviour change otherwise: card 1 wiring is still exactly the original
+  demo (`onApprove` pure 700 ms promise, press 2800 ms, click 3000 ms, reset
+  3200 ms after resolve).
+
+`harness.js` hardened so this class of bug cannot pass silently again:
+- stub `El` mimics browsers: assigning `.className` on SVG-namespace
+  elements throws `TypeError`; the correct `setAttribute("class", ...)` path
+  still works (old code now fails the `approve shows spinner while busy`
+  check instead of passing silently).
+- new `visibleTxt()` helper skips hidden `.ap-sr` subtrees; approve
+  assertions now require VISIBLE card text to contain `Approved` (not just
+  any `textContent`), plus `busy === false`, spinner removed, and
+  `aria-disabled` cleared after resolve — on both the first and second
+  approve cycles.
+
 ## Verification
 - `node --check` on the extracted page script: passes.
 - `harness.js` (kept in this directory): a plain-Node DOM-stub + fake-timer
-  harness (no packages) that loads the real page script and asserts **40/40**:
+  harness (no packages) that loads the real page script and asserts **46/46**:
   auto-demo press (2800 ms) / click (3000 ms) / busy spinner / `Approved` row
-  / collapse / reset to pending / 3200 ms timing, a second full approve cycle
-  (the previous `NotFoundError` regression), manual deny → `Denied` + `Replay`
-  button + replay reset, card 2 countdown ticking/`m:ss` format/hover-pause/
-  resume/amber low state at ≤10 s/`Expired` row + collapse with no leftover
-  space, and the theme toggle both ways.
+  / VISIBLE (non-sr) `Approved` text / busy cleared / button re-enabled /
+  collapse / reset to pending / 3200 ms timing, a second full approve cycle,
+  manual deny → `Denied` + `Replay` button + replay reset, card 2 countdown
+  ticking/`m:ss` format/hover-pause/resume/amber low state at ≤10 s/`Expired`
+  row + collapse with no leftover space, and the theme toggle both ways.
+- `index.html` is now 39,296 bytes, self-contained, no network.
 - No packages installed; nothing written outside this directory.
 
 ## How to test
