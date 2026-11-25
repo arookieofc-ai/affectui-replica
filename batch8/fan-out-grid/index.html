@@ -1,0 +1,690 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>fan-out-grid · affectUI replica</title>
+<style>
+/* ---- design tokens (all colours flow through these) ---- */
+:root, :root[data-theme="light"]{
+  --page:#fafaf9; --surface:#ffffff; --ink:#1c1917; --strong:#171717;
+  --muted:#78716c; --text:#57534e; --subtle:#f5f5f4; --border:#e7e5e4;
+  --tray:var(--subtle);
+  --radius-lg:16px; --radius:10px; --radius-sm:6px;
+  --shadow:0 1px 2px rgba(0,0,0,.05),0 4px 16px rgba(0,0,0,.05);
+  --shadow-pop:0 0 0 1px var(--border),0 16px 36px -12px rgba(0,0,0,.22);
+  --focus:rgba(2,102,184,.65);
+  --accent:#0b64b8;
+  --st-queued-bg:#f3f3f3; --st-queued-edge:#e0e0e0; --st-queued-ink:#78716c;
+  --st-running-bg:#e3f3ff; --st-running-edge:#a9d9ff; --st-running-ink:#0b64b8;
+  --st-retrying-bg:#fef3c7; --st-retrying-edge:#f59e0b; --st-retrying-ink:#92400e;
+  --st-done-bg:#ddf2e6; --st-done-edge:#9fd9b7; --st-done-ink:#166b3d;
+  --st-failed-bg:#fde3df; --st-failed-edge:#ff8a7a; --st-failed-ink:#c4320a;
+  --shine:rgba(255,255,255,.9);
+  --pin:rgba(23,23,23,.22);
+  --ease:cubic-bezier(.22,1,.36,1);
+  --cell:12px; --gap:4px;
+}
+:root[data-theme="dark"]{
+  --page:#101012; --surface:#1c1c1f; --ink:#ededed; --strong:#f5f5f5;
+  --muted:#a1a1aa; --text:#c9c9cf; --subtle:#26262a; --border:#2e2e33;
+  --tray:var(--subtle);
+  --shadow:0 0 0 1px var(--border),0 1px 2px rgba(0,0,0,.4);
+  --shadow-pop:0 0 0 1px #34343a,0 16px 36px -12px rgba(0,0,0,.7);
+  --focus:rgba(120,170,255,.8);
+  --accent:#8bcbfe;
+  --st-queued-bg:#2b2b2f; --st-queued-edge:#3a3a40; --st-queued-ink:#a1a1aa;
+  --st-running-bg:#1d364d; --st-running-edge:#0b64b8; --st-running-ink:#8bcbfe;
+  --st-retrying-bg:#451a03; --st-retrying-edge:#b25e00; --st-retrying-ink:#fde68a;
+  --st-done-bg:#153222; --st-done-edge:#166b3d; --st-done-ink:#5fc88a;
+  --st-failed-bg:#3d1e16; --st-failed-edge:#c4320a; --st-failed-ink:#ff8a7a;
+  --shine:rgba(255,255,255,.28);
+  --pin:rgba(255,255,255,.3);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--page); color:var(--ink);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:14px; line-height:20px; letter-spacing:-.006em;
+  -webkit-font-smoothing:antialiased;
+  transition:background 180ms ease,color 180ms ease;
+}
+.page{max-width:880px;margin:0 auto;padding:20px 16px 48px}
+.topbar{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.topbar-title{font-size:13px;color:var(--muted);overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.topbar-title b{color:var(--ink);font-weight:600}
+.theme-toggle{
+  margin-left:auto;flex:none;display:inline-flex;align-items:center;gap:7px;
+  height:32px;padding:0 12px;border:1px solid var(--border);border-radius:999px;
+  background:var(--surface);color:var(--text);font:inherit;font-size:13px;cursor:pointer;
+  box-shadow:var(--shadow);transition:box-shadow 160ms ease,color 160ms ease,transform 160ms ease;
+}
+.theme-toggle:hover{color:var(--ink);box-shadow:var(--shadow-pop)}
+.theme-toggle:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.theme-toggle svg{width:15px;height:15px}
+.theme-toggle .moon{display:none}
+:root[data-theme="dark"] .theme-toggle .moon{display:block}
+:root[data-theme="dark"] .theme-toggle .sun{display:none}
+
+/* ---- component card ---- */
+.fog{
+  background:var(--tray);border:1px solid var(--border);border-radius:calc(var(--radius-lg) + 4px);
+  padding:4px;box-shadow:var(--shadow);transition:background 180ms ease,border-color 180ms ease;
+}
+.fog-bar{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;min-width:0;padding:8px 12px 12px}
+.fog-mark{display:grid;flex:none;place-items:center;width:16px;color:var(--accent)}
+.fog-mark svg{width:16px;height:16px;display:block}
+.fog-title{flex:0 1 auto;min-width:0;overflow:hidden;font-weight:600;font-size:15px;color:var(--strong);white-space:nowrap;text-overflow:ellipsis}
+.fog-job{min-width:0;overflow:hidden;font-size:13px;color:var(--muted);white-space:nowrap;text-overflow:ellipsis}
+.fog-sum{display:flex;flex-wrap:wrap;align-items:center;gap:2px 14px;margin-left:auto;font-size:13px;line-height:18px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.fog-sum b{font-weight:600;color:var(--ink)}
+.fog-time[data-done]{font-weight:500;color:var(--st-done-ink)}
+.fog-panel{position:relative;display:grid;padding:18px;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--surface);box-shadow:var(--shadow)}
+.fog-grid{display:grid;grid-template-columns:repeat(auto-fill,var(--cell));gap:var(--gap);justify-content:space-between;padding:2px;margin:-2px;border-radius:6px;outline:none}
+.fog-grid:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.fog-cell{position:relative;width:var(--cell);height:var(--cell);border-radius:3.5px;background:var(--k-bg);box-shadow:inset 0 0 0 1px var(--k-edge);overflow:hidden;cursor:pointer;transition:background-color 360ms ease,box-shadow 200ms ease,opacity 220ms ease,transform 160ms ease;animation:fog-cell-in 420ms var(--ease) calc(min(var(--i,0),240)*2ms) backwards}
+.fog-cell[data-status="running"]::before{content:"";position:absolute;inset:0;background:linear-gradient(110deg,transparent 25%,var(--shine) 50%,transparent 75%) 0 0/300% 100%;opacity:.8;animation:fog-sweep 1300ms linear calc(var(--i,0)*-97ms) infinite}
+.fog-cell[data-status="retrying"]{animation:fog-breathe 1100ms ease-in-out infinite alternate}
+.fog-cell[data-status="done"],.fog-cell[data-status="failed"]{animation:fog-pop 420ms var(--ease)}
+.fog-cell:hover,.fog-cell[data-on]{box-shadow:inset 0 0 0 1.5px var(--k-ink);transform:scale(1.3);z-index:1}
+.fog-cell[data-pinned]{box-shadow:inset 0 0 0 1.5px var(--k-ink),0 0 0 2px var(--pin)}
+.fog-cell[data-dim]{opacity:.75;filter:saturate(.55)}
+.fog [data-status="queued"]{--k-bg:var(--st-queued-bg);--k-edge:var(--st-queued-edge);--k-ink:var(--st-queued-ink)}
+.fog [data-status="running"]{--k-bg:var(--st-running-bg);--k-edge:var(--st-running-edge);--k-ink:var(--st-running-ink)}
+.fog [data-status="retrying"]{--k-bg:var(--st-retrying-bg);--k-edge:var(--st-retrying-edge);--k-ink:var(--st-retrying-ink)}
+.fog [data-status="done"]{--k-bg:var(--st-done-bg);--k-edge:var(--st-done-edge);--k-ink:var(--st-done-ink)}
+.fog [data-status="failed"]{--k-bg:var(--st-failed-bg);--k-edge:var(--st-failed-edge);--k-ink:var(--st-failed-ink)}
+
+/* tooltip / details popover */
+.fog-tip{
+  position:absolute;top:0;left:0;z-index:5;display:block;width:max-content;max-width:min(300px,calc(100% - 16px));
+  padding:10px 14px 11px;border:1px solid var(--border);border-radius:calc(var(--radius-lg) - 2px);
+  background:var(--surface);box-shadow:var(--shadow-pop);pointer-events:none;
+  transform-origin:var(--x,50%) bottom;animation:fog-tip 160ms var(--ease) both;
+}
+.fog-tip[hidden]{display:none}
+.fog-tip[data-side="below"]{transform-origin:var(--x,50%) top}
+.fog-tip-row{display:flex;gap:10px;align-items:flex-start}
+.px{flex:none;display:grid;grid-template-columns:repeat(3,7px);grid-auto-rows:7px;gap:1.5px;margin-top:2px;padding:3px;border:1px solid var(--border);border-radius:6px;background:var(--subtle)}
+.px i{display:block;width:7px;height:7px;border-radius:2px;background:var(--border)}
+.px i[data-lit]{background:var(--px-c,#0b64b8)}
+.px[data-busy] i[data-lit]{animation:fog-px 900ms ease-in-out infinite alternate}
+.px[data-busy] i[data-lit]:nth-child(2n){animation-delay:-300ms}
+.px[data-busy] i[data-lit]:nth-child(3n){animation-delay:-600ms}
+:root[data-theme="dark"] .px i[data-lit]{--px-c:var(--px-cd,#8bcbfe)}
+.fog-tip-text{display:grid;gap:3px;min-width:0}
+.fog-tip-head{display:flex;align-items:flex-start;gap:8px;min-width:0}
+.fog-tip-label{min-width:0;overflow:hidden;font-weight:600;color:var(--ink);overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.fog-pill{flex:none;height:20px;margin-left:auto;padding:0 8px;border-radius:999px;background:var(--k-bg);font-size:12px;font-weight:500;line-height:20px;color:var(--k-ink);white-space:nowrap}
+.fog-tip-meta{font-size:12.5px;line-height:18px;color:var(--muted);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.fog-tip-result{display:-webkit-box;overflow:hidden;font-size:13px;line-height:19px;color:var(--text);white-space:pre-line;overflow-wrap:anywhere;-webkit-line-clamp:4;-webkit-box-orient:vertical}
+.fog-tip-error{display:-webkit-box;overflow:hidden;font-size:13px;line-height:19px;color:var(--st-failed-ink);white-space:pre-line;overflow-wrap:anywhere;-webkit-line-clamp:4;-webkit-box-orient:vertical}
+
+/* footer */
+.fog-foot{display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;min-width:0;padding:10px 6px 4px 8px}
+.fog-legend{display:flex;flex-wrap:wrap;gap:0 2px}
+.fog-key{display:inline-flex;align-items:center;gap:7px;height:28px;padding:0 9px;border:0;border-radius:999px;background:none;font:inherit;font-size:13px;line-height:18px;color:var(--muted);cursor:pointer;transition:background-color 160ms ease,color 160ms ease,opacity 200ms ease,box-shadow 160ms ease}
+.fog-key:hover{background:var(--subtle);color:var(--ink)}
+.fog-key:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.fog-key[aria-pressed="true"]{background:var(--surface);box-shadow:var(--shadow);color:var(--ink)}
+.fog-key[data-zero]{display:none}
+.fog-key[data-off]{opacity:.5}
+.fog-key .n{font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}
+.fog-swatch{width:9px;height:9px;border-radius:3px;background:var(--k-bg);box-shadow:inset 0 0 0 1px var(--k-edge)}
+.fog-retry{display:inline-flex;align-items:center;gap:6px;height:30px;margin-left:auto;padding:0 12px 0 10px;border:1px solid var(--border);border-radius:999px;background:var(--surface);box-shadow:var(--shadow);font:inherit;font-size:13px;font-weight:500;color:var(--st-failed-ink);cursor:pointer;animation:fog-in 260ms var(--ease) both;transition:box-shadow 160ms ease}
+.fog-retry:hover{box-shadow:var(--shadow-pop)}
+.fog-retry:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.fog-retry[hidden]{display:none}
+.fog-retry svg{width:14px;height:14px;display:block}
+.fog-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.caption{margin:12px 2px 0;font-size:12.5px;color:var(--muted);display:flex;flex-wrap:wrap;gap:4px 12px;align-items:center}
+.link-btn{border:0;background:none;padding:0;font:inherit;font-size:12.5px;color:var(--accent);cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+.link-btn:hover{color:var(--ink)}
+.link-btn:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+
+@keyframes fog-cell-in{from{opacity:0;transform:scale(.6)}}
+@keyframes fog-pop{0%{transform:scale(.7)}55%{transform:scale(1.18)}100%{transform:scale(1)}}
+@keyframes fog-sweep{from{background-position:100% 0}to{background-position:-50% 0}}
+@keyframes fog-breathe{from{opacity:.55}to{opacity:1}}
+@keyframes fog-tip{from{opacity:0;transform:translateY(3px) scale(.97)}}
+@keyframes fog-in{from{opacity:0;transform:translateY(2px)}}
+@keyframes fog-px{from{opacity:.45}to{opacity:1}}
+@media (max-width:560px){
+  :root{--cell:10px;--gap:3px}
+  .fog-panel{padding:14px}
+  .fog-sum{flex-basis:100%;justify-content:space-between;margin-left:0}
+  .fog-legend{display:grid;grid-template-columns:repeat(2,max-content)}
+  .fog-key[data-zero]{display:inline-flex;opacity:.45}
+  .fog-retry{flex:none;margin-left:auto}
+}
+@media (prefers-reduced-motion:reduce){
+  .fog *,.fog *::before,.fog *::after{animation:none !important;transition:none !important}
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="topbar">
+    <span class="topbar-title"><b>fan-out-grid</b> · affectUI replica (clean-room, single file)</span>
+    <button class="theme-toggle" id="themeToggle" type="button" aria-label="Switch to dark theme" aria-pressed="false">
+      <svg class="sun" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="3.2" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.5v1.6M8 12.9v1.6M1.5 8h1.6M12.9 8h1.6M3.4 3.4l1.1 1.1M11.5 11.5l1.1 1.1M12.6 3.4l-1.1 1.1M4.5 11.5l-1.1 1.1" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+      <svg class="moon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M13.5 9.5A5.8 5.8 0 0 1 6.5 2.5a5.8 5.8 0 1 0 7 7z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+      <span id="themeLabel">Dark</span>
+    </button>
+  </div>
+
+  <section class="fog" id="fog" aria-label="Fan-out attempts demo">
+    <header class="fog-bar">
+      <span class="fog-mark" aria-hidden="true">
+        <svg viewBox="0 0 16 16" fill="none"><circle cx="3" cy="8" r="1.9" fill="currentColor"/><rect x="10.2" y="1.6" width="3.6" height="3.6" rx="1" fill="currentColor" opacity=".9"/><rect x="10.2" y="6.2" width="3.6" height="3.6" rx="1" fill="currentColor" opacity=".6"/><rect x="10.2" y="10.8" width="3.6" height="3.6" rx="1" fill="currentColor" opacity=".3"/><path d="M4.9 8H7c.6 0 .9-.3 1-.9l.4-2.4c.1-.6.4-.9 1-.9h.6M4.9 8h5.1M4.9 8H7c.6 0 .9.3 1 .9l.4 2.4c.1.6.4.9 1 .9h.6" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>
+      </span>
+      <span class="fog-title" id="fogTitle">Fan-out</span>
+      <span class="fog-job" id="fogJob" dir="auto">Enrich 240 leads</span>
+      <span class="fog-sum">
+        <span><b id="doneCount">0</b> / <span id="totalCount">240</span></span>
+        <span><b id="costTotal">$0</b></span>
+        <span class="fog-time" id="timeLabel"></span>
+      </span>
+    </header>
+    <div class="fog-panel" id="panel">
+      <div class="fog-grid" id="grid" role="group" tabindex="0" aria-label="240 tasks – arrow keys move, Enter keeps the details"></div>
+      <div class="fog-tip" id="tip" role="tooltip" hidden>
+        <div class="fog-tip-row">
+          <span class="px" id="tipPx" aria-hidden="true"></span>
+          <div class="fog-tip-text">
+            <div class="fog-tip-head">
+              <span class="fog-tip-label" id="tipLabel" dir="auto"></span>
+              <span class="fog-pill" id="tipPill"></span>
+            </div>
+            <div class="fog-tip-meta" id="tipMeta"></div>
+            <div class="fog-tip-error" id="tipError" dir="auto"></div>
+            <div class="fog-tip-result" id="tipResult" dir="auto"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="fog-foot">
+      <div class="fog-legend" id="legend" role="group" aria-label="Show only"></div>
+      <button class="fog-retry" id="retryBtn" type="button" hidden>
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 2v3.1c0 .3-.37.45-.55.2C17.6 3.3 14.96 2 12 2 6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        <span>Retry failed</span>
+      </button>
+    </div>
+    <div class="fog-sr" id="sr" aria-live="polite" aria-atomic="true"></div>
+  </section>
+
+  <p class="caption">
+    <span>Hover a square for details · click (or Enter) to pin · arrow keys move · Esc clears · legend filters by status.</span>
+    <button class="link-btn" id="replayBtn" type="button">Replay run</button>
+  </p>
+</div>
+
+<script>
+(function(){
+'use strict';
+/* Clean-room reimplementation of the fan-out-grid demo behaviour.
+   Demo data, timings and state machine were reverse-engineered from the
+   compiled demo (deterministic schedule, labels, costs, errors); all code
+   below is written from scratch. */
+
+/* ---------- original demo data (exact values) ---------- */
+var PREFIX=['north','blue','bright','silver','cedar','lumen','vertex','harbor','pixel','orbit','maple','atlas','nimbus','quartz','river','summit'];
+var SUFFIX=['wind','stack','labs','works','flow','forge','grid','scale','loop','field','line','base','path','sync','ware'];
+var TLD=['.io','.com','.ai','.co'];
+var FINDINGS=['Series B \u00B7 214 people \u00B7 CTO found','Seed \u00B7 18 people \u00B7 founder email found','Public \u00B7 3,400 people \u00B7 VP Eng found','Series A \u00B7 62 people \u00B7 Head of Data found','Bootstrapped \u00B7 9 people \u00B7 CEO found','Series C \u00B7 540 people \u00B7 CIO found'];
+var FAILURES=['Rate limited by the enrichment API (429)','The website blocked the crawler','No company found for this domain','Timed out after 30s'];
+var STATUS_LABEL={queued:'Queued',running:'Running',retrying:'Retrying',done:'Done',failed:'Failed'};
+var LEGEND=['done','running','retrying','failed'];
+
+var TOTAL=240, AGENTS=16;      /* tasks, parallel workers (original b, x) */
+var TAIL_MS=1800;              /* freeze delay after the last end (original D) */
+var RETRY_MS=1400;             /* manual-retry attempt length (original O) */
+var COOLDOWN_MS=4500;          /* pause after a retry run before looping (original k) */
+var TICK_MS=100;
+
+/* deterministic pseudo-random from the original bundle: frac(sin(n*9301+49297)*233280) */
+function rnd(n){var t=Math.sin(n*9301+49297)*233280;return t-Math.floor(t);}
+
+/* fixed base schedule: earliest-free-worker assignment, exactly as the demo */
+function buildBase(){
+  var free=[],n,w,r,start,dur,retry,hard,first,end;
+  for(w=0;w<AGENTS;w++)free.push(0);
+  var out=[];
+  for(n=0;n<TOTAL;n++){
+    r=0;
+    for(w=1;w<AGENTS;w++){if(free[w]<free[r])r=w;}
+    start=free[r]+60;
+    dur=650+rnd(n)*1300;
+    retry=rnd(n+500)<0.07;
+    hard=(n===61||n===143||n===208);
+    first=(retry||hard)?start+dur*0.55:start+dur;
+    end=(retry||hard)?first+450+dur:first+dur;
+    free[r]=end;
+    out.push({
+      label:PREFIX[n%16]+SUFFIX[Math.floor(n/16)%15]+TLD[n%4],
+      agent:'Researcher '+(r+1),
+      start:start,first:first,end:end,
+      retry:retry,hard:hard,
+      cost:0.006+rnd(n+900)*0.014,
+      finding:FINDINGS[n%FINDINGS.length],
+      failure:FAILURES[(n*7)%FAILURES.length]
+    });
+  }
+  return out;
+}
+var BASE=buildBase();
+var LAST_END=0;
+(function(){for(var i=0;i<BASE.length;i++){if(BASE[i].end>LAST_END)LAST_END=BASE[i].end;}})();
+
+/* project the base schedule to a view at `elapsed`, with `retryAt` = manual retry start (or null) */
+function project(elapsed,retryAt){
+  var out=new Array(BASE.length),n,b,task;
+  for(n=0;n<BASE.length;n++){
+    b=BASE[n];
+    task={id:String(n),label:b.label};
+    if(elapsed<b.start){
+      task.status='queued';
+    }else if(elapsed<b.first){
+      task.status='running';
+      task.agent=b.agent;task.start=b.start;
+      task.cost=b.cost*((elapsed-b.start)/(b.first-b.start));
+    }else if(b.retry&&elapsed<b.end){
+      task.status='retrying';
+      task.agent=b.agent;task.start=b.start;task.cost=b.cost;
+      task.attempts=2;task.error=b.failure;
+    }else if(b.hard){
+      if(retryAt===null||elapsed<retryAt){
+        task.status='failed';
+        task.agent=b.agent;task.start=b.start;task.end=b.end;task.cost=b.cost;
+        task.attempts=2;task.error=b.failure;
+      }else if(elapsed<retryAt+RETRY_MS){
+        task.status='running';
+        task.agent=b.agent;task.start=retryAt;task.cost=b.cost;
+        task.attempts=3;
+      }else{
+        task.status='done';
+        task.agent=b.agent;task.start=retryAt;task.end=retryAt+RETRY_MS;
+        task.cost=b.cost*1.5;task.attempts=3;task.result=b.finding;
+      }
+    }else{
+      task.status='done';
+      task.agent=b.agent;task.start=b.start;task.end=b.end;task.cost=b.cost;
+      task.attempts=b.retry?2:1;task.result=b.finding;
+    }
+    out[n]=task;
+  }
+  return out;
+}
+
+/* ---------- formatters (same rules as the original) ---------- */
+function fmtCost(v){
+  if(v===0)return '$0';
+  if(v<0.001)return '<$0.001';
+  if(v<0.01)return '$'+v.toFixed(3);
+  if(v<100)return '$'+v.toFixed(2);
+  return '$'+Math.round(v).toLocaleString('en-US');
+}
+function fmtDur(ms){
+  var t=(typeof ms==='number'&&isFinite(ms))?Math.max(0,ms):0;
+  if(t<1000)return Math.round(t)+'ms';
+  if(t<10000)return (t/1000).toFixed(1)+'s';
+  var s=Math.round(t/1000);
+  if(s<60)return s+'s';
+  var m=Math.floor(s/60);
+  if(m<60)return m+'m '+String(s%60).padStart(2,'0')+'s';
+  var h=Math.floor(m/60);
+  if(h<24)return h+'h '+String(m%60).padStart(2,'0')+'m';
+  return Math.floor(h/24)+'d '+(h%24)+'h';
+}
+function fmtNum(v){return v.toLocaleString('en-US');}
+
+/* ---------- deterministic 3x3 pixel-mark per agent id (exactly 9 cells) ---------- */
+var PX_HUES=[210,160,270,20,330,190,250,120,300,0,230,140];
+function pxSeed(str){var h=0,i;for(i=0;i<str.length;i++){h=(h*31+str.charCodeAt(i))|0;}return h>>>0;}
+function pxPattern(agent){
+  var seed=pxSeed(agent||'?'),cells=[],k,n;
+  for(k=0;k<9;k++){n=(seed>>(k*2))&3;cells.push(n>0);}
+  if(cells.indexOf(true)<0)cells[seed%9]=true;
+  return{cells:cells,hue:PX_HUES[seed%PX_HUES.length]};
+}
+
+/* ---------- dom (built ONCE; ticks only mutate attributes/text) ---------- */
+var grid=document.getElementById('grid');
+var panel=document.getElementById('panel');
+var tip=document.getElementById('tip');
+var tipPx=document.getElementById('tipPx');
+var tipLabel=document.getElementById('tipLabel');
+var tipPill=document.getElementById('tipPill');
+var tipMeta=document.getElementById('tipMeta');
+var tipError=document.getElementById('tipError');
+var tipResult=document.getElementById('tipResult');
+var doneCount=document.getElementById('doneCount');
+var totalCount=document.getElementById('totalCount');
+var costTotal=document.getElementById('costTotal');
+var timeLabel=document.getElementById('timeLabel');
+var legend=document.getElementById('legend');
+var retryBtn=document.getElementById('retryBtn');
+var sr=document.getElementById('sr');
+
+var cells=[],i,cell;
+for(i=0;i<TOTAL;i++){
+  cell=document.createElement('span');
+  cell.className='fog-cell';
+  cell.setAttribute('data-status','queued');
+  cell.setAttribute('data-i',String(i));
+  cell.style.setProperty('--i',String(i));
+  cells.push(cell);
+  grid.appendChild(cell);
+}
+totalCount.textContent=fmtNum(TOTAL);
+
+/* pixel-mark: exactly 9 <i> cells, created once */
+var pxCells=[];
+(function(){for(var k=0;k<9;k++){var s=document.createElement('i');tipPx.appendChild(s);pxCells.push(s);}})();
+
+/* legend buttons, created once */
+var legendBtns={},legendNums={};
+LEGEND.forEach(function(st){
+  var b=document.createElement('button');
+  b.type='button';b.className='fog-key';b.setAttribute('data-status',st);
+  b.setAttribute('aria-pressed','false');
+  var sw=document.createElement('span');sw.className='fog-swatch';sw.setAttribute('aria-hidden','true');
+  var num=document.createElement('span');num.className='n';num.textContent='0';
+  b.appendChild(sw);b.appendChild(num);
+  b.appendChild(document.createTextNode(' '+STATUS_LABEL[st].toLowerCase()));
+  b.addEventListener('click',function(){setFilter(filter===st?null:st);});
+  legend.appendChild(b);
+  legendBtns[st]=b;legendNums[st]=num;
+});
+
+/* ---------- state ---------- */
+var t0=nowMs();
+var elapsed=0;
+var retryAt=null;
+var frozen=false;
+var lastStatus=new Array(TOTAL);
+for(i=0;i<TOTAL;i++)lastStatus[i]='queued';
+var counts={queued:TOTAL,running:0,retrying:0,done:0,failed:0};
+var filter=null;          /* legend filter */
+var hoverIdx=null;        /* mouse hover */
+var focusIdx=null;        /* keyboard focus */
+var pinnedId=null;        /* clicked / Enter-pinned task */
+var lastTipKey='';        /* avoids tooltip churn */
+var lastSr='';
+var lastHead='';
+var view=project(0,null);
+
+function nowMs(){
+  if(typeof performance!=='undefined'&&performance&&typeof performance.now==='function')return performance.now();
+  return Date.now();
+}
+
+/* ---------- per-tick update: diff only, never rebuild ---------- */
+function summarize(v){
+  var c={queued:0,running:0,retrying:0,done:0,failed:0},cost=0,k,t;
+  for(k=0;k<v.length;k++){t=v[k];c[t.status]++;if(typeof t.cost==='number'&&isFinite(t.cost))cost+=t.cost;}
+  return{c:c,cost:cost};
+}
+function etaInfo(v,c){
+  var durs=[],k,t;
+  for(k=0;k<v.length;k++){t=v[k];
+    if(t.status==='done'&&typeof t.start==='number'&&typeof t.end==='number')durs.push(t.end-t.start);}
+  var avg=durs.length?durs.reduce(function(a,b){return a+b;},0)/durs.length:0;
+  var active=c.running+c.retrying,waiting=v.length-(c.done+c.failed);
+  var g=Math.max(1,AGENTS);
+  void active;
+  var eta=(durs.length>=3&&waiting>0)?avg*waiting/g:null;
+  return{eta:eta,finished:(v.length>0&&(c.done+c.failed)===v.length)};
+}
+function maxEnd(v){var m=0,k;for(k=0;k<v.length;k++){if(typeof v[k].end==='number'&&v[k].end>m)m=v[k].end;}return m;}
+
+function setText(el,txt){if(el.textContent!==txt)el.textContent=txt;}
+
+function applyView(v,el){
+  var s=summarize(v),info=etaInfo(v,s.c),k,st;
+  counts=s.c;
+  for(k=0;k<v.length;k++){
+    st=v[k].status;
+    if(lastStatus[k]!==st){cells[k].setAttribute('data-status',st);lastStatus[k]=st;}
+    var dimmed=(filter!==null&&st!==filter);
+    if(dimmed){cells[k].setAttribute('data-dim','');}
+    else{cells[k].removeAttribute('data-dim');}
+  }
+  var headKey=s.c.done+'|'+s.c.failed+'|'+s.cost.toFixed(4)+'|'+info.finished+'|'+info.eta+'|'+el;
+  if(headKey!==lastHead){
+    lastHead=headKey;
+    setText(doneCount,fmtNum(s.c.done));
+    setText(costTotal,fmtCost(s.cost));
+    var q=info.finished?maxEnd(v):el;
+    var label=info.finished?('Finished in '+fmtDur(q)):(info.eta===null?(fmtDur(q)+' so far'):('~'+fmtDur(info.eta)+' left'));
+    setText(timeLabel,label);
+    if(info.finished)timeLabel.setAttribute('data-done','');
+    else timeLabel.removeAttribute('data-done');
+    var srTxt=info.finished
+      ?('Finished: '+fmtNum(s.c.done)+' done, '+fmtNum(s.c.failed)+' failed, '+fmtCost(s.cost)+'.')
+      :(fmtNum(s.c.done)+' of '+fmtNum(TOTAL)+' done'+(s.c.failed?(', '+fmtNum(s.c.failed)+' failed'):'')+'.');
+    if(srTxt!==lastSr){lastSr=srTxt;setText(sr,srTxt);sr.setAttribute('data-step',String(Math.floor((s.c.done+s.c.failed)/TOTAL*10)));}
+  }
+  LEGEND.forEach(function(st2){
+    setText(legendNums[st2],fmtNum(s.c[st2]));
+    var b=legendBtns[st2];
+    b.setAttribute('aria-pressed',filter===st2?'true':'false');
+    if(filter!==null&&filter!==st2)b.setAttribute('data-off','');else b.removeAttribute('data-off');
+    if(s.c[st2]===0&&st2!=='done')b.setAttribute('data-zero','');else b.removeAttribute('data-zero');
+  });
+  var showRetry=(s.c.failed>0);
+  if(showRetry)retryBtn.removeAttribute('hidden');else retryBtn.setAttribute('hidden','');
+  refreshTip(v,el);
+}
+
+/* ---------- tooltip ---------- */
+function tipTarget(){
+  if(pinnedId!==null){for(var k=0;k<view.length;k++){if(view[k].id===pinnedId)return k;}}
+  if(hoverIdx!==null)return hoverIdx;
+  if(focusIdx!==null)return focusIdx;
+  return null;
+}
+function refreshTip(v,el){
+  var idx=tipTarget();
+  if(idx===null||idx<0||idx>=v.length){tip.hidden=true;lastTipKey='';return;}
+  var t=v[idx];
+  var key=t.id+'|'+t.status+'|'+(typeof t.cost==='number'?t.cost.toFixed(4):'')+'|'+el;
+  tip.hidden=false;
+  if(key===lastTipKey){positionTip(idx);return;}
+  lastTipKey=key;
+  setText(tipLabel,t.label);
+  setText(tipPill,STATUS_LABEL[t.status]);
+  tipPill.setAttribute('data-status',t.status);
+  var meta=t.agent
+    ?[t.agent,
+      (typeof t.start==='number'?fmtDur((typeof t.end==='number'?t.end:Math.max(el,t.start))-t.start):null),
+      (typeof t.cost==='number'?fmtCost(t.cost):null),
+      ((t.attempts||1)>1?(fmtNum(t.attempts)+' attempts'):null)
+     ].filter(Boolean).join(' \u00B7 ')
+    :'Waiting for a worker';
+  setText(tipMeta,meta);
+  if(t.error&&(t.status==='failed'||t.status==='retrying')){setText(tipError,t.error);tipError.style.display='';}
+  else{setText(tipError,'');tipError.style.display='none';}
+  if(t.result&&t.status==='done'){setText(tipResult,t.result);tipResult.style.display='';}
+  else{setText(tipResult,'');tipResult.style.display='none';}
+  /* agent pixel-mark (exactly 9 cells, updated in place) */
+  var px=pxPattern(t.agent||t.label);
+  for(var k=0;k<9;k++){
+    if(px.cells[k])pxCells[k].setAttribute('data-lit','');
+    else pxCells[k].removeAttribute('data-lit');
+  }
+  tipPx.style.setProperty('--px-c','hsl('+px.hue+' 55% 45%)');
+  tipPx.style.setProperty('--px-cd','hsl('+px.hue+' 70% 68%)');
+  if(t.status==='running'||t.status==='retrying')tipPx.setAttribute('data-busy','');
+  else tipPx.removeAttribute('data-busy');
+  positionTip(idx);
+}
+function positionTip(idx){
+  var c=cells[idx];
+  if(!c||typeof c.getBoundingClientRect!=='function')return;
+  var pr=panel.getBoundingClientRect();
+  if(!pr||!pr.width)return;
+  var r=c.getBoundingClientRect();
+  var cx=(r.left+r.width/2)-pr.left, top=r.top-pr.top;
+  var tw=tip.offsetWidth||240, th=tip.offsetHeight||90;
+  var below=(top-th-10<4);
+  var left=Math.max(8,Math.min(cx-tw/2,pr.width-tw-8));
+  tip.style.left=left+'px';
+  tip.style.top=(below?(r.bottom-pr.top+10):(top-th-10))+'px';
+  tip.style.setProperty('--x',Math.max(10,Math.min(cx-left,tw-10))+'px');
+  tip.setAttribute('data-side',below?'below':'above');
+}
+
+/* ---------- interactions ---------- */
+function setFilter(st){
+  filter=st;
+  /* dim flags only; grid nodes are never rebuilt */
+  for(var k=0;k<view.length;k++){
+    if(filter!==null&&view[k].status!==filter)cells[k].setAttribute('data-dim','');
+    else cells[k].removeAttribute('data-dim');
+  }
+  LEGEND.forEach(function(s){
+    legendBtns[s].setAttribute('aria-pressed',filter===s?'true':'false');
+    if(filter!==null&&filter!==s)legendBtns[s].setAttribute('data-off','');else legendBtns[s].removeAttribute('data-off');
+  });
+  lastHead=''; /* force header/legend refresh next tick */
+}
+function pin(idx){
+  var id=(idx===null||idx===undefined)?null:view[idx].id;
+  pinnedId=(id!==null&&id===pinnedId)?null:id; /* toggle */
+  for(var k=0;k<cells.length;k++){
+    if(view[k].id===pinnedId)cells[k].setAttribute('data-pinned','');
+    else cells[k].removeAttribute('data-pinned');
+  }
+  lastTipKey='';
+  refreshTip(view,elapsed);
+}
+/* pointerdown on capture pins BEFORE click, so a fast tick can never
+   swallow the gesture by replacing the node (nodes are never replaced anyway). */
+for(i=0;i<TOTAL;i++){
+  (function(idx){
+    cells[idx].addEventListener('pointerdown',function(){pin(idx);},true);
+    cells[idx].addEventListener('mousedown',function(){pin(idx);},true);
+    cells[idx].addEventListener('mouseenter',function(){
+      hoverIdx=idx;
+      cells[idx].setAttribute('data-on','');
+      lastTipKey='';
+      refreshTip(view,elapsed);
+      positionTip(idx);
+    });
+    cells[idx].addEventListener('mouseleave',function(){
+      if(hoverIdx===idx)hoverIdx=null;
+      cells[idx].removeAttribute('data-on');
+      lastTipKey='';
+      refreshTip(view,elapsed);
+    });
+    cells[idx].addEventListener('click',function(){pin(idx);});
+  })(i);
+}
+grid.addEventListener('mouseleave',function(){
+  if(hoverIdx!==null){cells[hoverIdx].removeAttribute('data-on');hoverIdx=null;}
+  lastTipKey='';
+  refreshTip(view,elapsed);
+});
+grid.addEventListener('blur',function(){focusIdx=null;lastTipKey='';refreshTip(view,elapsed);});
+grid.addEventListener('keydown',function(e){
+  if(!TOTAL)return;
+  /* column count from layout, like the original */
+  var firstTop=cells[0].offsetTop,cols=0;
+  for(var k=0;k<TOTAL;k++){if(cells[k].offsetTop!==firstTop)break;cols++;}
+  if(!cols)cols=1;
+  var cur=(focusIdx===null?0:focusIdx),key=e.key,handled=true,nx=cur;
+  if(key==='ArrowRight')nx=cur+1;
+  else if(key==='ArrowLeft')nx=cur-1;
+  else if(key==='ArrowDown')nx=cur+cols;
+  else if(key==='ArrowUp')nx=cur-cols;
+  else if(key==='Home')nx=0;
+  else if(key==='End')nx=TOTAL-1;
+  else if(key==='Enter'||key===' '){pin(cur);}
+  else if(key==='Escape'){pinnedId=null;focusIdx=null;for(var j=0;j<cells.length;j++)cells[j].removeAttribute('data-pinned');lastTipKey='';refreshTip(view,elapsed);}
+  else handled=false;
+  if(key==='ArrowRight'||key==='ArrowLeft'||key==='ArrowDown'||key==='ArrowUp'||key==='Home'||key==='End'){
+    nx=Math.max(0,Math.min(TOTAL-1,nx));
+    pinnedId=null;
+    for(var m=0;m<cells.length;m++)cells[m].removeAttribute('data-pinned');
+    if(focusIdx!==null)cells[focusIdx].removeAttribute('data-on');
+    focusIdx=nx;
+    cells[nx].setAttribute('data-on','');
+    lastTipKey='';
+    refreshTip(view,elapsed);
+    positionTip(nx);
+  }
+  if(handled&&e.preventDefault)e.preventDefault();
+});
+retryBtn.addEventListener('click',function(){
+  if(counts.failed>0&&retryAt===null){retryAt=elapsed;frozen=false;}
+});
+document.getElementById('replayBtn').addEventListener('click',function(){
+  t0=nowMs();elapsed=0;retryAt=null;frozen=false;pinnedId=null;hoverIdx=null;focusIdx=null;
+  for(var k=0;k<cells.length;k++){cells[k].removeAttribute('data-pinned');cells[k].removeAttribute('data-on');}
+  lastTipKey='';lastHead='';lastSr='';
+  view=project(0,null);
+  applyView(view,0);
+});
+
+/* ---------- theme toggle ---------- */
+var themeToggle=document.getElementById('themeToggle');
+var themeLabel=document.getElementById('themeLabel');
+function currentTheme(){return document.documentElement.getAttribute('data-theme')==='dark'?'dark':'light';}
+function setTheme(mode){
+  document.documentElement.setAttribute('data-theme',mode);
+  try{if(window.localStorage)window.localStorage.setItem('fog-theme',mode);}catch(err){}
+  themeToggle.setAttribute('aria-pressed',mode==='dark'?'true':'false');
+  themeToggle.setAttribute('aria-label',mode==='dark'?'Switch to light theme':'Switch to dark theme');
+  setText(themeLabel,mode==='dark'?'Light':'Dark');
+}
+(function initTheme(){
+  var saved=null;
+  try{if(window.localStorage)saved=window.localStorage.getItem('fog-theme');}catch(err){}
+  var mq=(typeof window.matchMedia==='function')?window.matchMedia('(prefers-color-scheme: dark)'):null;
+  setTheme(saved==='dark'||saved==='light'?saved:((mq&&mq.matches)?'dark':'light'));
+})();
+themeToggle.addEventListener('click',function(){
+  setTheme(currentTheme()==='dark'?'light':'dark');
+});
+
+/* ---------- main loop: fixed tick, diff-only DOM writes ---------- */
+function tick(){
+  if(frozen)return;
+  var now=nowMs();
+  var el=now-t0;
+  if(retryAt===null&&el>=LAST_END+TAIL_MS){
+    elapsed=LAST_END+TAIL_MS;
+    frozen=true;
+    view=project(elapsed,null);
+    applyView(view,elapsed);
+    return;
+  }
+  if(retryAt!==null&&el>retryAt+RETRY_MS+COOLDOWN_MS){
+    t0=now;elapsed=0;retryAt=null;
+    view=project(0,null);
+    applyView(view,0);
+    return;
+  }
+  elapsed=el;
+  view=project(elapsed,retryAt);
+  applyView(view,elapsed);
+}
+applyView(project(0,null),0);
+var timer=setInterval(tick,TICK_MS);
+void timer;
+
+/* hooks for the headless verification harness */
+window.__fog={
+  base:BASE,project:project,lastEnd:LAST_END,
+  cells:cells,pxCells:pxCells,
+  get:function(){return{elapsed:elapsed,frozen:frozen,retryAt:retryAt,counts:{queued:counts.queued,running:counts.running,retrying:counts.retrying,done:counts.done,failed:counts.failed},statuses:lastStatus.slice(),filter:filter,pinnedId:pinnedId,tipHidden:!!tip.hidden};},
+  retry:function(){retryBtn.dispatchEvent({type:'click'});},
+  toggleTheme:function(){themeToggle.dispatchEvent({type:'click'});},
+  theme:function(){return currentTheme();}
+};
+})();
+</script>
+</body>
+</html>
