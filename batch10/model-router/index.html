@@ -1,0 +1,1003 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Model router — affectUI replica</title>
+<style>
+/* ---- design tokens (v3: every colour via custom properties) ---- */
+:root{
+  color-scheme: light dark;
+  --surface:#ffffff;
+  --page:#fafaf9;
+  --ink:#1c1917;
+  --ink-strong:#171717;
+  --muted:#78716c;
+  --subtle:#f5f5f4;
+  --border:#e7e5e4;
+  --radius-lg:16px;
+  --radius:10px;
+  --radius-sm:6px;
+  --shadow:0 1px 2px rgba(0,0,0,.05),0 4px 16px rgba(0,0,0,.05);
+  --pop:0 0 0 1px var(--border),0 16px 32px -12px rgba(0,0,0,.2);
+  --blue:#0060e2;
+  --good:#1a7f45;
+  --good-bg:rgba(31,168,85,.1);
+  --bad:#c2341f;
+  --bad-bg:rgba(240,68,56,.1);
+  --warn:#f59e0b;
+  --warn-bg:#fef3c7;
+  --warn-text:#92400e;
+  --live:#2fb36a;
+  --button:#171717;
+  --button-ink:#ffffff;
+  --focus:rgba(0,96,226,.7);
+  --track:rgba(0,0,0,.07);
+  --sel:rgba(0,0,0,.06);
+  --fail:#f04438;
+  --ease:cubic-bezier(.22,1,.36,1);
+  --morph:cubic-bezier(.65,0,.35,1);
+}
+html[data-theme="dark"]{
+  color-scheme:dark;
+  --surface:#1c1c1f;
+  --page:#101012;
+  --ink:#ededed;
+  --ink-strong:#ededed;
+  --muted:#a1a1aa;
+  --subtle:#26262a;
+  --border:#2e2e33;
+  --shadow:0 0 0 1px var(--border),0 1px 2px rgba(0,0,0,.3);
+  --pop:0 0 0 1px var(--border),0 16px 32px -12px rgba(0,0,0,.6);
+  --blue:#4d8dff;
+  --good:#6fd49a;
+  --good-bg:rgba(95,200,138,.14);
+  --bad:#ff8a80;
+  --bad-bg:rgba(240,68,56,.16);
+  --warn:#fbbf24;
+  --warn-bg:#451a03;
+  --warn-text:#fde68a;
+  --button:#ededed;
+  --button-ink:#101012;
+  --focus:rgba(77,141,255,.8);
+  --track:#34343a;
+  --sel:#2f2f33;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--page);
+  color:var(--muted);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:14px;line-height:1.45;
+  -webkit-font-smoothing:antialiased;
+  min-height:100vh;
+}
+/* ---- page chrome: name left, theme toggle top-right ---- */
+.page-bar{
+  display:flex;align-items:center;justify-content:space-between;
+  max-width:760px;margin:0 auto;padding:18px 20px 0;
+}
+.page-name{font-size:13px;font-weight:600;color:var(--ink);letter-spacing:.01em}
+.theme-toggle{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:34px;height:34px;border-radius:999px;cursor:pointer;
+  border:1px solid var(--border);background:var(--surface);color:var(--ink);
+  box-shadow:var(--shadow);transition:background-color 150ms ease,transform 150ms ease;
+}
+.theme-toggle:hover{background:var(--subtle);transform:translateY(-1px)}
+.theme-toggle:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.theme-toggle svg{width:17px;height:17px}
+.wrap{max-width:760px;margin:0 auto;padding:14px 20px 48px}
+/* ================= model router card ================= */
+.ui-mr{
+  background:var(--surface);color:var(--muted);
+  border:1px solid var(--border);border-radius:var(--radius-lg);
+  box-shadow:var(--shadow);
+  padding:18px 20px 16px;
+  font-size:14px;letter-spacing:-.006em;
+  font-variant-numeric:tabular-nums;
+}
+.ui-mr p{margin:0}
+.ui-mr b{font-weight:600;color:var(--ink-strong)}
+.ui-mr button{font:inherit}
+.ui-mr__head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;min-width:0}
+.ui-mr__title{
+  color:var(--ink-strong);font-size:15px;font-weight:600;
+  min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
+}
+.ui-mr__env{
+  display:inline-flex;align-items:center;gap:6px;flex:0 1 auto;
+  min-width:0;max-width:55%;height:24px;padding:0 9px;
+  border-radius:999px;background:var(--subtle);
+  box-shadow:inset 0 0 0 1px var(--border);
+  color:var(--ink);font-size:12px;white-space:nowrap;
+}
+.ui-mr__env>span{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.ui-mr__env>i{flex:none;width:6px;height:6px;border-radius:50%;background:var(--live);box-shadow:0 0 0 3px rgba(47,179,106,.18)}
+.ui-mr__summary{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;min-width:0}
+.ui-mr__cost{display:grid;gap:2px;min-width:0}
+.ui-mr__label{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;font-size:12px;line-height:20px;color:var(--muted)}
+.ui-mr__quiet{color:var(--muted)}
+.ui-mr__quiet::before{content:"·";margin-right:8px}
+.ui-mr__delta{
+  padding:0 9px;border-radius:999px;background:var(--good-bg);color:var(--good);
+  font-weight:500;line-height:20px;white-space:nowrap;
+}
+.ui-mr__delta[data-up]{background:var(--bad-bg);color:var(--bad)}
+.ui-mr__price{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px}
+.ui-mr__price>b{font-size:22px;line-height:30px;letter-spacing:-.02em;font-weight:600}
+.ui-mr__price>span{font-size:12px;color:var(--muted)}
+.ui-mr__tabs{display:flex;flex:0 1 auto;flex-wrap:wrap;justify-content:flex-end;gap:2px;min-width:0}
+.ui-mr__tab{
+  max-width:150px;height:26px;padding:0 10px;white-space:nowrap;
+  border:0;border-radius:999px;background:none;color:var(--muted);
+  cursor:pointer;font-weight:500;transition:color 160ms ease,background-color 160ms ease;
+}
+.ui-mr__tab>span{display:block;overflow:hidden;text-overflow:ellipsis}
+.ui-mr__tab:hover{color:var(--ink)}
+.ui-mr__tab[aria-checked="true"]{background:var(--sel);color:var(--ink-strong)}
+.ui-mr__tab:focus-visible,.ui-mr__pick-btn:focus-visible,.ui-mr__item:focus-visible,
+.ui-mr__ghost:focus-visible,.ui-mr__deploy:focus-visible,.ui-mr__switch:focus-visible{
+  outline:2px solid var(--focus);outline-offset:2px;
+}
+/* ---- flow diagram ---- */
+.ui-mr__flow{position:relative;margin:14px 0 6px}
+.ui-mr__flow>svg{position:absolute;inset:0;overflow:visible;display:block}
+.ui-mr__route{transition:opacity 200ms ease}
+.ui-mr__flow[data-hover] .ui-mr__route:not([data-on]),
+.ui-mr__flow[data-hover] .ui-mr__ends>li:not([data-on]){opacity:.75}
+.ui-mr__band{fill:none;stroke-width:2;stroke-linecap:round;transition:stroke-width 700ms var(--morph)}
+.ui-mr__line{fill:none;stroke-width:1.25}
+.ui-mr__end{stroke:var(--surface);stroke-width:1.5}
+.ui-mr__port{fill:var(--surface);stroke:var(--muted);stroke-width:1.5}
+.ui-mr__pkt{stroke:none}
+.ui-mr__ends{position:absolute;top:0;right:0;margin:0;padding:0;list-style:none}
+.ui-mr__ends>li{
+  position:absolute;left:0;right:0;display:flex;align-items:center;gap:8px;
+  height:22px;font-size:12px;transition:opacity 200ms ease;
+}
+.ui-mr__end-name{flex:1;min-width:0;overflow:hidden;color:var(--ink);white-space:nowrap;text-overflow:ellipsis}
+/* ---- deterministic 3x3 pixel-mark per model id (exactly 9 cells) ---- */
+.px{
+  display:inline-grid;flex:none;width:16px;height:16px;
+  grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);gap:1px;
+}
+.px>i{border-radius:1px;background:transparent}
+.px>i[data-f]{background:var(--px-c,#888)}
+.px[data-twinkle]>i[data-f]{animation:px-tw 2.6s ease-in-out infinite}
+@keyframes px-tw{50%{opacity:.45}}
+/* ---- routes table ---- */
+.ui-mr__routes{width:100%;margin:8px 0 0;border-collapse:collapse;font-size:12px}
+.ui-mr__routes th,.ui-mr__routes td{padding:0 0 0 12px;font-weight:400;text-align:right;white-space:nowrap}
+.ui-mr__routes thead th{height:28px;color:var(--muted);font-size:11px}
+.ui-mr__routes thead th:first-child{color:var(--ink-strong);font-size:13px;font-weight:600}
+.ui-mr__routes th:first-child{width:100%;max-width:0;padding:0;text-align:left}
+.ui-mr__routes tbody tr{height:32px;transition:opacity 200ms ease}
+.ui-mr__routes tbody td{color:var(--ink)}
+.ui-mr__routes[data-hover] tbody tr:not([data-on]){opacity:.75}
+.ui-mr__model{display:flex;align-items:center;gap:8px;min-width:0}
+.ui-mr__name{min-width:0;overflow:hidden;color:var(--ink);font-size:13px;text-overflow:ellipsis}
+.ui-mr__share{display:inline-flex;align-items:center;justify-content:flex-end;gap:8px}
+.ui-mr__bar{width:28px;height:4px;overflow:hidden;border-radius:2px;background:var(--track)}
+.ui-mr__bar>i{display:block;height:100%;border-radius:inherit;transition:width 700ms var(--morph)}
+/* ---- fallback row ---- */
+.ui-mr__fallback{
+  display:flex;align-items:center;gap:10px;min-width:0;margin-top:10px;
+  padding:8px 10px;border-radius:14px;background:var(--subtle);
+  box-shadow:inset 0 0 0 1px var(--border);
+}
+.ui-mr__fallback>b{flex:none;color:var(--ink-strong);font-weight:600}
+.ui-mr__rule{display:flex;flex:1;align-items:center;justify-content:flex-end;gap:6px;min-width:0;color:var(--muted);font-size:12px;transition:opacity 200ms ease}
+.ui-mr__fallback[data-off] .ui-mr__rule{opacity:.5}
+.ui-mr__switch{
+  position:relative;flex:none;width:28px;height:16px;margin:0;padding:0;
+  border:0;border-radius:999px;background:rgba(0,0,0,.16);cursor:pointer;
+  transition:background-color 200ms ease;
+}
+html[data-theme="dark"] .ui-mr__switch:not([aria-checked="true"]){background:rgba(255,255,255,.18)}
+.ui-mr__switch>i{position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2);transition:transform 220ms var(--ease)}
+.ui-mr__switch[aria-checked="true"]{background:var(--blue)}
+.ui-mr__switch[aria-checked="true"]>i{transform:translateX(12px)}
+.ui-mr__pick{position:relative;display:inline-flex;min-width:0}
+.ui-mr__arrow{flex:none;color:var(--muted);display:inline-flex}
+.ui-mr__arrow svg{display:block}
+.ui-mr__pick-btn{
+  display:inline-flex;align-items:center;gap:6px;max-width:100%;min-width:0;
+  height:26px;padding:0 8px 0 9px;border:0;border-radius:999px;
+  background:var(--surface);box-shadow:var(--shadow);color:var(--ink);cursor:pointer;
+}
+.ui-mr__pick-btn:disabled{cursor:default}
+.ui-mr__pick-btn>svg:last-child{color:var(--muted);flex:none}
+.ui-mr__pick-name{min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.ui-mr__menu{
+  position:absolute;bottom:calc(100% + 6px);left:0;z-index:5;display:grid;
+  width:max-content;min-width:220px;padding:4px;border-radius:14px;
+  background:var(--surface);box-shadow:var(--pop);
+  animation:ui-mr-menu 160ms var(--ease) both;transform-origin:bottom left;
+}
+.ui-mr__menu[hidden]{display:none}
+.ui-mr__menu-label{padding:4px 8px;font-size:11px;color:var(--muted)}
+.ui-mr__item{
+  display:flex;align-items:center;gap:8px;height:30px;padding:0 8px;
+  border:0;border-radius:8px;background:none;color:var(--ink);
+  text-align:left;cursor:pointer;outline:none;
+}
+.ui-mr__item:hover{background:var(--sel)}
+.ui-mr__item-name{flex:1;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.ui-mr__item>em{flex:none;font-style:normal;font-size:12px;color:var(--muted)}
+.ui-mr__item-check{display:grid;flex:none;place-items:center;width:14px;color:var(--blue)}
+/* ---- footer ---- */
+.ui-mr__foot{display:flex;align-items:center;gap:8px;min-width:0;margin-top:14px}
+.ui-mr__status{display:flex;flex:1;align-items:center;gap:8px;min-width:0;font-size:12px;color:var(--muted);white-space:nowrap}
+.ui-mr__status>span{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.ui-mr__status>i{flex:none;width:6px;height:6px;border-radius:50%;background:var(--live);transition:background-color 200ms ease}
+.ui-mr__status>i[data-state="dirty"]{background:var(--warn)}
+.ui-mr__status>i[data-state="busy"]{background:var(--blue);animation:ui-mr-pulse 900ms ease-in-out infinite}
+.ui-mr__ghost,.ui-mr__deploy{
+  display:inline-flex;flex:none;align-items:center;gap:6px;height:30px;padding:0 14px;
+  border:0;border-radius:999px;cursor:pointer;white-space:nowrap;
+  transition:opacity 200ms ease,background-color 160ms ease;
+}
+.ui-mr__ghost{background:none;color:var(--muted)}
+.ui-mr__ghost:hover{background:var(--sel);color:var(--ink)}
+.ui-mr__deploy{background:var(--button);color:var(--button-ink);font-weight:600}
+.ui-mr__deploy[aria-disabled="true"]{opacity:.35;cursor:default}
+.ui-mr__spinner{animation:ui-mr-spin 800ms linear infinite}
+/* ---- rolling numbers ---- */
+.ui-mr__roll{display:inline-grid;vertical-align:bottom;overflow:hidden;justify-items:end}
+.ui-mr__price .ui-mr__roll{justify-items:start}
+.ui-mr__roll>span{grid-area:1/1;white-space:nowrap}
+.ui-mr__roll>span[data-in]{animation:ui-mr-roll-in 460ms var(--morph) both}
+.ui-mr__roll>span[data-out]{animation:ui-mr-roll-out 460ms var(--morph) both}
+@keyframes ui-mr-roll-in{from{opacity:0;transform:translateY(70%);filter:blur(2px)}}
+@keyframes ui-mr-roll-out{to{opacity:0;transform:translateY(-70%);filter:blur(2px)}}
+@keyframes ui-mr-menu{from{opacity:0;transform:translateY(4px) scale(.97)}}
+@keyframes ui-mr-spin{to{transform:rotate(360deg)}}
+@keyframes ui-mr-pulse{50%{opacity:.35}}
+@media (max-width:520px){
+  .ui-mr__summary{flex-direction:column}
+  .ui-mr__lat{display:none}
+}
+@media (max-width:420px){
+  .ui-mr__pick-name{display:none}
+  .ui-mr__menu{right:0;left:auto;transform-origin:bottom right}
+}
+@media (prefers-reduced-motion:reduce){
+  .ui-mr *,.ui-mr *::before,.ui-mr *::after{animation:none!important;transition:none!important}
+}
+</style>
+</head>
+<body>
+<header class="page-bar">
+  <span class="page-name">model-router</span>
+  <button class="theme-toggle" id="themeToggle" type="button" aria-label="Switch to dark theme">
+    <svg id="themeIconMoon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+    <svg id="themeIconSun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:none"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+  </button>
+</header>
+<main class="wrap">
+  <section class="ui-mr" aria-label="Model router" id="mrRoot">
+    <div class="ui-mr__head">
+      <b class="ui-mr__title">Model router</b>
+      <span class="ui-mr__env" id="mrEnv"><i aria-hidden="true"></i><span>chat-prod</span></span>
+    </div>
+    <div class="ui-mr__summary">
+      <div class="ui-mr__cost">
+        <p class="ui-mr__label">Blended cost <span id="mrDelta"></span></p>
+        <p class="ui-mr__price"><b id="mrPrice"></b><span>/ 1K tokens</span></p>
+      </div>
+      <div class="ui-mr__tabs" role="radiogroup" aria-label="Strategy" id="mrTabs"></div>
+    </div>
+    <div class="ui-mr__flow" id="mrFlow">
+      <svg id="mrSvg" aria-hidden="true"></svg>
+      <ul class="ui-mr__ends" id="mrEnds"></ul>
+    </div>
+    <table class="ui-mr__routes" id="mrTable">
+      <thead><tr>
+        <th scope="col">Routes</th><th scope="col">Share</th>
+        <th scope="col" class="ui-mr__lat">p95</th><th scope="col">$ / 1K</th>
+      </tr></thead>
+      <tbody id="mrBody"></tbody>
+    </table>
+    <div class="ui-mr__fallback" id="mrFallback">
+      <button class="ui-mr__switch" id="mrSwitch" type="button" role="switch" aria-checked="true" aria-label="Fallback"><i aria-hidden="true"></i></button>
+      <b>Fallback</b>
+      <span class="ui-mr__rule" id="mrRule"></span>
+    </div>
+    <div class="ui-mr__foot">
+      <p class="ui-mr__status"><i id="mrDot" data-state="live" aria-hidden="true"></i><span id="mrStatus"></span></p>
+      <span id="mrRevertSlot"></span>
+      <button class="ui-mr__deploy" id="mrDeploy" type="button" aria-disabled="true"></button>
+    </div>
+  </section>
+</main>
+<script>
+(function(){
+"use strict";
+var W = (typeof window !== "undefined") ? window : this;
+var DOC = W.document;
+/* ============ exact demo data (from demo-original.js, re-typed) ============ */
+var MODELS = [
+  { id:"opus",  name:"Claude Opus 5.5", provider:"Anthropic", p95:2.16, cost:0.0126, color:"#f04438" },
+  { id:"gpt",   name:"GPT-5.5",         provider:"OpenAI",    p95:1.34, cost:0.0048, color:"#e8b000" },
+  { id:"flash", name:"Gemini 3 Flash",  provider:"Google",    p95:0.64, cost:0.0007, color:"#5fc88a" },
+  { id:"grok",  name:"Grok 5 Fast",     provider:"xAI",       p95:1.09, cost:0.0019, color:"#0190fe" }
+];
+var STRATS = [
+  { id:"cost",     label:"Cost",     shares:{ opus:6,  gpt:21, flash:49, grok:24 } },
+  { id:"balanced", label:"Balanced", shares:{ opus:17, gpt:42, flash:27, grok:14 } },
+  { id:"quality",  label:"Quality",  shares:{ opus:58, gpt:30, flash:8,  grok:4  } }
+];
+var ENV = "chat-prod";
+var DEPLOY_MS = 900, ROLL_MS = 460, SPAWN_PER_SEC = 3.6, MAX_PKTS = 18;
+/* ============ state ============ */
+function clone(o){ return JSON.parse(JSON.stringify(o)); }
+function modelById(id){ for (var i=0;i<MODELS.length;i++) if (MODELS[i].id===id) return MODELS[i]; return null; }
+function stratById(id){ for (var i=0;i<STRATS.length;i++) if (STRATS[i].id===id) return STRATS[i]; return null; }
+var livePolicy = { strategy:"balanced", fallback:{ enabled:true, from:"opus", to:"gpt" } };
+var liveVersion = 14;
+var draft = clone(livePolicy);
+var deploying = false, deployedFlag = false, hoverId = null, openMenu = null, lastToggle = 0;
+/* ============ pure helpers (mirrors original behaviour) ============ */
+function posNum(v){ return (typeof v === "number" && isFinite(v) && v > 0) ? v : 0; }
+function money(v){ return "$" + (v >= 1 ? v.toFixed(2) : v >= 0.1 ? v.toFixed(3) : v.toFixed(4)); }
+function normShares(shares){
+  var vals = MODELS.map(function(m){ return posNum(shares[m.id]); });
+  var sum = 0, i; for (i=0;i<vals.length;i++) sum += vals[i];
+  var out = {}, n = MODELS.length;
+  for (i=0;i<n;i++) out[MODELS[i].id] = sum ? vals[i]/sum : 1/Math.max(1,n);
+  return out;
+}
+function blended(frac){
+  var t = 0;
+  for (var i=0;i<MODELS.length;i++) t += frac[MODELS[i].id] * posNum(MODELS[i].cost);
+  return t;
+}
+function samePolicy(a,b){
+  return a.strategy===b.strategy && a.fallback.enabled===b.fallback.enabled &&
+    a.fallback.from===b.fallback.from && a.fallback.to===b.fallback.to;
+}
+function isDirty(){ return !samePolicy(draft, livePolicy); }
+/* deterministic 9-bit pixel pattern per id */
+function pxBits(id){
+  var h = 0, i;
+  for (i=0;i<id.length;i++){ h = ((h<<5) - h + id.charCodeAt(i)) | 0; }
+  h = h < 0 ? -h : h;
+  var bits = [];
+  for (i=0;i<9;i++) bits.push((((h >> i) & 1) === 1) || i === 4);
+  return bits;
+}
+function reducedMotion(){
+  try{ return W.matchMedia && W.matchMedia("(prefers-reduced-motion: reduce)").matches; }
+  catch(e){ return false; }
+}
+/* ============ dom refs (built once; never rebuilt in tick loop) ============ */
+function $(id){ return DOC.getElementById(id); }
+function mk(tag, cls, text){
+  var e = DOC.createElement(tag);
+  if (cls) e.className = cls;
+  if (text != null) e.textContent = text;
+  return e;
+}
+function mkSvg(tag){
+  if (DOC.createElementNS) return DOC.createElementNS("http://www.w3.org/2000/svg", tag);
+  return DOC.createElement(tag);
+}
+var ui = {};
+function refs(){
+  ui.tabs=$("mrTabs"); ui.delta=$("mrDelta"); ui.price=$("mrPrice");
+  ui.flow=$("mrFlow"); ui.svg=$("mrSvg"); ui.ends=$("mrEnds");
+  ui.body=$("mrBody"); ui.table=$("mrTable");
+  ui.fallback=$("mrFallback"); ui.sw=$("mrSwitch"); ui.rule=$("mrRule");
+  ui.dot=$("mrDot"); ui.status=$("mrStatus");
+  ui.revertSlot=$("mrRevertSlot"); ui.deploy=$("mrDeploy");
+}
+refs();
+/* ============ pixel-mark (exactly 9 cells per mark) ============ */
+function pixelMark(color, twinkle){
+  var s = mk("span", "px" + (twinkle ? "" : ""));
+  if (twinkle) s.setAttribute("data-twinkle", "");
+  s.setAttribute("aria-hidden", "true");
+  try{ s.style.setProperty("--px-c", color); }catch(e){ s.setAttribute("data-c", color); }
+  var bits = pxBits(color);
+  for (var i=0;i<9;i++){
+    var c = mk("i");
+    if (bits[i]) c.setAttribute("data-f", "");
+    s.appendChild(c);
+  }
+  return s;
+}
+var CHECK_SVG = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 13l4 4L19 7"/></svg>';
+var CHEV_SVG = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
+var ARROW_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h16M14 6l6 6-6 6"/></svg>';
+var SPIN_SVG = '<svg class="ui-mr__spinner" width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-opacity="0.3" stroke-width="2.5"/><path d="M12 3.5A8.5 8.5 0 0 1 20.5 12" stroke="currentColor" stroke-linecap="round" stroke-width="2.5"/></svg>';
+/* ============ rolling number ============ */
+function setRoll(box, text){
+  if (!box) return;
+  var kids = box.childNodes ? Array.prototype.slice.call(box.childNodes, 0) : [];
+  if (kids.length === 1 && kids[0].textContent === text && !kids[0].getAttribute("data-out")) return;
+  var cur = kids.filter(function(k){ return !(k.getAttribute && k.getAttribute("data-out") != null); });
+  for (var i=0;i<cur.length;i++) cur[i].setAttribute("data-out", "");
+  var n = mk("span", null, text);
+  if (cur.length || box.childNodes.length) n.setAttribute("data-in", "");
+  box.appendChild(n);
+  (function(dead){
+    W.setTimeout(function(){
+      for (var j=0;j<dead.length;j++) if (dead[j].parentNode === box) box.removeChild(dead[j]);
+    }, ROLL_MS + 60);
+  })(cur);
+}
+/* ============ header summary ============ */
+function renderSummary(){
+  if (!ui.price || !ui.delta) return;
+  var df = normShares(stratById(draft.strategy).shares);
+  var lf = normShares(stratById(livePolicy.strategy).shares);
+  var dc = blended(df), lc = blended(lf);
+  setRoll(ui.price, money(dc));
+  while (ui.delta.firstChild) ui.delta.removeChild(ui.delta.firstChild);
+  var dirty = isDirty();
+  var pct = lc ? Math.round((dc-lc)/lc*100) : 0;
+  if (pct === 0 || !dirty){
+    var q = mk("span", "ui-mr__quiet", dirty ? "Same as live" : "Live policy");
+    ui.delta.appendChild(q);
+  } else {
+    var d = mk("span", "ui-mr__delta", (pct > 0 ? "+" : "−") + Math.abs(pct) + "%");
+    if (pct > 0) d.setAttribute("data-up", "");
+    ui.delta.appendChild(d);
+    var vs = DOC.createTextNode(" vs live");
+    ui.delta.appendChild(vs);
+  }
+}
+/* ============ strategy tabs (built once, updated in place) ============ */
+var tabBtns = [];
+function buildTabs(){
+  if (!ui.tabs) return;
+  tabBtns = STRATS.map(function(st, idx){
+    var b = mk("button", "ui-mr__tab");
+    b.setAttribute("type", "button");
+    b.setAttribute("role", "radio");
+    var inner = mk("span", null, st.label);
+    inner.setAttribute("title", st.label);
+    b.appendChild(inner);
+    b.addEventListener("click", function(){ setDraft({ strategy:st.id }); });
+    b.addEventListener("keydown", function(e){
+      var dir = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+      if (!dir) return;
+      e.preventDefault();
+      var next = (idx + dir + STRATS.length) % STRATS.length;
+      if (tabBtns[next] && tabBtns[next].focus) tabBtns[next].focus();
+      setDraft({ strategy:STRATS[next].id });
+    });
+    ui.tabs.appendChild(b);
+    return b;
+  });
+  renderTabs();
+}
+function renderTabs(){
+  for (var i=0;i<tabBtns.length;i++){
+    var on = STRATS[i].id === stratById(draft.strategy).id;
+    tabBtns[i].setAttribute("aria-checked", on ? "true" : "false");
+    tabBtns[i].tabIndex = on ? 0 : -1;
+  }
+}
+/* ============ flow diagram ============ */
+var ROW_GAP = 30, TOP = 26, MAXW = 186;
+var routes = [];   /* {m, band, line, end, li, name, curve} */
+var packets = [];  /* {r, t, speed, el} */
+var spawnAcc = [0,0,0,0];
+var flowW = 0, endX = 0, entryY = 0;
+function flowWidth(){
+  var w = 0;
+  try{ w = (ui.flow && ui.flow.clientWidth) || 0; }catch(e){}
+  return w || 640;
+}
+function cubic(p, t){
+  var u = 1-t;
+  return {
+    x: u*u*u*p.x0 + 3*u*u*t*p.x1 + 3*u*t*t*p.x2 + t*t*t*p.x3,
+    y: u*u*u*p.y0 + 3*u*u*t*p.y1 + 3*u*t*t*p.y2 + t*t*t*p.y3
+  };
+}
+function routeLen(p){
+  var L = 0, prev = cubic(p, 0);
+  for (var i=1;i<=16;i++){ var q = cubic(p, i/16); L += Math.hypot(q.x-prev.x, q.y-prev.y); prev = q; }
+  return Math.max(40, L);
+}
+function buildFlow(){
+  if (!ui.svg || !ui.ends) return;
+  routes = [];
+  for (var i=0;i<MODELS.length;i++){
+    (function(m, idx){
+      var g = mkSvg("g"); g.setAttribute("class", "ui-mr__route");
+      var band = mkSvg("path"); band.setAttribute("class", "ui-mr__band");
+      var line = mkSvg("path"); line.setAttribute("class", "ui-mr__line");
+      var end = mkSvg("circle"); end.setAttribute("class", "ui-mr__end"); end.setAttribute("r", "3.5");
+      g.appendChild(band); g.appendChild(line); g.appendChild(end);
+      ui.svg.appendChild(g);
+      var li = mk("li");
+      li.appendChild(pixelMark(m.color, true));
+      var nm = mk("span", "ui-mr__end-name", m.name);
+      nm.setAttribute("title", m.name);
+      li.appendChild(nm);
+      li.addEventListener("pointerenter", function(){ setHover(m.id); });
+      li.addEventListener("pointerleave", function(){ setHover(null); });
+      ui.ends.appendChild(li);
+      routes.push({ m:m, g:g, band:band, line:line, end:end, li:li, name:nm, curve:null, len:100 });
+    })(MODELS[i], i);
+  }
+  var port = mkSvg("circle");
+  port.setAttribute("class", "ui-mr__port"); port.setAttribute("r", "3.5");
+  port.setAttribute("cx", "4");
+  ui.svg.appendChild(port);
+  ui.port = port;
+  layoutFlow();
+}
+function layoutFlow(){
+  if (!ui.svg || !routes.length) return;
+  var w = flowWidth();
+  var n = MODELS.length;
+  var h = TOP + Math.max(1,n)*ROW_GAP;
+  entryY = TOP + (n-1)*ROW_GAP/2;
+  flowW = w;
+  endX = Math.max(90, w - Math.min(MAXW, Math.max(118, w*0.44)));
+  var ctrl = Math.round(4 + (endX-4)*0.26), bend = Math.min(64, (endX-ctrl)*0.4);
+  ui.svg.setAttribute("width", String(w));
+  ui.svg.setAttribute("height", String(h+8));
+  try{ ui.svg.setAttribute("viewBox", "0 0 " + w + " " + (h+8)); }catch(e){}
+  if (ui.flow) ui.flow.style.height = (h+8) + "px";
+  if (ui.ends) ui.ends.style.left = (endX+10) + "px";
+  for (var i=0;i<n;i++){
+    (function(r, idx){
+      var y = TOP + idx*ROW_GAP;
+      var d = "M4 " + entryY + "H" + ctrl +
+        "C" + (ctrl+bend*0.55) + " " + entryY + " " + (ctrl+bend*0.45) + " " + y +
+        " " + (ctrl+bend) + " " + y + "H" + endX;
+      r.band.setAttribute("d", d);
+      r.line.setAttribute("d", d);
+      r.end.setAttribute("cx", String(endX));
+      r.end.setAttribute("cy", String(y));
+      r.curve = { x0:4, y0:entryY, x1:ctrl, y1:entryY, x2:ctrl+bend, y2:y, x3:endX, y3:y };
+      r.len = routeLen(r.curve);
+      r.li.style.top = (y-11) + "px";
+    })(routes[i], i);
+  }
+  if (ui.port){ ui.port.setAttribute("cy", String(entryY)); }
+  renderFlowShares();
+}
+function renderFlowShares(){
+  var frac = normShares(stratById(draft.strategy).shares);
+  for (var i=0;i<routes.length;i++){
+    var f = frac[routes[i].m.id] || 0;
+    try{ routes[i].band.style.strokeWidth = String(2 + f*16); }catch(e){}
+    var c = routes[i].m.color;
+    try{
+      routes[i].band.style.stroke = c;
+      routes[i].band.style.opacity = "0.22";
+      routes[i].line.style.stroke = c;
+      routes[i].line.style.opacity = "0.55";
+      routes[i].end.style.fill = c;
+    }catch(e){}
+    if (hoverId) routes[i].g.setAttribute("data-on", hoverId === routes[i].m.id ? "" : "");
+    else routes[i].g.removeAttribute("data-on");
+  }
+  if (ui.flow){
+    if (hoverId) ui.flow.setAttribute("data-hover", "");
+    else ui.flow.removeAttribute("data-hover");
+  }
+}
+/* packet pool: fixed <circle> nodes, only cx/cy/opacity mutate in the loop */
+var pktEls = [];
+function ensurePackets(){
+  if (!ui.svg || pktEls.length) return;
+  for (var i=0;i<MAX_PKTS;i++){
+    var c = mkSvg("circle");
+    c.setAttribute("class", "ui-mr__pkt");
+    c.setAttribute("r", "2.6");
+    try{ c.style.opacity = "0"; }catch(e){}
+    ui.svg.appendChild(c);
+    pktEls.push(c);
+  }
+}
+function stepPackets(dtMs){
+  if (reducedMotion() || !routes.length) return;
+  ensurePackets();
+  var frac = normShares(stratById(draft.strategy).shares);
+  var dt = Math.max(0, Math.min(100, dtMs)) / 1000;
+  for (var i=0;i<routes.length;i++){
+    spawnAcc[i] += dt * SPAWN_PER_SEC * (frac[routes[i].m.id] || 0) * 4;
+    while (spawnAcc[i] >= 1 && packets.length < MAX_PKTS){
+      spawnAcc[i] -= 1;
+      var slot = null;
+      for (var s=0;s<pktEls.length;s++){
+        var used = false;
+        for (var p=0;p<packets.length;p++) if (packets[p].el === pktEls[s]){ used = true; break; }
+        if (!used){ slot = pktEls[s]; break; }
+      }
+      if (!slot) break;
+      var durS = (routes[i].len+36)*(7+Math.random()*2)/1000;
+      packets.push({ r:i, t:0, dur:durS, el:slot });
+      try{ slot.style.fill = routes[i].m.color; }catch(e){}
+    }
+  }
+  for (var k=packets.length-1;k>=0;k--){
+    (function(pk){
+      var r = routes[pk.r];
+      pk.t += dt / Math.max(0.2, pk.dur);
+      if (pk.t >= 1){ try{ pk.el.style.opacity = "0"; }catch(e){} packets.splice(k,1); return; }
+      var pt = cubic(r.curve, pk.t);
+      pk.el.setAttribute("cx", pt.x.toFixed(1));
+      pk.el.setAttribute("cy", pt.y.toFixed(1));
+      try{ pk.el.style.opacity = (hoverId && routes[pk.r].m.id !== hoverId) ? "0.15" : "0.9"; }catch(e){}
+    })(packets[k]);
+  }
+}
+var lastFrame = 0;
+function loop(ts){
+  var dt = ts - (lastFrame || ts);
+  lastFrame = ts;
+  stepPackets(dt || 16);
+  try{ W.requestAnimationFrame(loop); }
+  catch(e){ W.setTimeout(function(){ loop(Date.now()); }, 16); }
+}
+/* ============ routes table (rows built once, values updated) ============ */
+var rowRefs = [];
+function buildTable(){
+  if (!ui.body) return;
+  for (var i=0;i<MODELS.length;i++){
+    (function(m){
+      var tr = DOC.createElement("tr");
+      var th = DOC.createElement("th"); th.setAttribute("scope", "row");
+      var wrap = mk("span", "ui-mr__model");
+      wrap.appendChild(pixelMark(m.color, false));
+      var nm = mk("span", "ui-mr__name", m.name);
+      nm.setAttribute("dir", "auto");
+      nm.setAttribute("title", m.provider ? m.name + " · " + m.provider : m.name);
+      wrap.appendChild(nm);
+      th.appendChild(wrap);
+      var tdS = DOC.createElement("td");
+      var sh = mk("span", "ui-mr__share");
+      var bar = mk("span", "ui-mr__bar"); bar.setAttribute("aria-hidden", "true");
+      var fill = mk("i");
+      try{ fill.style.background = m.color; }catch(e){}
+      bar.appendChild(fill);
+      var pct = mk("span"); pct.className = "ui-mr__roll";
+      sh.appendChild(bar); sh.appendChild(pct);
+      tdS.appendChild(sh);
+      var tdP = DOC.createElement("td"); tdP.className = "ui-mr__lat";
+      var tdC = DOC.createElement("td");
+      tr.appendChild(th); tr.appendChild(tdS); tr.appendChild(tdP); tr.appendChild(tdC);
+      tr.addEventListener("pointerenter", function(){ setHover(m.id); });
+      tr.addEventListener("pointerleave", function(){ setHover(null); });
+      ui.body.appendChild(tr);
+      rowRefs.push({ m:m, tr:tr, fill:fill, pct:pct, tdP:tdP, tdC:tdC });
+    })(MODELS[i]);
+  }
+  renderTable();
+}
+function renderTable(){
+  var frac = normShares(stratById(draft.strategy).shares);
+  for (var i=0;i<rowRefs.length;i++){
+    (function(r){
+      var f = frac[r.m.id] || 0;
+      try{ r.fill.style.width = (f*100) + "%"; }catch(e){}
+      setRoll(r.pct, Math.round(f*100) + "%");
+      while (r.tdP.firstChild) r.tdP.removeChild(r.tdP.firstChild);
+      r.tdP.appendChild(DOC.createTextNode(posNum(r.m.p95).toFixed(2) + " s"));
+      while (r.tdC.firstChild) r.tdC.removeChild(r.tdC.firstChild);
+      r.tdC.appendChild(DOC.createTextNode(money(posNum(r.m.cost))));
+      if (hoverId) r.tr.setAttribute("data-on", hoverId === r.m.id ? "" : "");
+      else r.tr.removeAttribute("data-on");
+      try{ r.tr.style.setProperty("--ui-mr-c", r.m.color); }catch(e){}
+    })(rowRefs[i]);
+  }
+  if (ui.table){
+    if (hoverId) ui.table.setAttribute("data-hover", "");
+    else ui.table.removeAttribute("data-hover");
+  }
+}
+function setHover(id){
+  if (hoverId === id) return;
+  hoverId = id;
+  renderFlowShares();
+  renderTable();
+  renderEnds();
+}
+function renderEnds(){
+  for (var i=0;i<routes.length;i++){
+    if (hoverId) routes[i].li.setAttribute("data-on", hoverId === routes[i].m.id ? "" : "");
+    else routes[i].li.removeAttribute("data-on");
+  }
+}
+/* ============ fallback pickers (menus built once; open on pointerdown capture) ============ */
+var pickers = {};
+function modelCost(id){ var m = modelById(id); return m ? money(posNum(m.cost)) : ""; }
+function buildPicker(which, label){
+  var root = mk("span", "ui-mr__pick");
+  var btn = mk("button", "ui-mr__pick-btn");
+  btn.setAttribute("type", "button");
+  btn.setAttribute("aria-haspopup", "menu");
+  var logo = mk("span", "ui-mr__pick-logo");
+  var nm = mk("span", "ui-mr__pick-name");
+  var chev = mk("span"); chev.innerHTML = CHEV_SVG;
+  btn.appendChild(logo); btn.appendChild(nm); btn.appendChild(chev);
+  var menu = mk("span", "ui-mr__menu");
+  menu.setAttribute("role", "menu");
+  menu.setAttribute("hidden", "");
+  var lab = mk("span", "ui-mr__menu-label", label);
+  lab.setAttribute("aria-hidden", "true");
+  menu.appendChild(lab);
+  var items = MODELS.map(function(m){
+    var it = mk("button", "ui-mr__item");
+    it.setAttribute("type", "button");
+    it.setAttribute("role", "menuitemradio");
+    var lg = mk("span", "ui-mr__pick-logo");
+    lg.appendChild(pixelMark(m.color, false));
+    var nn = mk("span", "ui-mr__item-name", m.name);
+    var cost = mk("em", null, modelCost(m.id));
+    var chk = mk("span", "ui-mr__item-check");
+    it.appendChild(lg); it.appendChild(nn); it.appendChild(cost); it.appendChild(chk);
+    it.addEventListener("click", function(){ chooseFallback(which, m.id); });
+    it.addEventListener("pointermove", function(){ setMenuFocus(which, MODELS.indexOf(m)); });
+    menu.appendChild(it);
+    return { m:m, btn:it, chk:chk, cost:cost };
+  });
+  root.appendChild(btn); root.appendChild(menu);
+  var pk = { root:root, btn:btn, logo:logo, nm:nm, menu:menu, items:items, focusIdx:0, label:label };
+  pickers[which] = pk;
+  function toggle(e){
+    var now = Date.now();
+    if (now - lastToggle < 350) return; /* pointerdown already handled it */
+    lastToggle = now;
+    if (openMenu === which) closeMenu();
+    else { openMenu = which; renderMenus(); }
+  }
+  /* capture-phase pointerdown so a click is never lost across re-renders */
+  if (W.PointerEvent){
+    btn.addEventListener("pointerdown", function(e){
+      lastToggle = Date.now();
+      if (openMenu !== which){ openMenu = which; renderMenus(); }
+      if (e && e.preventDefault) e.preventDefault();
+    }, true);
+  } else {
+    btn.addEventListener("mousedown", function(e){
+      lastToggle = Date.now();
+      if (openMenu !== which){ openMenu = which; renderMenus(); }
+      if (e && e.preventDefault) e.preventDefault();
+    }, true);
+  }
+  btn.addEventListener("click", toggle);
+  btn.addEventListener("keydown", function(e){
+    if (e.key === "ArrowDown" || e.key === "ArrowUp"){
+      e.preventDefault(); openMenu = which; renderMenus();
+      setMenuFocus(which, Math.max(0, MODELS.findIndex(function(m){ return m.id === currentPick(which); })));
+      focusItem(which);
+    }
+  });
+  menu.addEventListener("keydown", function(e){
+    var idx = pk.focusIdx, n = MODELS.length;
+    if (e.key === "Escape"){ e.preventDefault(); closeMenu(true); }
+    else if (e.key === "ArrowDown"){ e.preventDefault(); setMenuFocus(which, (idx+1)%n); focusItem(which); }
+    else if (e.key === "ArrowUp"){ e.preventDefault(); setMenuFocus(which, (idx-1+n)%n); focusItem(which); }
+    else if (e.key === "Home"){ e.preventDefault(); setMenuFocus(which, 0); focusItem(which); }
+    else if (e.key === "End"){ e.preventDefault(); setMenuFocus(which, n-1); focusItem(which); }
+    else if (e.key === "Tab"){ closeMenu(); }
+  });
+  return root;
+}
+function currentPick(which){ return which === "from" ? draft.fallback.from : draft.fallback.to; }
+function setMenuFocus(which, i){ pickers[which].focusIdx = i; renderMenuItems(which); }
+function focusItem(which){
+  var pk = pickers[which], it = pk.items[pk.focusIdx];
+  if (it && it.btn && it.btn.focus) it.btn.focus();
+}
+function closeMenu(refocus){
+  if (!openMenu) return;
+  var pk = pickers[openMenu];
+  openMenu = null;
+  renderMenus();
+  if (refocus && pk && pk.btn && pk.btn.focus) pk.btn.focus();
+}
+function chooseFallback(which, id){
+  var fb = clone(draft.fallback);
+  if (which === "from"){ fb.from = id; if (id === fb.to) fb.to = fb.from === fb.to ? fb.from : fb.to; if (fb.from === fb.to) fb.to = draft.fallback.from; }
+  else { fb.to = id; if (id === fb.from) fb.from = draft.fallback.to; }
+  /* keep from/to distinct (mirrors original swap behaviour) */
+  if (fb.from === fb.to) fb.to = draft.fallback.from === fb.from ? draft.fallback.to : draft.fallback.from;
+  draft.fallback = fb;
+  deployedFlag = false;
+  closeMenu(true);
+  update();
+}
+function renderMenus(){
+  ["from","to"].forEach(function(which){
+    var pk = pickers[which]; if (!pk) return;
+    var cur = modelById(currentPick(which));
+    while (pk.logo.firstChild) pk.logo.removeChild(pk.logo.firstChild);
+    if (cur){
+      pk.logo.appendChild(pixelMark(cur.color, false));
+      pk.nm.textContent = cur.name;
+      pk.btn.setAttribute("aria-label", pk.label + ": " + cur.name);
+    }
+    pk.btn.disabled = !draft.fallback.enabled;
+    var open = openMenu === which;
+    if (open) pk.menu.removeAttribute("hidden"); else pk.menu.setAttribute("hidden", "");
+    pk.btn.setAttribute("aria-expanded", open ? "true" : "false");
+    renderMenuItems(which);
+  });
+}
+function renderMenuItems(which){
+  var pk = pickers[which]; if (!pk) return;
+  var cur = currentPick(which);
+  for (var i=0;i<pk.items.length;i++){
+    (function(it, idx){
+      var sel = it.m.id === cur;
+      it.btn.setAttribute("aria-checked", sel ? "true" : "false");
+      it.btn.tabIndex = idx === pk.focusIdx ? 0 : -1;
+      while (it.chk.firstChild) it.chk.removeChild(it.chk.firstChild);
+      if (sel){ var s = mk("span"); s.innerHTML = CHECK_SVG; it.chk.appendChild(s); }
+    })(pk.items[i], i);
+  }
+}
+function buildFallback(){
+  if (!ui.rule || !ui.sw) return;
+  var fromRoot = buildPicker("from", "If this model fails");
+  var arrow = mk("span", "ui-mr__arrow"); arrow.setAttribute("aria-hidden", "true"); arrow.innerHTML = ARROW_SVG;
+  var toRoot = buildPicker("to", "Retry on");
+  ui.rule.appendChild(fromRoot);
+  ui.rule.appendChild(arrow);
+  ui.rule.appendChild(toRoot);
+  ui.sw.addEventListener("click", function(){
+    draft.fallback.enabled = !draft.fallback.enabled;
+    deployedFlag = false;
+    update();
+  });
+  DOC.addEventListener("pointerdown", function(e){
+    if (!openMenu) return;
+    var pk = pickers[openMenu];
+    var t = e && e.target;
+    var inside = false, n = t;
+    while (n){ if (n === pk.root){ inside = true; break; } n = n.parentNode; }
+    if (!inside) closeMenu();
+  }, true);
+  renderFallback();
+}
+function renderFallback(){
+  if (!ui.sw) return;
+  ui.sw.setAttribute("aria-checked", draft.fallback.enabled ? "true" : "false");
+  if (ui.fallback){
+    if (draft.fallback.enabled) ui.fallback.removeAttribute("data-off");
+    else ui.fallback.setAttribute("data-off", "");
+  }
+  renderMenus();
+}
+/* ============ footer: status / revert / deploy ============ */
+function renderFoot(){
+  if (!ui.dot || !ui.status || !ui.deploy) return;
+  var dirty = isDirty();
+  var st = deploying ? "busy" : dirty ? "dirty" : "live";
+  ui.dot.setAttribute("data-state", st);
+  var txt = "Policy v" + liveVersion;
+  if (deploying) txt += " · Deploying…";
+  else if (dirty) txt += " · Unsaved changes";
+  else if (deployedFlag) txt += " · Deployed to " + ENV;
+  else txt += " · Live on " + ENV;
+  ui.status.textContent = txt;
+  while (ui.revertSlot.firstChild) ui.revertSlot.removeChild(ui.revertSlot.firstChild);
+  if (dirty && !deploying){
+    var g = mk("button", "ui-mr__ghost", "Revert");
+    g.setAttribute("type", "button");
+    g.addEventListener("click", function(){
+      draft = clone(livePolicy);
+      deployedFlag = false;
+      closeMenu();
+      update();
+      if (ui.deploy && ui.deploy.focus) ui.deploy.focus();
+    });
+    ui.revertSlot.appendChild(g);
+  }
+  while (ui.deploy.firstChild) ui.deploy.removeChild(ui.deploy.firstChild);
+  if (deploying){
+    var sp = mk("span"); sp.innerHTML = SPIN_SVG; ui.deploy.appendChild(sp);
+    ui.deploy.appendChild(DOC.createTextNode("Deploying"));
+  } else if (!dirty && deployedFlag){
+    var ck = mk("span"); ck.innerHTML = CHECK_SVG; ui.deploy.appendChild(ck);
+    ui.deploy.appendChild(DOC.createTextNode("Deployed"));
+  } else {
+    ui.deploy.appendChild(DOC.createTextNode("Deploy policy"));
+  }
+  ui.deploy.setAttribute("aria-disabled", (!dirty || deploying) ? "true" : "false");
+}
+function deploy(){
+  if (!isDirty() || deploying) return;
+  deploying = true;
+  renderFoot();
+  var wait = reducedMotion() ? 0 : DEPLOY_MS;
+  W.setTimeout(function(){
+    livePolicy = clone(draft);
+    liveVersion += 1;
+    deploying = false;
+    deployedFlag = true;
+    update();
+  }, wait);
+}
+/* ============ state transitions (only place that re-renders) ============ */
+function setDraft(patch){
+  if (patch.strategy) draft.strategy = patch.strategy;
+  deployedFlag = false;
+  closeMenu();
+  update();
+}
+function update(){
+  renderTabs();
+  renderSummary();
+  renderFlowShares();
+  renderTable();
+  renderFallback();
+  renderFoot();
+}
+/* ============ theme ============ */
+function initTheme(){
+  var t = $("themeToggle"); if (!t) return;
+  var moon = $("themeIconMoon"), sun = $("themeIconSun");
+  function apply(theme){
+    DOC.documentElement.setAttribute("data-theme", theme);
+    var dark = theme === "dark";
+    if (moon) moon.style.display = dark ? "none" : "";
+    if (sun) sun.style.display = dark ? "" : "none";
+    t.setAttribute("aria-label", dark ? "Switch to light theme" : "Switch to dark theme");
+  }
+  var initial = "light";
+  try{
+    if (W.matchMedia && W.matchMedia("(prefers-color-scheme: dark)").matches) initial = "dark";
+  }catch(e){}
+  DOC.documentElement.setAttribute("data-theme", initial);
+  apply(initial);
+  t.addEventListener("click", function(){
+    apply(DOC.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark");
+  });
+}
+/* ============ boot ============ */
+function boot(){
+  refs();
+  initTheme();
+  buildTabs();
+  buildFlow();
+  ensurePackets();
+  buildTable();
+  buildFallback();
+  if (ui.deploy) ui.deploy.addEventListener("click", deploy);
+  update();
+  try{
+    if (W.ResizeObserver && ui.flow){
+      var ro = new W.ResizeObserver(function(){ layoutFlow(); });
+      ro.observe(ui.flow);
+    } else if (W.addEventListener){
+      W.addEventListener("resize", function(){ layoutFlow(); });
+    }
+  }catch(e){}
+  try{
+    if (W.requestAnimationFrame) W.requestAnimationFrame(function(ts){ lastFrame = ts || 0; W.requestAnimationFrame(loop); });
+  }catch(e){}
+}
+/* expose internals for the headless harness (harmless in browsers) */
+try{
+  W.__mr = {
+    MODELS:MODELS, STRATS:STRATS,
+    get draft(){ return draft; }, get live(){ return livePolicy; },
+    get version(){ return liveVersion; }, get deploying(){ return deploying; },
+    get hover(){ return hoverId; }, get packets(){ return packets; },
+    setDraft:setDraft, deploy:deploy, setHover:setHover,
+    step:stepPackets, update:update, norm:normShares, blended:blended,
+    money:money, pxBits:pxBits, ui:ui
+  };
+}catch(e){}
+if (DOC && DOC.readyState === "loading" && DOC.addEventListener){
+  DOC.addEventListener("DOMContentLoaded", boot);
+} else {
+  boot();
+}
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Parallel Attempts — affectUI replica</title>
+<style>
+/* ---- design tokens (all colours flow through these) ---- */
+:root{
+  --surface:#ffffff;
+  --page:#fafaf9;
+  --ink:#171717;
+  --ink-strong:#1c1917;
+  --muted:#6f6a63;
+  --faint:#c2c2c2;
+  --subtle:#f5f5f4;
+  --border:#e7e5e4;
+  --radius-lg:16px;
+  --radius:10px;
+  --radius-sm:6px;
+  --shadow:0 1px 2px rgba(0,0,0,.05),0 4px 16px rgba(0,0,0,.05);
+  --card-shadow:0 0 0 1px var(--border),0 1px 2px rgba(0,0,0,.04);
+  --focus:rgba(0,96,226,.7);
+  --tray:var(--subtle);
+  --panel:var(--surface);
+  --icon-bg:var(--surface);
+  --track:var(--subtle);
+  --accent:#4fb0fe;
+  --running-bg:#e3f3ff;
+  --running-edge:#a9d9ff;
+  --running-ink:#0369a1;
+  --done-bg:#ddf2e6;
+  --done-edge:#9fd9b7;
+  --done-ink:#166534;
+  --best-bg:#c5ead4;
+  --best-edge:#5fc88a;
+  --wash:#f3fbf6;
+  --failed-bg:#fde3df;
+  --failed-edge:#ff8a7a;
+  --failed-ink:#9a3412;
+  --waiting:#f59e0b;
+  --waiting-bg:#fef3c7;
+  --waiting-ink:#92400e;
+  --shine:rgba(255,255,255,.9);
+  --ease:cubic-bezier(.22,1,.36,1);
+}
+html[data-theme="dark"]{
+  --surface:#1c1c1f;
+  --page:#101012;
+  --ink:#ededed;
+  --ink-strong:#f5f5f5;
+  --muted:#a1a1aa;
+  --faint:#5c5c5c;
+  --subtle:#26262a;
+  --border:#2e2e33;
+  --shadow:0 1px 2px rgba(0,0,0,.5),0 4px 16px rgba(0,0,0,.45);
+  --card-shadow:0 0 0 1px var(--border),0 1px 2px rgba(0,0,0,.4);
+  --focus:rgba(77,141,255,.8);
+  --tray:var(--subtle);
+  --panel:#232326;
+  --icon-bg:#2a2a2e;
+  --track:#2b2b2f;
+  --accent:#4fb0fe;
+  --running-bg:#1d364d;
+  --running-edge:#0190fe;
+  --running-ink:#8bcbfe;
+  --done-bg:#153222;
+  --done-edge:#1e8a4f;
+  --done-ink:#5fc88a;
+  --best-bg:#1d4a31;
+  --best-edge:#3f9a68;
+  --wash:#173022;
+  --failed-bg:#3d1e16;
+  --failed-edge:#c4320a;
+  --failed-ink:#ff8a7a;
+  --waiting:#fbbf24;
+  --waiting-bg:#451a03;
+  --waiting-ink:#fde68a;
+  --shine:rgba(255,255,255,.28);
+}
+/* ---- page chrome ---- */
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--page);
+  color:var(--ink);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:14px;line-height:20px;
+  -webkit-font-smoothing:antialiased;
+  transition:background-color 180ms ease,color 180ms ease;
+}
+.demo-top{
+  display:flex;align-items:center;gap:8px;
+  max-width:880px;margin:0 auto;padding:16px 16px 4px;
+}
+.demo-top .crumb{
+  font-size:12px;color:var(--muted);letter-spacing:.02em;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.theme-toggle{
+  margin-left:auto;flex:none;
+  display:inline-flex;align-items:center;gap:6px;
+  height:30px;padding:0 12px;border-radius:999px;
+  border:1px solid var(--border);background:var(--surface);color:var(--muted);
+  font:inherit;font-size:12px;cursor:pointer;
+  transition:background-color 160ms ease,color 160ms ease,border-color 160ms ease,transform 160ms ease;
+}
+.theme-toggle:hover{background:var(--subtle);color:var(--ink)}
+.theme-toggle:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.theme-toggle .moon{display:none}
+html[data-theme="dark"] .theme-toggle .moon{display:inline}
+html[data-theme="dark"] .theme-toggle .sun{display:none}
+.demo-wrap{max-width:880px;margin:0 auto;padding:12px 16px 40px}
+/* ---- parallel attempts component (clean-room) ---- */
+.ui-pa{
+  background:var(--tray);
+  border-radius:calc(var(--radius-lg) + 4px);
+  padding:4px;
+  font-size:14px;line-height:20px;letter-spacing:-.006em;
+  color:var(--muted);text-align:left;
+}
+.ui-pa__bar{
+  display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;
+  padding:8px 12px 12px;min-width:0;
+}
+.ui-pa__mark{display:grid;place-items:center;width:16px;flex:none;color:var(--accent)}
+.ui-pa__mark svg{display:block;width:16px;height:16px}
+.ui-pa__title{
+  flex:0 1 auto;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
+  font-weight:600;color:var(--ink-strong);
+}
+.ui-pa__task{
+  min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
+  font-size:13px;color:var(--muted);
+}
+.ui-pa__sum{
+  display:flex;align-items:center;gap:14px;margin-left:auto;
+  font-size:13px;line-height:18px;color:var(--muted);
+  font-variant-numeric:tabular-nums;white-space:nowrap;
+}
+.ui-pa__sum b{font-weight:600;color:var(--ink)}
+.ui-pa__panel{display:grid;gap:4px}
+.ui-pa__row{
+  position:relative;display:grid;
+  grid-template-columns:32px minmax(0,1fr) minmax(120px,36%) minmax(100px,auto);
+  align-items:center;column-gap:14px;
+  padding:14px 18px 14px 14px;border-radius:var(--radius-lg);
+  background:var(--panel);box-shadow:var(--card-shadow);
+  transition:opacity 320ms ease,background-color 500ms ease,box-shadow 300ms ease;
+  animation:pa-in 420ms var(--ease) calc(min(var(--i,0),12)*70ms) backwards;
+}
+.ui-pa__row[data-picked]{
+  background:var(--wash);
+  box-shadow:0 0 0 1px var(--done-edge),0 1px 2px rgba(0,0,0,.04);
+}
+.ui-pa__row[data-quiet]{opacity:.78}
+.ui-pa__row[data-quiet]:hover,.ui-pa__row[data-quiet]:focus-within{opacity:1}
+.ui-pa__icon{
+  display:grid;place-items:center;width:32px;height:32px;border-radius:9px;
+  background:var(--icon-bg);box-shadow:var(--card-shadow);
+}
+.pixel-mark{
+  display:grid;grid-template-columns:repeat(3,6px);grid-auto-rows:6px;gap:1px;
+}
+.pixel-mark i{width:6px;height:6px;border-radius:1.5px;background:var(--subtle)}
+.pixel-mark i[data-f="1"]{background:hsl(var(--pm-h,210) 65% 55%)}
+html[data-theme="dark"] .pixel-mark i[data-f="1"]{background:hsl(var(--pm-h,210) 80% 62%)}
+.ui-pa__row[data-status="running"] .pixel-mark i[data-f="1"]{
+  animation:pm-tw 1100ms ease-in-out infinite alternate;
+  animation-delay:var(--d,0ms);
+}
+.ui-pa__who{display:grid;min-width:0}
+.ui-pa__name{
+  display:flex;align-items:baseline;gap:6px;min-width:0;
+  font-weight:600;line-height:20px;color:var(--ink);white-space:nowrap;
+}
+.ui-pa__name-text{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.ui-pa__approach{
+  flex:0 100 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;
+  font-weight:400;color:var(--muted);
+}
+.ui-pa__approach::before{content:"·";margin-right:6px;color:var(--faint)}
+.ui-pa__line{
+  overflow:hidden;font-size:13px;line-height:19px;color:var(--muted);
+  white-space:nowrap;text-overflow:ellipsis;
+}
+.ui-pa__line.is-swap,.ui-pa__score.is-swap{animation:pa-fade 320ms ease both}
+.ui-pa__row[data-status="running"] .ui-pa__line{color:var(--running-ink)}
+.ui-pa__row[data-status="failed"] .ui-pa__line{color:var(--failed-ink)}
+.ui-pa__lane{position:relative;height:10px;border-radius:5px;background:var(--track);margin-left:6px}
+.ui-pa__fill{
+  position:absolute;top:0;bottom:0;left:0;width:calc(var(--p,0)*100%);
+  border-radius:5px;background:var(--k-bg);box-shadow:inset 0 0 0 1px var(--k-edge);
+  overflow:hidden;
+  transition:width 600ms var(--ease),background-color 400ms ease,box-shadow 400ms ease;
+}
+.ui-pa__row[data-status="running"] .ui-pa__fill::before{
+  content:"";position:absolute;top:0;bottom:0;left:0;width:60px;
+  background:linear-gradient(90deg,transparent,var(--shine),transparent);
+  opacity:.85;animation:pa-sweep 1500ms linear infinite;
+}
+.ui-pa__row[data-status="running"] .ui-pa__fill::after{
+  content:"";position:absolute;top:0;right:0;bottom:0;width:24px;
+  background:linear-gradient(90deg,transparent,var(--k-edge));
+  animation:pa-glow 1100ms ease-in-out infinite alternate;
+}
+.ui-pa__row[data-best] .ui-pa__fill{background:var(--best-bg);box-shadow:inset 0 0 0 1px var(--best-edge)}
+.ui-pa__end{display:grid;justify-items:end;min-width:0;text-align:right}
+.ui-pa__score{
+  display:inline-flex;align-items:center;gap:6px;
+  font-size:14px;font-weight:600;line-height:20px;color:var(--ink);
+  font-variant-numeric:tabular-nums;
+}
+.ui-pa__pct{font-weight:400;color:var(--muted)}
+.ui-pa__failed{font-weight:500;color:var(--failed-ink)}
+.ui-pa__best{
+  height:20px;padding:0 8px;border-radius:999px;
+  background:var(--done-bg);color:var(--done-ink);
+  font-size:12px;font-weight:500;line-height:20px;
+  animation:pa-pop 420ms var(--ease) both;
+}
+.ui-pa__meta-slot{position:relative;display:grid;justify-items:end;height:19px}
+.ui-pa__meta{
+  font-size:13px;line-height:19px;color:var(--muted);
+  font-variant-numeric:tabular-nums;white-space:nowrap;
+  transition:opacity 160ms ease;
+}
+.ui-pa__use{
+  position:absolute;top:-4px;right:-8px;
+  display:inline-flex;align-items:center;gap:4px;height:26px;padding:0 9px;
+  border-radius:999px;border:0;background:none;
+  font:inherit;font-size:13px;font-weight:500;color:var(--muted);white-space:nowrap;
+  opacity:0;cursor:pointer;
+  transition:opacity 160ms ease,background-color 160ms ease,color 160ms ease;
+}
+.ui-pa__row:hover .ui-pa__meta[data-hide],
+.ui-pa__row:focus-within .ui-pa__meta[data-hide],
+.ui-pa__row[data-picked] .ui-pa__meta[data-hide]{opacity:0}
+.ui-pa__row:hover .ui-pa__use,.ui-pa__use:focus-visible,.ui-pa__use[data-on]{opacity:1}
+.ui-pa__use:hover{background:var(--track);color:var(--ink)}
+.ui-pa__use[data-on]{color:var(--done-ink);cursor:default}
+.ui-pa__use[data-on]:hover{background:none}
+.ui-pa__use:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.ui-pa__use svg{width:12px;height:12px}
+.ui-pa [data-status="running"]{--k-bg:var(--running-bg);--k-edge:var(--running-edge);--k-ink:var(--running-ink)}
+.ui-pa [data-status="done"]{--k-bg:var(--done-bg);--k-edge:var(--done-edge);--k-ink:var(--done-ink)}
+.ui-pa [data-status="failed"]{--k-bg:var(--failed-bg);--k-edge:var(--failed-edge);--k-ink:var(--failed-ink)}
+@keyframes pa-in{from{opacity:0;transform:translateY(4px)}}
+@keyframes pa-fade{from{opacity:0}}
+@keyframes pa-pop{0%{opacity:0;transform:scale(.8)}60%{opacity:1;transform:scale(1.06)}100%{transform:scale(1)}}
+@keyframes pa-sweep{from{transform:translateX(-60px)}to{transform:translateX(900px)}}
+@keyframes pa-glow{from{opacity:.45}to{opacity:1}}
+@keyframes pm-tw{from{opacity:.45}to{opacity:1}}
+@media (max-width:560px){
+  .ui-pa__sum{flex-basis:100%;justify-content:space-between;margin-left:0}
+  .ui-pa__row{
+    grid-template-columns:32px minmax(0,1fr) minmax(88px,auto);
+    grid-template-areas:"icon who end" "lane lane lane";
+    row-gap:12px;column-gap:12px;padding:14px 16px 16px 14px;
+  }
+  .ui-pa__icon{grid-area:icon}
+  .ui-pa__who{grid-area:who}
+  .ui-pa__end{grid-area:end}
+  .ui-pa__row>.ui-pa__lane{grid-area:lane;margin-left:0}
+  .ui-pa__approach{display:none}
+  .ui-pa__line{
+    display:-webkit-box;min-height:38px;white-space:normal;
+    -webkit-box-orient:vertical;-webkit-line-clamp:2;
+  }
+}
+@media (hover:none){
+  .ui-pa__use{opacity:1}
+  .ui-pa__meta[data-hide]{opacity:0}
+}
+@media (prefers-reduced-motion:reduce){
+  .ui-pa *,.ui-pa *::before,.ui-pa *::after{animation:none!important;transition:none!important}
+}
+</style>
+</head>
+<body>
+<div class="demo-top">
+  <span class="crumb">affectUI &middot; parallel attempts</span>
+  <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Switch to dark theme">
+    <span class="sun" aria-hidden="true">&#9728;&#65039;</span><span class="moon" aria-hidden="true">&#9790;</span>
+    <span id="theme-label">Light</span>
+  </button>
+</div>
+<main class="demo-wrap">
+  <div class="ui-pa" id="pa">
+    <header class="ui-pa__bar">
+      <span class="ui-pa__mark" aria-hidden="true">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <rect x="1.5" y="2.5" width="9" height="2.4" rx="1.2" fill="currentColor"></rect>
+          <rect x="1.5" y="6.8" width="12" height="2.4" rx="1.2" fill="currentColor" opacity="0.55"></rect>
+          <rect x="1.5" y="11.1" width="6" height="2.4" rx="1.2" fill="currentColor" opacity="0.3"></rect>
+        </svg>
+      </span>
+      <span class="ui-pa__title" id="pa-title">Best of 3</span>
+      <span class="ui-pa__task" id="pa-task">Fix the flaky checkout test</span>
+      <span class="ui-pa__sum"><span><b id="pa-done">0</b> of <span id="pa-total">3</span> done</span><span><b id="pa-cost">$0.00</b></span></span>
+    </header>
+    <div class="ui-pa__panel" id="pa-panel" role="radiogroup" aria-labelledby="pa-title"></div>
+  </div>
+</main>
+<script>
+(function(){
+"use strict";
+/* Exact demo data + timings observed in the original compiled demo. */
+var TASK = "Fix the flaky checkout test";
+var LOOP_SECONDS = 15;
+var TOOK_SCALE = 17; /* finished "took" shown = ends * 17 * 1000 ms */
+var FAIL_PROGRESS = 0.62;
+var ATTEMPTS = [
+  { id:"a", name:"Opus 5.5", approach:"Add a retry with backoff", ends:9.2,
+    score:78, cost:0.31,
+    steps:[[0,"Reading checkout.spec.ts"],[2,"Writing the retry"],[4.4,"Running tests"]],
+    note:"20/20 runs green \u00B7 adds 1.4s per test" },
+  { id:"b", name:"GPT-6 Sol", approach:"Mock the payment API", ends:7.4,
+    score:94, cost:0.27,
+    steps:[[0,"Reading payment.ts"],[1.6,"Writing the mock"],[3.6,"Running tests"]],
+    note:"20/20 runs green \u00B7 suite 30% faster" },
+  { id:"c", name:"Gemini 3.8 Pro", approach:"Wait for the network to settle", ends:6.1, fails:6.1,
+    score:undefined, cost:0.18,
+    steps:[[0,"Reading checkout.spec.ts"],[1.8,"Adding the waits"],[3.4,"Running tests"]],
+    note:"Still flaky \u2013 3 of 20 runs failed" }
+];
+var STATUS_LABEL = { running:"Running", done:"Done", failed:"Failed" };
+
+/* ---- formatters (same behaviour as the original demo) ---- */
+function fmtCost(v){
+  if (v < 0) return "-" + fmtCost(-v);
+  if (v === 0) return "$0";
+  if (v < 0.001) return "<$0.001";
+  if (v < 0.01) return "$" + v.toFixed(3);
+  if (v < 100) return "$" + v.toFixed(2);
+  return "$" + Math.round(v).toLocaleString("en-US");
+}
+function pad2(n){ return String(n).padStart(2,"0"); }
+function fmtDur(ms){
+  if (ms < 1000) return Math.max(0, Math.round(ms)) + "ms";
+  if (ms < 10000) return (ms/1000).toFixed(1) + "s";
+  var t = Math.round(ms/1000);
+  if (t < 60) return t + "s";
+  var m = Math.floor(t/60);
+  if (m < 60) return m + "m " + pad2(t%60) + "s";
+  var h = Math.floor(m/60);
+  if (h < 24) return h + "h " + pad2(m%60) + "m";
+  return Math.floor(h/24) + "d " + (h%24) + "h";
+}
+function finiteNum(v){ return (v !== undefined && Number.isFinite(v)) ? v : undefined; }
+
+/* ---- deterministic 3x3 pixel-mark per agent id ---- */
+function hashId(s){
+  var h = 2166136261;
+  for (var i=0;i<s.length;i++){ h ^= s.charCodeAt(i); h = Math.imul(h,16777619); }
+  return h >>> 0;
+}
+function pixelMark(id){
+  var h = hashId("pa-"+id);
+  var hue = h % 360;
+  var bits = (h >>> 8) | 0x10; /* bit 4 (centre) always on */
+  var host = document.createElement("span");
+  host.className = "pixel-mark";
+  host.setAttribute("aria-hidden","true");
+  host.style.setProperty("--pm-h", String(hue));
+  for (var k=0;k<9;k++){
+    var cell = document.createElement("i");
+    if ((bits >> k) & 1) cell.setAttribute("data-f","1");
+    cell.style.setProperty("--d", String((k%3)*180 + Math.floor(k/3)*120) + "ms");
+    host.appendChild(cell);
+  }
+  return host;
+}
+
+/* ---- derive per-tick view model for one attempt ---- */
+function viewFor(a, t){
+  if (t < a.ends){
+    var step = a.steps[0][1];
+    for (var i=0;i<a.steps.length;i++){ if (t >= a.steps[i][0]) step = a.steps[i][1]; }
+    var last = a.steps[a.steps.length-1][0];
+    if (step === "Running tests"){
+      var k = Math.min(20, Math.max(1, Math.floor((t-last)/(a.ends-last)*20)+1));
+      step = "Running tests " + k + "/20";
+    }
+    var denom = a.fails ? a.ends/FAIL_PROGRESS : a.ends;
+    var p = Math.max(0.03, Math.min(1, t/denom));
+    return { status:"running", progress:p, line:step, cost:a.cost*(t/a.ends) };
+  }
+  if (a.fails){
+    return { status:"failed", progress:FAIL_PROGRESS, line:a.note,
+             took:a.ends*TOOK_SCALE*1000, cost:a.cost };
+  }
+  return { status:"done", progress:1, line:a.note, score:a.score,
+           took:a.ends*TOOK_SCALE*1000, cost:a.cost };
+}
+
+function el(tag, cls, text){
+  var n = document.createElement(tag);
+  if (cls) n.className = cls;
+  if (text !== undefined && text !== null) n.textContent = text;
+  return n;
+}
+function replayAnim(node){
+  /* restart the fade swap animation without rebuilding any DOM */
+  try{
+    node.classList.remove("is-swap");
+    void node.offsetWidth;
+    node.classList.add("is-swap");
+  }catch(e){ /* non-visual hosts */
+    node.classList.add("is-swap");
+  }
+}
+
+var panel = document.getElementById("pa-panel");
+var doneEl = document.getElementById("pa-done");
+var totalEl = document.getElementById("pa-total");
+var costEl = document.getElementById("pa-cost");
+totalEl.textContent = String(ATTEMPTS.length);
+document.getElementById("pa-title").textContent = "Best of " + ATTEMPTS.length;
+
+/* Build the three rows ONCE. Ticks only patch text/attributes in place,
+   so a real mouse click can never be lost across a rebuild. */
+var rows = ATTEMPTS.map(function(a, idx){
+  var row = el("div","ui-pa__row");
+  row.setAttribute("data-status","running");
+  row.style.setProperty("--i", String(idx));
+  row.style.setProperty("--p", "0.03");
+
+  var icon = el("span","ui-pa__icon");
+  icon.appendChild(pixelMark(a.id));
+  row.appendChild(icon);
+
+  var who = el("div","ui-pa__who");
+  var name = el("span","ui-pa__name");
+  name.title = [a.name, a.approach].filter(Boolean).join(" \u00B7 ");
+  var nameText = el("span","ui-pa__name-text", a.name);
+  name.appendChild(nameText);
+  if (a.approach){
+    var ap = el("span","ui-pa__approach", a.approach);
+    ap.setAttribute("dir","auto");
+    name.appendChild(ap);
+  }
+  who.appendChild(name);
+  var line = el("span","ui-pa__line", a.steps[0][1]);
+  line.setAttribute("dir","auto");
+  line.title = a.steps[0][1];
+  who.appendChild(line);
+  row.appendChild(who);
+
+  var lane = el("div","ui-pa__lane");
+  lane.setAttribute("aria-hidden","true");
+  var fill = el("span","ui-pa__fill");
+  lane.appendChild(fill);
+  row.appendChild(lane);
+
+  var end = el("div","ui-pa__end");
+  var score = el("span","ui-pa__score");
+  var pct = el("span","ui-pa__pct","3%");
+  score.appendChild(pct);
+  end.appendChild(score);
+  var slot = el("span","ui-pa__meta-slot");
+  var meta = el("span","ui-pa__meta","$0.00");
+  slot.appendChild(meta);
+  var use = document.createElement("button");
+  use.type = "button";
+  use.className = "ui-pa__use";
+  use.setAttribute("role","radio");
+  use.setAttribute("aria-checked","false");
+  use.hidden = true;
+  use.textContent = "Use this one";
+  slot.appendChild(use);
+  end.appendChild(slot);
+  row.appendChild(end);
+
+  panel.appendChild(row);
+  return { def:a, row:row, line:line, fill:fill, score:score, meta:meta, use:use,
+           last:{ status:"", line:"", score:"", meta:"", best:false, picked:false, quiet:false } };
+});
+
+var pickedId = null;   /* persists across loop restarts, like the original */
+var startWall = Date.now();
+var elapsed = 0;
+
+function bestDone(views){
+  var best = null;
+  for (var i=0;i<views.length;i++){
+    if (views[i].status !== "done") continue;
+    var s = finiteNum(views[i].score);
+    var bs = best === null ? undefined : finiteNum(best.score);
+    if (best === null || (s !== undefined ? s : 0) > (bs !== undefined ? bs : 0)) best = views[i];
+  }
+  return best;
+}
+
+function setScoreContent(r, v, isBest){
+  var key;
+  if (v.status === "running") key = "run:" + Math.round(v.progress*100);
+  else if (v.status === "failed") key = "fail";
+  else key = "done:" + (isBest ? "best:" : "") + (finiteNum(v.score) === undefined ? "na" : Math.round(v.score));
+  if (r.last.score === key) return;
+  r.last.score = key;
+  while (r.score.firstChild) r.score.removeChild(r.score.firstChild);
+  if (v.status === "running"){
+    var pct = el("span","ui-pa__pct", Math.round(v.progress*100) + "%");
+    r.score.appendChild(pct);
+  } else if (v.status === "failed"){
+    r.score.appendChild(el("span","ui-pa__failed","Failed"));
+  } else {
+    if (isBest) r.score.appendChild(el("span","ui-pa__best","Best"));
+    var s = finiteNum(v.score);
+    r.score.appendChild(document.createTextNode(s === undefined ? STATUS_LABEL.done : String(Math.round(s))));
+  }
+  replayAnim(r.score);
+}
+
+function tick(){
+  var views = ATTEMPTS.map(function(a){ var v = viewFor(a, elapsed); v.def = a; return v; });
+  var settled = views.filter(function(v){ return v.status !== "running"; }).length;
+  var complete = settled === views.length && views.length > 0;
+  var best = complete ? bestDone(views) : null;
+  var activeId = pickedId !== null ? pickedId : (complete && best ? best.def.id : null);
+  var total = 0;
+
+  rows.forEach(function(r, i){
+    var v = views[i];
+    total += finiteNum(v.cost) || 0;
+    var isBest = complete && best !== null && r.def.id === best.def.id;
+    var isPicked = r.def.id === activeId;
+    var isQuiet = !!(complete && activeId && !isPicked);
+
+    if (r.last.status !== v.status){
+      r.last.status = v.status;
+      r.row.setAttribute("data-status", v.status);
+    }
+    if (r.last.best !== isBest){
+      r.last.best = isBest;
+      if (isBest) r.row.setAttribute("data-best",""); else r.row.removeAttribute("data-best");
+    }
+    if (r.last.picked !== isPicked){
+      r.last.picked = isPicked;
+      if (isPicked) r.row.setAttribute("data-picked",""); else r.row.removeAttribute("data-picked");
+    }
+    if (r.last.quiet !== isQuiet){
+      r.last.quiet = isQuiet;
+      if (isQuiet) r.row.setAttribute("data-quiet",""); else r.row.removeAttribute("data-quiet");
+    }
+    r.row.style.setProperty("--p", String(v.progress));
+
+    if (r.last.line !== v.line){
+      r.last.line = v.line;
+      r.line.textContent = v.line;
+      r.line.title = v.line;
+      replayAnim(r.line);
+    }
+    setScoreContent(r, Object.assign({ def:r.def }, v), isBest);
+
+    var parts = [];
+    if (finiteNum(v.took) !== undefined) parts.push(fmtDur(v.took));
+    if (finiteNum(v.cost) !== undefined) parts.push(fmtCost(v.cost));
+    var metaText = parts.join(" \u00B7 ");
+    if (r.last.meta !== metaText){
+      r.last.meta = metaText;
+      r.meta.textContent = metaText;
+    }
+    var showUse = (v.status === "done" && complete);
+    if (r.use.hidden === showUse) r.use.hidden = !showUse;
+    if (showUse){
+      var hideMeta = isPicked || complete;
+      if (hideMeta) r.meta.setAttribute("data-hide",""); else r.meta.removeAttribute("data-hide");
+      var label = isPicked
+        ? "Using " + r.def.name
+        : "Use " + r.def.name;
+      var sc = finiteNum(v.score);
+      if (sc !== undefined) label += ", score " + Math.round(sc);
+      if (r.use.getAttribute("aria-label") !== label) r.use.setAttribute("aria-label", label);
+      var checked = isPicked ? "true" : "false";
+      if (r.use.getAttribute("aria-checked") !== checked) r.use.setAttribute("aria-checked", checked);
+      var useKey = isPicked ? "on" : "off";
+      if (r.last.useKey !== useKey){
+        r.last.useKey = useKey;
+        while (r.use.firstChild) r.use.removeChild(r.use.firstChild);
+        if (isPicked){
+          r.use.setAttribute("data-on","");
+          var svgNS = "http://www.w3.org/2000/svg";
+          var svg = document.createElementNS(svgNS,"svg");
+          svg.setAttribute("width","12"); svg.setAttribute("height","12");
+          svg.setAttribute("viewBox","0 0 24 24"); svg.setAttribute("fill","none");
+          svg.setAttribute("aria-hidden","true");
+          var path = document.createElementNS(svgNS,"path");
+          path.setAttribute("d","M5 14L8.5 17.5L19 6.5");
+          path.setAttribute("stroke","currentColor");
+          path.setAttribute("stroke-linecap","round");
+          path.setAttribute("stroke-linejoin","round");
+          path.setAttribute("stroke-width","2.4");
+          svg.appendChild(path);
+          r.use.appendChild(svg);
+          r.use.appendChild(document.createTextNode("In use"));
+        } else {
+          r.use.removeAttribute("data-on");
+          r.use.appendChild(document.createTextNode("Use this one"));
+        }
+      }
+    } else {
+      r.meta.removeAttribute("data-hide");
+    }
+  });
+
+  var doneText = String(settled);
+  if (doneEl.textContent !== doneText) doneEl.textContent = doneText;
+  var costText = fmtCost(total);
+  if (costEl.textContent !== costText) costEl.textContent = costText;
+}
+
+function choose(id){
+  if (pickedId !== id){ pickedId = id; tick(); }
+}
+
+/* Delegated pick handlers on the persistent panel: pointerdown (capture)
+   fires before any click, so selection can never be lost across updates. */
+panel.addEventListener("pointerdown", function(ev){
+  var t = ev.target && ev.target.closest ? ev.target.closest(".ui-pa__use") : null;
+  if (t && !t.hidden){
+    var r = rows.filter(function(x){ return x.use === t; })[0];
+    if (r) choose(r.def.id);
+  }
+}, true);
+panel.addEventListener("click", function(ev){
+  var t = ev.target && ev.target.closest ? ev.target.closest(".ui-pa__use") : null;
+  if (t && !t.hidden){
+    var r = rows.filter(function(x){ return x.use === t; })[0];
+    if (r) choose(r.def.id);
+  }
+});
+/* Arrow-key navigation across the radio options once they exist. */
+panel.addEventListener("keydown", function(ev){
+  if (ev.key !== "ArrowDown" && ev.key !== "ArrowUp" &&
+      ev.key !== "Home" && ev.key !== "End") return;
+  var opts = rows.filter(function(x){ return !x.use.hidden; }).map(function(x){ return x.use; });
+  if (!opts.length) return;
+  ev.preventDefault();
+  var at = opts.indexOf(document.activeElement);
+  var next;
+  if (ev.key === "Home") next = 0;
+  else if (ev.key === "End") next = opts.length - 1;
+  else if (ev.key === "ArrowDown") next = (at + 1 + opts.length) % opts.length;
+  else next = (at - 1 + opts.length) % opts.length;
+  if (opts[next] && opts[next].focus) opts[next].focus();
+});
+
+/* ---- theme toggle ---- */
+var toggle = document.getElementById("theme-toggle");
+var themeLabel = document.getElementById("theme-label");
+function paintToggle(){
+  var dark = document.documentElement.getAttribute("data-theme") === "dark";
+  themeLabel.textContent = dark ? "Dark" : "Light";
+  toggle.setAttribute("aria-label", dark ? "Switch to light theme" : "Switch to dark theme");
+}
+function setTheme(mode){
+  document.documentElement.setAttribute("data-theme", mode);
+  try{ localStorage.setItem("pa-theme", mode); }catch(e){}
+  paintToggle();
+}
+(function initTheme(){
+  var saved = null;
+  try{ saved = localStorage.getItem("pa-theme"); }catch(e){}
+  if (saved === "light" || saved === "dark"){ setTheme(saved); return; }
+  var mq = null;
+  try{ mq = window.matchMedia("(prefers-color-scheme: dark)"); }catch(e){}
+  setTheme(mq && mq.matches ? "dark" : "light");
+})();
+toggle.addEventListener("click", function(){
+  setTheme(document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark");
+});
+
+/* ---- main loop: 100ms tick, 15s loop (mirrors the original demo) ---- */
+tick();
+var timer = setInterval(function(){
+  elapsed = (Date.now() - startWall)/1000;
+  if (elapsed > LOOP_SECONDS){ startWall = Date.now(); elapsed = 0; }
+  tick();
+}, 100);
+
+/* hooks exposed for the headless verification harness */
+window.__pa = {
+  tick: tick,
+  choose: choose,
+  state: function(){
+    return { elapsed: elapsed, pickedId: pickedId,
+             done: doneEl.textContent, cost: costEl.textContent };
+  },
+  advance: function(seconds){ elapsed = seconds; tick(); },
+  restart: function(){ startWall = Date.now(); elapsed = 0; tick(); }
+};
+})();
+</script>
+</body>
+</html>
