@@ -139,10 +139,31 @@ pass. Three new failures, all reproduced from `demo-original.js` behaviour:
    uses the identical formula, so it was left unchanged (asserted in-harness
    via the denominator check).
 
+## Visual QA fixes round 3 (2026-11-25 — "Shippec" right-edge clip)
+One remaining defect after round 2: the You-lane LAST card read "Shippec" —
+the final "d" of "Shipped" fell ~1 char past the panel's right edge in both
+themes / all frames. Remaining geometry error: `applyFit()` fitted
+`layout.width` (992 px) against the scrollport's raw `clientWidth`, ignoring
+the `.hs-scroll` 18 px side padding. The canvas origin sits 18 px inside the
+scrollport border box, so `fit = client / layout.width` always left the canvas
+right edge (and the end pill, whose right edge was flush with the node at
+`layout.width - 6`) ~18 px past the visible edge — minus the 6 px node margin,
+~12 px of the pill clipped. Fix in `index.html`:
+- `availWidth()` now returns `clientWidth - 36 (scroll padding) - 8 (safety)`,
+  i.e. the panel content width minus an inset, so the fitted canvas keeps
+  ~26 px clearance on the right; fallback path is `window.innerWidth - 38 -
+  44` for the same reason. `fitFor` / 0.4 floor unchanged.
+- End pill changed from `right: 0` to `right: 8px`, so its (padding/border
+  included) box sits 8 px inside the node box — 14 px inside the canvas edge
+  even before the fit margin.
+No regressing changes: start label still `left: 0` (fully visible), running
+marks still `inline-grid` with the 2-line clamp, 7 frames / holds / 420 ms
+reset, Approve→5 / Reject→0, counter still `0 of 6`…`6 of 6` untouched.
+
 ## Verification
 - `node --check` on the extracted page script: pass.
 - `node harness.mjs` (kept in this directory; uses `verify/node_modules`
-  linkedom + a timer mock): **108 assertions, ALL GREEN** — boot state, exact
+  linkedom + a timer mock): **113 assertions, ALL GREEN** — boot state, exact
   holds incl. 420 ms fade reset, frame-by-frame statuses, 9-cell marks,
   pointerdown-open/click-survive dialog, Approve/Reject jumps, Esc + outside
   close, lane stats, 8 edges + dots, live-edge states, pause/restart, both
@@ -154,7 +175,10 @@ pass. Three new failures, all reproduced from `demo-original.js` behaviour:
   hidden (non-scrolling) scroll wrapper, inward-anchored start/end labels
   with in-canvas geometry, zoom shrink-to-fit at narrow widths, running cards
   keeping the inline mark + full two-line titles, and the 0-of-6 counter
-  formula matching the original.
+  formula matching the original, plus the round-3 block: end-pill right inset
+  ≥ 4px parsed from CSS and a fitted-scale check
+  18 (scroll pad) + fit × (endNode.x + endNode.w − inset) ≤ client − 4
+  at 1920/1024/700/500 px viewports.
 - Could not verify: pixel-perfect match to the proprietary rendered demo
   (no screenshot available); animation smoothness is CSS-driven and was
   asserted via state/attribute changes, not raster frames.

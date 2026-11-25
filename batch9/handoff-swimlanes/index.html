@@ -288,7 +288,7 @@ html[data-theme="dark"] .hs-node[data-status="done"] .hs-glyph { color: var(--la
    pill runs past the right edge. Anchor them inward instead so both edges
    stay inside the canvas. */
 .hs-node[data-kind="start"] .hs-event-label { left: 0; transform: none; }
-.hs-node[data-kind="end"] .hs-event-label { left: auto; right: 0; transform: none; }
+.hs-node[data-kind="end"] .hs-event-label { left: auto; right: 8px; transform: none; }
 
 /* ---- narrow: stacked list ---- */
 .hs-list { display: grid; gap: 8px; }
@@ -691,9 +691,15 @@ var nodeEls = {}, edgeEls = [], dotEls = {};
    always fully visible instead of clipping past the scrollport edges. */
 function availWidth() {
   var sc = document.getElementById("hsScroll");
-  var w = sc ? sc.clientWidth : 0;
-  if (!w && typeof window !== "undefined" && window.innerWidth) w = window.innerWidth - 38;
-  return w || 0;
+  var client = sc ? sc.clientWidth : 0;
+  if (!client && typeof window !== "undefined" && window.innerWidth) client = window.innerWidth - 38;
+  if (!client) return 0;
+  /* Canvas sits inside .hs-scroll's 18px side padding, so its left edge is
+     ~18px inside the scrollport's border box; fitting against the raw
+     clientWidth therefore leaves ~18px hanging past the right edge (the
+     ~1-char "Shippec" clip). Fit against the content width minus a safety
+     inset so the end pill keeps >=8px clearance. */
+  return client - 36 - 8;
 }
 function fitFor(avail) {
   if (!avail || avail <= 0) return 1;
@@ -1219,7 +1225,7 @@ if (typeof window !== "undefined") {
     state: state, LANES: LANES, TASKS: TASKS, FRAMES: FRAMES, HOLDS: HOLDS,
     DURATIONS: DURATIONS, LANE_COLORS: LANE_COLORS,
     layout: layout, LABEL_W: LABEL_W, NODE_W: NODE_W,
-    fitFor: fitFor, applyFit: applyFit,
+    fitFor: fitFor, applyFit: applyFit, availWidth: availWidth,
     canvasEl: function () { return canvas; },
     scrollEl: function () { return document.getElementById("hsScroll"); },
     nodeEls: function () { return nodeEls; },
