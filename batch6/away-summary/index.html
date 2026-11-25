@@ -1,0 +1,1005 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>away-summary · While you were away</title>
+<style>
+/* ============ design tokens (spec v3) ============ */
+:root,
+html[data-theme="light"] {
+  --surface: #ffffff;
+  --page: #fafaf9;
+  --ink: #171717;
+  --ink-soft: #1c1917;
+  --muted: #78716c;
+  --subtle: #f5f5f4;
+  --border: #e7e5e4;
+  --fill: #ebebeb;
+  --hover: #f5f5f4;
+  --focus: rgba(0, 96, 226, 0.7);
+  --waiting: #f59e0b;
+  --waiting-bg: #fef3c7;
+  --waiting-text: #92400e;
+  --working: #0190fe;
+  --failed: #f04438;
+  --radius-lg: 16px;
+  --radius: 10px;
+  --radius-sm: 6px;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 4px 16px rgba(0, 0, 0, 0.05);
+  --card-shadow: 0 0 0 1px var(--border), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --ease: cubic-bezier(0.32, 0.72, 0.24, 1);
+}
+html[data-theme="dark"] {
+  --surface: #1c1c1f;
+  --page: #101012;
+  --ink: #ededed;
+  --ink-soft: #ededed;
+  --muted: #a1a1aa;
+  --subtle: #26262a;
+  --border: #2e2e33;
+  --fill: #2c2c30;
+  --hover: #28282b;
+  --focus: rgba(77, 141, 255, 0.8);
+  --waiting: #fbbf24;
+  --waiting-bg: #451a03;
+  --waiting-text: #fde68a;
+  --working: #4fb0fe;
+  --failed: #ff6b5f;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 16px rgba(0, 0, 0, 0.4);
+  --card-shadow: 0 0 0 1px var(--border), 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+/* ============ page chrome ============ */
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--page);
+  color: var(--ink-soft);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px;
+  line-height: 20px;
+  -webkit-font-smoothing: antialiased;
+}
+.page-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 620px;
+  margin: 0 auto;
+  padding: 14px 16px 4px;
+}
+.page-bar__title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.page-bar__tools { display: flex; gap: 8px; flex: none; }
+.chip-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  transition: background-color 150ms ease, transform 150ms ease;
+}
+.chip-btn:hover { background: var(--hover); }
+.chip-btn:active { transform: scale(0.97); }
+.chip-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.thread {
+  max-width: 620px;
+  margin: 0 auto;
+  padding: 8px 16px 40px;
+  display: grid;
+  gap: 10px;
+}
+.msg {
+  margin: 0;
+  max-width: 46ch;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  font-size: 14px;
+}
+.msg--user { justify-self: start; }
+.msg--agent {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  justify-self: stretch;
+  margin: 0;
+}
+.msg--agent p { margin: 2px 0 0; }
+/* deterministic 3x3 pixel-mark identity (exactly 9 cells) */
+.pixel-mark {
+  flex: none;
+  display: grid;
+  grid-template-columns: repeat(3, 5px);
+  grid-template-rows: repeat(3, 5px);
+  gap: 2px;
+  padding: 5px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--subtle);
+  margin-top: 1px;
+}
+.pixel-mark i {
+  display: block;
+  width: 5px;
+  height: 5px;
+  border-radius: 1.5px;
+  background: var(--working);
+}
+.pixel-mark i.off { opacity: 0.25; }
+.composer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 8px 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 13px;
+  box-shadow: var(--shadow);
+}
+.composer__send {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin-left: auto;
+  border-radius: 50%;
+  background: var(--subtle);
+  color: var(--ink-soft);
+}
+/* ============ away-summary card (clean-room replica) ============ */
+.aw {
+  position: relative;
+  width: 100%;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--muted);
+  container: aw / inline-size;
+}
+.aw button {
+  margin: 0; padding: 0; border: 0; background: none;
+  font: inherit; color: inherit; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.aw button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.aw :is(p, h3, ul) { margin: 0; }
+.aw ul { padding: 0; list-style: none; }
+.aw svg { display: block; flex: none; }
+.aw__sr {
+  position: absolute; width: 1px; height: 1px;
+  overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+}
+/* expand/collapse folds */
+.aw__fold {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows 320ms var(--ease), opacity 220ms ease;
+}
+.aw__fold[data-open] { grid-template-rows: 1fr; opacity: 1; }
+.aw__fold-in { min-height: 0; overflow: hidden; }
+.aw__fold[data-settled] > .aw__fold-in { overflow: visible; }
+/* collapsed divider pill */
+.aw__divider { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.aw__rule { flex: 1 1 0; min-width: 8px; height: 1px; background: var(--border); }
+.aw__divider-btn {
+  display: inline-flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  height: 28px;
+  padding-inline: 10px 8px;
+  border-radius: 14px;
+  background: var(--subtle);
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--muted);
+  transition: background-color 140ms ease, color 140ms ease;
+}
+.aw__divider-btn:hover { background: var(--fill); color: var(--ink); }
+.aw__divider-btn:focus-visible { outline-offset: -2px; }
+.aw__divider-btn > svg { color: var(--muted); opacity: 0.7; }
+.aw__divider-text {
+  min-width: 0; overflow: hidden;
+  white-space: nowrap; text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+/* expanded card */
+.aw__card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  padding: 4px;
+  border-radius: var(--radius-lg);
+  background: var(--subtle);
+}
+.aw__head {
+  display: flex; flex-wrap: wrap; align-items: baseline;
+  column-gap: 12px; row-gap: 2px;
+  min-width: 0; padding: 6px 10px 8px;
+}
+.aw__title {
+  flex: 1 1 auto; min-width: 0; overflow: hidden;
+  font-size: 13px; font-weight: 500; line-height: 20px;
+  color: var(--ink);
+  white-space: nowrap; text-overflow: ellipsis;
+}
+.aw__when { font-weight: 400; color: var(--muted); font-variant-numeric: tabular-nums; }
+.aw__counts {
+  display: flex; flex: none; flex-wrap: wrap; align-items: center;
+  column-gap: 6px;
+  font-size: 12px; line-height: 16px; color: var(--muted);
+  white-space: nowrap; font-variant-numeric: tabular-nums;
+}
+.aw__count { display: inline-flex; align-items: center; gap: 6px; }
+.aw__sep { opacity: 0.55; }
+.aw__dot { flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--muted); }
+.aw__dot[data-kind="needs-you"] { background: var(--waiting); }
+.aw__dot[data-kind="failed"] { background: var(--failed); }
+.aw__dot[data-kind="done"] { background: var(--working); }
+.aw__n { display: inline-block; animation: aw-tick 320ms var(--ease) both; }
+/* rows */
+.aw__rows {
+  border-radius: calc(var(--radius-lg) - 4px);
+  background: var(--surface);
+  box-shadow: var(--card-shadow);
+  padding: 4px;
+}
+.aw__empty { padding: 14px; font-size: 12px; line-height: 16px; color: var(--muted); }
+.aw__list { display: grid; grid-template-columns: minmax(0, 1fr); }
+.aw__extra {
+  display: grid; grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: 0fr; opacity: 0;
+  transition: grid-template-rows 380ms var(--ease), opacity 260ms ease;
+}
+.aw__extra[data-open] { grid-template-rows: 1fr; opacity: 1; }
+.aw__extra-in { min-height: 0; overflow: hidden; }
+.aw__row {
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 10px;
+  min-height: 48px;
+  padding: 4px 8px 4px 10px;
+  border-radius: calc(var(--radius-sm) + 1px);
+  transition: background-color 140ms ease;
+}
+.aw__row:hover { background: var(--hover); }
+.aw__row[data-in] { animation: aw-in 300ms var(--ease) both; }
+.aw__mark {
+  position: relative; display: grid; place-items: center;
+  width: 14px; height: 14px; align-self: start; margin-top: 9px;
+}
+.aw__row:not([data-detail]) .aw__mark { align-self: center; margin-top: 0; }
+.aw__mark[data-pop] { animation: aw-pop 360ms var(--ease) both; }
+.aw__mark[data-pop] .aw__tick { stroke-dasharray: 1; animation: aw-draw 360ms 120ms ease-out both; }
+.aw__halo { transform-origin: 7px 7px; opacity: 0; animation: aw-breathe 2400ms ease-out infinite; }
+.aw__text { display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; text-align: left; }
+.aw__name, .aw__detail {
+  min-width: 0; overflow: hidden;
+  white-space: nowrap; text-overflow: ellipsis;
+}
+.aw__name { font-size: 13px; font-weight: 500; line-height: 20px; color: var(--ink); }
+.aw__detail { font-size: 12px; line-height: 16px; color: var(--muted); }
+.aw__detail[data-pop] { animation: aw-fade 320ms ease both; }
+.aw__act {
+  position: relative;
+  display: inline-grid; place-items: center;
+  min-width: 56px; max-width: max(64px, 42cqi);
+  height: 26px; padding: 0 10px;
+  border-radius: calc(var(--radius-sm) - 1px);
+  font-size: 12px; font-weight: 500; line-height: 16px;
+  color: var(--muted); white-space: nowrap;
+  transition: background-color 140ms ease, color 140ms ease, box-shadow 140ms ease;
+}
+.aw__act:hover { background: var(--fill); color: var(--ink); }
+.aw__act[data-kind="needs-you"] { background: var(--surface); box-shadow: var(--card-shadow); color: var(--ink); }
+.aw__act[data-kind="needs-you"]:hover { background: var(--hover); }
+.aw__act-label { min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.aw__act:active:not([aria-disabled]) { transform: scale(0.97); }
+.aw__act[aria-disabled] { cursor: default; }
+.aw__act[aria-busy] .aw__act-label { opacity: 0; }
+.aw__spin {
+  position: absolute; width: 12px; height: 12px; border-radius: 50%;
+  border: 1.5px solid var(--fill); border-top-color: var(--muted);
+  animation: aw-spin 700ms linear infinite;
+}
+/* footer */
+.aw__foot { display: flex; align-items: center; gap: 4px; padding: 4px 2px 0; }
+.aw__more, .aw__done-btn {
+  display: inline-flex; align-items: center; gap: 4px;
+  height: 28px; padding: 0 8px;
+  border-radius: calc(var(--radius-sm) - 1px);
+  font-size: 12px; font-weight: 500; line-height: 16px;
+  color: var(--muted); white-space: nowrap;
+  transition: background-color 140ms ease, color 140ms ease;
+}
+.aw__done-btn { gap: 6px; margin-inline-start: auto; padding-inline: 8px 10px; }
+.aw__more > svg { color: var(--muted); opacity: 0.7; transition: transform 200ms var(--ease); }
+.aw__more[aria-expanded="true"] > svg { transform: rotate(180deg); }
+.aw__more:hover, .aw__done-btn:hover { background: var(--fill); color: var(--ink); }
+/* keyframes (same set as original) */
+@keyframes aw-tick { from { opacity: 0; transform: translateY(4px); } }
+@keyframes aw-in { from { opacity: 0; transform: translateY(-4px); } }
+@keyframes aw-fade { from { opacity: 0; } }
+@keyframes aw-pop { from { opacity: 0; transform: scale(0.4); } 60% { transform: scale(1.12); } }
+@keyframes aw-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+@keyframes aw-breathe { 0% { opacity: 0.35; transform: scale(1); } 70%, 100% { opacity: 0; transform: scale(1.6); } }
+@keyframes aw-spin { to { transform: rotate(360deg); } }
+/* responsive: narrow stacks */
+@container aw (max-width: 460px) {
+  .aw__head { flex-direction: column; align-items: stretch; padding: 6px 8px 8px; }
+  .aw__title { flex: none; }
+  .aw__row { padding-inline: 8px 6px; }
+}
+@media (max-width: 480px) {
+  .aw__head { flex-direction: column; align-items: stretch; padding: 6px 8px 8px; }
+  .aw__title { flex: none; }
+}
+@media (pointer: coarse) {
+  .aw__act { height: 36px; min-width: 64px; }
+  .aw__row { min-height: 52px; }
+  .aw__more, .aw__done-btn, .aw__divider-btn { height: 36px; }
+  .aw__divider-btn { border-radius: 18px; }
+  .aw__mark { margin-top: 11px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .aw *, .page-bar * { animation: none !important; transition: none !important; }
+  .aw__halo { opacity: 0; }
+}
+html[data-motion="reduced"] .aw *, html[data-motion="reduced"] .page-bar * {
+  animation: none !important; transition: none !important;
+}
+</style>
+</head>
+<body>
+<header class="page-bar">
+  <span class="page-bar__title">away-summary · while-you-were-away</span>
+  <div class="page-bar__tools">
+    <button class="chip-btn" id="replayBtn" type="button" title="Restart the live demo loop">Replay</button>
+    <button class="chip-btn" id="themeBtn" type="button" aria-label="Switch to dark theme" title="Toggle light / dark theme">
+      <svg id="themeIconMoon" width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 13.5A8 8 0 0 1 10.5 4 6.5 6.5 0 1 0 20 13.5Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <svg id="themeIconSun" width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true" style="display:none"><circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="1.8"/><path d="M12 2.5v2.4M12 19.1v2.4M2.5 12h2.4M19.1 12h2.4M5 5l1.7 1.7M17.3 17.3 19 19M19 5l-1.7 1.7M6.7 17.3 5 19" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      <span id="themeLabel">Dark</span>
+    </button>
+  </div>
+</header>
+
+<main class="thread">
+  <p class="msg msg--user">Get ingest onto staging today – ping me if you need anything.</p>
+  <div class="msg msg--agent">
+    <span class="pixel-mark" role="img" aria-label="Agent avatar: 3 by 3 pixel mark"><i></i><i class="off"></i><i></i><i class="off"></i><i></i><i class="off"></i><i></i><i class="off"></i><i></i></span>
+    <p>On it. I’ll split it into tasks and keep going while you’re out.</p>
+  </div>
+
+  <section id="awayRoot" aria-label="While you were away"></section>
+
+  <div class="composer" aria-hidden="true">
+    <span>Reply to the agent…</span>
+    <span class="composer__send"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 19V5M12 5L6 11M12 5L18 11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+  </div>
+</main>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ===== exact demo data extracted from demo-original.js (re-typed, not copied) ===== */
+  var LABELS = {
+    title: 'While you were away',
+    done: function (n) { return n + ' done'; },
+    needsYou: function (n) { return n + ' need' + (n === 1 ? 's' : '') + ' you'; },
+    failed: function (n) { return n + ' failed'; },
+    action: { 'needs-you': 'Decide', done: 'Open', failed: 'Retry' },
+    showMore: function (n) { return 'Show ' + n + ' more'; },
+    showLess: 'Show less',
+    gotIt: 'Got it',
+    collapsed: function (since, total) {
+      return 'You were away ' + since + ' · ' + total + ' update' + (total === 1 ? '' : 's');
+    },
+    empty: 'Nothing happened while you were away'
+  };
+
+  var ITEMS = [
+    { id: 'ingest',  title: 'Ingest pipeline', kind: 'needs-you', detail: 'Waiting on: Which queue – Kafka or SQS?' },
+    { id: 'weekly',  title: 'Weekly report',   kind: 'needs-you', detail: 'Waiting on: Send it to Dana or the whole team?' },
+    { id: 'billing', title: 'Billing sync',    kind: 'failed',    detail: 'Failed: rate limit on Stripe after 1,284 invoices' },
+    { id: 'auth',    title: 'Auth refactor',   kind: 'done',      detail: 'Opened PR #482 · on staging' },
+    { id: 'usage',   title: 'Usage page',      kind: 'done',      detail: 'Shipped to Northwind' },
+    { id: 'docs',    title: 'Evalkit docs',    kind: 'done',      detail: 'Published 14 pages' },
+    { id: 'load',    title: 'Load test',       kind: 'done',      detail: 'Passed at 20k events a minute' },
+    { id: 'flaky',   title: 'Flaky tests',     kind: 'done',      detail: 'Quarantined 3 tests in checkout' }
+  ];
+
+  var RESOLVED = {
+    ingest:  { kind: 'done', detail: 'Answered: Kafka · deploying to staging' },
+    weekly:  { kind: 'done', detail: 'Answered: the whole team · sent' },
+    billing: { kind: 'done', detail: 'Retried · synced all 3,900 invoices' }
+  };
+
+  /* exact demo timings (seconds) from demo-original.js: v={ingest:3,billing:6,weekly:9}, y=11.5, b=13.8, x=17 */
+  var AUTO_AT = { ingest: 3, billing: 6, weekly: 9 };
+  var COLLAPSE_AT = 11.5;
+  var EXPAND_AT = 13.8;
+  var LOOP_AT = 17;
+  var RETRY_MS = 1200;
+  var TICK_MS = 125;
+  var CLOCK_MS = 30000;
+  var LIMIT = 5;
+  var SINCE = Date.now() - 8040000; /* original: Date.now()-804e4 → 2h 14m ago */
+
+  var KIND_ORDER = { 'needs-you': 0, failed: 1, done: 2 };
+  var KIND_PHRASE = { 'needs-you': 'needs you', failed: 'failed', done: 'done' };
+
+  /* ===== helpers ===== */
+  function fmtDur(ms) {
+    var mins = Math.max(0, Math.floor(ms / 60000));
+    if (mins < 1) return 'a moment';
+    if (mins < 60) return mins + 'm';
+    var h = Math.floor(mins / 60);
+    if (h < 24) return mins % 60 ? h + 'h ' + (mins % 60) + 'm' : h + 'h';
+    var d = Math.floor(h / 24);
+    return h % 24 ? d + 'd ' + (h % 24) + 'h' : d + 'd';
+  }
+  function sinceText() { return 'since ' + fmtDur(Date.now() - SINCE); }
+  function collapsedText(n) { return LABELS.collapsed(fmtDur(Date.now() - SINCE), n); }
+
+  function reducedMotion() {
+    try {
+      return typeof window !== 'undefined' && window.matchMedia &&
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    } catch (e) { return false; }
+  }
+
+  function mk(tag, cls, text) {
+    var el = document.createElement(tag);
+    if (cls) el.className = cls;
+    if (text != null) el.textContent = text;
+    return el;
+  }
+  function iconFor(kind) {
+    var s = document.createElement('span');
+    s.setAttribute('aria-hidden', 'true');
+    if (kind === 'done') {
+      s.innerHTML = '<svg width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="6" fill="var(--working)"/>' +
+        '<path class="aw__tick" d="M4.3 7.2 6.1 9 9.7 5.2" fill="none" stroke="#fff" stroke-width="1.5" ' +
+        'stroke-linecap="round" stroke-linejoin="round" pathLength="1"/></svg>';
+    } else if (kind === 'failed') {
+      s.innerHTML = '<svg width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="6" fill="var(--failed)"/>' +
+        '<path d="M7 4v3.4" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/>' +
+        '<circle cx="7" cy="9.8" r="0.85" fill="#fff"/></svg>';
+    } else {
+      s.innerHTML = '<svg width="14" height="14" viewBox="0 0 14 14"><circle class="aw__halo" cx="7" cy="7" r="5.25" fill="var(--waiting)"/>' +
+        '<circle cx="7" cy="7" r="5.25" fill="none" stroke="var(--waiting)" stroke-width="1.5"/>' +
+        '<circle cx="7" cy="7" r="2.25" fill="var(--waiting)"/></svg>';
+    }
+    return s;
+  }
+  function chevronSVG() {
+    var s = document.createElement('span');
+    s.setAttribute('aria-hidden', 'true');
+    s.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none">' +
+      '<path d="M18 9.00005C18 9.00005 13.5811 15 12 15C10.4188 15 6 9 6 9" stroke="currentColor" ' +
+      'stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"/></svg>';
+    return s;
+  }
+  function checkSVG() {
+    var s = document.createElement('span');
+    s.setAttribute('aria-hidden', 'true');
+    s.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none">' +
+      '<path d="M5 14L8.5 17.5L19 6.5" stroke="currentColor" stroke-linecap="round" ' +
+      'stroke-linejoin="round" stroke-width="1.8"/></svg>';
+    return s;
+  }
+
+  /* ===== state (mirrors the original demo component) ===== */
+  var state = {
+    elapsed: 0,
+    frozen: false,          /* any user action or Decide/Retry freezes the auto loop */
+    manual: {},             /* id -> resolved record pinned by the user */
+    manualCollapse: null,   /* user-chosen collapsed state (null = follow the loop) */
+    extra: false,           /* Show more/less */
+    busy: {},               /* id -> true while the failed-retry promise is pending */
+    prevKinds: {},          /* for pop animations + live-region diffing */
+    announced: ''
+  };
+  var basePerf = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+  function nowPerf() {
+    try {
+      if (typeof performance !== 'undefined' && performance.now) return performance.now();
+    } catch (e) {}
+    return Date.now();
+  }
+
+  function autoOverrides() {
+    var o = {};
+    if (!state.frozen) {
+      for (var id in AUTO_AT) {
+        if (Object.prototype.hasOwnProperty.call(AUTO_AT, id) &&
+            Object.prototype.hasOwnProperty.call(RESOLVED, id) &&
+            state.elapsed >= AUTO_AT[id] && state.elapsed < EXPAND_AT) {
+          o[id] = RESOLVED[id];
+        }
+      }
+    }
+    return o;
+  }
+  function effectiveItems() {
+    var over = autoOverrides();
+    return ITEMS.map(function (it) {
+      var patch = state.manual[it.id] || over[it.id];
+      if (patch) return { id: it.id, title: it.title, kind: patch.kind, detail: patch.detail };
+      return it;
+    });
+  }
+  function sortedItems(items) {
+    var idx = {};
+    ITEMS.forEach(function (it, i) { idx[it.id] = i; });
+    return items.slice().sort(function (a, b) {
+      var d = KIND_ORDER[a.kind] - KIND_ORDER[b.kind];
+      return d !== 0 ? d : idx[a.id] - idx[b.id];
+    });
+  }
+  function isCollapsed() {
+    if (state.manualCollapse !== null) return state.manualCollapse;
+    return state.elapsed >= COLLAPSE_AT && state.elapsed < EXPAND_AT;
+  }
+  function counts(items) {
+    var c = { 'needs-you': 0, failed: 0, done: 0 };
+    items.forEach(function (it) { c[it.kind]++; });
+    return c;
+  }
+
+  /* ===== rendering ===== */
+  var root = document.getElementById('awayRoot');
+  var refs = { rows: {}, dividerBtn: null, moreBtn: null, gotItBtn: null, live: null, sinceNodes: [] };
+
+  function snapshot(items, collapsed) {
+    return (collapsed ? 'C' : 'E') + '|' + items.map(function (it) { return it.id + ':' + it.kind; }).join(',') +
+      '|x' + (state.extra ? '1' : '0') + '|b' + Object.keys(state.busy).sort().join(',');
+  }
+  var lastSnap = null;
+
+  function captureFocus() {
+    try {
+      var a = document.activeElement;
+      if (!a || !root || (a !== document.body && !root.contains(a))) return null;
+      if (a === document.body) return null;
+      return {
+        row: a.getAttribute ? a.getAttribute('data-focus-row') : null,
+        role: a.getAttribute ? a.getAttribute('data-focus-role') : null
+      };
+    } catch (e) { return null; }
+  }
+  function restoreFocus(desc) {
+    if (!desc) return;
+    var sel = null;
+    if (desc.role === 'divider' && refs.dividerBtn) sel = refs.dividerBtn;
+    else if (desc.role === 'more' && refs.moreBtn) sel = refs.moreBtn;
+    else if (desc.role === 'gotit' && refs.gotItBtn) sel = refs.gotItBtn;
+    else if (desc.role === 'act' && desc.row && refs.rows[desc.row]) sel = refs.rows[desc.row];
+    if (sel && sel.focus) {
+      try {
+        var stillThere = document.activeElement && root.contains(document.activeElement);
+        if (!stillThere) sel.focus({ preventScroll: true });
+      } catch (e) { try { sel.focus(); } catch (_) {} }
+    }
+  }
+
+  function announce(items, c) {
+    var changed = items.filter(function (it) { return state.prevKinds[it.id] && state.prevKinds[it.id] !== it.kind; });
+    var bits = changed.map(function (it) { return it.title + ': ' + KIND_PHRASE[it.kind]; });
+    bits.push(c['needs-you'] ? LABELS.needsYou(c['needs-you']) : 'Nothing needs you');
+    var msg = bits.join('. ');
+    if (msg !== state.announced) {
+      state.announced = msg;
+      if (refs.live) refs.live.textContent = msg;
+    }
+  }
+
+  function buildRow(it, animate) {
+    var li = mk('li', 'aw__row');
+    li.setAttribute('data-kind', it.kind);
+    li.setAttribute('data-id', it.id);
+    if (it.detail) li.setAttribute('data-detail', '');
+    if (animate === 'in') li.setAttribute('data-in', '');
+
+    var mark = mk('span', 'aw__mark');
+    if (animate === 'pop' && !reducedMotion()) mark.setAttribute('data-pop', '');
+    mark.appendChild(iconFor(it.kind));
+    var sr = mk('span', 'aw__sr', KIND_PHRASE[it.kind] + ': ');
+    mark.appendChild(sr);
+    li.appendChild(mark);
+
+    var text = mk('span', 'aw__text');
+    var name = mk('span', 'aw__name', it.title);
+    name.setAttribute('dir', 'auto');
+    name.setAttribute('title', it.title);
+    text.appendChild(name);
+    if (it.detail) {
+      var det = mk('span', 'aw__detail', it.detail);
+      det.setAttribute('dir', 'auto');
+      det.setAttribute('title', it.detail);
+      if (animate === 'pop' && !reducedMotion()) det.setAttribute('data-pop', '');
+      text.appendChild(det);
+    }
+    li.appendChild(text);
+
+    var label = LABELS.action[it.kind];
+    if (label) {
+      var btn = mk('button', 'aw__act');
+      btn.setAttribute('data-kind', it.kind);
+      btn.setAttribute('type', 'button');
+      btn.setAttribute('aria-label', label + ': ' + it.title);
+      btn.setAttribute('data-focus-row', it.id);
+      btn.setAttribute('data-focus-role', 'act');
+      var lab = mk('span', 'aw__act-label', label);
+      btn.appendChild(lab);
+      if (state.busy[it.id]) {
+        btn.setAttribute('aria-busy', 'true');
+        btn.setAttribute('aria-disabled', 'true');
+        var spin = mk('span', 'aw__spin');
+        spin.setAttribute('aria-hidden', 'true');
+        btn.appendChild(spin);
+      } else {
+        (function (item) {
+          btn.addEventListener('click', function () { onAction(item.id); });
+        })(it);
+      }
+      li.appendChild(btn);
+      refs.rows[it.id] = btn;
+    }
+    return li;
+  }
+
+  function render(force) {
+    if (!root) return;
+    var items = effectiveItems();
+    var ordered = sortedItems(items);
+    var c = counts(items);
+    var collapsed = isCollapsed();
+    var snap = snapshot(ordered, collapsed);
+    if (!force && snap === lastSnap) return;
+    lastSnap = snap;
+
+    var focusDesc = captureFocus();
+    refs.rows = {};
+    refs.sinceNodes = [];
+
+    /* clear */
+    while (root.firstChild) root.removeChild(root.firstChild);
+
+    var wrap = mk('div', 'aw');
+    refs.live = mk('span', 'aw__sr', '');
+    refs.live.setAttribute('role', 'status');
+    refs.live.setAttribute('aria-live', 'polite');
+    refs.live.textContent = state.announced;
+    wrap.appendChild(refs.live);
+
+    /* ---- collapsed divider fold ---- */
+    var foldC = mk('div', 'aw__fold');
+    if (collapsed) foldC.setAttribute('data-open', '');
+    var foldCIn = mk('div', 'aw__fold-in');
+    if (collapsed) foldCIn.removeAttribute('inert');
+    else { try { foldCIn.inert = true; } catch (e) {} foldCIn.setAttribute('aria-hidden', 'true'); }
+    var div = mk('div', 'aw__divider');
+    div.appendChild(rule());
+    var dbtn = mk('button', 'aw__divider-btn');
+    dbtn.setAttribute('type', 'button');
+    dbtn.setAttribute('aria-expanded', 'false');
+    dbtn.setAttribute('data-focus-role', 'divider');
+    dbtn.addEventListener('click', function () { setCollapsed(false); });
+    if (c['needs-you'] > 0) {
+      var dot = mk('span', 'aw__dot');
+      dot.setAttribute('data-kind', 'needs-you');
+      dot.setAttribute('aria-hidden', 'true');
+      dbtn.appendChild(dot);
+    }
+    var dtext = mk('span', 'aw__divider-text', collapsedText(items.length));
+    dbtn.appendChild(dtext);
+    dbtn.appendChild(chevronSVG());
+    div.appendChild(dbtn);
+    div.appendChild(rule());
+    foldCIn.appendChild(div);
+    foldC.appendChild(foldCIn);
+    wrap.appendChild(foldC);
+    refs.dividerBtn = dbtn;
+
+    /* ---- expanded card fold ---- */
+    var foldE = mk('div', 'aw__fold');
+    if (!collapsed) foldE.setAttribute('data-open', '');
+    var foldEIn = mk('div', 'aw__fold-in');
+    if (!collapsed) foldEIn.removeAttribute('inert');
+    else { try { foldEIn.inert = true; } catch (e) {} foldEIn.setAttribute('aria-hidden', 'true'); }
+
+    var card = mk('div', 'aw__card');
+    card.addEventListener('keydown', function (e) {
+      if (e && e.key === 'Escape') {
+        if (typeof e.preventDefault === 'function') e.preventDefault();
+        setCollapsed(true);
+      }
+    });
+
+    var head = mk('header', 'aw__head');
+    var h3 = mk('h3', 'aw__title');
+    h3.appendChild(document.createTextNode(LABELS.title));
+    var when = mk('span', 'aw__when', ' · ' + sinceText());
+    refs.sinceNodes.push({ node: when, mode: 'head' });
+    h3.appendChild(when);
+    head.appendChild(h3);
+
+    var order = ['needs-you', 'failed', 'done'].filter(function (k) { return c[k] > 0; });
+    if (order.length) {
+      var pc = mk('p', 'aw__counts');
+      var ariaBits = order.map(function (k) {
+        return k === 'needs-you' ? LABELS.needsYou(c[k]) : k === 'failed' ? LABELS.failed(c[k]) : LABELS.done(c[k]);
+      });
+      pc.setAttribute('aria-label', ariaBits.join(', '));
+      order.forEach(function (k, i) {
+        var s = mk('span', 'aw__count');
+        s.setAttribute('aria-hidden', 'true');
+        if (i > 0) s.appendChild(mk('span', 'aw__sep', '·'));
+        var d = mk('span', 'aw__dot');
+        d.setAttribute('data-kind', k);
+        s.appendChild(d);
+        var lbl = k === 'needs-you' ? LABELS.needsYou(c[k]) : k === 'failed' ? LABELS.failed(c[k]) : LABELS.done(c[k]);
+        s.appendChild(mk('span', 'aw__n', lbl));
+        pc.appendChild(s);
+      });
+      head.appendChild(pc);
+    }
+    card.appendChild(head);
+
+    if (!items.length) {
+      card.appendChild(mk('p', 'aw__empty', LABELS.empty));
+    } else {
+      var rowsBox = mk('div', 'aw__rows');
+      var vis = ordered.slice(0, LIMIT);
+      var hid = ordered.slice(LIMIT);
+      var ul = mk('ul', 'aw__list');
+      vis.forEach(function (it) {
+        ul.appendChild(buildRow(it, state.prevKinds[it.id] && state.prevKinds[it.id] !== it.kind ? 'pop' : null));
+      });
+      rowsBox.appendChild(ul);
+      if (hid.length) {
+        var extra = mk('div', 'aw__extra');
+        if (state.extra) extra.setAttribute('data-open', '');
+        var extraIn = mk('div', 'aw__extra-in');
+        if (!state.extra) { try { extraIn.inert = true; } catch (e) {} }
+        var ul2 = mk('ul', 'aw__list');
+        hid.forEach(function (it) {
+          ul2.appendChild(buildRow(it, state.prevKinds[it.id] && state.prevKinds[it.id] !== it.kind ? 'pop' : null));
+        });
+        extraIn.appendChild(ul2);
+        extra.appendChild(extraIn);
+        rowsBox.appendChild(extra);
+      }
+      card.appendChild(rowsBox);
+    }
+
+    var foot = mk('footer', 'aw__foot');
+    var hidden = ordered.slice(LIMIT).length;
+    if ((state.extra || hidden > 0) && ordered.length > LIMIT) {
+      var more = mk('button', 'aw__more');
+      more.setAttribute('type', 'button');
+      more.setAttribute('aria-expanded', state.extra ? 'true' : 'false');
+      more.setAttribute('data-focus-role', 'more');
+      more.appendChild(document.createTextNode(state.extra ? LABELS.showLess : LABELS.showMore(state.extra ? 0 : hidden)));
+      more.appendChild(chevronSVG());
+      more.addEventListener('click', toggleMore);
+      foot.appendChild(more);
+      refs.moreBtn = more;
+    }
+    var got = mk('button', 'aw__done-btn');
+    got.setAttribute('type', 'button');
+    got.setAttribute('data-focus-role', 'gotit');
+    got.appendChild(checkSVG());
+    got.appendChild(document.createTextNode(LABELS.gotIt));
+    got.addEventListener('click', function () { setCollapsed(true); });
+    foot.appendChild(got);
+    refs.gotItBtn = got;
+    card.appendChild(foot);
+
+    foldEIn.appendChild(card);
+    foldE.appendChild(foldEIn);
+    wrap.appendChild(foldE);
+    root.appendChild(wrap);
+
+    announce(items, c);
+    items.forEach(function (it) { state.prevKinds[it.id] = it.kind; });
+    restoreFocus(focusDesc);
+  }
+
+  function rule() {
+    var r = mk('span', 'aw__rule');
+    r.setAttribute('aria-hidden', 'true');
+    return r;
+  }
+
+  /* ===== interactions (mirror original callbacks) ===== */
+  function pinDone(items) {
+    items.forEach(function (it) {
+      if (RESOLVED[it.id] && it.kind === 'done' && !state.manual[it.id]) {
+        state.manual[it.id] = RESOLVED[it.id];
+      }
+    });
+  }
+  function freeze() { state.frozen = true; }
+
+  function setCollapsed(to) {
+    pinDone(effectiveItems());
+    freeze();
+    state.manualCollapse = to;
+    render(true);
+  }
+  function toggleMore() {
+    state.extra = !state.extra;
+    render(true);
+    if (state.extra) {
+      var first = null;
+      try {
+        if (root.querySelector) {
+          first = root.querySelector('.aw__extra .aw__act');
+        }
+      } catch (e) { first = null; }
+      if (!first) {
+        for (var id in refs.rows) {
+          if (Object.prototype.hasOwnProperty.call(refs.rows, id)) { first = refs.rows[id]; break; }
+        }
+      }
+      var run = function () { try { if (first && first.focus) first.focus(); } catch (e) {} };
+      if (typeof requestAnimationFrame === 'function') requestAnimationFrame(run);
+      else run();
+    }
+  }
+  function onAction(id) {
+    var items = effectiveItems();
+    var found = null;
+    items.forEach(function (it) { if (it.id === id) found = it; });
+    pinDone(items);
+    freeze();
+    if (found && found.kind !== 'done' && RESOLVED[id]) {
+      if (found.kind === 'failed') {
+        state.busy[id] = true; /* spinner, like the original pending promise */
+        render(true);
+        setTimeout(function () {
+          delete state.busy[id];
+          state.manual[id] = RESOLVED[id];
+          render(true);
+        }, RETRY_MS);
+        return;
+      }
+      state.manual[id] = RESOLVED[id]; /* needs-you resolves immediately */
+    }
+    render(true);
+  }
+
+  /* ===== auto loop (125ms tick, 17s cycle — exactly like the original) ===== */
+  function loopTick() {
+    if (state.frozen) return;
+    var e = (nowPerf() - basePerf) / 1000;
+    if (e >= LOOP_AT) {
+      basePerf += LOOP_AT * 1000;
+      e -= LOOP_AT;
+    }
+    state.elapsed = e;
+    render(false);
+  }
+  function clockTick() {
+    var t = sinceText();
+    refs.sinceNodes.forEach(function (r) {
+      if (r.mode === 'head') r.node.textContent = ' · ' + t;
+    });
+    if (refs.dividerBtn) {
+      var items = effectiveItems();
+      var txt = refs.dividerBtn.querySelector
+        ? refs.dividerBtn.querySelector('.aw__divider-text') : null;
+      if (txt) txt.textContent = collapsedText(items.length);
+    }
+  }
+
+  function resetDemo() {
+    state.elapsed = 0;
+    state.frozen = false;
+    state.manual = {};
+    state.manualCollapse = null;
+    state.extra = false;
+    state.busy = {};
+    basePerf = nowPerf();
+    lastSnap = null;
+    render(true);
+  }
+
+  /* ===== theme toggle ===== */
+  function initTheme() {
+    var btn = document.getElementById('themeBtn');
+    var label = document.getElementById('themeLabel');
+    var moon = document.getElementById('themeIconMoon');
+    var sun = document.getElementById('themeIconSun');
+    function apply(theme) {
+      document.documentElement.setAttribute('data-theme', theme);
+      var dark = theme === 'dark';
+      if (label) label.textContent = dark ? 'Light' : 'Dark';
+      if (btn) btn.setAttribute('aria-label', dark ? 'Switch to light theme' : 'Switch to dark theme');
+      if (moon) moon.style.display = dark ? 'none' : '';
+      if (sun) sun.style.display = dark ? '' : 'none';
+      try {
+        if (typeof localStorage !== 'undefined') localStorage.setItem('aw-theme', theme);
+      } catch (e) {}
+    }
+    function current() { return document.documentElement.getAttribute('data-theme') || 'light'; }
+    var initial = 'light';
+    try {
+      if (typeof localStorage !== 'undefined' && localStorage.getItem('aw-theme')) {
+        initial = localStorage.getItem('aw-theme');
+      } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        initial = 'dark';
+      }
+    } catch (e) {}
+    apply(initial);
+    if (btn) btn.addEventListener('click', function () {
+      apply(current() === 'dark' ? 'light' : 'dark');
+    });
+    var replay = document.getElementById('replayBtn');
+    if (replay) replay.addEventListener('click', resetDemo);
+  }
+
+  /* ===== boot ===== */
+  if (reducedMotion()) {
+    try { document.documentElement.setAttribute('data-motion', 'reduced'); } catch (e) {}
+  }
+  initTheme();
+  render(true);
+  setInterval(loopTick, TICK_MS);
+  setInterval(clockTick, CLOCK_MS);
+
+  /* test hooks for the headless harness (no behaviour change) */
+  try {
+    if (typeof window !== 'undefined') {
+      window.__away = {
+        state: state,
+        counts: function () { return counts(effectiveItems()); },
+        collapsed: isCollapsed,
+        elapsed: function () { return state.elapsed; },
+        advance: function (sec) {
+          basePerf = nowPerf() - sec * 1000;
+          state.elapsed = sec;
+          render(false);
+        },
+        items: effectiveItems,
+        reset: resetDemo,
+        act: onAction,
+        setCollapsed: setCollapsed,
+        toggleMore: toggleMore,
+        refs: refs
+      };
+    }
+  } catch (e) {}
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,545 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Collaboration Stream — Launch the new pricing page</title>
+<style>
+/* ---- design tokens (all colours flow through these) ---- */
+:root, html[data-theme="light"]{
+  --page:#fafaf9; --surface:#ffffff; --ink:#171717; --ink-2:#1c1917;
+  --muted:#78716c; --subtle:#f5f5f4; --border:#e7e5e4;
+  --r-lg:16px; --r:10px; --r-sm:6px; --pill:999px;
+  --shadow:0 1px 2px rgba(0,0,0,.05),0 4px 16px rgba(0,0,0,.05);
+  --shadow-hi:0 2px 4px rgba(0,0,0,.06),0 10px 28px rgba(0,0,0,.09);
+  --blue:#2563eb; --blue-bg:#dbeafe; --blue-tx:#1e40af;
+  --green:#16a34a; --green-bg:#dcfce7; --green-tx:#166534;
+  --amber:#f59e0b; --amber-bg:#fef3c7; --amber-tx:#92400e;
+  --red:#dc2626; --red-bg:#fee2e2; --red-tx:#991b1b;
+  --grey-bg:#f5f5f4; --grey-tx:#57534e;
+  --violet:#7c3aed; --violet-bg:#ede9fe; --violet-tx:#5b21b6;
+  --hl:#eff6ff; --focus:#2563eb;
+  --px-dim:rgba(120,113,108,.22);
+  --bar-track:rgba(120,113,108,.25);
+}
+html[data-theme="dark"]{
+  --page:#101012; --surface:#1c1c1f; --ink:#ededed; --ink-2:#ededed;
+  --muted:#a1a1aa; --subtle:#26262a; --border:#2e2e33;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 6px 20px rgba(0,0,0,.35);
+  --shadow-hi:0 2px 6px rgba(0,0,0,.5),0 12px 32px rgba(0,0,0,.5);
+  --blue:#60a5fa; --blue-bg:#172554; --blue-tx:#bfdbfe;
+  --green:#4ade80; --green-bg:#052e16; --green-tx:#bbf7d0;
+  --amber:#fbbf24; --amber-bg:#451a03; --amber-tx:#fde68a;
+  --red:#f87171; --red-bg:#450a0a; --red-tx:#fecaca;
+  --grey-bg:#26262a; --grey-tx:#d4d4d8;
+  --violet:#a78bfa; --violet-bg:#2e1065; --violet-tx:#ddd6fe;
+  --hl:#1e293b; --focus:#93c5fd;
+  --px-dim:rgba(161,161,170,.25);
+  --bar-track:rgba(161,161,170,.3);
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0; background:var(--page); color:var(--ink);
+  font:14px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  transition:background .18s ease,color .18s ease;
+}
+.wrap{max-width:1060px;margin:0 auto;padding:20px 16px 48px}
+/* ---- header: project name + working count + agent count ---- */
+.topbar{
+  display:flex;align-items:flex-start;justify-content:space-between;gap:12px;
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);
+  box-shadow:var(--shadow);padding:14px 16px;margin-bottom:12px;
+}
+.eyebrow{font-size:12px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin:0 0 2px}
+.task{font-size:16px;font-weight:650;color:var(--ink-2);margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.counts{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;align-items:center}
+.pill{display:inline-flex;align-items:center;gap:6px;border-radius:var(--pill);
+  padding:2px 10px;font-size:12px;font-weight:600;border:1px solid var(--border);
+  background:var(--subtle);color:var(--muted);white-space:nowrap}
+.pill.live{background:var(--green-bg);border-color:transparent;color:var(--green-tx)}
+.pill.work{background:var(--blue-bg);border-color:transparent;color:var(--blue-tx)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--green);flex:none}
+.pill.live .dot{animation:blink 1.6s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
+.iconbtn{
+  flex:none;width:36px;height:36px;border-radius:var(--pill);cursor:pointer;
+  border:1px solid var(--border);background:var(--surface);color:var(--ink);
+  font-size:16px;line-height:1;display:inline-flex;align-items:center;justify-content:center;
+  transition:transform .15s ease,box-shadow .15s ease,background .15s ease;
+}
+.iconbtn:hover{box-shadow:var(--shadow-hi);transform:translateY(-1px);background:var(--subtle)}
+.iconbtn:focus-visible,.pillbtn:focus-visible,.msg:focus-visible,.chip:focus-visible,
+.sendbtn:focus-visible,.rchip:focus-visible,.attn:focus-visible,.detbtn:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+/* ---- toolbar ---- */
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 4px}
+.pillbtn{border:1px solid var(--border);background:var(--surface);color:var(--muted);
+  border-radius:var(--pill);padding:5px 12px;font-size:12.5px;font-weight:600;cursor:pointer;
+  transition:background .15s ease,color .15s ease,box-shadow .15s ease}
+.pillbtn:hover{background:var(--subtle);color:var(--ink);box-shadow:var(--shadow)}
+.pillbtn[aria-pressed="true"]{background:var(--ink-2);border-color:transparent;color:var(--page)}
+.toolbar .sp{flex:1}
+/* ---- columns; headings keep reserved space above first card ---- */
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px;align-items:start}
+.colhead{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);
+  margin:14px 0 10px;min-height:20px}
+.colhead .n{color:var(--muted);font-weight:600}
+/* ---- message cards ---- */
+#stream{display:flex;flex-direction:column;gap:10px}
+.msg{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
+  box-shadow:var(--shadow);padding:12px 14px 14px;cursor:pointer;
+  transition:box-shadow .15s ease,transform .15s ease,opacity .18s ease,border-color .15s ease}
+.msg:hover{box-shadow:var(--shadow-hi);transform:translateY(-1px)}
+.msg.hl{border-color:var(--blue);background:var(--hl)}
+.msg.dim{opacity:.75}
+.msgrow{display:flex;align-items:center;gap:10px;min-width:0}
+.who{min-width:0;flex:1}
+.who .nm{font-size:14px;font-weight:650;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.route{font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+.route b{color:var(--ink);font-weight:600}
+.time{font-size:12px;color:var(--muted);flex:none}
+.kind{flex:none;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
+  border-radius:var(--pill);padding:2px 9px}
+.k-ask{background:var(--amber-bg);color:var(--amber-tx)}
+.k-spawn{background:var(--blue-bg);color:var(--blue-tx)}
+.k-share{background:var(--green-bg);color:var(--green-tx)}
+.k-reply{background:var(--grey-bg);color:var(--grey-tx)}
+.k-handoff{background:var(--violet-bg);color:var(--violet-tx)}
+.k-question{background:var(--red-bg);color:var(--red-tx)}
+.txt{margin:9px 0 0;color:var(--ink);font-size:14px;overflow-wrap:anywhere}
+.txt .mention{color:var(--blue);font-weight:700}
+.replyref{margin-top:6px;font-size:12px;color:var(--muted)}
+.replyref button{background:none;border:0;padding:0;color:var(--blue);font:inherit;cursor:pointer;font-weight:600}
+.replyref button:hover{text-decoration:underline}
+/* typing bubble */
+.typing{display:flex;gap:5px;align-items:center;padding:12px 14px}
+.typing i{width:7px;height:7px;border-radius:50%;background:var(--muted);animation:tp 1s infinite}
+.typing i:nth-child(2){animation-delay:.15s}.typing i:nth-child(3){animation-delay:.3s}
+@keyframes tp{0%,100%{opacity:.3;transform:none}50%{opacity:1;transform:translateY(-2px)}}
+/* attachments = file cards */
+.atts{margin-top:10px;display:flex;flex-direction:column;gap:6px}
+.attn{display:flex;align-items:center;gap:9px;width:100%;text-align:left;cursor:pointer;
+  background:var(--subtle);border:1px solid var(--border);border-radius:var(--r-sm);
+  padding:7px 10px;color:var(--ink);font:inherit;transition:box-shadow .15s ease}
+.attn:hover{box-shadow:var(--shadow)}
+.attn .fn{font-size:13px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.attn .fm{font-size:12px;color:var(--muted);flex:none}
+.attn pre{display:none;margin:8px 0 2px;width:100%;white-space:pre-wrap;font-size:12px;color:var(--muted);
+  border-top:1px solid var(--border);padding-top:8px;font-family:inherit}
+.attn.open pre{display:block}
+/* details */
+.detbtn{margin-top:10px;background:none;border:1px solid var(--border);border-radius:var(--pill);
+  color:var(--muted);font-size:12px;font-weight:650;padding:4px 11px;cursor:pointer}
+.detbtn:hover{color:var(--ink);background:var(--subtle)}
+.det{display:none;margin-top:10px;border-top:1px solid var(--border);padding-top:10px}
+.msg.open .det{display:block}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:6px;margin-bottom:8px}
+.fact{background:var(--subtle);border-radius:var(--r-sm);padding:6px 9px;min-width:0}
+.fact .k{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.fact .v{font-size:13px;font-weight:650;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* token bar: thin 3px, right-aligned label = exact token count */
+.tok{margin:2px 0 8px}
+.tok .lab{display:flex;justify-content:flex-end;font-size:12px;color:var(--muted);margin-bottom:4px}
+.tok .lab b{color:var(--ink)}
+.tok .track{height:3px;border-radius:99px;background:var(--bar-track);overflow:hidden}
+.tok .fill{height:100%;background:var(--blue);border-radius:99px;transition:width .4s ease}
+/* tools = small circular icons */
+.tool{display:flex;align-items:center;gap:9px;padding:6px 2px;min-width:0}
+.tool .ti{flex:none;width:26px;height:26px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;
+  font-size:12px;font-weight:800;color:var(--surface);background:var(--blue)}
+.tool .ti.g{background:var(--green)} .tool .ti.a{background:var(--amber)} .tool .ti.v{background:var(--violet)} .tool .ti.r{background:var(--red)}
+.tool .tl{font-size:13px;font-weight:650;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tool .td{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* ---- 3x3 pixel-mark: exactly 9 cells ---- */
+.px{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);gap:1.5px;
+  width:24px;height:24px;flex:none;border-radius:5px;padding:2px;background:var(--subtle);border:1px solid var(--border)}
+.px i{border-radius:1.5px;background:var(--px-dim);min-width:0;min-height:0}
+.px i.on{background:hsl(var(--h) 65% 55%)}
+.px.working i.on{animation:tw 1.4s ease-in-out infinite}
+.px.working i.on:nth-child(3n){animation-delay:.25s}
+.px.working i.on:nth-child(3n+1){animation-delay:.5s}
+@keyframes tw{0%,100%{opacity:1}50%{opacity:.35}}
+/* ---- side panel ---- */
+.agent{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
+  box-shadow:var(--shadow);padding:12px 14px;margin-bottom:10px;transition:opacity .18s ease}
+.agent.dim{opacity:.75}
+.agent .nm{font-size:14px;font-weight:650;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.agent .md{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.status{flex:none;font-size:11px;font-weight:700;border-radius:var(--pill);padding:2px 9px;text-transform:uppercase;letter-spacing:.04em}
+.s-working{background:var(--blue-bg);color:var(--blue-tx)}
+.s-waiting{background:var(--amber-bg);color:var(--amber-tx)}
+.s-idle{background:var(--grey-bg);color:var(--grey-tx)}
+.legend{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
+  box-shadow:var(--shadow);padding:12px 14px;font-size:12.5px;color:var(--muted)}
+.legend b{color:var(--ink)}
+/* ---- composer ---- */
+.composer{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
+  box-shadow:var(--shadow);padding:12px 14px 14px;margin-top:12px}
+.composer textarea{width:100%;min-height:56px;resize:vertical;font:inherit;color:var(--ink);
+  background:var(--subtle);border:1px solid var(--border);border-radius:var(--r-sm);padding:8px 10px}
+.composer textarea:focus{outline:2px solid var(--focus);outline-offset:1px;background:var(--surface)}
+.crow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:8px 0}
+.rchip{border:1px solid var(--border);background:var(--subtle);color:var(--muted);border-radius:var(--pill);
+  font-size:12px;font-weight:650;padding:3px 10px;cursor:pointer}
+.rchip:hover{color:var(--ink)}
+.rchip[aria-pressed="true"]{background:var(--ink-2);color:var(--page);border-color:transparent}
+.sendbtn{margin-left:auto;background:var(--blue);border:0;color:#fff;font-weight:700;font-size:13px;
+  border-radius:var(--pill);padding:7px 18px;cursor:pointer;transition:filter .15s ease,transform .15s ease}
+.sendbtn:hover{filter:brightness(1.08);transform:translateY(-1px)}
+.hint{font-size:12px;color:var(--muted);margin:8px 0 0}
+footer{margin-top:22px;font-size:12px;color:var(--muted);text-align:center}
+@media (max-width:860px){.layout{grid-template-columns:1fr}.task{white-space:normal}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="topbar">
+    <div style="min-width:0">
+      <p class="eyebrow">Collaboration stream · agent-to-agent chat</p>
+      <h1 class="task" id="taskTitle">Launch the new pricing page</h1>
+      <div class="counts" id="counts" aria-live="polite"></div>
+    </div>
+    <button class="iconbtn" id="themeBtn" aria-label="Toggle dark mode" title="Toggle light / dark">◐</button>
+  </header>
+
+  <div class="toolbar" role="toolbar" aria-label="Stream controls">
+    <div id="filters" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+    <span class="sp"></span>
+    <button class="pillbtn" id="pauseBtn" aria-pressed="false">⏸ Pause</button>
+    <button class="pillbtn" id="replayBtn">↺ Replay</button>
+  </div>
+
+  <div class="layout">
+    <section aria-label="Message stream">
+      <h2 class="colhead">Stream <span class="n" id="streamCount"></span></h2>
+      <div id="stream" role="log" aria-label="Agent messages"></div>
+      <div class="composer" aria-label="Send a message">
+        <div class="crow" id="toRow" role="group" aria-label="Recipients"></div>
+        <textarea id="box" aria-label="Message text" placeholder="Message the team… (Enter to send, Shift+Enter for a new line)"></textarea>
+        <div class="crow">
+          <span class="hint">Focus pauses autoplay · blur resumes · @mentions highlighted</span>
+          <button class="sendbtn" id="sendBtn">Send</button>
+        </div>
+      </div>
+    </section>
+    <aside aria-label="Agents">
+      <h2 class="colhead">Agents <span class="n" id="agentCount"></span></h2>
+      <div id="agents"></div>
+      <div class="legend" id="legend"></div>
+    </aside>
+  </div>
+  <footer>Clean-room replica · original demo data only · no network · system fonts</footer>
+</div>
+
+<script>
+"use strict";
+/* ===== exact demo data (transcribed from demo-original.js, not copied) ===== */
+var AGENTS=[
+  {id:"orch",name:"Orchestrator",model:"Gemini 3.8"},
+  {id:"research",name:"Researcher",model:"Gemini 3.8 Flash"},
+  {id:"writer",name:"Writer",model:"Sonnet 5.5"},
+  {id:"coder",name:"Coder",model:"Opus 5.5"}
+];
+var YOU={id:"you",name:"You",model:"Human"};
+var MSGS=[
+ {id:"m1",from:"you",to:"orch",kind:"ask",at:"14:02",text:"Launch the new pricing page by Friday \u2013 per-seat plans, keep a free tier."},
+ {id:"m2",from:"orch",to:"research",kind:"spawn",at:"14:02",replyTo:"m1",text:"Find out what Linear, Notion and Figma charge per seat, and what their free tiers allow."},
+ {id:"m3",from:"orch",to:"writer",kind:"spawn",at:"14:02",replyTo:"m1",text:"Draft the copy for Free, Pro and Team \u2013 short, one line per plan."},
+ {id:"m4",from:"research",to:"orch",kind:"share",at:"14:04",replyTo:"m2",text:"Linear $10, Notion $12, Figma $15 per seat. All three keep a free tier.",
+  attachments:[{label:"web_search \u00d76",kind:"tool",meta:"6 calls",preview:"\"linear pricing per seat 2026\"\n\"notion plus plan price per member\"\n\"figma professional seat price\"\n\"linear free plan limits\"\n\"notion free plan guest limit\"\n\"figma starter plan files limit\""}],
+  details:{facts:[["Model","Gemini 3.8 Flash"],["Tokens","41.2k"],["Cost","$0.02"],["Took","1m 48s"]],
+   items:[["web_search","6 searches \u2013 per-seat pricing 2026","b"],["notion.com/pricing","Plus $12 \u00b7 Business $18 per seat","a"],["figma.com/pricing","Professional $15 per editor","v"],["linear.app/pricing","Basic $10 per user","b"]]}},
+ {id:"m5",from:"writer",to:"research",kind:"ask",at:"14:04",replyTo:"m3",text:"Do any of them cap seats on the free tier? I'd like to say ours doesn't."},
+ {id:"m6",from:"research",to:"writer",kind:"reply",at:"14:05",replyTo:"m5",text:"None cap seats \u2013 Notion limits guests to 10, Linear caps issues at 250."},
+ {id:"m7",from:"writer",to:"orch",kind:"share",at:"14:06",replyTo:"m3",text:"Copy for the three plans is ready in Notion \u2013 Free says \u201cno seat limit\u201d.",
+  attachments:[{label:"plans-copy.md",kind:"file",meta:"1 KB",preview:"# Plans\n\nFree \u2013 Everything you need to start. No seat limit.\nPro \u2013 For people who ship every day. $12 per seat.\nTeam \u2013 Everything, together \u2013 for teams of 3 and more.\n\nFootnote: prices per seat and month, billed yearly."}]},
+ {id:"m8",from:"orch",to:"coder",kind:"spawn",at:"14:06",replyTo:"m1",text:"Build /pricing from the copy and the competitor table."},
+ {id:"m9",from:"orch",to:"coder",kind:"handoff",at:"14:06",replyTo:"m8",text:"Here's everything you need \u2013 copy, prices and the Figma frames.",
+  attachments:[
+   {label:"src/billing/",kind:"folder",meta:"6 items",preview:"plans/\ncheckout/\nprices.ts\nseats.ts\nstripe.ts\nREADME.md"},
+   {label:"plans-copy.md",kind:"file",meta:"1 KB",preview:"# Plans\n\nFree \u2013 Everything you need to start. No seat limit.\nPro \u2013 For people who ship every day. $12 per seat.\nTeam \u2013 Everything, together \u2013 for teams of 3 and more.\n\nFootnote: prices per seat and month, billed yearly."},
+   {label:"pricing-table.csv",kind:"file",meta:"4 rows",preview:"Product,Free tier,Per seat,Annual\nLinear,250 issues,$10,$8\nNotion,10 guests,$12,$10\nFigma,3 files,$15,$12\nOurs,No seat limit,$12,$10"},
+   {label:"Pricing / Desktop",kind:"link",meta:"Figma",preview:"Pricing / Desktop \u2013 1440 \u00d7 2200\nThree plan cards, the comparison table and the FAQ.\nLast edited by Writer at 14:05."}],
+  details:{facts:[["From","Orchestrator"],["To","Coder"],["Context","18.4k tokens"]],
+   items:[["Pricing / Desktop","Figma \u2013 3 frames","v"],["plans-copy.md","Notion \u2013 Launch / Pricing copy","a"],["feat/pricing-page","GitHub \u2013 branch to build on","g"]]}},
+ {id:"m10",from:"coder",to:"writer",kind:"ask",at:"14:09",replyTo:"m9",text:"The Team line is two lines too long for its card \u2013 can you cut it?"},
+ {id:"m11",from:"writer",to:"coder",kind:"reply",at:"14:09",replyTo:"m10",text:"\u201cEverything, together \u2013 for teams of 3 and more.\u201d"},
+ {id:"m12",from:"coder",to:"you",kind:"question",at:"14:11",replyTo:"m1",text:"The brief says Team is $12, the table suggests $15. Which one do I ship? Both prices are ready in Stripe.",
+  details:{facts:[["Model","Opus 5.5"],["Waiting","2m"],["Holds","Deploy"]],
+   items:[["price_team_12","Stripe \u2013 $12 per seat, test mode","r"],["price_team_15","Stripe \u2013 $15 per seat, test mode","r"]]}},
+ {id:"m13",from:"orch",to:"all",kind:"share",at:"14:12",text:"The pricing page is up for review on the preview deploy.",
+  attachments:[{label:"PR #482",kind:"link",meta:"+214 \u221238",preview:"Pricing page with per-seat plans\n\n\u2013 Plans, prices and copy from plans-copy.md\n\u2013 Seat picker in checkout, priced through Stripe\n\u2013 Free tier without a seat limit\nPreview deploy ready for review."}]}
+];
+/* exact auto-replies + timings from the original demo */
+var AUTO={orch:"Got it \u2013 I'll pass that on and keep everyone on it.",research:"On it \u2013 I'll check that against the competitor pages.",writer:"Sure \u2013 I'll rework the copy and send it to Coder.",coder:"Done \u2013 switching it over and rebuilding the preview."};
+var T={first:5,step:1500,typing:700,endPause:4500,reply:1400,tick:100};
+/* per-agent context tokens as stated in the original facts (exact labels) */
+var TOKENS={"research":"41.2k","coder":"18.4k tokens"};
+var TOK_MAX=41.2; /* scale = largest stated value; labels always show original text */
+
+/* ===== helpers ===== */
+function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;")}
+function hash(id){var h=0;for(var i=0;i<id.length;i++){h=(h*31+id.charCodeAt(i))|0}return h>>>0}
+function hue(id){return hash(id)%360}
+function pattern(id){ /* deterministic 3x3 on/off; always >=3 on so marks stay visible */
+  var h=hash(id),cells=[],on=0,i,b;
+  for(i=0;i<9;i++){b=(h>>(i*2))&3;cells.push(b>0);if(b>0)on++}
+  if(on<3){cells[h%9]=true;cells[(h>>3)%9]=true;cells[(h>>6)%9]=true}
+  return cells;
+}
+/* pixel-mark: ALWAYS exactly 9 <i> cells */
+function pxMark(id,working){
+  var c=pattern(id),s='<span class="px'+(working?' working':'')+'" style="--h:'+hue(id)+'" aria-hidden="true">';
+  for(var i=0;i<9;i++)s+='<i class="'+(c[i]?'on':'off')+'"></i>';
+  return s+'</span>';
+}
+function richText(t){
+  return esc(t).replace(/(@[\w.-]+)/g,'<span class="mention">$1</span>');
+}
+function agentById(id){for(var i=0;i<AGENTS.length;i++)if(AGENTS[i].id===id)return AGENTS[i];return id==="you"?YOU:{id:id,name:"Everyone",model:"Broadcast"}}
+function toName(to){return to==="all"?"Everyone":agentById(to).name}
+function tokNum(label){var m=/([\d.]+)k/.exec(label||"");return m?parseFloat(m[1]):0}
+
+/* ===== state (mirrors original: v=4 shown first, +1 per 1.5s, 0.7s typing, loop) ===== */
+var state={t0:0,now:0,epoch:0,paused:false,live:[],filter:"all",to:["orch"],typingReply:null,focusHold:false,seq:0};
+var byId={};MSGS.forEach(function(m){byId[m.id]=m});
+function allMsgs(){return MSGS.concat(state.live)}
+function elapsed(){return (state.now-state.t0)/1000}
+function cycleDur(){return (MSGS.length-T.first+1)* (T.step/1000)+T.endPause/1000+ (T.step/1000)}
+function visibleIdx(){
+  var e=elapsed(),s=(T.first-1)+Math.floor(e/(T.step/1000));
+  return Math.max(0,Math.min(MSGS.length-1,s));
+}
+function isTypingTick(){
+  var e=elapsed();
+  if(e<(T.step/1000))return false;
+  return (e*1000%(T.step))<T.typing;
+}
+function chainOf(id){
+  var set={},msgs=allMsgs(),m=byId[id]||null,i;
+  allMsgs().forEach(function(x){byId[x.id]=x});
+  var cur=m;
+  while(cur){set[cur.id]=1;cur=cur.replyTo?(byId[cur.replyTo]||null):null}
+  msgs.forEach(function(x){var c=x;while(c){if(c.replyTo&&set[c.replyTo]){set[x.id]=1;break}c=c.replyTo?(byId[c.replyTo]||null):null}});
+  void i;return set;
+}
+
+/* ===== rendering ===== */
+var streamEl,agentsEl,countsEl,streamCount,agentCount,filtersEl,boxEl;
+function kindLabel(k){return k}
+function msgCard(m,opts){
+  opts=opts||{};
+  var a=agentById(m.from),wk=!!opts.working;
+  var s='<article class="msg'+(opts.hl?' hl':'')+(opts.dim?' dim':'')+'" tabindex="0" data-mid="'+esc(m.id)+'" aria-label="'+esc(a.name+' to '+toName(m.to)+': '+m.text)+'">';
+  s+='<div class="msgrow">'+pxMark(m.from,wk)+'<div class="who"><div class="nm">'+esc(a.name)+'</div>';
+  s+='<div class="route">to <b>'+esc(toName(m.to))+'</b></div></div>';
+  s+='<span class="kind k-'+esc(m.kind)+'">'+esc(kindLabel(m.kind))+'</span><span class="time">'+esc(m.at)+'</span></div>';
+  s+='<p class="txt">'+richText(m.text)+'</p>';
+  if(m.replyTo&&byId[m.replyTo])s+='<div class="replyref">in reply to <button data-goto="'+esc(m.replyTo)+'" title="Highlight thread">'+esc(m.replyTo)+' \u00b7 '+esc(agentById(byId[m.replyTo].from).name)+'</button></div>';
+  if(m.attachments)s+=attsHtml(m);
+  if(m.details)s+=detHtml(m);
+  s+='</article>';return s;
+}
+function iconFor(kind){
+  var map={tool:["b","\u2315"],file:["a","\u2261"],folder:["v","\u25a3"],link:["g","\u2197"]};
+  var m=map[kind]||["b","\u25cf"];return '<span class="ti '+m[0]+'">'+m[1]+'</span>';
+}
+function attsHtml(m){
+  var s='<div class="atts">',i,a;
+  for(i=0;i<m.attachments.length;i++){a=m.attachments[i];
+    s+='<button class="attn" data-att="'+m.id+':'+i+'">'+iconFor(a.kind)+'<span class="fn">'+esc(a.label)+'</span><span class="fm">'+esc(a.meta||"")+'</span><pre>'+esc(a.preview||"")+'</pre></button>'}
+  return s+'</div>';
+}
+function detHtml(m){
+  var d=m.details,s='<button class="detbtn" data-det="'+m.id+'">Details \u25b8</button><div class="det">',i;
+  if(d.facts){
+    s+='<div class="facts">';
+    for(i=0;i<d.facts.length;i++)s+='<div class="fact"><div class="k">'+esc(d.facts[i][0])+'</div><div class="v">'+esc(d.facts[i][1])+'</div></div>';
+    s+='</div>';
+    for(i=0;i<d.facts.length;i++){
+      if(/tokens?/i.test(d.facts[i][0])){
+        var n=tokNum(d.facts[i][1]),w=Math.max(4,Math.min(100,Math.round(n/TOK_MAX*100)));
+        s+='<div class="tok"><div class="lab"><span>context&nbsp;<b>'+esc(d.facts[i][1])+'</b></span></div><div class="track"><div class="fill" style="width:'+w+'%"></div></div></div>';
+      }
+    }
+  }
+  if(d.items){for(i=0;i<d.items.length;i++)s+='<div class="tool"><span class="ti '+esc(d.items[i][2]||"b")+'">'+esc(d.items[i][0].charAt(0).toUpperCase())+'</span><div style="min-width:0"><div class="tl">'+esc(d.items[i][0])+'</div><div class="td">'+esc(d.items[i][1])+'</div></div></div>'}
+  return s+'</div>';
+}
+function typingCard(name){
+  return '<div class="msg" aria-label="'+esc(name)+' is typing"><div class="msgrow"><div class="who"><div class="nm">'+esc(name)+'</div><div class="route">typing\u2026</div></div></div><div class="typing" aria-hidden="true"><i></i><i></i><i></i></div></div>';
+}
+function render(){
+  if(!streamEl)return;
+  var msgs=allMsgs(),vi=visibleIdx(),show=MSGS.slice(0,vi+1).concat(state.live),i,s="",f=state.filter;
+  var typing=isTypingTick()&&vi>=T.first-1&&vi<MSGS.length;
+  for(i=0;i<show.length;i++){
+    var m=show[i],last=!state.typingReply&&typing&&i===show.length-1;
+    var dim=f!=="all"&&m.from!==f&&m.to!==f;
+    s+=msgCard(m,{working:last,dim:dim});
+  }
+  if(state.typingReply)s+=typingCard(agentById(state.typingReply).name);
+  else if(typing&&(!state.live.length||vi>=MSGS.length-1))s+=typingCard(agentById(show.length?show[show.length-1].from:"orch").name);
+  streamEl.innerHTML=s;
+  streamCount.textContent="· "+show.length+" of "+msgs.length;
+  renderAgents(show);renderCounts(show);
+}
+function agentStatus(id,show){
+  var last=show[show.length-1];
+  if(last&&last.from===id&&isTypingTick())return "working";
+  if(last&&(last.to===id||last.to==="all"))return "waiting";
+  return show.some(function(m){return m.from===id||m.to===id})?"idle":"idle";
+}
+function renderAgents(show){
+  var s="",i,a,st,n;
+  for(i=0;i<AGENTS.length;i++){a=AGENTS[i];st=agentStatus(a.id,show);
+    n=show.filter(function(m){return m.from===a.id}).length;
+    var dim=state.filter!=="all"&&state.filter!==a.id;
+    s+='<div class="agent'+(dim?' dim':'')+'"><div class="msgrow">'+pxMark(a.id,st==="working")+'<div class="who"><div class="nm">'+esc(a.name)+'</div><div class="md">'+esc(a.model)+' · '+n+' msgs</div></div><span class="status s-'+st+'">'+st+'</span></div>';
+    if(TOKENS[a.id]){var w=Math.max(4,Math.min(100,Math.round(tokNum(TOKENS[a.id])/TOK_MAX*100)));
+      s+='<div class="tok" style="margin:8px 0 0"><div class="lab"><span>context&nbsp;<b>'+esc(TOKENS[a.id])+'</b></span></div><div class="track"><div class="fill" style="width:'+w+'%"></div></div></div>'}
+    s+='</div>';
+  }
+  agentsEl.innerHTML=s;
+  agentCount.textContent="· "+AGENTS.length;
+}
+function renderCounts(show){
+  var w=AGENTS.filter(function(a){return agentStatus(a.id,show)==="working"}).length;
+  var live=!state.paused&&!state.focusHold&&(visibleIdx()<MSGS.length-1);
+  countsEl.innerHTML='<span class="pill '+(live?'live':'')+'"><span class="dot"></span>'+(live?'live':'paused')+'</span>'
+    +'<span class="pill work">'+w+' working</span>'
+    +'<span class="pill">'+AGENTS.length+' agents</span>'
+    +'<span class="pill">'+show.length+' / '+allMsgs().length+' messages</span>';
+}
+function renderFilters(){
+  var opts=[["all","All"]].concat(AGENTS.map(function(a){return [a.id,a.name]}));
+  filtersEl.innerHTML=opts.map(function(o){return '<button class="pillbtn" data-f="'+o[0]+'" aria-pressed="'+(state.filter===o[0])+'">'+esc(o[1])+'</button>'}).join("");
+}
+function renderTo(){
+  var opts=AGENTS.map(function(a){return a.id}).concat(["all"]);
+  document.getElementById("toRow").innerHTML='<span class="hint" style="margin:0">To:</span>'+opts.map(function(id){
+    var n=id==="all"?"Everyone":agentById(id).name;
+    return '<button class="rchip" data-to="'+id+'" aria-pressed="'+(state.to.indexOf(id)>=0)+'">'+esc(n)+'</button>'}).join("");
+}
+function renderLegend(){
+  document.getElementById("legend").innerHTML='<b>Handoffs &amp; files</b><br>spawn \u00b7 handoff \u00b7 ask \u00b7 share \u00b7 reply \u00b7 question — hover a card to highlight its thread, click to open details, click a file to preview. Slowest handoff carried <b>18.4k tokens</b>; deepest search used <b>41.2k</b>.';
+}
+
+/* ===== behaviour ===== */
+function tick(){
+  if(state.paused||state.focusHold)return;
+  state.now+=T.tick;
+  if(elapsed()>=cycleDur()){state.t0=state.now;state.epoch++}
+  render();
+}
+function send(text){
+  if(!text.trim()||!state.to.length)return null;
+  state.seq++;
+  var now=new Date(),at=("0"+now.getHours()).slice(-2)+":"+("0"+now.getMinutes()).slice(-2);
+  var to=state.to.length===1?state.to[0]:state.to.slice();
+  var m={id:"you-"+state.seq,from:"you",to:to,kind:"reply",at:at,text:text.trim()};
+  state.live.push(m);
+  var first=state.to[0]==="all"?"orch":state.to[0];
+  state.typingReply=first;render();
+  var rid="re-"+state.seq;
+  setTimeout(function(){
+    state.live.push({id:rid,from:first,to:"you",kind:"reply",at:at,text:AUTO[first]||"On it.",replyTo:m.id});
+    state.typingReply=null;render();
+    if(streamEl){var cards=streamEl.children;if(cards.length)cards[cards.length-1].scrollIntoView({block:"nearest"})}
+  },T.reply);
+  render();return m;
+}
+function setTheme(t){
+  document.documentElement.setAttribute("data-theme",t);
+  try{localStorage.setItem("cs-theme",t)}catch(e){}
+  var b=document.getElementById("themeBtn");if(b)b.textContent=t==="dark"?"☾":"◐";
+}
+function initTheme(){
+  var t=null;try{t=localStorage.getItem("cs-theme")}catch(e){}
+  if(t!=="dark"&&t!=="light"){
+    try{t=(window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches)?"dark":"light"}catch(e){t="light"}
+    if(!t)t="light";
+  }
+  setTheme(t);
+}
+/* test hook: pure-ish surface for the headless harness */
+window.__cs={state:state,MSGS:MSGS,AGENTS:AGENTS,AUTO:AUTO,T:T,
+  visibleIdx:visibleIdx,isTypingTick:isTypingTick,pattern:pattern,pxMark:pxMark,send:send,tick:tick,render:render,cycleDur:cycleDur};
+
+function init(){
+  streamEl=document.getElementById("stream");agentsEl=document.getElementById("agents");
+  countsEl=document.getElementById("counts");streamCount=document.getElementById("streamCount");
+  agentCount=document.getElementById("agentCount");filtersEl=document.getElementById("filters");boxEl=document.getElementById("box");
+  initTheme();renderFilters();renderTo();renderLegend();
+  state.t0=0;state.now=0;
+  render();
+  setInterval(tick,T.tick);
+  document.getElementById("themeBtn").addEventListener("click",function(){
+    setTheme(document.documentElement.getAttribute("data-theme")==="dark"?"light":"dark");
+  });
+  document.getElementById("pauseBtn").addEventListener("click",function(e){
+    state.paused=!state.paused;
+    e.currentTarget.textContent=state.paused?"▶ Play":"⏸ Pause";
+    e.currentTarget.setAttribute("aria-pressed",state.paused);render();
+  });
+  document.getElementById("replayBtn").addEventListener("click",function(){
+    state.t0=state.now;state.epoch++;state.live=[];state.typingReply=null;render();
+  });
+  filtersEl.addEventListener("click",function(e){
+    var b=e.target.closest("[data-f]");if(!b)return;
+    state.filter=b.getAttribute("data-f");renderFilters();render();
+  });
+  document.getElementById("toRow").addEventListener("click",function(e){
+    var b=e.target.closest("[data-to]");if(!b)return;
+    var id=b.getAttribute("data-to"),i=state.to.indexOf(id);
+    if(i>=0){if(state.to.length>1)state.to.splice(i,1)}else state.to.push(id);
+    renderTo();
+  });
+  /* hover / focus chain highlight */
+  streamEl.addEventListener("mouseover",function(e){
+    var card=e.target.closest(".msg");if(!card||!card.dataset.mid)return;
+    var set=chainOf(card.dataset.mid);
+    Array.prototype.forEach.call(streamEl.children,function(c){
+      if(!c.dataset||!c.dataset.mid)return;
+      c.classList.toggle("hl",!!set[c.dataset.mid]);
+      if(!set[c.dataset.mid])c.classList.add("dim");else c.classList.remove("dim");
+    });
+  });
+  streamEl.addEventListener("mouseleave",function(){render()});
+  streamEl.addEventListener("focusin",function(e){
+    var card=e.target.closest(".msg");if(card)card.classList.add("hl");
+  });
+  streamEl.addEventListener("focusout",function(){render()});
+  /* click-to-open details + file previews + reply jump */
+  streamEl.addEventListener("click",function(e){
+    var g=e.target.closest("[data-goto]");
+    if(g){var t=streamEl.querySelector('[data-mid="'+g.getAttribute("data-goto")+'"]');
+      if(t){t.scrollIntoView({block:"center"});t.classList.add("hl");setTimeout(function(){render()},1600)}return}
+    var a=e.target.closest("[data-att]");
+    if(a){a.classList.toggle("open");return}
+    var d=e.target.closest("[data-det]");
+    if(d){d.closest(".msg").classList.toggle("open");d.innerHTML=d.closest(".msg").classList.contains("open")?"Details \u25be":"Details \u25b8";return}
+    var card=e.target.closest(".msg");
+    if(card&&card.dataset.mid){card.classList.toggle("open")}
+  });
+  /* keyboard: Enter/Space toggles open card */
+  streamEl.addEventListener("keydown",function(e){
+    if((e.key==="Enter"||e.key===" ")&&e.target.classList&&e.target.classList.contains("msg")&&e.target===document.activeElement){
+      e.preventDefault();e.target.classList.toggle("open");
+    }
+  });
+  /* composer: focus pauses autoplay (mirrors original), Enter sends */
+  boxEl.addEventListener("focus",function(){state.focusHold=true});
+  boxEl.addEventListener("blur",function(){if(!boxEl.value)state.focusHold=false});
+  boxEl.addEventListener("keydown",function(e){
+    if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();doSend()}
+    if(e.key==="Escape")boxEl.blur();
+  });
+  document.getElementById("sendBtn").addEventListener("click",doSend);
+  function doSend(){var m=send(boxEl.value);if(m){boxEl.value="";state.focusHold=false;boxEl.blur()}}
+}
+if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",init);else init();
+</script>
+</body>
+</html>

@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>autonomy-dial — Sales agent</title>
+<style>
+:root{
+  --surface:#ffffff;
+  --page:#fafaf9;
+  --ink:#171717;
+  --ink-warm:#1c1917;
+  --muted:#78716c;
+  --subtle:#f5f5f4;
+  --border:#e7e5e4;
+  --radius-lg:16px;
+  --radius:10px;
+  --radius-sm:6px;
+  --shadow:0 1px 2px rgba(0,0,0,.05), 0 4px 16px rgba(0,0,0,.05);
+  --accent:#4fb0fe;
+  --warn:#f59e0b;
+  --warn-bg:#fef3c7;
+  --warn-text:#92400e;
+  --danger:#c4320a;
+  --danger-bg:#fdecea;
+  --danger-text:#c4320a;
+  --ok:#15803d;
+  --ok-bg:#dcfce7;
+  --idle:#78716c;
+  --focus:rgba(0,96,226,.7);
+  --ease:cubic-bezier(.22,1,.36,1);
+  --snap:cubic-bezier(.4,0,.2,1);
+  --tray:#f0f0f0;
+  --track:#f0f0f0;
+  --pill:#ffffff;
+  --chip:#f5f5f5;
+  --faint:#b8b8b8;
+  --font:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+html[data-theme="dark"]{
+  --surface:#1c1c1f;
+  --page:#101012;
+  --ink:#ededed;
+  --ink-warm:#ededed;
+  --muted:#a1a1aa;
+  --subtle:#26262a;
+  --border:#2e2e33;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 4px 16px rgba(0,0,0,.4);
+  --warn:#fbbf24;
+  --warn-bg:#451a03;
+  --warn-text:#fde68a;
+  --danger:#ff8a7a;
+  --danger-bg:#451a03;
+  --danger-text:#ff8a7a;
+  --ok:#4ade80;
+  --ok-bg:#052e16;
+  --idle:#a1a1aa;
+  --focus:rgba(77,141,255,.8);
+  --tray:#111113;
+  --track:#232326;
+  --pill:#2c2c30;
+  --chip:#232326;
+  --faint:#5c5c63;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--page);
+  color:var(--muted);
+  font-family:var(--font);
+  font-size:14px;
+  line-height:20px;
+  -webkit-font-smoothing:antialiased;
+  min-height:100vh;
+  display:flex;
+  justify-content:center;
+  padding:28px 16px 48px;
+}
+.page{width:100%;max-width:428px}
+.page-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  margin:0 4px 12px;
+}
+.page-head .proj{font-size:12.5px;color:var(--muted);margin:0 0 2px}
+.page-head h1{
+  margin:0;
+  font-size:15px;
+  font-weight:600;
+  color:var(--ink);
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.page-head .live-counts{font-size:12.5px;color:var(--muted);margin:2px 0 0}
+.theme-toggle{
+  flex:none;
+  display:grid;
+  place-items:center;
+  width:34px;height:34px;
+  border:1px solid var(--border);
+  border-radius:999px;
+  background:var(--surface);
+  color:var(--ink);
+  cursor:pointer;
+  box-shadow:var(--shadow);
+  transition:transform 150ms ease, background-color 150ms ease;
+}
+.theme-toggle:hover{background:var(--subtle);transform:translateY(-1px)}
+.theme-toggle:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.theme-toggle svg{width:17px;height:17px}
+
+/* ---- autonomy dial card ---- */
+.adl{
+  background:var(--tray);
+  border-radius:calc(var(--radius-lg) + 4px);
+  padding:4px;
+  font-size:14px;
+  line-height:20px;
+  letter-spacing:-.006em;
+  color:var(--muted);
+}
+.adl-card{
+  background:var(--surface);
+  border-radius:var(--radius-lg);
+  border:1px solid var(--border);
+  box-shadow:var(--shadow);
+}
+.adl-head{display:flex;align-items:center;gap:12px;padding:16px 16px 0}
+.adl-spark{display:grid;place-items:center;width:16px;flex:none;color:var(--accent)}
+.adl-spark svg{width:14px;height:14px}
+.adl-heading{display:grid;min-width:0}
+.adl-title{
+  font-weight:600;color:var(--ink);
+  overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
+  font-size:15px;
+}
+.adl-sub{
+  font-size:12.5px;line-height:18px;color:var(--muted);
+  overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
+}
+.adl-levels{padding:14px 16px 16px}
+.adl-segmented{
+  position:relative;display:flex;padding:3px;
+  border-radius:calc(var(--radius) + 2px);
+  background:var(--track);
+}
+.adl-pill{
+  position:absolute;top:3px;bottom:3px;left:0;width:0;
+  border-radius:calc(var(--radius) - 1px);
+  background:var(--pill);
+  border:1px solid var(--border);
+  box-shadow:0 1px 2px rgba(0,0,0,.08);
+  transform:translateX(0);
+  transition:transform 320ms var(--ease), width 320ms var(--ease);
+}
+html[data-theme="dark"] .adl-pill{background:var(--pill)}
+.adl-level{
+  position:relative;flex:1;height:30px;padding:0 10px;
+  border:0;border-radius:calc(var(--radius) - 1px);
+  background:none;font:inherit;font-size:13px;font-weight:500;
+  color:var(--muted);white-space:nowrap;cursor:pointer;
+  transition:color 200ms ease;
+}
+.adl-level:hover{color:var(--ink)}
+.adl-level[aria-checked="true"]{color:var(--ink)}
+.adl-level:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.adl-groups{display:grid;gap:14px;padding:14px 4px 12px}
+.adl-group-head{
+  display:flex;align-items:center;gap:6px;
+  margin:0 8px 8px;font-size:12.5px;font-weight:500;line-height:18px;color:var(--muted);
+}
+.adl-count{
+  display:grid;place-items:center;
+  min-width:18px;height:18px;padding:0 5px;overflow:hidden;
+  border-radius:calc(var(--radius-sm) - 1px);
+  background:var(--surface);
+  border:1px solid var(--border);
+  box-shadow:0 1px 2px rgba(0,0,0,.04);
+  font-size:11px;color:var(--muted);
+  font-variant-numeric:tabular-nums;
+}
+.adl-roll{display:block}
+.adl-roll[data-dir="up"]{animation:adl-roll-up 360ms var(--ease) both}
+.adl-roll[data-dir="down"]{animation:adl-roll-down 360ms var(--ease) both}
+@keyframes adl-roll-up{from{opacity:0;transform:translateY(70%)}}
+@keyframes adl-roll-down{from{opacity:0;transform:translateY(-70%)}}
+.adl-list{margin:0;padding:0;list-style:none;display:grid;gap:4px}
+.adl-row{
+  display:flex;align-items:center;gap:12px;
+  min-height:42px;padding:4px 6px 4px 14px;
+  border-radius:calc(var(--radius-lg) - 4px);
+  background:var(--surface);
+  border:1px solid var(--border);
+  box-shadow:0 1px 2px rgba(0,0,0,.04);
+  padding-bottom:6px;
+}
+.adl-mark{
+  flex:none;
+  display:grid;
+  grid-template-columns:repeat(3,5px);
+  grid-template-rows:repeat(3,5px);
+  gap:1.5px;
+  width:19px;height:19px;
+  align-content:center;justify-content:center;
+}
+.adl-mark i{width:5px;height:5px;border-radius:1px;background:transparent;display:block}
+.adl-mark i.on{background:var(--mark,#4fb0fe)}
+.adl-row[data-zone="own"] .adl-mark{animation:adl-twinkle 2.6s ease-in-out infinite}
+@keyframes adl-twinkle{0%,100%{opacity:1}50%{opacity:.55}}
+.adl-name{display:grid;flex:1;min-width:0}
+.adl-line{display:flex;align-items:center;gap:8px;min-width:0}
+.adl-label{
+  font-size:13.5px;font-weight:500;color:var(--ink);
+  overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
+}
+.adl-risk{
+  display:inline-flex;align-items:center;gap:3px;flex:none;
+  height:20px;padding:0 8px 0 6px;border-radius:999px;
+  background:var(--warn-bg);color:var(--warn-text);
+  font-size:11.5px;font-weight:500;line-height:16px;
+}
+.adl-risk svg{width:12px;height:12px}
+.adl-risk[data-risk="destructive"]{background:var(--danger-bg);color:var(--danger-text)}
+.adl-detail{
+  font-size:12px;line-height:16px;color:var(--muted);
+  overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
+}
+.adl-pin{
+  flex:none;display:grid;place-items:center;
+  width:30px;height:30px;margin:0;padding:0;
+  border:0;border-radius:calc(var(--radius-sm) + 2px);
+  background:none;color:var(--faint);cursor:pointer;opacity:0;
+  transition:opacity 160ms ease, color 160ms ease, background-color 160ms ease;
+}
+.adl-row:hover .adl-pin,.adl-pin:focus-visible,.adl-pin[aria-pressed="true"]{opacity:1}
+.adl-pin:hover{background:var(--chip);color:var(--ink)}
+.adl-pin:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.adl-pin[aria-pressed="true"]{color:var(--muted)}
+.adl-pin svg{width:16px;height:16px}
+.adl-empty{
+  display:flex;align-items:center;justify-content:center;
+  min-height:42px;padding:8px 12px;
+  border-radius:calc(var(--radius-lg) - 4px);
+  background:var(--subtle);
+  font-size:12.5px;line-height:18px;color:var(--muted);text-align:center;
+}
+.adl-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.adl-hint{font-size:12.5px;color:var(--muted);padding:0 16px 14px;margin:0}
+.page-note{margin:14px 4px 0;font-size:12.5px;color:var(--muted)}
+@media (max-width:380px){
+  .adl-level{padding:0 6px;font-size:12px}
+  .adl-detail{display:none}
+}
+@media (hover:none){
+  .adl-pin{opacity:1;color:var(--muted)}
+}
+@media (pointer:coarse){
+  .adl-level{height:36px}
+  .adl-pin{width:36px;height:36px}
+}
+@media (prefers-reduced-motion:reduce){
+  .adl *,.adl *::before,.adl *::after{animation:none !important;transition:none !important}
+  .adl-row[data-zone="own"] .adl-mark{animation:none}
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="page-head">
+    <div style="min-width:0">
+      <p class="proj">affectUI Pro &middot; autonomy-dial</p>
+      <h1>Sales agent</h1>
+      <p class="live-counts" id="page-counts"></p>
+    </div>
+    <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Switch to dark mode" title="Toggle light / dark">
+      <svg id="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.4M12 19.1v2.4M2.5 12h2.4M19.1 12h2.4M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7M19.1 4.9l-1.7 1.7M6.6 17.4l-1.7 1.7"/></svg>
+      <svg id="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:none"><path d="M20 13.2A8 8 0 0 1 10.8 4 8 8 0 1 0 20 13.2Z"/></svg>
+    </button>
+  </div>
+
+  <div class="adl" id="demo" data-level="1">
+    <div class="adl-card">
+      <header class="adl-head">
+        <span class="adl-spark" aria-hidden="true">
+          <svg viewBox="0 0 14 14" fill="currentColor" aria-hidden="true"><path d="M7 1.2c.4 2.9 1.9 4.4 4.8 4.8-2.9.4-4.4 1.9-4.8 4.8C6.6 7.9 5.1 6.4 2.2 6 5.1 5.6 6.6 4.1 7 1.2Z"/><circle cx="11.6" cy="11.4" r="1.1" opacity=".55"/></svg>
+        </span>
+        <span class="adl-heading">
+          <span class="adl-title" id="adl-title">Sales agent</span>
+          <span class="adl-sub" id="adl-sub">What it may do without asking you</span>
+        </span>
+      </header>
+      <div class="adl-levels">
+        <div class="adl-segmented" id="segmented" role="radiogroup" aria-label="Autonomy">
+          <span class="adl-pill" id="pill" aria-hidden="true"></span>
+        </div>
+      </div>
+      <p class="adl-hint" id="adl-hint"></p>
+      <div class="adl-groups" id="groups" style="padding-top:0"></div>
+      <span class="adl-sr" id="live" aria-live="polite"></span>
+    </div>
+  </div>
+
+  <p class="page-note" id="cycle-note">Demo is cycling the dial &mdash; touch it to take over.</p>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var LEVELS = [
+    { id: 0, label: "Always ask", hint: "Nothing happens without your OK" },
+    { id: 1, label: "If risky",   hint: "Safe actions run, risky ones wait for you" },
+    { id: 2, label: "Full auto",  hint: "Everything runs, except what you locked" }
+  ];
+  // Exact demo actions from the original demo (ids, labels, risk levels).
+  var ACTIONS = [
+    { id: "read",   label: "Read files and docs", risk: "safe" },
+    { id: "draft",  label: "Draft emails",        risk: "safe" },
+    { id: "crm",    label: "Update CRM records",  risk: "risky" },
+    { id: "send",   label: "Send emails",         risk: "risky" },
+    { id: "delete", label: "Delete files",        risk: "destructive" },
+    { id: "spend",  label: "Spend money",         risk: "destructive" }
+  ];
+  var RISK_LABEL = { risky: "Risky", destructive: "Destructive" };
+  // Exact scripted demo tour from the original demo.
+  var TOUR = [
+    { level: 1, pinned: ["spend"] },
+    { level: 2, pinned: ["spend"] },
+    { level: 2, pinned: ["spend", "delete"] },
+    { level: 0, pinned: ["spend", "delete"] },
+    { level: 1, pinned: ["spend"] }
+  ];
+  var FIRST_WAIT = 2000, STEP_WAIT = 2400;
+
+  function clampLevel(v, fallback){
+    if (typeof v !== "number" || !isFinite(v)) return fallback == null ? 1 : fallback;
+    return Math.max(0, Math.min(2, Math.round(v)));
+  }
+  function normRisk(r){
+    return (r === "safe" || r === "destructive") ? r : "risky";
+  }
+  function asks(action, level, pinned){
+    if (pinned.indexOf(action.id) !== -1) return true;
+    if (level === 0) return true;
+    if (level === 1 && action.risk !== "safe") return true;
+    return false;
+  }
+
+  // Deterministic 3x3 pixel-mark per action id (exactly 9 cells).
+  function hashStr(s){
+    var h = 2166136261;
+    for (var i = 0; i < s.length; i++){ h ^= s.charCodeAt(i); h = (h * 16777619) >>> 0; }
+    return h >>> 0;
+  }
+  function markPattern(id){
+    var h = hashStr(id), x = h || 1, cells = [], i;
+    for (i = 0; i < 9; i++){ x = (x * 1103515245 + 12345) & 0x7fffffff; cells.push(((x >> 16) & 1) === 1); }
+    // mirror left column onto right column for a balanced glyph
+    cells[2] = cells[0]; cells[5] = cells[3]; cells[8] = cells[6];
+    cells[4] = true; // centre always on
+    var on = cells.filter(Boolean).length;
+    if (on < 3){ cells[1] = true; cells[7] = true; }
+    return cells;
+  }
+  function markHue(id){ return hashStr("hue:" + id) % 360; }
+
+  var W = typeof window !== "undefined" ? window : {};
+  var D = typeof document !== "undefined" ? document : null;
+  function reducedMotion(){
+    try { return W.matchMedia && W.matchMedia("(prefers-reduced-motion: reduce)").matches; }
+    catch (e){ return false; }
+  }
+  var fmt = (typeof Intl !== "undefined" && Intl.NumberFormat) ? new Intl.NumberFormat("en") : { format: function(n){ return String(n); } };
+
+  var state = { level: 1, pinned: ["spend"], auto: true, tourIdx: 0 };
+  var els = {};
+  var rowTops = {};   // key -> last top for FLIP
+  var lastGroupsH = 0;
+  var uid = 0;
+
+  var SVG_WARN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 2.5 20h19L12 3Z"/><path d="M12 9.5v4.5"/><circle cx="12" cy="17" r=".4" fill="currentColor"/></svg>';
+  var SVG_STOP = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M8.5 8.5l7 7"/></svg>';
+  var SVG_LOCK_OPEN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2.5"/><path d="M8 10V7.5a4 4 0 0 1 7.5-2"/></svg>';
+  var SVG_LOCK_SHUT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2.5"/><path d="M8 10V7.5a4 4 0 0 1 8 0V10"/><circle cx="12" cy="15" r="1.2" fill="currentColor" stroke="none"/></svg>';
+
+  function el(tag, cls, text){
+    var n = D.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
+  }
+
+  function buildStatic(){
+    var seg = D.getElementById("segmented");
+    els.seg = seg;
+    els.pill = D.getElementById("pill");
+    els.levelBtns = LEVELS.map(function(lv){
+      var b = el("button", "adl-level", lv.label);
+      b.setAttribute("type", "button");
+      b.setAttribute("role", "radio");
+      b.setAttribute("data-level", String(lv.id));
+      b.setAttribute("tabindex", lv.id === state.level ? "0" : "-1");
+      b.setAttribute("aria-checked", lv.id === state.level ? "true" : "false");
+      (function(id){
+        b.addEventListener("click", function(){ userTakeover(); setLevel(id); });
+      })(lv.id);
+      seg.appendChild(b);
+      return b;
+    });
+    seg.addEventListener("keydown", function(ev){
+      var d = 0;
+      if (ev.key === "ArrowRight" || ev.key === "ArrowDown") d = 1;
+      else if (ev.key === "ArrowLeft" || ev.key === "ArrowUp") d = -1;
+      if (!d) return;
+      if (ev.preventDefault) ev.preventDefault();
+      var next = clampLevel(state.level + d, state.level);
+      userTakeover();
+      setLevel(next);
+      for (var i = 0; i < els.levelBtns.length; i++){
+        if (Number(els.levelBtns[i].getAttribute("data-level")) === next){
+          if (els.levelBtns[i].focus) els.levelBtns[i].focus();
+        }
+      }
+    });
+    els.hint = D.getElementById("adl-hint");
+    els.groups = D.getElementById("groups");
+    els.live = D.getElementById("live");
+    els.pageCounts = D.getElementById("page-counts");
+    els.demo = D.getElementById("demo");
+    els.cycleNote = D.getElementById("cycle-note");
+    els.demo.addEventListener("pointerdown", userTakeover);
+    els.demo.addEventListener("keydown", userTakeover);
+  }
+
+  function setLevel(v){
+    v = clampLevel(v, state.level);
+    if (v === state.level){ render(); return; }
+    state.level = v;
+    render();
+  }
+
+  function togglePin(id){
+    var i = state.pinned.indexOf(id);
+    if (i === -1) state.pinned.push(id);
+    else state.pinned.splice(i, 1);
+    render();
+  }
+
+  function partition(){
+    var own = [], ask = [];
+    ACTIONS.forEach(function(a){
+      (asks(a, state.level, state.pinned) ? ask : own).push(a);
+    });
+    return { own: own, ask: ask };
+  }
+
+  function setCount(spot, value){
+    var prev = spot._v;
+    if (prev === value) return;
+    spot._v = value;
+    var dir = (prev == null) ? null : (value > prev ? "up" : "down");
+    var roll = el("span", "adl-roll", fmt.format(value));
+    if (dir && !reducedMotion()) roll.setAttribute("data-dir", dir);
+    while (spot.firstChild) spot.removeChild(spot.firstChild);
+    spot.appendChild(roll);
+  }
+
+  function makeRow(a, isAsk, groupKey){
+    var pinned = state.pinned.indexOf(a.id) !== -1;
+    var li = el("li", "adl-row");
+    li.setAttribute("data-zone", isAsk ? "ask" : "own");
+    // 3x3 pixel-mark: exactly 9 cells
+    var mark = el("span", "adl-mark");
+    mark.setAttribute("aria-hidden", "true");
+    var cells = markPattern(a.id);
+    var hue = markHue(a.id);
+    if (mark.style && mark.style.setProperty) mark.style.setProperty("--mark", "hsl(" + hue + ",65%,55%)");
+    for (var i = 0; i < 9; i++){
+      var c = el("i", cells[i] ? "on" : null);
+      mark.appendChild(c);
+    }
+    li.appendChild(mark);
+
+    var name = el("span", "adl-name");
+    var line = el("span", "adl-line");
+    var lab = el("span", "adl-label", a.label);
+    lab.setAttribute("dir", "auto");
+    lab.setAttribute("title", a.label);
+    line.appendChild(lab);
+    if (a.risk !== "safe"){
+      var risk = el("span", "adl-risk", null);
+      risk.setAttribute("data-risk", normRisk(a.risk));
+      var wrap = D.createElement("span");
+      wrap.innerHTML = a.risk === "destructive" ? SVG_STOP : SVG_WARN;
+      var svg = wrap.firstChild;
+      if (svg) risk.appendChild(svg);
+      var rt = el("span", null, RISK_LABEL[normRisk(a.risk)]);
+      risk.appendChild(rt);
+      line.appendChild(risk);
+    }
+    name.appendChild(line);
+    li.appendChild(name);
+
+    var pin = el("button", "adl-pin", null);
+    pin.setAttribute("type", "button");
+    pin.setAttribute("aria-pressed", pinned ? "true" : "false");
+    if (pinned){
+      pin.setAttribute("aria-label", a.label + ": always asks \u2013 unlock");
+      pin.setAttribute("title", "Always asks \u2013 click to follow the dial again");
+    } else {
+      pin.setAttribute("aria-label", "Always ask before: " + a.label);
+      pin.setAttribute("title", "Always ask, whatever the dial says");
+    }
+    var pw = D.createElement("span");
+    pw.innerHTML = pinned ? SVG_LOCK_SHUT : SVG_LOCK_OPEN;
+    var ps = pw.firstChild;
+    if (ps) pin.appendChild(ps);
+    (function(id){
+      pin.addEventListener("click", function(){ userTakeover(); togglePin(id); });
+    })(a.id);
+    li.appendChild(pin);
+    li._key = a.id; // stable across groups so FLIP matches moved rows
+    return li;
+  }
+
+  function makeGroup(headId, title, items, isAsk, emptyText, spot){
+    var sec = el("section", "adl-group");
+    var h = el("h4", "adl-group-head", null);
+    h.setAttribute("id", headId);
+    h.appendChild(D.createTextNode(title));
+    spot = el("span", "adl-count", null);
+    setCount(spot, items.length);
+    h.appendChild(spot);
+    sec.appendChild(h);
+    var ul = el("ul", "adl-list");
+    if (items.length === 0){
+      ul.appendChild(el("li", "adl-empty", emptyText));
+    } else {
+      items.forEach(function(a){ ul.appendChild(makeRow(a, isAsk, headId)); });
+    }
+    sec.appendChild(ul);
+    return { sec: sec, spot: spot, ul: ul };
+  }
+
+  function movePill(){
+    var btn = null, i;
+    for (i = 0; i < els.levelBtns.length; i++){
+      if (Number(els.levelBtns[i].getAttribute("data-level")) === state.level) btn = els.levelBtns[i];
+    }
+    if (!btn || !els.pill) return;
+    var x = btn.offsetLeft || 0, w = btn.offsetWidth || 0;
+    if (els.pill.style){
+      els.pill.style.transform = "translateX(" + x + "px)";
+      els.pill.style.width = w + "px";
+    }
+  }
+
+  function render(){
+    var parts = partition();
+    var gid = "adl-g" + (uid++);
+    // snapshot old tops for FLIP
+    var olds = {};
+    if (els.groups && els.groups.querySelectorAll){
+      var prev = els.groups.querySelectorAll(".adl-row");
+      for (var k = 0; k < prev.length; k++){
+        try {
+          var r = prev[k].getBoundingClientRect ? prev[k].getBoundingClientRect() : null;
+          if (r && prev[k]._key) olds[prev[k]._key] = r.top;
+        } catch (e){}
+      }
+    }
+    var h0 = 0;
+    try { h0 = els.groups ? els.groups.offsetHeight || 0 : 0; } catch (e){}
+
+    while (els.groups.firstChild) els.groups.removeChild(els.groups.firstChild);
+    var g1 = makeGroup(gid + "-own", "Runs on its own", parts.own, false, "Every action waits for you");
+    var g2 = makeGroup(gid + "-ask", "Asks you first", parts.ask, true, "The agent runs everything itself");
+    els.groups.appendChild(g1.sec);
+    els.groups.appendChild(g2.sec);
+    els.spots = { own: g1.spot, ask: g2.spot };
+
+    els.levelBtns.forEach(function(b){
+      var on = Number(b.getAttribute("data-level")) === state.level;
+      b.setAttribute("aria-checked", on ? "true" : "false");
+      b.setAttribute("tabindex", on ? "0" : "-1");
+    });
+    els.demo.setAttribute("data-level", String(state.level));
+    var lv = LEVELS[state.level];
+    els.hint.textContent = lv.hint;
+    els.seg.setAttribute("aria-describedby", "adl-hint");
+    els.live.textContent = lv.label + ": " + parts.own.length + " on its own, " + parts.ask.length + " ask first";
+    if (els.pageCounts) els.pageCounts.textContent = parts.own.length + " on their own \u00b7 " + parts.ask.length + " ask first";
+    movePill();
+
+    // FLIP: animate rows that changed position, stagger 20ms
+    if (!reducedMotion() && els.groups.querySelectorAll){
+      var rows = els.groups.querySelectorAll(".adl-row");
+      var n = 0;
+      for (var j = 0; j < rows.length; j++){
+        var row = rows[j];
+        var old = olds[row._key];
+        if (old == null || !row.getBoundingClientRect || !row.animate) continue;
+        var now = row.getBoundingClientRect().top;
+        var dy = old - now;
+        if (Math.abs(dy) < 1) continue;
+        try {
+          row.animate(
+            [{ transform: "translateY(" + dy + "px)", zIndex: 2 }, { transform: "none", zIndex: 2 }],
+            { duration: 420, delay: (n++) * 20, easing: "cubic-bezier(0.4, 0, 0.2, 1)", fill: "backwards" }
+          );
+        } catch (e){}
+      }
+      try {
+        var h1 = els.groups.offsetHeight || 0;
+        if (h0 && h1 && Math.abs(h1 - h0) > 1 && els.groups.animate){
+          els.groups.animate([{ height: h0 + "px" }, { height: h1 + "px" }], { duration: 420, easing: "cubic-bezier(0.4, 0, 0.2, 1)" });
+        }
+      } catch (e){}
+    }
+  }
+
+  var tourTimer = null;
+  function tourStep(){
+    state.tourIdx = (state.tourIdx + 1) % TOUR.length;
+    var s = TOUR[state.tourIdx];
+    state.level = clampLevel(s.level, state.level);
+    state.pinned = s.pinned.slice();
+    render();
+    if (state.auto) tourTimer = W.setTimeout(tourStep, STEP_WAIT);
+  }
+  function startTour(){
+    stopTour(false);
+    state.auto = true;
+    if (els.cycleNote) els.cycleNote.textContent = "Demo is cycling the dial \u2014 touch it to take over.";
+    tourTimer = W.setTimeout(tourStep, FIRST_WAIT);
+  }
+  function stopTour(note){
+    state.auto = false;
+    if (tourTimer != null && W.clearTimeout) W.clearTimeout(tourTimer);
+    tourTimer = null;
+    if (note !== false && els.cycleNote) els.cycleNote.textContent = "You\u2019re in control \u2014 the dial follows you now.";
+  }
+  function userTakeover(){ if (state.auto) stopTour(true); }
+
+  // theme toggle
+  function initTheme(){
+    var btn = D.getElementById("theme-toggle");
+    var sun = D.getElementById("icon-sun"), moon = D.getElementById("icon-moon");
+    function apply(t){
+      D.documentElement.setAttribute("data-theme", t);
+      var dark = t === "dark";
+      if (sun) sun.style.display = dark ? "none" : "";
+      if (moon) moon.style.display = dark ? "" : "none";
+      btn.setAttribute("aria-label", dark ? "Switch to light mode" : "Switch to dark mode");
+    }
+    var initial = "light";
+    try {
+      if (W.matchMedia && W.matchMedia("(prefers-color-scheme: dark)").matches) initial = "dark";
+    } catch (e){}
+    apply(D.documentElement.getAttribute("data-theme") || initial);
+    btn.addEventListener("click", function(){
+      apply(D.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark");
+    });
+    return { apply: apply };
+  }
+
+  function init(){
+    if (!D) return;
+    buildStatic();
+    render();
+    initTheme();
+    startTour();
+  }
+
+  // export internals for the headless harness
+  try {
+    W.__adl = {
+      state: state, LEVELS: LEVELS, ACTIONS: ACTIONS, TOUR: TOUR,
+      asks: asks, clampLevel: clampLevel, normRisk: normRisk,
+      setLevel: setLevel, togglePin: togglePin, partition: partition,
+      markPattern: markPattern, startTour: startTour, stopTour: stopTour,
+      render: render, els: els
+    };
+  } catch (e){}
+
+  if (D && (D.readyState === "loading") && D.addEventListener){
+    D.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
+})();
+</script>
+</body>
+</html>
