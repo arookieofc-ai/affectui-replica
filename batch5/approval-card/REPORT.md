@@ -61,14 +61,43 @@ Note: two inks were darkened one step from the original bundle values to reach A
 (med-risk `#8f6c00`→`#8a6800`, 4.47→4.74; ok-ink `#1e8a4f`→`#1c7f47`, 3.93→4.52);
 everything else matches the original values.
 
+## Fixes after browser visual QA (2026-11-25)
+Two defects were found against the original demo flow in `demo-original.js`
+and are fixed in `index.html`:
+
+1. **Card 1 never resolved / button stuck:** the approve button kept its busy
+   spinner and lost its `⌘↵`/`Ctrl ↵` hint on resolve, and `reset()` never
+   restored it — so the *second* `approve()` threw `NotFoundError` in
+   `removeChild` after `busy` was already set, freezing the card busy forever
+   (header stuck at `2 pending`, approve/deny dead). Fixed by restoring the
+   approve button (remove spinner, re-add kbd, clear `aria-disabled`) on
+   resolve and on reset, with a safe remove guard. Card 1 wiring is now
+   exactly the original's: `onApprove` returns a pure promise resolving after
+   700 ms, the card resolves to approved, shows the one-line resolved row, and
+   resets to pending after 3200 ms; auto-demo presses at 2800 ms and clicks at
+   3000 ms (press highlight removed before the click, as in the original).
+   Manual Approve → `Approved`, manual Deny → `Denied`, both verified across
+   repeated cycles.
+2. **Card 2 expiry left a ~330 px empty grey box:** the resolved
+   `.ap-pending[data-leaving]` stayed in normal flow (fully transparent after
+   its fade, but still occupying layout height). Fixed as in the original
+   component CSS: `.ap` is now `position:relative; overflow:hidden` and the
+   leaving pending card is `position:absolute; top/left/right:4px` (out of
+   flow, so the tray shrinks to the collapsed row immediately), then set to
+   `display:none` 350 ms after resolve (after the 280 ms leave animation);
+   `reset()` restores it. Leaving cards also get `inert`, as in the original.
+
 ## Verification
 - `node --check` on the extracted page script: passes.
-- Headless run: a Node DOM-stub harness loaded the real page script with fake
-  timers and asserted **65/65**: exact demo strings, 9-cell pixel-mark, auto-demo
-  press/click/busy/resolve/reset timings, countdown advance/pause/resume/low/expire,
-  Escape/Ctrl+Enter, edit, theme toggle, and all contrast pairs above.
-- Checked light and dark token sets; dark verified via toggle + token values
-  (no grey-on-grey, borders visible in both).
+- `harness.js` (kept in this directory): a plain-Node DOM-stub + fake-timer
+  harness (no packages) that loads the real page script and asserts **40/40**:
+  auto-demo press (2800 ms) / click (3000 ms) / busy spinner / `Approved` row
+  / collapse / reset to pending / 3200 ms timing, a second full approve cycle
+  (the previous `NotFoundError` regression), manual deny → `Denied` + `Replay`
+  button + replay reset, card 2 countdown ticking/`m:ss` format/hover-pause/
+  resume/amber low state at ≤10 s/`Expired` row + collapse with no leftover
+  space, and the theme toggle both ways.
+- No packages installed; nothing written outside this directory.
 
 ## How to test
 Open `index.html` in a browser. Card 1 auto-approves after ~3 s; click anywhere

@@ -246,7 +246,8 @@ function buildRounds(contenders,verdictMap){
     for(var o=0;o<cur.length/2;o++){
       var key=e+":"+o,a=cur[2*o],b=cur[2*o+1];
       var v=(a&&b)?verdictMap[key]:undefined;
-      var w;
+      var w = void 0; /* reset every slot: `var w;` would leak the previous
+        winner via hoisting and fake SF/Final winners (self-pair + wrong champ) */
       if(e===0&&!!a!==!!b){w=a||b;}
       else if(v&&(v.winner===(a&&a.id)||v.winner===(b&&b.id))){w=byId[v.winner];}
       var ya=curY[2*o],yb=curY[2*o+1];
@@ -480,6 +481,8 @@ function setTheme(t){document.documentElement.setAttribute("data-theme",t);try{l
   else setTheme(window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");
 })();
 themeBtn.addEventListener("click",function(){
+  /* theme only flips data-theme; never touches tick/userKey/paused —
+     the original has no theme reset, so demo state must survive the toggle */
   setTheme(document.documentElement.getAttribute("data-theme")==="dark"?"light":"dark");
 });
 var rT=null;

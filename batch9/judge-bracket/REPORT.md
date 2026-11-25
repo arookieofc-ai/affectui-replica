@@ -35,6 +35,27 @@ Deliberate deviations (per worker spec): tile icons replaced by deterministic
 3×3 pixel-marks per agent id (hash → hue + 9-bit pattern, centre cell always on;
 live agents twinkle); Replay/Pause controls and theme toggle added as page chrome.
 
+## Fixes (2026-11-25 visual-QA round)
+Mid-play transient: Semifinal 2 and the Final briefly rendered the same
+contender against itself (e.g. "Row lock vs Row lock", trophies both sides),
+the verdict panel showed the contender twice, and the header ("Row lock wins")
+disagreed with the DOM ("Webhook dedupe wins") — while the final 7/7 state
+(champion c1 Idempotency key) was already correct.
+Root cause in `buildRounds` (`index.html`): `var w;` with no initializer inside
+the slot loop. `var` is function-scoped, so when a slot had no verdict yet
+(QF undecided → SF/Final TBD), neither branch assigned `w` and it kept the
+previous slot's winner. The leaked winner then propagated as a feeder into
+SF/Final, fabricating self-pairs and a premature/wrong champion. The original
+(`demo-original.js` `d()`) uses block-scoped `let` per slot, so each slot
+starts empty and a winner is set only when the verdict exists AND matches one
+of the two slot ids. Fix: `var w = void 0;` every iteration (same match rule
+as the original), so TBD slots stay empty and later rounds wait for feeders.
+Theme reset: the toggle only flips `data-theme` (+ localStorage) and never
+touches `tick`/`userKey`/`paused` — the original has no theme concept, so
+there is nothing to reset. Added an explicit comment + harness assertion that
+flipping the theme mid-play leaves header/bracket/panel unchanged and judging
+does not restart from 0/7.
+
 ## Interactions
 Open `index.html` in a browser (or `python3 -m http.server`). Auto-plays the
 tournament; click any matchup (selection fires on `pointerdown` capture so it
@@ -57,9 +78,18 @@ active). Checked in both themes.
 
 ## Verification
 - `node --check` on the extracted inline script: passes.
-- `node verify.js` (DOM-stub harness kept in this directory): 37/37 pass —
+- `node verify.js` (DOM-stub harness kept in this directory): 53/53 pass —
   boots without throwing, 900ms interval registered, all 7 verdicts reveal over
   the cycle, champion = c1, judging pointer advances, re-render only on state
   change (`lastSnap` guard), and every rendered pixel-mark contains exactly 9 cells.
+- Mid-play transient guards (new): pure-logic sweep over all 31 ticks asserts
+  no matchup ever pairs a contender with itself, every winner sits in its own
+  slots and equals its verdict, the champion exists only after all 7 verdicts
+  and always agrees with the final verdict; DOM sweep through the interval
+  timer asserts the same on rendered HTML (at most one `data-won` per matchup,
+  header "X wins" matches the `2:0` DOM + verdict panel `Winner` badge).
+- Theme guard (new): mid-play theme click flips `data-theme` but leaves
+  header/bracket/panel unchanged — judging does not restart from 0/7; the
+  cycle still ends `Idempotency key wins`.
 - Could not verify: pixel-perfect match to the Pro render (no screenshot
   tooling here); icon artwork is intentionally original (pixel-marks, not glyphs).

@@ -122,6 +122,7 @@ html[data-theme="dark"] .icon-sun{display:none}
 /* ---- approval card ---- */
 .ap{
   container-type:inline-size;
+  position:relative; overflow:hidden;
   background:var(--tray); border-radius:calc(var(--r-lg) + 4px);
   padding:4px; color:var(--body); min-width:0; width:100%;
 }
@@ -130,7 +131,10 @@ html[data-theme="dark"] .icon-sun{display:none}
   box-shadow:0 0 0 1px var(--border),0 1px 2px rgba(0,0,0,.04);
   padding:16px;
 }
-.ap-pending[data-leaving]{animation:ap-out 280ms var(--ease) both}
+.ap-pending[data-leaving]{
+  position:absolute; top:4px; left:4px; right:4px; pointer-events:none;
+  animation:ap-out 280ms var(--ease) both;
+}
 .ap-pending[data-entering]{animation:ap-in 420ms var(--ease) 80ms both}
 @keyframes ap-out{to{opacity:0; transform:translateY(-6px) scale(.985); filter:blur(2px)}}
 @keyframes ap-in{from{opacity:0; transform:translateY(4px); filter:blur(2px)}to{opacity:1; transform:none; filter:none}}
@@ -415,7 +419,7 @@ function createApprovalCard(mount, opts){
   var remaining = 0, deadline = 0;
   var totalMs = (typeof opts.expiresIn === "number" && isFinite(opts.expiresIn) && opts.expiresIn > 0)
     ? opts.expiresIn * 1000 : 0;
-  var timers = { clock:null, rel:null };
+  var timers = { clock:null, rel:null, hide:null };
 
   var root = h("div", {"class":"ap", role:"group", "data-status":"pending"});
   var pending = h("div", {"class":"ap-pending", "data-entering":""});
@@ -556,6 +560,13 @@ function createApprovalCard(mount, opts){
   }
   function stopClock(){ if(timers.clock){ clearInterval(timers.clock); timers.clock = null; } }
 
+  function restoreApproveBtn(){
+    okB.removeAttribute("aria-disabled");
+    var old = okB.querySelector(".ap-spinner");
+    if(old) okB.removeChild(old);
+    if(okKbd && okKbd.parentNode !== okB) okB.appendChild(okKbd);
+  }
+
   function approve(){
     if(state.status !== "pending" || state.busy) return;
     var r;
@@ -564,18 +575,17 @@ function createApprovalCard(mount, opts){
     if(r && typeof r.then === "function"){
       state.busy = true; root.setAttribute("data-busy", ""); root.setAttribute("aria-busy", "true");
       okB.setAttribute("aria-disabled", "true");
-      if(okKbd) okB.removeChild(okKbd);
+      if(okKbd && okKbd.parentNode === okB) okB.removeChild(okKbd);
       var sp = h("svg", {"class":"ap-spinner", viewBox:"0 0 16 16", "aria-hidden":"true"});
       sp.appendChild(h("circle", {cx:"8", cy:"8", r:"6"}));
       okB.appendChild(sp);
       r.then(function(){
         state.busy = false;
+        restoreApproveBtn();
         setStatus("approved", state.reason);
       }, function(){
         state.busy = false; root.removeAttribute("data-busy"); root.removeAttribute("aria-busy");
-        okB.removeAttribute("aria-disabled");
-        if(sp.parentNode === okB) okB.removeChild(sp);
-        if(okKbd) okB.appendChild(okKbd);
+        restoreApproveBtn();
         renderClock();
       });
     } else setStatus("approved", state.reason);
@@ -601,6 +611,14 @@ function createApprovalCard(mount, opts){
     root.setAttribute("data-status", next);
     root.removeAttribute("data-busy"); root.removeAttribute("aria-busy");
     pending.setAttribute("data-leaving", ""); pending.setAttribute("aria-hidden", "true");
+    pending.setAttribute("inert", "");
+    /* take the leaving card out of flow (absolute, cf. original) and hide it
+       once the leave animation has played so the tray shrinks to the row */
+    if(timers.hide){ clearTimeout(timers.hide); timers.hide = null; }
+    timers.hide = setTimeout(function(){
+      timers.hide = null;
+      if(state.status !== "pending") pending.style.display = "none";
+    }, 350);
     var word = next === "approved" ? "Approved" : (state.reason === "timeout" ? "Expired" : "Denied");
     var extra = (next === "approved" && state.always) ? " · Always" : "";
     var row = h("div", {"class":"ap-resolved", "data-status":next, tabindex:"-1"});
@@ -629,10 +647,14 @@ function createApprovalCard(mount, opts){
 
   function reset(){
     if(timers.rel){ clearInterval(timers.rel); timers.rel = null; }
+    if(timers.hide){ clearTimeout(timers.hide); timers.hide = null; }
     var row = root.querySelector(".ap-resolved");
     if(row) root.removeChild(row);
     pending.removeAttribute("data-leaving"); pending.removeAttribute("aria-hidden");
+    pending.removeAttribute("inert");
+    pending.style.display = "";
     pending.setAttribute("data-entering", "");
+    restoreApproveBtn();
     if(checkbox){ checkbox.checked = false; state.always = false; }
     state.status = "pending"; state.busy = false; state.reason = "user";
     state.decidedAt = null; state.liveText = ""; sr.textContent = "";
@@ -669,7 +691,7 @@ function createApprovalCard(mount, opts){
       }
       return false;
     },
-    destroy:function(){ stopClock(); if(timers.rel) clearInterval(timers.rel); }
+    destroy:function(){ stopClock(); if(timers.rel) clearInterval(timers.rel); if(timers.hide) clearTimeout(timers.hide); }
   };
 
   mount.appendChild(root);
@@ -738,15 +760,12 @@ var card1 = createApprovalCard(document.getElementById("card1"), {
   ],
   preview:toWrap,
   onApprove:function(){
-    return new Promise(function(res){ setTimeout(res, 700); }).then(function(){
-      card1Set("approved");
-    });
-  },
-  onDeny:function(){ card1Set("denied"); },
-  onResolve:function(){ refreshCounts(); if(interacted) replayBtn.removeAttribute("hidden"); else scheduleReset(); }
-});
-function card1Set(){ refreshCounts(); }
-function scheduleReset(){
+      return new Promise(function(res){ setTimeout(res, 700); });
+    },
+    onDeny:function(){ refreshCounts(); },
+    onResolve:function(){ refreshCounts(); if(interacted) replayBtn.removeAttribute("hidden"); else scheduleReset(); }
+  });
+  function scheduleReset(){
   clearAuto();
   autoTimers.push(setTimeout(function(){ card1.reset(); refreshCounts(); scheduleAuto(); }, 3200));
 }
@@ -759,10 +778,11 @@ function scheduleAuto(){
     if(b) b.setAttribute("data-pressed", "");
   }, 2800));
   autoTimers.push(setTimeout(function(){
-    if(autoHover || card1.status !== "pending" || interacted){ clearAuto(); return; }
-    var b = card1.root.querySelector(".ap-approve");
-    if(b && typeof b.click === "function") b.click(); else card1.approve();
-  }, 3000));
+      if(autoHover || card1.status !== "pending" || interacted){ clearAuto(); return; }
+      var b = card1.root.querySelector(".ap-approve");
+      if(b) b.removeAttribute("data-pressed");
+      if(b && typeof b.click === "function") b.click(); else card1.approve();
+    }, 3000));
 }
 
 /* Card 2 — extra states: high risk, countdown, edit (illustrative, same component) */
