@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Context Compaction — affectUI replica</title>
+<style>
+:root{
+  --surface:#ffffff; --page:#fafaf9; --ink:#171717; --ink2:#1c1917;
+  --muted:#78716c; --subtle:#f5f5f4; --border:#e7e5e4;
+  --radius-lg:16px; --radius:10px; --radius-sm:6px;
+  --shadow:0 1px 2px rgba(0,0,0,.05),0 4px 16px rgba(0,0,0,.05);
+  --shadow-pop:0 0 0 .5px rgba(0,0,0,.08),0 8px 20px -8px rgba(0,0,0,.14),0 2px 6px -2px rgba(0,0,0,.06);
+  --blue:#0190fe; --blue-soft:rgba(1,144,254,.11); --blue-ink:#026fc4;
+  --amber:#f59e0b; --amber-bg:#fef3c7; --amber-ink:#92400e;
+  --red:#dc2626; --red-bg:#fee2e2; --red-ink:#991b1b; --green:#16a34a;
+  --k-system:rgba(0,0,0,.32); --k-tools:#c98f00; --k-user:#ee3e9e;
+  --k-agent:#0190fe; --k-tool:#0d9488; --k-file:#9333ea; --k-summary:#16a34a;
+  --x-blue:#0070d6; --x-amber:#b25e00; --x-orange:#d9661a; --x-red:#c4320a;
+  --x-green:#1e8a4f; --x-teal:#0f8a7c; --x-cyan:#0a87b8; --x-purple:#8a3fd1;
+  --x-pink:#c42a7e; --x-gray:rgba(0,0,0,.5);
+  --track:rgba(0,0,0,.06); --hover:rgba(0,0,0,.035); --focus:rgba(1,144,254,.7);
+  --sheen:rgba(255,255,255,.75); --ease:cubic-bezier(.32,.72,.24,1);
+}
+html[data-theme="dark"]{
+  --surface:#1c1c1f; --page:#101012; --ink:#ededed; --ink2:#f5f5f5;
+  --muted:#a1a1aa; --subtle:#26262a; --border:#2e2e33;
+  --shadow:0 1px 2px rgba(0,0,0,.5),0 4px 16px rgba(0,0,0,.5);
+  --shadow-pop:0 0 0 .5px rgba(255,255,255,.1),0 8px 20px -8px rgba(0,0,0,.6),0 2px 6px -2px rgba(0,0,0,.4);
+  --blue:#4fb0fe; --blue-soft:rgba(79,176,254,.14); --blue-ink:#8fc6fd;
+  --amber:#fbbf24; --amber-bg:#451a03; --amber-ink:#fde68a;
+  --red:#ff8a7a; --red-bg:#451a03; --red-ink:#fecaca; --green:#7dcf9f;
+  --k-system:rgba(255,255,255,.42); --k-tools:#e6c24d; --k-user:#f06db5;
+  --k-agent:#4fb0fe; --k-tool:#4fc3b4; --k-file:#b98af0; --k-summary:#7dcf9f;
+  --x-blue:#4fb0fe; --x-amber:#ffb35c; --x-orange:#f2a15c; --x-red:#ff8a7a;
+  --x-green:#7dcf9f; --x-teal:#4fc3b4; --x-cyan:#5cc6ee; --x-purple:#b98af0;
+  --x-pink:#f06db5; --x-gray:rgba(255,255,255,.55);
+  --track:rgba(255,255,255,.07); --hover:rgba(255,255,255,.05); --focus:rgba(79,176,254,.8);
+  --sheen:rgba(255,255,255,.16);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--page); color:var(--ink2);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:14px; line-height:1.45; min-height:100vh;
+  display:flex; flex-direction:column; align-items:center; gap:16px;
+  padding:28px 16px 48px;
+}
+.page-head{width:100%;max-width:680px;display:flex;align-items:center;gap:12px}
+.page-head h1{font-size:15px;font-weight:600;margin:0;color:var(--ink)}
+.page-head p{margin:2px 0 0;font-size:12.5px;color:var(--muted)}
+.theme-btn{
+  margin-left:auto;flex:none;width:34px;height:34px;border-radius:999px;
+  border:1px solid var(--border);background:var(--surface);color:var(--ink);
+  box-shadow:var(--shadow);cursor:pointer;font-size:16px;line-height:1;
+  display:grid;place-items:center;transition:transform 150ms ease,background 150ms ease;
+}
+.theme-btn:hover{transform:translateY(-1px);background:var(--subtle)}
+.theme-btn:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+/* ---------- component card ---------- */
+.cpx{
+  position:relative;
+  width:100%;max-width:680px;background:var(--subtle);
+  border:1px solid var(--border);border-radius:calc(var(--radius-lg) + 4px);
+  box-shadow:var(--shadow);padding:4px;font-size:13px;color:var(--muted);
+}
+.cpx__bar{display:flex;align-items:center;gap:8px;min-height:20px;padding:9px 12px 11px}
+.cpx__title{flex:0 1 auto;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
+  font-weight:600;color:var(--ink);font-size:14px}
+.cpx__model{flex:0 1 auto;min-width:0;max-width:40%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
+  height:22px;padding:0 8px;border-radius:999px;background:var(--surface);
+  border:1px solid var(--border);box-shadow:var(--shadow);
+  font-size:12px;font-weight:600;line-height:20px;color:var(--muted)}
+.cpx__state{display:flex;flex:none;align-items:center;gap:8px;margin-left:auto}
+.cpx__badge{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 9px 0 6px;
+  border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap;animation:cpx-fade 240ms ease both}
+.cpx__badge[data-tone="busy"]{background:var(--blue-soft);color:var(--blue-ink)}
+.cpx__badge[data-tone="warn"]{background:var(--amber);color:#fff}
+html[data-theme="dark"] .cpx__badge[data-tone="warn"]{background:var(--amber-bg);color:var(--amber-ink)}
+.cpx__pct{min-width:34px;font-size:13px;font-weight:600;color:var(--ink);text-align:right;
+  font-variant-numeric:tabular-nums}
+.cpx__pct[data-over]{color:var(--amber)}
+.cpx__body{background:var(--surface);border-radius:var(--radius-lg);border:1px solid var(--border)}
+.cpx__meter{position:relative;padding:16px 16px 4px}
+.cpx__track{position:relative;display:flex;gap:1px;height:3px;overflow:visible;border-radius:999px;background:var(--track)}
+.cpx__slice{flex:none;min-width:2px;border-radius:999px;background:var(--c);
+  animation:cpx-grow 700ms var(--ease) both;transition:opacity 200ms ease}
+.cpx__slice[data-dim]{opacity:.75}
+.cpx__slice[data-going]::after{content:"";position:absolute;inset:0;border-radius:inherit;
+  background:linear-gradient(100deg,transparent 20%,var(--sheen) 50%,transparent 80%) -150% 0/60% 100% no-repeat;
+  animation:cpx-sheen 1.3s ease-in-out infinite}
+.cpx__markline{position:absolute;top:12px;bottom:0;width:0;margin-left:-.5px;
+  border-left:1px dashed var(--amber);opacity:.85;pointer-events:none}
+.cpx__meta{display:flex;justify-content:space-between;gap:12px;margin:0;padding:8px 16px 10px;
+  font-size:12.5px;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+.cpx__meta b{font-weight:600;color:var(--ink)}
+.cpx__meta-end{overflow:hidden;text-overflow:ellipsis}
+/* pixel-mark identity: exactly 9 cells */
+.px{display:grid;flex:none;grid-template-columns:repeat(3,3px);grid-auto-rows:3px;gap:1.5px;
+  place-content:center;width:16px;height:16px}
+.px i{border-radius:.75px;background:var(--c,var(--blue));opacity:0}
+.px i[data-on]{opacity:1}
+.px[data-busy] i[data-on]{animation:cpx-pixel 1.2s ease-in-out infinite}
+.cpx__list{position:relative;height:224px;overflow-y:auto;overscroll-behavior:contain;
+  margin:0;padding:0 8px 8px;list-style:none;scrollbar-width:thin}
+.cpx__empty{display:grid;place-items:center;height:100%;font-size:13px;color:var(--muted)}
+.cpx__row{position:relative;display:block;border-radius:8px;outline:none;cursor:default;
+  animation:cpx-in 320ms var(--ease) both}
+.cpx__row[data-fold]{animation:none}
+.cpx__row[data-card]{cursor:pointer}
+.cpx__row[data-on]{background:var(--hover)}
+.cpx__row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
+.cpx__line,.cpx__ghost{display:flex;align-items:center;gap:8px;height:32px;padding:0 8px;min-width:0}
+.cpx__icon{display:grid;flex:none;place-items:center;width:16px;height:20px;color:var(--c)}
+.cpx__icon[data-person]{--c:var(--ink)}
+.cpx__icon svg{display:block;width:15px;height:15px}
+.cpx__label{flex:0 1 auto;min-width:64px;max-width:60%;overflow:hidden;color:var(--ink);
+  white-space:nowrap;text-overflow:ellipsis;transition:color 200ms ease}
+.cpx__row[data-kind="system"] .cpx__label,.cpx__row[data-kind="tools"] .cpx__label{color:var(--muted)}
+.cpx__row[data-kind="summary"] .cpx__label{font-weight:600}
+.cpx__row[data-going] .cpx__label{color:var(--muted)}
+.cpx__row[data-going]::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  background:linear-gradient(100deg,transparent 25%,var(--blue-soft) 50%,transparent 75%) -150% 0/60% 100% no-repeat;
+  animation:cpx-sheen 1.3s ease-in-out infinite}
+.cpx__apps{display:inline-flex;flex:none;align-items:center;margin-left:-5px}
+.cpx__app{display:grid;flex:none;place-items:center;width:18px;height:18px;margin-left:-4px;
+  border-radius:50%;background:var(--surface);border:1px solid var(--border);
+  box-shadow:0 0 0 1.5px var(--surface);color:var(--ink);overflow:hidden}
+.cpx__app:first-child{margin-left:0}
+.cpx__app svg{width:11px;height:11px}
+.cpx__app .t{font-size:9px;font-weight:700;line-height:1}
+.cpx__app-more{flex:none;height:18px;margin-left:5px;font-size:12px;font-weight:500;line-height:18px;
+  color:var(--muted);font-variant-numeric:tabular-nums}
+.cpx__was{flex:none;font-size:12.5px;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+.cpx__was s{text-decoration-color:var(--muted)}
+.cpx__tokens{flex:none;min-width:40px;margin-left:auto;font-size:12.5px;color:var(--muted);
+  text-align:right;font-variant-numeric:tabular-nums}
+.cpx__ghosts{position:relative;z-index:0;display:block;overflow:hidden}
+.cpx__row[data-fold] .cpx__line{position:relative;z-index:1;border-radius:inherit;background:var(--surface)}
+.cpx__ghost{position:relative;color:var(--c);will-change:transform,opacity}
+.cpx__ghost .cpx__label{color:var(--muted)}
+/* fold animation is pure CSS so no JS tick loop rebuilds the DOM */
+.cpx__row[data-fold] .cpx__ghost{animation:cpx-fold 950ms var(--ease) both}
+@keyframes cpx-fold{from{opacity:1;transform:translateY(var(--drop,0px))}to{opacity:0;transform:translateY(-4px)}}
+.cpx__foot{display:flex;align-items:center;gap:12px;padding:10px 12px 12px 16px;
+  border-top:1px solid var(--border);margin-top:2px}
+.cpx__legend{display:flex;flex:1 1 auto;flex-wrap:wrap;gap:4px 12px;font-size:12px;color:var(--muted)}
+.cpx__key{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.cpx__dot{flex:none;width:8px;height:8px;border-radius:50%;background:var(--c)}
+.cpx__btn{flex:none;height:30px;padding:0 14px;border:0;border-radius:999px;
+  background:var(--ink);color:var(--surface);font:inherit;font-size:13px;font-weight:600;cursor:pointer;
+  transition:opacity 160ms ease,transform 150ms ease}
+.cpx__btn:hover{opacity:.85;transform:translateY(-1px)}
+.cpx__btn:disabled{opacity:.45;cursor:default;transform:none}
+.cpx__btn:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.cpx__swatch{width:10px;height:10px;border-radius:3px;background:var(--c);flex:none;margin:0 3px}
+.cpx__card{position:absolute;top:8px;left:8px;z-index:5;display:grid;gap:6px;
+  width:min(300px,calc(100% - 16px));padding:10px 12px 11px;border-radius:var(--radius);
+  background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow-pop);
+  pointer-events:none;animation:cpx-card 160ms var(--ease) both}
+.cpx__card-head{display:flex;align-items:baseline;gap:8px;min-width:0}
+.cpx__card-title{flex:1 1 auto;min-width:0;overflow:hidden;font-size:13px;font-weight:600;
+  color:var(--ink);white-space:nowrap;text-overflow:ellipsis}
+.cpx__card-meta{flex:none;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.cpx__card-list{margin:0;padding:0 0 8px;list-style:none;display:grid;gap:2px}
+.cpx__card-list li{display:flex;align-items:center;gap:7px;height:22px;font-size:12px;color:var(--muted)}
+.cpx__card-apps{margin:0;padding:0;list-style:none;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 10px}
+.cpx__card-apps li{display:flex;align-items:center;gap:7px;min-width:0;height:22px;font-size:12px;color:var(--muted)}
+.cpx__card-apps .cpx__app{margin-left:0;box-shadow:none}
+.cpx__card-name{flex:1 1 auto;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.cpx__card-num{flex:none;color:var(--muted);font-variant-numeric:tabular-nums}
+.cpx__card-more{font-size:12px;color:var(--muted)}
+.cpx__sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.doc{display:block;width:14px;height:18px;overflow:visible}
+.hint{width:100%;max-width:680px;font-size:12.5px;color:var(--muted)}
+.hint code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px}
+@keyframes cpx-pixel{0%,100%{opacity:1}50%{opacity:.2}}
+@keyframes cpx-sheen{from{background-position:-150% 0}to{background-position:250% 0}}
+@keyframes cpx-grow{from{width:0}}
+@keyframes cpx-in{from{opacity:0;transform:translateY(6px)}}
+@keyframes cpx-fade{from{opacity:0}}
+@keyframes cpx-card{from{opacity:0;transform:translateY(-3px) scale(.98)}}
+@media (prefers-reduced-motion:reduce){
+  .cpx *,.cpx *::before,.cpx *::after{animation:none!important;transition:none!important}
+}
+@media (max-width:460px){
+  .cpx__legend{display:none}
+  .cpx__foot{justify-content:flex-end}
+  .cpx__was{display:none}
+  .cpx__label{max-width:46%}
+}
+</style>
+</head>
+<body>
+<div class="page-head">
+  <div>
+    <h1>Context compaction</h1>
+    <p>Window bar and entries folding into a summary · clean-room replica</p>
+  </div>
+  <button class="theme-btn" id="themeBtn" type="button" aria-label="Switch to dark theme">☾</button>
+</div>
+
+<section class="cpx" id="cpx" aria-label="Context compaction demo"></section>
+<p class="hint">Demo replays automatically: entries stream in, the window compacts near 80% of 200k,
+then continues. Hover a bar segment or row to highlight it · click a row with tools or the summary for details ·
+<code>Compact now</code> forces compaction · keyboard: ↑ ↓ Home End Enter Esc.</p>
+
+<script>
+"use strict";
+/* Clean-room replica of the context-compaction demo behaviour.
+   Original data, timings and formatting were read from demo-original.js;
+   all code below is written from scratch. */
+var LIMIT = 200000, THRESH = 0.8, FOLD_MS = 950, ROW_H = 32;
+var T_FIRST = 900, T_STEP = 620, T_COMPACT = 1700, T_RESET = 3600;
+
+/* deterministic 3x3 pixel-mark for the "agent" id, computed from the
+   original hash routine -> [0,1,0,1,0,1,1,0,1] (5 cells on) */
+var AGENT_CELLS = [0,1,0,1,0,1,1,0,1];
+var USER_CELLS = [1,1,1,1,1,1,1,1,1];
+var BUSY_DELAYS = [0,120,240,120,240,360,240,360,480];
+
+var KIND = {
+  system:    {name:"System prompt",   color:"var(--k-system)"},
+  tools:     {name:"Tool definitions",color:"var(--k-tools)"},
+  user:      {name:"You",             color:"var(--k-user)"},
+  assistant: {name:"Agent",           color:"var(--k-agent)"},
+  tool:      {name:"Tool result",     color:"var(--k-tool)"},
+  file:      {name:"File",            color:"var(--k-file)"},
+  summary:   {name:"Summary",         color:"var(--k-summary)"}
+};
+var EXT_COLOR = {ts:"var(--x-blue)",tsx:"var(--x-blue)",js:"var(--x-amber)",jsx:"var(--x-amber)",
+  mjs:"var(--x-amber)",json:"var(--x-gray)",md:"var(--x-gray)",txt:"var(--x-gray)",
+  yml:"var(--x-gray)",yaml:"var(--x-gray)",css:"var(--x-purple)",scss:"var(--x-purple)",
+  html:"var(--x-orange)",py:"var(--x-teal)",go:"var(--x-cyan)",rs:"var(--x-orange)",
+  sql:"var(--x-pink)",pdf:"var(--x-red)",csv:"var(--x-green)",xlsx:"var(--x-green)"};
+
+/* ---- original demo data (labels + token counts verbatim) ---- */
+var BASE = [
+  {id:"sys", kind:"system", label:"System prompt", tokens:3200},
+  {id:"tools", kind:"tools", label:"14 tools", tokens:9800, total:14, apps:[
+    {name:"GitHub", color:"#6e5494", tile:"#f6f8fa"},{name:"Linear", color:"#5E6AD2"},
+    {name:"Vercel", color:"#000000", tile:"#ffffff"},{name:"Terminal", glyph:"terminal"},
+    {name:"File system", glyph:"folder"},{name:"Code search", glyph:"code"},
+    {name:"Test runner", glyph:"test"},{name:"Browser", glyph:"globe"},
+    {name:"Postgres", glyph:"db"},{name:"Stripe", color:"#635BFF"},
+    {name:"Slack", glyph:"slack"},{name:"Notion", color:"#111111", tile:"#ffffff"},
+    {name:"Figma", glyph:"figma"},{name:"Docs search", glyph:"book"}]}
+];
+var STREAM = [
+  {id:"u1", kind:"user", label:"The cart total is off by a cent \u2013 can you fix it?", tokens:400},
+  {id:"a1", kind:"assistant", label:"Looking at how the cart adds up", tokens:600},
+  {id:"t1", kind:"tool", label:"search_code \u00B7 cart total", tokens:6200},
+  {id:"f1", kind:"file", label:"src/cart/cart.ts", tokens:18400},
+  {id:"t2", kind:"tool", label:"read_file \u00B7 pricing.ts", tokens:14100},
+  {id:"a2", kind:"assistant", label:"Rounding happens per line, not on the total", tokens:1200},
+  {id:"f2", kind:"file", label:"src/cart/cart.test.ts", tokens:22600},
+  {id:"t3", kind:"tool", label:"run_tests \u00B7 48 tests, 2 failed", tokens:26300},
+  {id:"a3", kind:"assistant", label:"Both failures are on the discount path", tokens:900},
+  {id:"f3", kind:"file", label:"src/cart/discounts.ts", tokens:19800},
+  {id:"t4", kind:"tool", label:"edit_file \u00B7 cart.ts", tokens:8700},
+  {id:"t5", kind:"tool", label:"run_tests \u00B7 48 tests passed", tokens:27400},
+  {id:"a4", kind:"assistant", label:"All 48 pass \u2013 rounding moved to the total", tokens:1100}
+];
+var CONT = [
+  {id:"u2", kind:"user", label:"Nice. Round the tax line the same way?", tokens:300},
+  {id:"a5", kind:"assistant", label:"On it \u2013 the tax sits in its own file", tokens:700},
+  {id:"f4", kind:"file", label:"src/cart/tax.ts", tokens:12200}
+];
+var SUMMARY_LABEL = "Summary \u2013 bug found and fixed, all tests pass";
+
+function fmt(n){
+  var t = Math.max(0, Math.round(n));
+  if (t < 1000) return String(t);
+  if (t < 100000) return (t/1000).toFixed(1).replace(/\.0$/,"") + "K";
+  if (t < 1000000) return Math.round(t/1000) + "K";
+  return (t/1000000).toFixed(1).replace(/\.0$/,"") + "M";
+}
+function sumT(list){ return list.reduce(function(a,e){return a + (e.tokens||0);},0); }
+/* ids eligible for compaction: everything except system/tools, minus the last two */
+function compactIds(list){
+  return list.filter(function(e){return e.kind!=="system" && e.kind!=="tools";})
+             .slice(0,-2).map(function(e){return e.id;});
+}
+var sumSeq = 0;
+function makeSummary(list, ids){
+  var victims = list.filter(function(e){return ids.indexOf(e.id) >= 0;});
+  var before = sumT(victims);
+  return {id:"sum" + (++sumSeq), kind:"summary", label:SUMMARY_LABEL,
+    tokens:Math.round(Math.max(1200, before * 0.03)),
+    before:before, count:victims.length, replaces:ids.slice(),
+    ghosts:victims.map(function(e){return {id:e.id, kind:e.kind, label:e.label, tokens:e.tokens};})};
+}
+
+/* ---------- tiny glyph set (original strokes, drawn from scratch) ---------- */
+var GLYPHS = {
+  terminal:'<path d="M5 6l3 2.2L5 10.4"/><path d="M9.5 11.5H14"/><rect x="3" y="3" width="18" height="18" rx="4"/>',
+  folder:'<path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+  code:'<path d="M8.5 8L5 12l3.5 4"/><path d="M15.5 8L19 12l-3.5 4"/>',
+  test:'<path d="M9 3h6"/><path d="M10 3v5l-5.5 9.5A2 2 0 0 0 6.2 21h11.6a2 2 0 0 0 1.7-3.5L14 8V3"/>',
+  globe:'<circle cx="12" cy="12" r="8.5"/><path d="M12 3.5c-4.5 4.5-4.5 12.5 0 17M12 3.5c4.5 4.5 4.5 12.5 0 17M4 9.5h16M4 14.5h16"/>',
+  db:'<ellipse cx="12" cy="6" rx="7" ry="2.6"/><path d="M5 6v12c0 1.4 3.1 2.6 7 2.6s7-1.2 7-2.6V6"/><path d="M5 12c0 1.4 3.1 2.6 7 2.6s7-1.2 7-2.6"/>',
+  book:'<path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H11v15.5H6.8A1.8 1.8 0 0 0 5 20.3z"/><path d="M19 4.5A1.5 1.5 0 0 0 17.5 3H13v15.5h4.2a1.8 1.8 0 0 1 1.8 1.8z"/>',
+  settings:'<circle cx="12" cy="12" r="3"/><path d="M12 2.8l1 2.4 2.6-.4 1.4 2 2.6.7-.2 2.6 1.8 1.9-1.8 1.9.2 2.6-2.6.7-1.4 2-2.6-.4-1 2.4-1-2.4-2.6.4-1.4-2-2.6-.7.2-2.6L2.8 12l1.8-1.9-.2-2.6 2.6-.7 1.4-2 2.6.4z"/>',
+  wrench:'<path d="M14.5 6.5a4 4 0 0 0-5.3 5.3L4 17l3 3 5.2-5.2a4 4 0 0 0 5.3-5.3l-2.7 2.7-2.5-.5-.5-2.5z"/>',
+  layers:'<path d="M12 3l9 4.5-9 4.5-9-4.5z"/><path d="M4.5 12.5L12 16.2l7.5-3.7"/><path d="M4.5 16.5L12 20.2l7.5-3.7"/>',
+  search:'<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>',
+  edit:'<path d="M14.5 5.5l4 4L8 20l-4.5.5L4 16z"/><path d="M13 5.5l2-2 4 4-2 2"/>',
+  slack:'<rect x="9.5" y="3" width="5" height="9" rx="2.5"/><rect x="9.5" y="12" width="5" height="9" rx="2.5"/><rect x="3" y="9.5" width="9" height="5" rx="2.5"/><rect x="12" y="9.5" width="9" height="5" rx="2.5"/>',
+  figma:'<rect x="4" y="3" width="7" height="7" rx="3.5"/><rect x="4" y="10.5" width="7" height="7" rx="3.5" /><circle cx="14.5" cy="6.5" r="3.5"/><circle cx="14.5" cy="13.5" r="3.5"/>'
+};
+function glyphSVG(name){
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    (GLYPHS[name] || GLYPHS.terminal) + '</svg>';
+}
+function toolGlyph(label){
+  var t = String(label || "").toLowerCase();
+  if (/search|grep|find|lookup/.test(t)) return "search";
+  if (/test|spec|check/.test(t)) return "test";
+  if (/edit|write|patch|apply|replace/.test(t)) return "edit";
+  return "terminal";
+}
+function esc(s){ return String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+function pix(cells, busy, color){
+  var h = '<span class="px"' + (busy ? ' data-busy' : '') + ' aria-hidden="true"' +
+    (color ? ' style="--c:' + color + '"' : '') + '>';
+  for (var k = 0; k < 9; k++)
+    h += '<i' + (cells[k] ? ' data-on' : '') +
+      (busy && cells[k] ? ' style="animation-delay:' + BUSY_DELAYS[k] + 'ms"' : '') + '></i>';
+  return h + '</span>';
+}
+function iconFor(e){
+  if (e.kind === "user")
+    return '<span class="cpx__icon" data-person>' + pix(USER_CELLS, false, null) + '</span>';
+  if (e.kind === "assistant")
+    return '<span class="cpx__icon" style="--c:var(--k-agent)">' + pix(AGENT_CELLS, false, null) + '</span>';
+  if (e.kind === "file"){
+    var m = /\.([a-z0-9]{1,5})$/i.exec((e.label || "").trim());
+    var ext = (m ? m[1].toLowerCase() : "doc").slice(0,4).toUpperCase();
+    var col = (m && EXT_COLOR[m[1].toLowerCase()]) || "var(--x-gray)";
+    var fs = ext.length > 3 ? 3.4 : 4.2;
+    return '<span class="cpx__icon"><svg class="doc" viewBox="0 0 16 20" aria-hidden="true">' +
+      '<path d="M3 1.5h6.4l3.9 3.9V17.5a1.2 1.2 0 0 1-1.2 1.2H3a1.2 1.2 0 0 1-1.2-1.2v-15A1.2 1.2 0 0 1 3 1.5Z" fill="var(--surface)" stroke="var(--border)" stroke-width="1"/>' +
+      '<path d="M9.4 1.5v2.9a.9.9 0 0 0 .9.9h2.9" fill="none" stroke="var(--border)" stroke-width="1"/>' +
+      '<text x="7.5" y="15.4" text-anchor="middle" font-size="' + fs + '" font-weight="700" fill="' + col + '">' + ext + '</text></svg></span>';
+  }
+  var g = e.kind === "system" ? "settings" : e.kind === "tools" ? "wrench" :
+          e.kind === "summary" ? "layers" : toolGlyph(e.label);
+  return '<span class="cpx__icon">' + glyphSVG(g) + '</span>';
+}
+function appTile(a){
+  var inner;
+  if (a.glyph === "slack" || a.glyph === "figma") inner = glyphSVG(a.glyph);
+  else if (a.glyph) inner = glyphSVG(a.glyph);
+  else if (a.path) inner = '<span class="t">' + esc(a.name.trim()[0].toUpperCase()) + '</span>';
+  else inner = '<span class="t">' + esc((a.name.trim()[0] || "?").toUpperCase()) + '</span>';
+  var st = "";
+  if (a.tile) st += "background:" + a.tile + ";";
+  if (a.color && !a.tile) st += "color:" + a.color + ";";
+  return '<span class="cpx__app"' + (st ? ' style="' + st + '"' : '') + '>' + inner + '</span>';
+}
+function appsHTML(e){
+  var apps = Array.isArray(e.apps) ? e.apps : [];
+  if (!apps.length) return "";
+  var shown = apps.slice(0,3).map(appTile).join("");
+  var extra = Math.max(0, Math.round(e.total || apps.length) - Math.min(3, apps.length));
+  return '<span class="cpx__apps" aria-hidden="true">' + shown +
+    (extra > 0 ? '<span class="cpx__app-more">+' + (extra > 999 ? 999 : extra) + '</span>' : '') + '</span>';
+}
+function hasCard(e, folding){ return (Array.isArray(e.apps) && e.apps.length > 0) || (e.kind === "summary" && !folding); }
+
+/* ================= state + render-on-change ================= */
+var root = document.getElementById("cpx");
+var reduced = typeof window.matchMedia === "function" &&
+  window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+var state = {
+  entries: BASE.slice(),
+  compacting: [],   /* ids being compacted (sheen sweep) */
+  foldId: null,     /* summary id whose ghosts are folding (CSS only) */
+  hover: null, selected: null, announce: ""
+};
+var lastSig = null, timer = null, stepIdx = 0, sumDone = false;
+
+function sig(){
+  return JSON.stringify([state.entries.map(function(e){return e.id;}),
+    state.compacting, state.foldId, state.hover, state.selected]);
+}
+function total(){ return sumT(state.entries); }
+
+function render(){
+  var s = sig();
+  if (s === lastSig) return;           /* re-render only on real state change */
+  lastSig = s;
+  var used = total(), pct = Math.min(999, Math.round(used / LIMIT * 100));
+  var over = used / LIMIT >= THRESH;
+  var busy = state.compacting.length > 0;
+  var busyN = state.entries.filter(function(e){return state.compacting.indexOf(e.id) >= 0;}).length;
+
+  var h = '<div class="cpx__bar"><span class="cpx__title">Fix the cart total</span>' +
+    '<span class="cpx__model">Claude Sonnet</span>' +
+    '<span class="cpx__state">';
+  if (busy) h += '<span class="cpx__badge" data-tone="busy">' + pix(AGENT_CELLS, true, null) + 'Compacting ' + busyN + '</span>';
+  else if (over) h += '<span class="cpx__badge" data-tone="warn">Near the limit</span>';
+  h += '<span class="cpx__pct"' + (over ? ' data-over' : '') + '>' + pct + '%</span></span></div>';
+
+  h += '<div class="cpx__body"><div class="cpx__meter" role="meter" aria-label="Context used" aria-valuemin="0" ' +
+    'aria-valuemax="' + LIMIT + '" aria-valuenow="' + Math.round(Math.min(used, LIMIT)) + '" ' +
+    'aria-valuetext="' + fmt(used) + ' of ' + fmt(LIMIT) + ' tokens"><div class="cpx__track">';
+  state.entries.forEach(function(e){
+    var w = Math.max(0.4, e.tokens / LIMIT * 100);
+    h += '<span class="cpx__slice"' +
+      (state.compacting.indexOf(e.id) >= 0 ? ' data-going' : '') +
+      (state.foldId === e.id ? ' data-fold' : '') +
+      ((state.hover && state.hover !== e.id) || (state.selected && state.selected !== e.id) ? ' data-dim' : '') +
+      (state.hover === e.id || state.selected === e.id ? ' data-on' : '') +
+      ' data-seg="' + e.id + '" style="--c:' + KIND[e.kind].color + ';width:' + w.toFixed(2) + '%"></span>';
+  });
+  h += '<span class="cpx__markline" style="left:' + (THRESH*100) + '%" aria-hidden="true"></span></div></div>';
+
+  h += '<div class="cpx__meta"><span><b>' + fmt(used) + '</b> of ' + fmt(LIMIT) + '</span>' +
+    '<span class="cpx__meta-end">' + (used >= LIMIT ? 'Full' : fmt(LIMIT - used) + ' left \u00B7 compacts at ' + fmt(LIMIT * THRESH)) + '</span></div>';
+
+  h += '<ul class="cpx__list" id="cpxList" aria-label="Entries in the context">';
+  if (!state.entries.length) h += '<li class="cpx__empty">Nothing in the context yet</li>';
+  state.entries.forEach(function(e){
+    var folding = state.foldId === e.id;
+    var label = (e.label || "").trim() || KIND[e.kind].name;
+    var card = hasCard(e, folding);
+    h += '<li class="cpx__row" data-kind="' + e.kind + '" data-row="' + e.id + '"' +
+      (state.compacting.indexOf(e.id) >= 0 ? ' data-going' : '') +
+      (state.selected === e.id ? ' data-on' : '') + (folding ? ' data-fold' : '') +
+      (card ? ' data-card' : '') + (card ? ' aria-expanded="' + (state.selected === e.id) + '"' : '') +
+      ' tabindex="0" role="button" aria-label="' + esc(KIND[e.kind].name + ", " + label + ", " + fmt(e.tokens) + " tokens") +
+      (state.compacting.indexOf(e.id) >= 0 ? ", being compacted" : '') + '"' +
+      ' style="--c:' + KIND[e.kind].color + '">';
+    h += '<span class="cpx__line">' + iconFor(e) +
+      '<span class="cpx__label">' + esc(label) + '</span>' + appsHTML(e);
+    if (e.kind === "summary" && e.before > 0)
+      h += '<span class="cpx__was">' + e.count + ' ' + (e.count === 1 ? "entry" : "entries") +
+        ' \u00B7 <s>' + fmt(e.before) + '</s></span>';
+    h += '<span class="cpx__tokens">' + fmt(e.tokens) + '</span></span>';
+    if (folding && e.ghosts){
+      var gh = e.ghosts, n = gh.length;
+      h += '<span class="cpx__ghosts" style="height:' + (n * ROW_H) + 'px" aria-hidden="true">';
+      gh.forEach(function(g, i){
+        h += '<span class="cpx__ghost" style="--c:' + KIND[g.kind].color +
+          ';--drop:' + (-(i + 1) * ROW_H) + 'px;animation-delay:' + (i * 40) + 'ms">' +
+          iconFor(g) + '<span class="cpx__label">' + esc(g.label || KIND[g.kind].name) + '</span>' +
+          '<span class="cpx__tokens">' + fmt(g.tokens) + '</span></span>';
+      });
+      h += '</span>';
+    }
+    h += '</li>';
+  });
+  h += '</ul>';
+
+  h += '<div class="cpx__foot"><span class="cpx__legend" aria-hidden="true">' +
+    ["user","assistant","tool","file","summary"].map(function(k){
+      return '<span class="cpx__key" style="--c:' + KIND[k].color + '"><span class="cpx__dot"></span>' +
+        (k === "assistant" ? "Agent" : k === "tool" ? "Tools" : k === "file" ? "Files" : KIND[k].name) + '</span>';
+    }).join("") + '</span>' +
+    '<button type="button" class="cpx__btn" id="cpxCompact"' + (busy ? ' disabled' : '') + '>Compact now</button></div>';
+  h += '</div>'; /* body */
+
+  /* details card (tooltip) for tool-strip / summary rows */
+  var sel = state.selected && state.entries.filter(function(e){return e.id === state.selected;})[0];
+  if (sel && hasCard(sel, state.foldId === sel.id)){
+    var apps = Array.isArray(sel.apps) ? sel.apps : [];
+    h += '<div class="cpx__card" role="tooltip" style="--c:' + KIND[sel.kind].color + '">';
+    if (sel.kind === "summary"){
+      var before = sel.before || 0, ghosts = sel.ghosts || [];
+      h += '<span class="cpx__card-head"><span class="cpx__card-title">' +
+        (sel.count ? sel.count + ' ' + (sel.count === 1 ? "entry" : "entries") + ' in one summary' : 'Summary') + '</span>' +
+        (before > 0 ? '<span class="cpx__card-meta">' + fmt(before) + ' \u2192 ' + fmt(sel.tokens) + '</span>' : '') + '</span>';
+      if (ghosts.length)
+        h += '<ul class="cpx__card-list">' + ghosts.slice(0,8).map(function(g){
+          return '<li style="--c:' + KIND[g.kind].color + '">' + iconFor(g) +
+            '<span class="cpx__card-name">' + esc(g.label || KIND[g.kind].name) + '</span>' +
+            '<span class="cpx__card-num">' + fmt(g.tokens) + '</span></li>';
+        }).join("") + '</ul>' +
+        (ghosts.length > 8 ? '<span class="cpx__card-more">and ' + (ghosts.length - 8) + ' more</span>' : '');
+    } else {
+      var totalN = Math.max(apps.length, Math.round(sel.total) || 0);
+      h += '<span class="cpx__card-head"><span class="cpx__card-title">' + esc(sel.label) + '</span>' +
+        '<span class="cpx__card-meta">' + fmt(sel.tokens) + ' tokens</span></span>' +
+        '<ul class="cpx__card-apps">' + apps.slice(0,24).map(function(a){
+          return '<li>' + appTile(a) + '<span class="cpx__card-name">' + esc(a.name) + '</span></li>';
+        }).join("") + '</ul>' +
+        (totalN > Math.min(apps.length, 24) ? '<span class="cpx__card-more">and ' + (totalN - Math.min(apps.length, 24)) + ' more</span>' : '');
+    }
+    h += '</div>';
+  }
+  h += '<span class="cpx__sr" role="status" aria-live="polite">' + esc(state.announce) + '</span>';
+  root.innerHTML = h;
+  var btn = document.getElementById("cpxCompact");
+  if (btn) btn.addEventListener("click", function(){ manualCompact(); });
+}
+
+/* ---------- compaction flow (state changes only, no tick rebuilds) ---------- */
+function doCompact(ids, done){
+  if (!ids.length || state.compacting.length) { if (done) done(false); return; }
+  state.compacting = ids.slice();
+  state.selected = null;
+  state.announce = "Compacting " + ids.length + " " + (ids.length === 1 ? "entry" : "entries");
+  render();
+  setTimeout(function(){
+    var victims = state.entries.filter(function(e){return ids.indexOf(e.id) >= 0;});
+    if (!victims.length){ state.compacting = []; render(); if (done) done(false); return; }
+    var first = 0;
+    state.entries.forEach(function(e, i){ if (e.id === victims[0].id && !first) first = i; });
+    var s = makeSummary(state.entries, ids);
+    var rest = state.entries.filter(function(e){return ids.indexOf(e.id) < 0;});
+    rest.splice(first, 0, s);
+    state.entries = rest;
+    state.compacting = [];
+    state.foldId = s.id;   /* ghosts animate away with pure CSS */
+    state.announce = "Compacted " + s.count + " " + (s.count === 1 ? "entry" : "entries") +
+      ", " + fmt(s.before) + " to " + fmt(s.tokens) + " tokens";
+    render();
+    setTimeout(function(){
+      if (state.foldId === s.id){ state.foldId = null; render(); }
+      if (done) done(true);
+    }, FOLD_MS);
+  }, T_COMPACT);
+}
+function manualCompact(){
+  if (state.compacting.length || state.foldId) return;
+  var ids = compactIds(state.entries);
+  if (ids.length < 2){ state.announce = "Nothing to compact yet"; render(); return; }
+  doCompact(ids);
+}
+
+/* ---------- autoplay demo loop ---------- */
+function schedule(ms){ clearTimeout(timer); timer = setTimeout(tick, ms); }
+function tick(){
+  if (state.compacting.length || state.foldId){ schedule(400); return; }
+  if (total() >= LIMIT * THRESH && !sumDone && !reduced){
+    var ids = compactIds(state.entries);
+    if (ids.length >= 2){
+      sumDone = true;
+      doCompact(ids, function(){ schedule(T_STEP); });
+      return;
+    }
+  }
+  var seq = STREAM.concat(CONT);
+  if (stepIdx < seq.length){
+    state.entries = state.entries.concat([seq[stepIdx++]]);
+    render();
+    schedule(stepIdx === 1 ? T_STEP : T_STEP);
+  } else {
+    stepIdx = 0; sumDone = false;
+    if (state.selected){ state.selected = null; render(); }
+    clearTimeout(timer);
+    timer = setTimeout(function(){
+      state.entries = BASE.slice(); state.selected = null; state.hover = null;
+      state.announce = ""; render(); tickSoon();
+    }, T_RESET);
+    return;
+  }
+}
+function tickSoon(){ schedule(stepIdx === 0 && state.entries.length <= 2 ? T_FIRST : T_STEP); }
+
+/* pointerdown on capture opens/closes the card so a click can never be
+   lost across a re-render; hover only re-renders on real change */
+document.addEventListener("pointerdown", function(ev){
+  var row = ev.target && ev.target.closest ? ev.target.closest("[data-row]") : null;
+  if (row && root.contains(row)){
+    var id = row.getAttribute("data-row");
+    var e = state.entries.filter(function(x){return x.id === id;})[0];
+    if (e && hasCard(e, state.foldId === id)){
+      state.selected = (state.selected === id) ? null : id;
+      render();
+    }
+    return;
+  }
+  if (state.selected && !(ev.target && ev.target.closest && ev.target.closest(".cpx__card"))){
+    state.selected = null; render();
+  }
+}, true);
+document.addEventListener("mouseover", function(ev){
+  var t = ev.target && ev.target.closest ? ev.target.closest("[data-row],[data-seg]") : null;
+  if (!t || !root.contains(t)) return;
+  var id = t.getAttribute("data-row") || t.getAttribute("data-seg");
+  if (id !== state.hover){ state.hover = id; render(); }
+}, true);
+document.addEventListener("mouseout", function(ev){
+  if (ev.target && ev.target.closest && ev.target.closest(".cpx") && state.hover){
+    var to = ev.relatedTarget && ev.relatedTarget.closest ? ev.relatedTarget.closest("[data-row],[data-seg]") : null;
+    if (!to){ state.hover = null; render(); }
+  }
+}, true);
+document.addEventListener("keydown", function(ev){
+  var row = ev.target && ev.target.closest ? ev.target.closest("[data-row]") : null;
+  if (!row || !root.contains(row)) {
+    if (ev.key === "Escape" && state.selected){ state.selected = null; render(); }
+    return;
+  }
+  var ids = state.entries.map(function(e){return e.id;});
+  var i = ids.indexOf(row.getAttribute("data-row"));
+  function focusAt(j){
+    j = Math.max(0, Math.min(ids.length - 1, j));
+    var el = root.querySelector('[data-row="' + ids[j] + '"]');
+    if (el) el.focus();
+  }
+  if (ev.key === "ArrowDown"){ focusAt(i + 1); ev.preventDefault(); }
+  else if (ev.key === "ArrowUp"){ focusAt(i - 1); ev.preventDefault(); }
+  else if (ev.key === "Home"){ focusAt(0); ev.preventDefault(); }
+  else if (ev.key === "End"){ focusAt(ids.length - 1); ev.preventDefault(); }
+  else if (ev.key === "Enter" || ev.key === " "){
+    var e = state.entries[i];
+    if (e && hasCard(e, state.foldId === e.id)){
+      state.selected = (state.selected === e.id) ? null : e.id; render();
+    }
+    ev.preventDefault();
+  }
+  else if (ev.key === "Escape"){ state.selected = null; render(); }
+});
+
+/* ---------- theme toggle ---------- */
+var themeBtn = document.getElementById("themeBtn");
+function paintTheme(){
+  var dark = document.documentElement.getAttribute("data-theme") === "dark";
+  themeBtn.textContent = dark ? "\u2600" : "\u263E";
+  themeBtn.setAttribute("aria-label", dark ? "Switch to light theme" : "Switch to dark theme");
+}
+themeBtn.addEventListener("click", function(){
+  var dark = document.documentElement.getAttribute("data-theme") === "dark";
+  document.documentElement.setAttribute("data-theme", dark ? "light" : "dark");
+  paintTheme();
+});
+if (typeof window.matchMedia === "function" && window.matchMedia("(prefers-color-scheme: dark)").matches)
+  document.documentElement.setAttribute("data-theme", "dark");
+paintTheme();
+
+/* ---------- boot ---------- */
+if (reduced){
+  /* reduced motion: start from the already-compacted state, like the original */
+  var pre = BASE.concat(STREAM);
+  var s0 = makeSummary(pre, compactIds(pre));
+  var at0 = 0;
+  pre.forEach(function(e, i){ if (e.id === s0.replaces[0]) at0 = i; });
+  var rest0 = pre.filter(function(e){return s0.replaces.indexOf(e.id) < 0;});
+  rest0.splice(at0, 0, s0);
+  state.entries = rest0.concat(CONT);
+  stepIdx = STREAM.length + CONT.length; sumDone = true;
+}
+render();
+if (!reduced) tickSoon();
+
+/* expose a tiny probe surface for the headless verification harness */
+window.__cpx = {state:function(){return state;}, fmt:fmt, compactIds:compactIds,
+  AGENT_CELLS:AGENT_CELLS, manualCompact:manualCompact};
+</script>
+</body>
+</html>

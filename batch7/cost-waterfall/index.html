@@ -1,0 +1,774 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Run cost — cost waterfall</title>
+<style>
+/* ============ design tokens ============ */
+:root{
+  --surface:#ffffff;
+  --page:#faf9f9;
+  --ink:#171717;
+  --ink-strong:#1c1917;
+  --muted:#6f6a63;
+  --faint:#a8a29e;
+  --subtle:#f5f5f4;
+  --wash:#f7f7f5;
+  --border:#e7e5e4;
+  --line:#ececea;
+  --grid:#f0efed;
+  --radius-lg:16px;
+  --radius:10px;
+  --radius-sm:6px;
+  --shadow:0 1px 2px rgba(0,0,0,.05),0 4px 16px rgba(0,0,0,.05);
+  --shadow-card:0 0 0 1px var(--border),0 1px 2px rgba(0,0,0,.04);
+  --accent:#4fb0fe;
+  --running-fg:#2456d6; --running-bg:#eaf1ff;
+  --waiting-fg:#92400e; --waiting-bg:#fef3c7; --waiting-edge:#f59e0b;
+  --done-fg:#187041;    --done-bg:#e6f6ed;
+  --failed-fg:#c4320a;   --failed-bg:#fde8e5;
+  --agent-bg:#eef0f3; --agent-edge:#cfd5dd; --agent-mark:#8b93a1;
+  --llm-bg:#f3ecfd;   --llm-edge:#d5bdf5;   --llm-mark:#a06ee8;
+  --tool-bg:#e2f4f1;  --tool-edge:#a3d9d1;  --tool-mark:#0f9b8a;
+  --err-bg:#fde8e5;   --err-edge:#f4937f;   --err-mark:#e04a2f;
+  --top-bg:#fff1e0;   --top-fg:#9a5100;
+  --focus:rgba(0,96,226,.7);
+  --ease:cubic-bezier(.22,1,.36,1);
+}
+html[data-theme="dark"]{
+  --surface:#1c1c1f;
+  --page:#101012;
+  --ink:#ededed;
+  --ink-strong:#f5f5f5;
+  --muted:#a8a8b0;
+  --faint:#6d6d75;
+  --subtle:#26262a;
+  --wash:#1b1b1e;
+  --border:#2e2e33;
+  --line:#2b2b30;
+  --grid:#28282d;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 4px 16px rgba(0,0,0,.35);
+  --shadow-card:0 0 0 1px var(--border),0 1px 2px rgba(0,0,0,.3);
+  --accent:#4fb0fe;
+  --running-fg:#8ab4ff; --running-bg:#16243f;
+  --waiting-fg:#fde68a; --waiting-bg:#451a03; --waiting-edge:#fbbf24;
+  --done-fg:#5fc88a;    --done-bg:#123020;
+  --failed-fg:#ff8a7a;  --failed-bg:#3b1c14;
+  --agent-bg:#2b2e34; --agent-edge:#434954; --agent-mark:#8b93a1;
+  --llm-bg:#352247;   --llm-edge:#6f3ea0;   --llm-mark:#c09bf5;
+  --tool-bg:#15302c;  --tool-edge:#147f71;  --tool-mark:#4fc3b4;
+  --err-bg:#3b1c14;   --err-edge:#7a3a2a;   --err-mark:#f04438;
+  --top-bg:#3a2610;   --top-fg:#ffb35c;
+  --focus:rgba(77,141,255,.8);
+}
+/* ============ page chrome ============ */
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--page);color:var(--ink);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:14px;line-height:1.45;
+  -webkit-font-smoothing:antialiased;
+  min-height:100vh;
+}
+.page{max-width:1060px;margin:0 auto;padding:28px 20px 64px}
+.page-head{display:flex;align-items:center;gap:12px;margin:0 4px 14px}
+.page-head .crumb{font-size:12px;color:var(--muted);letter-spacing:.02em}
+.page-head h1{font-size:15px;font-weight:600;margin:0;color:var(--ink-strong)}
+.page-head .sub{font-size:12px;color:var(--muted)}
+.theme-btn{
+  margin-left:auto;flex:none;display:inline-flex;align-items:center;gap:8px;
+  height:32px;padding:0 14px;border-radius:999px;
+  border:1px solid var(--border);background:var(--surface);color:var(--ink);
+  font:inherit;font-size:12.5px;cursor:pointer;box-shadow:var(--shadow);
+  transition:transform 150ms var(--ease),background-color 150ms ease;
+}
+.theme-btn:hover{background:var(--subtle);transform:translateY(-1px)}
+.theme-btn:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.theme-btn svg{width:14px;height:14px}
+/* ============ component ============ */
+.cwf{
+  background:var(--subtle);
+  border:1px solid var(--border);
+  border-radius:calc(var(--radius-lg) + 4px);
+  padding:4px;
+  box-shadow:var(--shadow);
+  font-size:14px;
+}
+.cwf__head{display:flex;align-items:center;gap:8px;min-width:0;padding:8px 8px 10px 12px}
+.cwf__spark{display:grid;place-items:center;width:16px;color:var(--accent);flex:none}
+.cwf__spark svg{width:14px;height:14px}
+.cwf__heading{flex:none;font-weight:600;font-size:14px;color:var(--ink-strong);white-space:nowrap}
+.cwf__task{flex:1;min-width:0;font-size:13px;color:var(--muted);overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.cwf__switch{position:relative;display:grid;flex:none;grid-template-columns:1fr 1fr;margin-left:auto;padding:2px;border-radius:999px;background:var(--border)}
+.cwf__switch::before{content:"";position:absolute;top:2px;bottom:2px;left:2px;width:calc(50% - 2px);border-radius:999px;background:var(--surface);box-shadow:var(--shadow-card);transition:transform 320ms var(--ease)}
+.cwf[data-mode="tokens"] .cwf__switch::before{transform:translateX(100%)}
+.cwf__switch>button{position:relative;height:24px;padding:0 12px;border:0;border-radius:999px;background:none;font:inherit;font-size:12px;font-weight:500;color:var(--muted);cursor:pointer}
+.cwf__switch>button[aria-pressed="true"]{color:var(--ink)}
+.cwf__switch>button:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.cwf__pill{display:inline-flex;flex:none;align-items:center;gap:6px;height:28px;padding:0 11px;border-radius:999px;background:var(--surface);box-shadow:var(--shadow-card);font-size:12px;font-weight:500;color:var(--muted);white-space:nowrap}
+.cwf__pill[data-status="running"]{color:var(--running-fg)}
+.cwf__pill[data-status="done"]{color:var(--done-fg)}
+.cwf__pill[data-status="failed"]{color:var(--failed-fg)}
+.cwf__dot{width:6px;height:6px;border-radius:50%;background:currentColor}
+.cwf__pill[data-status="running"] .cwf__dot{animation:cwf-pulse 1400ms ease-in-out infinite}
+.cwf__card{border-radius:var(--radius-lg);background:var(--surface);box-shadow:var(--shadow-card)}
+.cwf__stats{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.4fr);padding:14px 0;border-bottom:1px solid var(--border)}
+.cwf__stat{display:grid;gap:2px;min-width:0;padding:0 16px}
+.cwf__stat:first-child{padding-left:22px}
+.cwf__stat+.cwf__stat{border-left:1px solid var(--border)}
+.cwf__stat dt{margin:0;font-size:12px;color:var(--muted);overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.cwf__stat dd{margin:0;display:flex;align-items:baseline;gap:8px;min-width:0;overflow:hidden;font-size:16px;font-weight:600;letter-spacing:-.01em;color:var(--ink);white-space:nowrap;font-variant-numeric:tabular-nums}
+.cwf__sub{flex:none;font-size:12px;font-weight:400;color:var(--muted);font-variant-numeric:tabular-nums}
+.cwf__top{display:flex;align-items:baseline;gap:8px;min-width:0;max-width:100%;margin:0 -6px;padding:0 6px;border:0;border-radius:8px;background:none;font:inherit;color:var(--ink);cursor:pointer}
+.cwf__top:hover{background:var(--subtle)}
+.cwf__top:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
+.cwf__top-name{min-width:0;overflow:hidden;text-overflow:ellipsis;font-size:16px;font-weight:600;white-space:nowrap}
+/* ---- body / columns ---- */
+.cwf__body{position:relative}
+.cwf__cols,.cwf__row{
+  display:grid;grid-template-columns:228px minmax(0,1fr) 44px 44px 56px 52px;
+  column-gap:12px;padding:0 16px 0 10px;
+}
+.cwf__cols{align-items:center;min-height:30px;border-bottom:1px solid var(--border);font-size:12px;color:var(--muted)}
+.cwf__cols>span:first-child{padding-left:6px}
+.cwf__cols>[data-col]{text-align:right}
+.cwf__layer{position:absolute;top:0;bottom:0;left:calc(10px + 228px + 12px);right:calc(16px + 44px + 44px + 56px + 52px + 4*12px);overflow:hidden;pointer-events:none}
+.cwf__tick{position:absolute;top:0;bottom:0;left:calc(var(--v) * 100% / var(--cwf-range,1));width:1px;background:var(--grid)}
+.cwf__tick[data-zero]{background:var(--line)}
+.cwf__tick>span{position:absolute;top:7px;left:6px;font-size:11.5px;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+.cwf__rows{position:relative}
+.cwf__empty{margin:0;padding:22px 16px 24px;font-size:12px;text-align:center;color:var(--muted)}
+.cwf__item{display:grid;grid-template-rows:1fr;transition:grid-template-rows 360ms var(--ease),opacity 260ms ease;animation:cwf-rowin 420ms var(--ease) backwards;animation-delay:var(--rd,0ms)}
+.cwf__item[data-hidden]{grid-template-rows:0fr;opacity:0;pointer-events:none}
+.cwf__item[data-hidden] .cwf__clip{min-height:0}
+.cwf__clip{overflow:hidden;min-height:0}
+.cwf__row{align-items:center;height:32px;outline:none;cursor:pointer;border-radius:0;transition:background-color 140ms ease}
+.cwf__row:hover{background:var(--wash)}
+.cwf__row[data-open]{background:var(--wash)}
+.cwf__row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
+.cwf__name{display:flex;align-items:center;min-width:0;height:32px}
+.cwf__guides{flex:none;align-self:stretch;background:repeating-linear-gradient(90deg,transparent 0 7.5px,var(--border) 7.5px 8.5px,transparent 8.5px 14px)}
+.cwf__chev{display:grid;flex:none;place-items:center;width:16px;height:20px;margin-right:4px;border-radius:4px;color:var(--muted)}
+.cwf__chev svg{width:12px;height:12px;transition:transform 240ms var(--ease)}
+.cwf__row[data-folded] .cwf__chev svg{transform:rotate(-90deg)}
+/* icons */
+.cwf__icon{display:grid;flex:none;place-items:center;width:20px;height:20px;margin-right:8px;border-radius:6px;background:var(--surface);box-shadow:0 0 0 1px var(--line),0 1px 2px rgba(0,0,0,.06);overflow:hidden}
+.cwf__icon svg{width:12px;height:12px}
+.cwf__icon--tool{border-radius:50%;box-shadow:0 0 0 1px var(--k-edge, var(--line)),0 1px 2px rgba(0,0,0,.06)}
+/* 3x3 pixel-mark: exactly 9 cells */
+.px{display:grid;flex:none;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);gap:1px;width:12px;height:12px}
+.px i{display:block;min-width:0;min-height:0;border-radius:.6px;background:transparent}
+.px i.on{background:var(--px-c,#8b93a1)}
+.px.live i.on{animation:cwf-twinkle 1600ms ease-in-out infinite;animation-delay:var(--td,0ms)}
+.cwf__label{display:flex;align-items:baseline;gap:6px;flex:1;min-width:0;overflow:hidden;white-space:nowrap}
+.cwf__title{flex:none;max-width:100%;overflow:hidden;font-size:13px;color:var(--ink);text-overflow:ellipsis}
+.cwf__row[data-parent] .cwf__title{font-weight:500}
+.cwf__model{min-width:0;overflow:hidden;font-size:12px;color:var(--muted);text-overflow:ellipsis}
+.cwf__more{flex:none;height:18px;margin-left:6px;padding:0 6px;border-radius:999px;background:var(--subtle);font-size:11px;font-weight:500;line-height:18px;color:var(--muted);font-variant-numeric:tabular-nums}
+.cwf__flag{flex:none;height:16px;margin-left:6px;padding:0 5px;border-radius:4px;background:var(--top-bg);font-size:10.5px;font-weight:500;line-height:16px;color:var(--top-fg)}
+.cwf__state{display:grid;flex:none;place-items:center;width:16px;margin-left:4px}
+.cwf__state[data-status="running"]{color:var(--running-fg)}
+.cwf__state[data-status="failed"]{color:var(--failed-fg)}
+.cwf__spin{animation:cwf-spin 900ms linear infinite}
+.cwf__num{min-width:0;overflow:hidden;font-size:12px;text-align:right;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+.cwf__num[data-col="cost"]{color:var(--ink)}
+.cwf :is(.cwf__cols,.cwf__row)>[data-col="tok"]{display:none}
+.cwf__row[data-parent] .cwf__num[data-col="cost"]{font-weight:500}
+.cwf__row[data-status="failed"] .cwf__num[data-col="time"]{color:var(--failed-fg)}
+/* waterfall bars */
+.cwf__track{position:relative;min-width:0;height:32px;overflow:hidden}
+.cwf__bar{position:absolute;top:calc(50% - 8px);left:calc(var(--s) * 100% / var(--cwf-range,1));width:max(2px,calc(var(--d) * 100% / var(--cwf-range,1)));height:16px;overflow:hidden;border-radius:5px;background:var(--k-bg);box-shadow:inset 0 0 0 1px var(--k-edge);animation:cwf-grow 560ms var(--ease) backwards;animation-delay:calc(var(--rd,0ms) + 60ms)}
+.cwf__row[data-parent] .cwf__bar{border-radius:4px}
+.cwf__row:is(:hover,[data-open]) .cwf__bar{box-shadow:inset 0 0 0 1px var(--k-mark)}
+.cwf__bar[data-kind="agent"]{--k-bg:var(--agent-bg);--k-edge:var(--agent-edge);--k-mark:var(--agent-mark)}
+.cwf__bar[data-kind="llm"]{--k-bg:var(--llm-bg);--k-edge:var(--llm-edge);--k-mark:var(--llm-mark)}
+.cwf__bar[data-kind="tool"]{--k-bg:var(--tool-bg);--k-edge:var(--tool-edge);--k-mark:var(--tool-mark)}
+.cwf__bar[data-kind][data-status="failed"]{--k-bg:var(--err-bg);--k-edge:var(--err-edge);--k-mark:var(--err-mark)}
+.cwf__bar[data-status="running"]::before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,var(--surface),transparent) -60px 0/60px 100% no-repeat;opacity:.7;animation:cwf-sweep 1500ms linear infinite}
+.cwf__bar[data-status="running"]::after{content:"";position:absolute;top:0;right:0;bottom:0;width:min(28px,100%);background:linear-gradient(90deg,transparent,var(--k-edge));animation:cwf-glow 1100ms ease-in-out infinite alternate}
+.cwf__out{position:absolute;top:0;right:0;bottom:0;width:calc(var(--split) * 100%)}
+.cwf__bar[data-kind="agent"] .cwf__out{background:var(--agent-edge);opacity:.55}
+.cwf__bar[data-kind="llm"] .cwf__out{background:var(--llm-edge);opacity:.6}
+.cwf__bar[data-kind="tool"] .cwf__out{background:var(--tool-edge);opacity:.6}
+.cwf__amount[data-live]{background:linear-gradient(90deg,currentColor 0%,currentColor 38%,var(--faint) 50%,currentColor 62%,currentColor 100%) 0 0/300% 100%;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;animation:cwf-shine 1100ms linear infinite}
+/* detail */
+.cwf__detail{display:grid;grid-template-rows:1fr;animation:cwf-open 300ms var(--ease) both}
+.cwf__detail-in{position:relative;display:grid;gap:8px;min-height:0;overflow:hidden;padding:4px 16px 12px calc(10px + 48px + min(var(--lvl,0),6)*14px);background:var(--wash)}
+.cwf__detail-in>.cwf__guides{position:absolute;top:0;bottom:0;left:10px;width:calc(min(var(--lvl,0),6)*14px)}
+.cwf__io{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}
+.cwf__io>div{display:grid;align-content:start;gap:4px;min-width:0;padding:10px 12px;border-radius:calc(var(--radius-lg) - 4px);background:var(--surface);box-shadow:var(--shadow-card)}
+.cwf__io span{font-size:11.5px;color:var(--muted)}
+.cwf__io p{max-height:108px;margin:0 -4px;padding:0 4px;overflow:auto;overscroll-behavior:contain;overflow-wrap:anywhere;font-size:12px;line-height:1.5;color:var(--ink);white-space:pre-line;border-radius:4px;outline:none;scrollbar-width:thin}
+.cwf__io p:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.cwf__io p[data-mono]{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:11.5px}
+.cwf__io p[data-live]{color:var(--muted)}
+.cwf__error{display:flex;gap:8px;padding:8px 10px;border-radius:10px;background:var(--err-bg);font-size:12px;color:var(--failed-fg)}
+.cwf__error svg{flex:none;width:12px;height:12px;margin-top:2px}
+.cwf__error>span{min-width:0;overflow-wrap:anywhere}
+.cwf__foot{display:flex;align-items:center;gap:8px;padding:8px 16px 10px;font-size:11.5px;color:var(--muted)}
+.cwf__foot .replay{margin-left:auto;border:1px solid var(--border);background:var(--surface);color:var(--muted);border-radius:999px;height:26px;padding:0 12px;font:inherit;font-size:11.5px;cursor:pointer}
+.cwf__foot .replay:hover{color:var(--ink);background:var(--subtle)}
+.cwf__foot .replay:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+/* responsive */
+@media (max-width:760px){
+  .cwf__cols,.cwf__row{grid-template-columns:200px minmax(0,1fr) 56px 52px}
+  .cwf :is(.cwf__cols,.cwf__row)>[data-col="in"],
+  .cwf :is(.cwf__cols,.cwf__row)>[data-col="out"]{display:none}
+  .cwf__layer{left:calc(10px + 200px + 12px);right:calc(16px + 56px + 52px + 2*12px)}
+  .cwf[data-mode="tokens"] :is(.cwf__cols,.cwf__row)>[data-col="cost"]{display:none}
+  .cwf[data-mode="tokens"] :is(.cwf__cols,.cwf__row)>[data-col="tok"]{display:block;text-align:right}
+}
+@media (max-width:540px){
+  .cwf__head{flex-wrap:wrap;padding:10px 12px;row-gap:8px}
+  .cwf__task{order:5;flex-basis:100%}
+  .cwf__stats{grid-template-columns:minmax(0,1fr) minmax(0,1fr);row-gap:10px;padding:10px 0}
+  .cwf__stat{padding:0 12px}
+  .cwf__stat:first-child{padding-left:16px}
+  .cwf__stat:last-child{grid-column:1/-1;padding-left:16px;border-left:0}
+  .cwf__cols{display:none}
+  .cwf__layer{display:none}
+  .cwf__row{grid-template-columns:minmax(0,1fr) 56px 52px;grid-template-rows:30px 12px;row-gap:0;align-items:center;height:44px}
+  .cwf__name{grid-column:1;grid-row:1;height:30px}
+  .cwf__row>:is([data-col="cost"],[data-col="tok"]){grid-column:2;grid-row:1}
+  .cwf__row>[data-col="time"]{grid-column:3;grid-row:1}
+  .cwf__track{grid-column:1/-1;grid-row:2;height:12px}
+  .cwf__bar{top:1px;height:10px;border-radius:3px}
+  .cwf__model{display:none}
+  .cwf__io{grid-template-columns:minmax(0,1fr)}
+}
+/* motion */
+@keyframes cwf-rowin{from{opacity:0;transform:translateY(-4px)}}
+@keyframes cwf-grow{from{clip-path:inset(0 100% 0 0 round 5px)}to{clip-path:inset(0 0 0 0 round 5px)}}
+@keyframes cwf-open{from{grid-template-rows:0fr;opacity:0}}
+@keyframes cwf-pulse{50%{opacity:.35}}
+@keyframes cwf-spin{to{transform:rotate(360deg)}}
+@keyframes cwf-sweep{to{background-position:calc(100% + 60px) 0}}
+@keyframes cwf-glow{from{opacity:.45}to{opacity:1}}
+@keyframes cwf-shine{from{background-position:100% 0}to{background-position:0 0}}
+@keyframes cwf-twinkle{0%,100%{opacity:1}50%{opacity:.35}}
+@media (prefers-reduced-motion:reduce){
+  .cwf *,.cwf *::before,.cwf *::after{animation:none!important;transition:none!important}
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="page-head">
+    <div>
+      <div class="crumb">affectUI &middot; cost-waterfall</div>
+      <h1>Run cost</h1>
+      <div class="sub">Waterfall of LLM, tool, and sub-agent steps &mdash; tokens, cost, and time.</div>
+    </div>
+    <button class="theme-btn" id="themeBtn" type="button" aria-label="Switch to dark theme">
+      <svg id="themeIconMoon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4 8.5 8.5 0 1 0 20 14.5Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+      <svg id="themeIconSun" viewBox="0 0 24 24" fill="none" aria-hidden="true" style="display:none"><circle cx="12" cy="12" r="4.2" stroke="currentColor" stroke-width="2"/><path d="M12 2.5v2.4M12 19.1v2.4M2.5 12h2.4M19.1 12h2.4M5 5l1.7 1.7M17.3 17.3 19 19M19 5l-1.7 1.7M6.7 17.3 5 19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      <span id="themeLabel">Dark</span>
+    </button>
+  </div>
+  <main id="cwf-root"></main>
+  <p style="font-size:12px;color:var(--muted);margin:14px 4px 0">Clean-room replica for study purposes. Demo data mirrors the original Pro demo run (LLM pricing report, 12 steps). Open this file directly in a browser &mdash; no network needed.</p>
+</div>
+<script>
+(function(){
+"use strict";
+/* ================= exact demo run (values read from the original demo) ================= */
+var PRICES={"Opus 5.5":[5,25],"Sonnet 5.5":[3,15],"Haiku 5.5":[1,5],"GPT-6 Sol":[2.5,15],"Gemini 3.8 Flash":[0.3,2.5]};
+var LOOP_END=11.1, LOOP_DUR=17.5, DUR_MS=2500;      /* demo loop: 11.1s run, 17.5s loop, durations x2.5 */
+var ROW_STAGGER=36, RANGE_ANIM=720;                 /* per-row entrance stagger ms, axis-range ease ms */
+var TITLE="Run cost", TASK="Report on LLM API prices in 2026";
+var STEPS=[
+ {id:"plan",name:"Plan the report",kind:"llm",model:"Opus 5.5",at:0.2,end:1.4,tin:4120,tout:960,
+  input:"Write a report on what LLM APIs cost in 2026 \u2013 compare the five big providers, with batch and cache discounts.",
+  output:"1. Research prices and discounts\n2. Write the report\n3. Review facts and links\n4. Save to Notion"},
+ {id:"research",name:"Researcher",kind:"agent",model:"Gemini 3.8 Flash",at:1.5,end:4.9,
+  input:"Find current API prices and discounts for the five big providers",
+  output:"Prices for 14 models, batch and cache discounts \u2013 sources attached"},
+ {id:"s1",parent:"research",name:"web_search",kind:"tool",detail:"API prices 2026",at:1.5,end:2,price:0.01,
+  input:"{ \"query\": \"LLM API pricing per million tokens 2026\" }",output:"10 results \u2013 5 official pricing pages"},
+ {id:"s2",parent:"research",name:"web_search",kind:"tool",detail:"cache discounts",at:2.05,end:2.5,price:0.01,
+  input:"{ \"query\": \"prompt caching batch API discount\" }",output:"8 results \u2013 4 provider docs"},
+ {id:"read",parent:"research",name:"fetch_pages",kind:"tool",detail:"9 pages",at:2.55,end:3.4,
+  input:"{ \"urls\": 9, \"max_chars\": 20000 }",output:"9 pages read \u2013 61,400 characters"},
+ {id:"sum",parent:"research",name:"Summarize sources",kind:"llm",model:"Gemini 3.8 Flash",at:3.45,end:4.9,tin:38400,tout:1250,
+  input:"Nine pricing pages and docs. Pull out price per million input and output tokens, batch and cache discounts.",
+  output:"14 models in a table \u2013 batch saves 50% everywhere, cache reads cost 10% of input"},
+ {id:"write",name:"Write the report",kind:"llm",model:"Opus 5.5",at:5,end:8,tin:21800,tout:5600,
+  input:"Write a 1,500-word report from this research table. Lead with what a typical agent run costs, then compare providers.",
+  output:"\u201CA typical agent run of 120k tokens costs between $0.04 and $0.90 \u2013 the model you pick matters ten times more than the provider\u2026\u201D"},
+ {id:"review",name:"Reviewer",kind:"agent",model:"Haiku 5.5",at:8.1,end:9.4,
+  input:"Check every number and link in the report",output:"2 dead links \u2013 numbers match the sources"},
+ {id:"facts",parent:"review",name:"Check facts",kind:"llm",model:"Haiku 5.5",at:8.1,end:8.9,tin:26000,tout:700,
+  input:"Compare every price in the report against the research table.",output:"All 28 numbers match the sources."},
+ {id:"links",parent:"review",name:"check_links",kind:"tool",detail:"31 links",at:8.95,end:9.4,fails:true,
+  input:"{ \"links\": 31, \"timeout_ms\": 5000 }",error:"2 of 31 links return 404 \u2013 the Gemini and Mistral pricing pages moved"},
+ {id:"fix",name:"Apply review",kind:"llm",model:"Sonnet 5.5",at:9.5,end:10.6,tin:24500,tout:1900,
+  input:"Replace the two dead links with the new pricing pages and keep everything else.",output:"2 links replaced \u2013 report ready"},
+ {id:"save",name:"Save report",kind:"tool",detail:"Notion",at:10.65,end:11,
+  input:"{ \"page\": \"Research / LLM pricing 2026\" }",output:"Page created \u2013 1,540 words"}
+];
+var KIND_LABEL={agent:"Sub-agent",llm:"LLM call",tool:"Tool call"};
+var STATUS_LABEL={running:"Running",done:"Done",failed:"Failed"};
+var IO_LABEL={agent:["Task","Result"],llm:["Prompt","Response"],tool:["Input","Output"]};
+var RUNNING_HINT={agent:"Still working\u2026",llm:"Waiting for the response\u2026",tool:"Running\u2026"};
+/* ================= formatters (same behaviour as the original) ================= */
+function fmtCost(v){
+  if(v<0) return "\u2212"+fmtCost(-v);
+  if(v===0) return "$0";
+  if(v<0.001) return "<$0.001";
+  if(v<0.01) return "$"+v.toFixed(3);
+  if(v<10) return "$"+v.toFixed(2);
+  return "$"+Math.round(v).toLocaleString("en-US");
+}
+function fmtTok(v){
+  v=Math.round(v);
+  if(v<1000) return String(v);
+  if(v<100000) return (v/1000).toFixed(1)+"k";
+  if(v<999500) return Math.round(v/1000)+"k";
+  return (v/1000000).toFixed(1)+"M";
+}
+function fmtDur(ms){
+  ms=Math.max(0,Math.round(ms));
+  if(ms<1000) return ms+"ms";
+  if(ms<10000) return (ms/1000).toFixed(1)+"s";
+  var s=Math.round(ms/1000);
+  if(s<60) return s+"s";
+  var m=Math.floor(s/60);
+  if(m<60) return m+"m "+String(s%60).padStart(2,"0")+"s";
+  var h=Math.floor(m/60);
+  if(h<24) return h+"h "+String(m%60).padStart(2,"0")+"m";
+  return Math.floor(h/24)+"d "+(h%24)+"h";
+}
+function num(v){ return (v!==undefined&&isFinite(v))?v:undefined; }
+/* ================= live derivation ================= */
+function liveStep(def,t){
+  var done=t>=def.end;
+  var prog=done?1:Math.max(0,(t-def.at)/Math.max(1e-9,def.end-def.at));
+  var toutLive=def.tout===undefined?undefined:Math.round(def.tout*prog);
+  var rates=def.model?(PRICES[def.model]||[0,0]):[0,0];
+  var cost;
+  if(def.kind==="llm") cost=((def.tin||0)*rates[0]+(toutLive||0)*rates[1])/1e6;
+  else if(def.price!==undefined&&done) cost=def.price;
+  var st=done?(def.fails?"failed":"done"):"running";
+  return {def:def,id:def.id,name:def.name,kind:def.kind,status:st,
+    model:def.model,detail:def.detail,tokensIn:def.tin,tokensOut:toutLive,cost:cost,
+    duration:Math.round((Math.min(t,def.end)-def.at)*DUR_MS),
+    input:def.input,output:done?def.output:undefined,error:done?def.error:undefined,children:null};
+}
+function buildTree(t){
+  var byId={},roots=[];
+  STEPS.forEach(function(d){ byId[d.id]=liveStep(d,t); });
+  STEPS.forEach(function(d){
+    if(d.parent&&byId[d.parent]){
+      var p=byId[d.parent];
+      if(t>=d.at){ (p.children=p.children||[]).push(byId[d.id]); }
+    }else if(t>=d.at){ roots.push(byId[d.id]); }
+  });
+  /* children of not-yet-started parents stay hidden until parent starts (parent.at<=child.at here anyway) */
+  return roots;
+}
+function rollCost(n){ var c=num(n.cost)||0; (n.children||[]).forEach(function(k){c+=rollCost(k);}); return c; }
+function rollTok(n){ var i=Math.max(0,num(n.tokensIn)||0),o=Math.max(0,num(n.tokensOut)||0);
+  (n.children||[]).forEach(function(k){var r=rollTok(k);i+=r[0];o+=r[1];}); return [i,o]; }
+function hasCost(n){ return num(n.cost)!==undefined||(n.children||[]).some(hasCost); }
+function allSteps(roots){ var out=[];(function w(l){l.forEach(function(n){out.push(n);if(n.children)w(n.children);});})(roots);return out; }
+/* waterfall layout: cumulative position + own size in cost (or token) units */
+function layoutRows(roots,mode){
+  var rows=[],cursor=0,peak=0;
+  function val(n){ return mode==="cost"?(num(n.cost)||0):(Math.max(0,num(n.tokensIn)||0)+Math.max(0,num(n.tokensOut)||0)); }
+  function visit(n,depth,pid,hidden){
+    var r={node:n,depth:depth,pid:pid,hidden:hidden,start:cursor,size:0,split:0};
+    rows.push(r); cursor+=val(n); peak=Math.max(peak,cursor);
+    var hid=hidden||isCollapsed(n.id);
+    (n.children||[]).forEach(function(k){visit(k,depth+1,n.id,hid);});
+    r.size=Math.abs(cursor-r.start);
+    r.start=Math.max(0,Math.min(r.start,cursor));
+    var tk=rollTok(n);
+    r.split=(mode==="tokens"&&tk[0]+tk[1]>0)?tk[1]/(tk[0]+tk[1]):0;
+  }
+  roots.forEach(function(n){visit(n,0,null,false);});
+  return {rows:rows,peak:peak};
+}
+/* nice axis numbers */
+function niceMax(v){
+  if(!(v>0)) return 1;
+  var p=Math.pow(10,Math.floor(Math.log10(v)));
+  var opts=[1,1.2,1.5,2,2.5,3,4,5,6,8,10];
+  for(var i=0;i<opts.length;i++){ if(opts[i]*p>=v-1e-12) return opts[i]*p; }
+  return 10*p;
+}
+function tickStep(range,maxTicks){
+  var raw=range/Math.max(2,maxTicks);
+  var p=Math.pow(10,Math.floor(Math.log10(raw)));
+  var opts=[1,2,5,10];
+  for(var i=0;i<opts.length;i++){ if(opts[i]*p>=raw-1e-12) return opts[i]*p; }
+  return 10*p;
+}
+/* ================= 3x3 pixel-mark: deterministic per agent id, exactly 9 cells ================= */
+function hashStr(s){ var h=2166136261; for(var i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,16777619); } return h>>>0; }
+var PX_COLORS=["#0f9b8a","#7c6cf0","#e08a3c","#4f9df0","#c0529c","#5aa84f"];
+function pixelCells(id){
+  var h=hashStr("px:"+id), bits=[];
+  for(var i=0;i<9;i++){ bits.push((h>>i)&1); }
+  bits[4]=1;                                   /* centre always on */
+  var on=bits.filter(Boolean).length;
+  if(on<3){ bits[1]=1; bits[7]=1; }            /* keep the mark visible */
+  if(on>7){ bits[0]=0; bits[8]=0; }
+  return {bits:bits,color:PX_COLORS[h%PX_COLORS.length]};
+}
+function pixelMarkHTML(id,running){
+  var px=pixelCells(id),h=hashStr("tw:"+id),out="";
+  for(var i=0;i<9;i++){
+    var d=running?(" style=\"--td:"+(((h>>(i%5))%7)*180)+"ms\""):"";
+    out+="<i class=\""+(px.bits[i]?"on":"")+"\""+d+"></i>";
+  }
+  return "<span class=\"px"+(running?" live":"")+"\" style=\"--px-c:"+px.color+"\" aria-hidden=\"true\">"+out+"</span>";
+}
+/* ================= icons (original artwork, same roles) ================= */
+function iconHTML(n){
+  if(n.kind==="agent") return pixelMarkHTML(n.id,n.status==="running"||subtreeRunning(n));
+  if(n.kind==="llm")
+    return "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path fill=\"#a06ee8\" d=\"M12 2c.6 3.4 2.3 5.4 5.2 6.2l2.8.8-2.8.8c-2.9.8-4.6 2.8-5.2 6.2l-.7 2.9-.7-2.9C10 12.6 8.3 10.6 5.4 9.8L2.6 9l2.8-.8C8.3 7.4 10 5.4 10.6 2l.7-2.9z\" transform=\"translate(0 2.5)\"/><circle cx=\"18.6\" cy=\"18.4\" r=\"2.1\" fill=\"#a06ee8\" opacity=\".55\"/></svg>";
+  var glyph=n.name==="web_search"
+    ? "<circle cx=\"11\" cy=\"11\" r=\"6.5\" stroke=\"#0f9b8a\" stroke-width=\"2.4\" fill=\"none\"/><path d=\"M16 16l4 4\" stroke=\"#0f9b8a\" stroke-width=\"2.4\" stroke-linecap=\"round\"/>"
+    : n.name==="fetch_pages"
+    ? "<circle cx=\"12\" cy=\"12\" r=\"8.5\" stroke=\"#4f9df0\" stroke-width=\"2\" fill=\"none\"/><path d=\"M3.5 12h17M12 3.5c2.2 2.5 3.3 5.4 3.3 8.5s-1.1 6-3.3 8.5c-2.2-2.5-3.3-5.4-3.3-8.5S9.8 6 12 3.5z\" stroke=\"#4f9df0\" stroke-width=\"2\" fill=\"none\"/>"
+    : n.name==="check_links"
+    ? "<path d=\"M10 14a4.5 4.5 0 0 0 6.4.4l3-3a4.5 4.5 0 0 0-6.4-6.4l-1.7 1.7\" stroke=\"#e08a3c\" stroke-width=\"2.2\" fill=\"none\" stroke-linecap=\"round\"/><path d=\"M14 10a4.5 4.5 0 0 0-6.4-.4l-3 3a4.5 4.5 0 0 0 6.4 6.4l1.7-1.7\" stroke=\"#e08a3c\" stroke-width=\"2.2\" fill=\"none\" stroke-linecap=\"round\"/>"
+    : "<path d=\"M6 3.5h8L19 8.5V20.5H6z\" stroke=\"#7c6cf0\" stroke-width=\"2\" fill=\"none\" stroke-linejoin=\"round\"/><path d=\"M13.5 3.5v5.5H19\" stroke=\"#7c6cf0\" stroke-width=\"2\" fill=\"none\" stroke-linejoin=\"round\"/>";
+  return "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\">"+glyph+"</svg>";
+}
+function subtreeRunning(n){
+  if(n.status==="running") return true;
+  return (n.children||[]).some(subtreeRunning);
+}
+/* ================= state ================= */
+var state={
+  time:0, mode:"cost", collapsed:[], openId:null,
+  userDrove:false, range:1, rangeFrom:1, rangeAnimStart:0,
+  focusId:null, reduced:false
+};
+function isCollapsed(id){ return state.collapsed.indexOf(id)>=0; }
+/* auto-drive mirrors the original demo timeline until the user takes over */
+function autoDrive(t){
+  if(state.userDrove) return;
+  state.collapsed=(t>=5.4)?["research"]:[];
+  var f=t-LOOP_END;
+  state.openId=(f>0.6&&f<2.8)?"write":null;
+  state.mode=(f>3.2&&f<5.6)?"tokens":"cost";
+}
+function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+/* ================= html builders (pure strings: testable without a browser) ================= */
+function rowLabel(n,total,topId,multiTop){
+  var parts=[n.name,KIND_LABEL[n.kind],STATUS_LABEL[n.status]];
+  if(total!==undefined) parts.push(fmtCost(total));
+  var tk=rollTok(n);
+  if(tk[0]+tk[1]>0) parts.push(fmtTok(tk[0]+tk[1])+" tokens");
+  if(num(n.duration)!==undefined) parts.push(fmtDur(n.duration));
+  if(multiTop&&topId===n.id) parts.push("most expensive");
+  return esc(parts.join(", "));
+}
+function rowsHTML(lay,topId,multiTop){
+  var out="";
+  lay.rows.forEach(function(r,idx){
+    var n=r.node, kids=(n.children||[]).length>0, folded=kids&&isCollapsed(n.id);
+    var open=state.openId===n.id;
+    var total=hasCost(n)?rollCost(n):undefined;
+    var tk=rollTok(n), dur=num(n.duration);
+    var live=subtreeRunning(n);
+    var hiddenCount=folded?allSteps([n]).length-1:0;
+    var delay=Math.min(400,idx*ROW_STAGGER);
+    out+="<div class=\"cwf__item\""+(r.hidden?" data-hidden":"")+" style=\"--rd:"+delay+"ms\">"
+      +"<div class=\"cwf__clip\">"
+      +"<div class=\"cwf__row\" role=\"treeitem\" tabindex=\""+((!r.hidden)?"0":"-1")+"\""
+      +" data-step=\""+esc(n.id)+"\" data-kind=\""+n.kind+"\" data-status=\""+n.status+"\""
+      +(kids?" data-parent=\"\"":"")+(folded?" data-folded=\"\"":"")+(open?" data-open=\"\"":"")
+      +" aria-level=\""+(r.depth+1)+"\""+(kids?" aria-expanded=\""+(!folded)+"\"":"")
+      +(open?" aria-selected=\"true\"":"")+" aria-label=\""+rowLabel(n,total,topId,multiTop)+"\""
+      +" style=\"--s:"+r.start+";--d:"+r.size+";--split:"+r.split+"\">"
+      +"<div class=\"cwf__name\">"
+      +(r.depth>0?"<span class=\"cwf__guides\" style=\"width:calc(min("+r.depth+",6) * 14px)\" aria-hidden=\"true\"></span>":"")
+      +"<span class=\"cwf__chev\""+(kids?"":" data-leaf=\"\"")+" aria-hidden=\"true\">"+(kids?"<svg viewBox=\"0 0 24 24\" fill=\"none\"><path d=\"M6 9.5c0 0 4.2 6 6 6s6-6 6-6\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg>":"")+"</span>"
+      +"<span class=\"cwf__icon"+(n.kind==="tool"?" cwf__icon--tool":"")+"\">"+iconHTML(n)+"</span>"
+      +"<span class=\"cwf__label\" title=\""+esc(n.name+(n.model||n.detail?" \u00b7 "+(n.model||n.detail):""))+"\">"
+      +"<span class=\"cwf__title\" dir=\"auto\">"+esc(n.name)+"</span>"
+      +((n.model||n.detail)?"<span class=\"cwf__model\" dir=\"auto\">"+esc(n.model||n.detail)+"</span>":"")
+      +"</span>"
+      +(hiddenCount>0?"<span class=\"cwf__more\">+"+hiddenCount+"</span>":"")
+      +(multiTop&&topId===n.id?"<span class=\"cwf__flag\">Top</span>":"")
+      +(n.status==="running"&&!kids?"<span class=\"cwf__state\" data-status=\"running\"><svg class=\"cwf__spin\" width=\"12\" height=\"12\" viewBox=\"0 0 24 24\" fill=\"none\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"8.5\" stroke=\"currentColor\" stroke-opacity=\".25\" stroke-width=\"2.5\"/><path d=\"M12 3.5A8.5 8.5 0 0 1 20.5 12\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-width=\"2.5\"/></svg></span>":"")
+      +(n.status==="failed"?"<span class=\"cwf__state\" data-status=\"failed\"><svg width=\"12\" height=\"12\" viewBox=\"0 0 24 24\" fill=\"none\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"9\" stroke=\"currentColor\" stroke-width=\"2\"/><path d=\"M12 8v5\" stroke=\"currentColor\" stroke-width=\"2.2\" stroke-linecap=\"round\"/><path d=\"M12 16v.2\" stroke=\"currentColor\" stroke-width=\"2.6\" stroke-linecap=\"round\"/></svg></span>":"")
+      +"</div>"
+      +"<div class=\"cwf__track\"><span class=\"cwf__bar\" data-kind=\""+n.kind+"\" data-status=\""+(live?"running":n.status)+"\" style=\"--s:"+r.start+";--d:"+r.size+";--split:"+r.split+"\"><span class=\"cwf__out\"></span></span></div>"
+      +"<span class=\"cwf__num\" data-col=\"in\"><span class=\"cwf__amount\""+(live&&tk[0]>0?" data-live=\"\"":"")+">"+(tk[0]>0?fmtTok(tk[0]):"\u2013")+"</span></span>"
+      +"<span class=\"cwf__num\" data-col=\"out\"><span class=\"cwf__amount\""+(live&&tk[1]>0?" data-live=\"\"":"")+">"+(tk[1]>0?fmtTok(tk[1]):"\u2013")+"</span></span>"
+      +"<span class=\"cwf__num\" data-col=\"cost\"><span class=\"cwf__amount\""+(live&&total!==undefined?" data-live=\"\"":"")+">"+(total===undefined?"\u2013":fmtCost(total))+"</span></span>"
+      +"<span class=\"cwf__num\" data-col=\"tok\"><span class=\"cwf__amount\""+(live&&(tk[0]+tk[1])>0?" data-live=\"\"":"")+">"+((tk[0]+tk[1])>0?fmtTok(tk[0]+tk[1]):"\u2013")+"</span></span>"
+      +"<span class=\"cwf__num\" data-col=\"time\"><span class=\"cwf__amount\""+(live&&dur!==undefined?" data-live=\"\"":"")+">"+(dur===undefined?"\u2013":fmtDur(dur))+"</span></span>"
+      +"</div>"
+      +(!r.hidden&&open?detailHTML(n,r.depth):"")
+      +"</div></div>";
+  });
+  return out;
+}
+function detailHTML(n,depth){
+  var io=IO_LABEL[n.kind];
+  return "<div class=\"cwf__detail\" data-step-detail=\""+esc(n.id)+"\">"
+    +"<div class=\"cwf__detail-in\" style=\"--lvl:"+depth+"\" role=\"region\" aria-label=\""+esc(n.name)+" details\">"
+    +(depth>0?"<span class=\"cwf__guides\" aria-hidden=\"true\"></span>":"")
+    +(n.error?"<p class=\"cwf__error\"><svg viewBox=\"0 0 24 24\" fill=\"none\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"9\" stroke=\"currentColor\" stroke-width=\"2\"/><path d=\"M12 8v5\" stroke=\"currentColor\" stroke-width=\"2.2\" stroke-linecap=\"round\"/></svg><span dir=\"auto\">"+esc(n.error)+"</span></p>":"")
+    +"<div class=\"cwf__io\">"
+    +"<div><span>"+io[0]+"</span><p dir=\"auto\""+(n.kind==="tool"?" data-mono=\"\"":"")+" tabindex=\"0\">"+esc(n.input===undefined?"\u2013":n.input)+"</p></div>"
+    +"<div><span>"+io[1]+"</span><p dir=\"auto\""+(n.kind==="tool"?" data-mono=\"\"":"")+(n.status==="running"?" data-live=\"\"":"")+" tabindex=\"0\">"+esc(n.output===undefined?(n.status==="running"?RUNNING_HINT[n.kind]:"\u2013"):n.output)+"</p></div>"
+    +"</div></div></div>";
+}
+function statsHTML(roots,flat,topId){
+  var tin=0,tout=0;
+  roots.forEach(function(n){var r=rollTok(n);tin+=r[0];tout+=r[1];});
+  var total=roots.reduce(function(a,n){return a+rollCost(n);},0);
+  var anyRunning=flat.some(function(n){return n.status==="running";});
+  var top=topId?flat.filter(function(n){return n.id===topId;})[0]:null;
+  return "<dl class=\"cwf__stats\">"
+    +"<div class=\"cwf__stat\"><dt>Total cost</dt><dd><span class=\"cwf__amount\""+(anyRunning?" data-live=\"\"":"")+">"+fmtCost(total)+"</span></dd></div>"
+    +"<div class=\"cwf__stat\"><dt>Total tokens</dt><dd><span class=\"cwf__amount\""+(anyRunning?" data-live=\"\"":"")+">"+fmtTok(tin+tout)+"</span><span class=\"cwf__sub\">"+fmtTok(tin)+" in &middot; "+fmtTok(tout)+" out</span></dd></div>"
+    +"<div class=\"cwf__stat\"><dt>Most expensive</dt><dd>"+(top
+      ? "<button type=\"button\" class=\"cwf__top\" data-top=\""+esc(top.id)+"\"><span class=\"cwf__top-name\" dir=\"auto\" title=\""+esc(top.name)+"\">"+esc(top.name)+"</span><span class=\"cwf__sub\">"+fmtCost(rollCost(top))+"</span></button>"
+      : "<span class=\"cwf__sub\">\u2013</span>")+"</dd></div></dl>";
+}
+function ticksHTML(range,mode){
+  var step=tickStep(range,6),out="",v=0,guard=0;
+  function lbl(x){ return x===0?(mode==="cost"?fmtCost(0):"0"):(mode==="cost"?fmtCost(x):fmtTok(x)); }
+  while(v<range-step*0.01&&guard<12){ out+="<span class=\"cwf__tick\""+(v===0?" data-zero=\"\"":"")+" style=\"--v:"+v+"\"><span>"+lbl(v)+"</span></span>"; v+=step; guard++; }
+  return out;
+}
+function snapshot(t,loopT){
+  autoDrive(loopT===undefined?t:loopT);
+  var roots=buildTree(Math.min(t,LOOP_END));
+  var flat=allSteps(roots);
+  var bill=flat.filter(function(n){return n.kind!=="agent"&&(num(n.cost)||0)>0;});
+  var top=bill.length?bill.reduce(function(a,b){return (num(b.cost)||0)>(num(a.cost)||0)?b:a;}):null;
+  var multiTop=bill.length>1;
+  var lay=layoutRows(roots,state.mode);
+  var target=niceMax(Math.max(state.mode==="cost"?0.1:1e4,lay.peak*1.08));
+  return {t:t,roots:roots,flat:flat,lay:lay,top:top?top.id:null,multiTop:multiTop,target:target};
+}
+function componentHTML(snap){
+  var anyRunning=snap.flat.some(function(n){return n.status==="running";});
+  var lastRoot=snap.roots[snap.roots.length-1];
+  var done=anyRunning?"running":(lastRoot&&lastRoot.status==="failed"?"failed":"done");
+  return "<div class=\"cwf\" data-mode=\""+state.mode+"\" id=\"cwf\">"
+    +"<header class=\"cwf__head\">"
+    +"<span class=\"cwf__spark\"><svg viewBox=\"0 0 14 14\" aria-hidden=\"true\"><path d=\"M7 1.2c.4 2.9 1.9 4.4 4.8 4.8-2.9.4-4.4 1.9-4.8 4.8C6.6 7.9 5.1 6.4 2.2 6 5.1 5.6 6.6 4.1 7 1.2Z\" fill=\"currentColor\"/><circle cx=\"11.6\" cy=\"11.4\" r=\"1.1\" fill=\"currentColor\" opacity=\".55\"/></svg></span>"
+    +"<span class=\"cwf__heading\">"+esc(TITLE)+"</span>"
+    +"<span class=\"cwf__task\" dir=\"auto\" title=\""+esc(TASK)+"\">"+esc(TASK)+"</span>"
+    +"<span class=\"cwf__switch\" role=\"group\" aria-label=\"Measure by\">"
+    +"<button type=\"button\" data-mode-btn=\"cost\" aria-pressed=\""+(state.mode==="cost")+"\">Cost</button>"
+    +"<button type=\"button\" data-mode-btn=\"tokens\" aria-pressed=\""+(state.mode==="tokens")+"\">Tokens</button></span>"
+    +"<span class=\"cwf__pill\" data-status=\""+done+"\" aria-live=\"polite\">"+(done==="running"?"<span class=\"cwf__dot\" aria-hidden=\"true\"></span>":"")+(done==="running"?"Live":STATUS_LABEL[done])+"</span>"
+    +"</header>"
+    +"<div class=\"cwf__card\">"+statsHTML(snap.roots,snap.flat,snap.top)
+    +"<div class=\"cwf__body\">"
+    +"<div class=\"cwf__cols\" aria-hidden=\"true\"><span>Step</span><span></span><span data-col=\"in\">In</span><span data-col=\"out\">Out</span><span data-col=\"cost\">Cost</span><span data-col=\"tok\">Tokens</span><span data-col=\"time\">Time</span></div>"
+    +"<div class=\"cwf__layer\" aria-hidden=\"true\">"+ticksHTML(snap.target,state.mode)+"</div>"
+    +(!snap.lay.rows.length?"<p class=\"cwf__empty\">"+(done==="running"?"Waiting for the first step\u2026":"No steps in this run")+"</p>":"")
+    +"<div class=\"cwf__rows\" role=\"tree\" aria-label=\""+esc(TITLE)+"\">"+rowsHTML(snap.lay,snap.top,snap.multiTop)+"</div>"
+    +"</div></div>"
+    +"<div class=\"cwf__foot\"><span>"+snap.flat.length+" steps &middot; loop "+LOOP_DUR+"s &middot; click a row for details</span><button type=\"button\" class=\"replay\" data-replay=\"\">Replay run</button></div>"
+    +"</div>";
+}
+/* ================= controller (DOM only; skipped in the headless harness) ================= */
+function currentSnapshot(){ return snapshot(Math.min(state.time,LOOP_END),state.time); }
+function signature(snap){
+  /* structural only: live counters (tokens/duration/cost) update via paintLive, never rebuild */
+  return [state.mode,state.collapsed.join(","),state.openId,
+    snap.flat.map(function(n){return n.id+":"+n.status;}).join(","),snap.target].join("|");
+}
+var lastSig=null, rootEl=null, rowsEl=null, rafId=0, lastFrame=0, t0=0;
+function rangeEase(now){
+  if(state.reduced){ rootEl.style.setProperty("--cwf-range",String(state.range)); return; }
+  var k=Math.min(1,(now-state.rangeAnimStart)/RANGE_ANIM);
+  var e=k<0.5?4*k*k*k:1-Math.pow(-2*k+2,3)/2;
+  rootEl.style.setProperty("--cwf-range",String(state.rangeFrom+(state.range-state.rangeFrom)*e));
+  if(k<1) requestAnimationFrame(rangeEase);
+}
+function paintStructural(snap){
+  var c=componentHTML(snap);
+  rootEl.innerHTML=c;
+  rowsEl=rootEl.querySelector(".cwf__rows");
+  if(snap.target!==state.range){
+    state.rangeFrom=state.range; state.range=snap.target; state.rangeAnimStart=performance.now();
+    requestAnimationFrame(rangeEase);
+  }else{
+    rootEl.style.setProperty("--cwf-range",String(state.range));
+  }
+  if(state.focusId){
+    var f=rowsEl&&rowsEl.querySelector("[data-step=\""+state.focusId+"\"]");
+    if(f) f.focus({preventScroll:true});
+    state.focusId=null;
+  }
+  lastSig=signature(snap);
+}
+/* per-frame: update only text/live values, never rebuild the DOM */
+function paintLive(snap){
+  if(!rowsEl||!rowsEl.querySelectorAll) return;
+  var map={};
+  snap.lay.rows.forEach(function(r){ map[r.node.id]=r; });
+  var list=rowsEl.querySelectorAll("[data-step]");
+  for(var i=0;i<list.length;i++){
+    var el=list[i], id=el.getAttribute("data-step"), r=map[id];
+    if(!r) continue;
+    var n=r.node;
+    var bar=el.querySelector?el.querySelector(".cwf__bar"):null;
+    if(bar){ bar.style.setProperty("--s",String(r.start)); bar.style.setProperty("--d",String(r.size)); bar.style.setProperty("--split",String(r.split)); }
+    var spans=el.querySelectorAll?el.querySelectorAll(".cwf__amount"):[];
+    /* order: in, out, cost, tok, time */
+    var tk=rollTok(n), total=hasCost(n)?rollCost(n):undefined, dur=num(n.duration);
+    var vals=[tk[0]>0?fmtTok(tk[0]):"\u2013",tk[1]>0?fmtTok(tk[1]):"\u2013",
+      total===undefined?"\u2013":fmtCost(total),(tk[0]+tk[1])>0?fmtTok(tk[0]+tk[1]):"\u2013",
+      dur===undefined?"\u2013":fmtDur(dur)];
+    for(var k=0;k<spans.length&&k<vals.length;k++){ if(spans[k].textContent!==vals[k]) spans[k].textContent=vals[k]; }
+  }
+  var tin=0,tout=0;
+  snap.roots.forEach(function(n){var q=rollTok(n);tin+=q[0];tout+=q[1];});
+  var total=snap.roots.reduce(function(a,n){return a+rollCost(n);},0);
+  var stats=rootEl.querySelectorAll?rootEl.querySelectorAll(".cwf__stat .cwf__amount"):null;
+  if(stats&&stats.length>=2){ stats[0].textContent=fmtCost(total); stats[1].textContent=fmtTok(tin+tout); }
+}
+function frame(now){
+  rafId=0;
+  if(now-lastFrame<32) { rafId=requestAnimationFrame(frame); return; }
+  lastFrame=now;
+  state.time=((now-t0)/1000)%LOOP_DUR;
+  var snap=currentSnapshot();
+  var sig=signature(snap);
+  if(sig!==lastSig) paintStructural(snap);
+  else paintLive(snap);
+}
+function setMode(m){ if(state.mode!==m){ state.mode=m; state.userDrove=true; } }
+function toggleCollapse(id){
+  var i=state.collapsed.indexOf(id);
+  if(i>=0) state.collapsed.splice(i,1); else state.collapsed.push(id);
+  state.userDrove=true;
+}
+function toggleOpen(id){ state.openId=(state.openId===id)?null:id; state.userDrove=true; }
+function focusRow(id,rows){
+  var els=rows.querySelectorAll("[data-step]");
+  var vis=[];
+  for(var i=0;i<els.length;i++){ if(els[i].getAttribute("tabindex")==="0"||els[i]===document.activeElement) vis.push(els[i]); }
+  var cur=vis.indexOf(document.activeElement);
+  function go(n){ n=Math.max(0,Math.min(vis.length-1,n)); if(vis[n]) vis[n].focus(); }
+  if(id==="$next") go(cur+1); else if(id==="$prev") go(cur-1);
+  else if(id==="$first") go(0); else if(id==="$last") go(vis.length-1);
+}
+function bind(root){
+  /* open/toggle on pointerdown (capture): a real click is never lost across a rebuild */
+  root.addEventListener("pointerdown",function(ev){
+    var row=ev.target&&ev.target.closest?ev.target.closest("[data-step]"):null;
+    if(!row||!root.contains(row)) return;
+    var id=row.getAttribute("data-step");
+    var chev=ev.target.closest?ev.target.closest(".cwf__chev"):null;
+    if(chev&&!chev.hasAttribute("data-leaf")){ ev.preventDefault(); toggleCollapse(id); state.focusId=id; }
+    else toggleOpen(id);
+    ev.__cwfHandled=id;
+  },true);
+  root.addEventListener("click",function(ev){
+    if(ev.__cwfHandled) return;   /* already handled on pointerdown */
+    var top=ev.target&&ev.target.closest?ev.target.closest("[data-top]"):null;
+    if(top){
+      var id=top.getAttribute("data-top");
+      var chain=[],byId={};
+      allSteps(currentSnapshot().roots).forEach(function(n){byId[n.id]=n;});
+      /* uncollapse ancestors, then open + focus */
+      state.collapsed=[]; state.openId=id; state.userDrove=true; state.focusId=id;
+      var snap=currentSnapshot(); paintStructural(snap);
+      var el=rowsEl&&rowsEl.querySelector("[data-step=\""+id+"\"]");
+      if(el&&el.scrollIntoView) el.scrollIntoView({block:"nearest",behavior:state.reduced?"auto":"smooth"});
+      return;
+    }
+    var mb=ev.target&&ev.target.closest?ev.target.closest("[data-mode-btn]"):null;
+    if(mb){ setMode(mb.getAttribute("data-mode-btn")); return; }
+    var rp=ev.target&&ev.target.closest?ev.target.closest("[data-replay]"):null;
+    if(rp){ state.userDrove=false; t0=performance.now(); state.time=0; state.range=1; return; }
+    var row=ev.target&&ev.target.closest?ev.target.closest("[data-step]"):null;
+    if(row&&root.contains(row)){ toggleOpen(row.getAttribute("data-step")); }
+  });
+  root.addEventListener("keydown",function(ev){
+    var row=ev.target&&ev.target.closest?ev.target.closest("[data-step]"):null;
+    if(!row) return;
+    var id=row.getAttribute("data-step");
+    var kids=row.hasAttribute("data-parent"), folded=row.hasAttribute("data-folded");
+    function move(d){ ev.preventDefault(); focusRow(d,rowsEl); }
+    if(ev.key==="ArrowDown") move("$next");
+    else if(ev.key==="ArrowUp") move("$prev");
+    else if(ev.key==="Home"){ ev.preventDefault(); focusRow("$first",rowsEl); }
+    else if(ev.key==="End"){ ev.preventDefault(); focusRow("$last",rowsEl); }
+    else if(ev.key==="ArrowRight"){ ev.preventDefault(); if(kids&&folded){ toggleCollapse(id); state.focusId=id; } else move("$next"); }
+    else if(ev.key==="ArrowLeft"){ ev.preventDefault(); if(kids&&!folded){ toggleCollapse(id); state.focusId=id; } }
+    else if(ev.key==="Enter"||ev.key===" "){ ev.preventDefault(); toggleOpen(id); }
+    else if(ev.key==="Escape"&&state.openId){ ev.preventDefault(); toggleOpen(state.openId); }
+  });
+  /* keep roving focus target sane */
+  root.addEventListener("focusin",function(ev){
+    var row=ev.target&&ev.target.closest?ev.target.closest("[data-step]"):null;
+    if(!row||!rowsEl) return;
+    var els=rowsEl.querySelectorAll("[data-step]");
+    for(var i=0;i<els.length;i++){ els[i].setAttribute("tabindex",els[i]===row?"0":"-1"); }
+  });
+}
+function mount(root){
+  rootEl=root;
+  state.reduced=(typeof window!=="undefined"&&window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches)||false;
+  state.time=0; t0=performance.now();
+  paintStructural(currentSnapshot());
+  bind(root);
+  function loop(now){ frame(now); rafId=requestAnimationFrame(loop); }
+  /* rAF-driven loop, throttled to ~30fps inside frame() */
+  if(typeof requestAnimationFrame!=="undefined") rafId=requestAnimationFrame(loop);
+}
+/* theme toggle (page chrome) */
+function initTheme(){
+  var btn=document.getElementById("themeBtn");
+  if(!btn) return;
+  var moon=document.getElementById("themeIconMoon"),sun=document.getElementById("themeIconSun"),lab=document.getElementById("themeLabel");
+  function apply(th){
+    document.documentElement.setAttribute("data-theme",th);
+    var dark=th==="dark";
+    if(moon) moon.style.display=dark?"none":"";
+    if(sun) sun.style.display=dark?"":"none";
+    if(lab) lab.textContent=dark?"Light":"Dark";
+    btn.setAttribute("aria-label",dark?"Switch to light theme":"Switch to dark theme");
+  }
+  var prefersDark=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches;
+  apply(prefersDark?"dark":"light");
+  try{
+    var saved=null;
+    if(window.localStorage) saved=window.localStorage.getItem("cwf-theme");
+    if(saved==="light"||saved==="dark") apply(saved);
+  }catch(e){}
+  btn.addEventListener("click",function(){
+    var next=document.documentElement.getAttribute("data-theme")==="dark"?"light":"dark";
+    apply(next);
+    try{ if(window.localStorage) window.localStorage.setItem("cwf-theme",next); }catch(e){}
+  });
+}
+/* public surface for the headless harness */
+var api={state:state,STEPS:STEPS,PRICES:PRICES,LOOP_END:LOOP_END,LOOP_DUR:LOOP_DUR,
+  fmtCost:fmtCost,fmtTok:fmtTok,fmtDur:fmtDur,buildTree:buildTree,layoutRows:layoutRows,
+  snapshot:snapshot,signature:signature,currentSnapshot:currentSnapshot,componentHTML:componentHTML,pixelCells:pixelCells,pixelMarkHTML:pixelMarkHTML,  niceMax:niceMax,tickStep:tickStep,setTime:function(t){state.time=t;},setMode:setMode,
+  toggleCollapse:toggleCollapse,toggleOpen:toggleOpen,rollCost:rollCost,rollTok:rollTok,mount:mount};
+if(typeof window!=="undefined") window.__cwf=api;
+if(typeof module!=="undefined"&&module.exports) module.exports=api;
+if(typeof document!=="undefined"&&document.getElementById){
+  var boot=function(){
+    var r=document.getElementById("cwf-root");
+    if(r){ mount(r); }
+    initTheme();
+  };
+  if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",boot);
+  else boot();
+}
+})();
+</script>
+</body>
+</html>
