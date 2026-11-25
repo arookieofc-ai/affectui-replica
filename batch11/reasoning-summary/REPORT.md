@@ -43,7 +43,32 @@ requests) replicating the affectUI **Reasoning Summary** card:
   animation); SVGs carry static `class`-less markup and JS uses only
   `setAttribute` (no `.className` assignment anywhere).
 
-## Verification (`node harness.js` — in-dir, no installs)
+## Fix (2026-11-25 visual-QA failure: model row click did nothing)
+- Symptom: four real mouse clicks on the GPT-5.5 row (light final, light
+  mid-loop, dark final) left `aria-expanded` collapsed with no detail panel,
+  while the DOM-stub harness passed.
+- Root causes (both fixed, behaviour now matches `demo-original.js`
+  `onClick:()=>P(e=>e===n.id?null:n.id)` toggle which persists across steps):
+  1. Shared-closure bug: `wire()` used `var idx` incremented in a `forEach`,
+     so every model button's click handler read the final `MODELS[3]`
+     (`undefined`) and threw / never toggled. Fixed by id-based toggle.
+  2. Per-node listeners on buttons rebuilt by every `render()` (`innerHTML`
+     replacement): a scheduled step reveal between `mousedown` and `mouseup`
+     destroys the target node, so a direct `click` listener never fires.
+     Fixed with one delegated `click` listener attached ONCE to the stable
+     `#card` element (`ensureDelegated()`); the handler resolves the model via
+     `target.closest('.rs__model-btn')` + `data-model` id and toggles
+     `state.expanded`, then `render(false)`. Clicks therefore bubble to `#card`
+     even when the button node is replaced mid-gesture. Same delegation covers
+     the footer `sources`/`steps` toggles. `render()` still preserves
+     `state.expanded`/`state.panel`, and the 120 ms tick still touches only
+     text/flex (never rebuilds), so the panel STAYS open across loop stages
+     until clicked again, in both themes.
+- Markup change: model buttons now carry `data-model="<id>"` (invisible,
+  used only for delegation). All demo data, timings, formats, and styles are
+  otherwise byte-identical in behaviour.
+
+## Verification (`node harness.js` — in-dir, no installs, no browser)
 - `node --check` passes on the extracted page script.
 - Page script loads under a DOM stub; pure-API asserts cover all verbatim data,
   formats, 9-cell mark, and every loop state shown=2..7.
@@ -56,7 +81,15 @@ requests) replicating the affectUI **Reasoning Summary** card:
   by token inspection (surface `#1c1c1f` / ink `#ededed`, amber adjusted to
   `#fbbf24` on `#451a03`); light by the same audit. No browser was available in
   this environment, so final visual confirmation is manual.
-- Result: **111 passed, 0 failed.**
+- Result: **122 passed, 0 failed.**
+- New §10 real-click coverage (all node-only): boots the REAL page code on a
+  stub DOM with a fake clock, then dispatches `mousedown` + `mouseup` + `click`
+  as separate events with a scheduled step re-render (1500 ms → 3700 ms) in
+  between, asserting the stale target node still opens the GPT-5.5 panel
+  (`aria-expanded="true"` + `Picked for writing and running code` visible),
+  that it STAYS open through ticks to settle (`Reasoned for` at 9000 ms), that
+  a second click collapses it, and that open/close still works after toggling
+  to the dark theme.
 
 ## How to test
 Open `index.html` in a browser (double-click works, no server needed). Watch one

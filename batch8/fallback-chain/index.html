@@ -95,6 +95,7 @@ html[data-theme="dark"] .icon-sun{display:block}
   background:var(--tray);color:var(--muted);
   font-size:14px;line-height:20px;
   transition:background 180ms ease;
+  container-type:inline-size;
 }
 .fbk ol{margin:0;padding:0;list-style:none}
 .fbk svg{display:block;flex:none}
@@ -166,13 +167,13 @@ html[data-theme="dark"] .icon-sun{display:block}
 .fbk-node-sub{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
 /* full route must never truncate: mono 10px like the original fits 140px nodes */
 .fbk-node--from .fbk-node-sub{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:10px;letter-spacing:-.1px}
-/* model rows */
+/* model rows: simple robust flex row (logo | middle flex:1 | meta),
+   bars as an absolutely-positioned bottom strip. Same look as before. */
 .fbk-models{display:grid;grid-auto-rows:var(--row);gap:var(--gap);min-width:0}
 .fbk-model{
-  position:relative;display:grid;align-content:center;align-items:center;
-  grid-template-columns:26px minmax(0,1fr) auto;grid-template-rows:auto auto;
-  column-gap:10px;row-gap:7px;min-width:0;
-  padding:0 12px 0 10px;border-radius:calc(var(--radius-lg) - 4px);
+  position:relative;display:flex;align-items:center;
+  gap:10px;min-width:0;min-height:var(--row);
+  padding:7px 12px 15px 10px;border-radius:calc(var(--radius-lg) - 4px);
   background:var(--surface);box-shadow:var(--shadow-card);
   transition:box-shadow 200ms ease,opacity 200ms ease;
   cursor:default;
@@ -206,19 +207,19 @@ html[data-theme="dark"] .icon-sun{display:block}
 .fbk-model[data-status="trying"] .fbk-n{background:var(--try-bg);border-color:var(--try-line);color:var(--try-ink)}
 .fbk-model[data-status="answered"] .fbk-n{background:var(--ok-bg);border-color:var(--ok-line);color:var(--ok-ink)}
 .fbk-model[data-status="failed"] .fbk-n{background:var(--fail-bg);border-color:var(--fail-line);color:var(--fail-ink)}
-.fbk-who{display:grid;min-width:0}
+.fbk-who{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:1px}
 .fbk-top{display:flex;align-items:baseline;gap:6px;min-width:0}
-.fbk-name{flex:0 1 auto;min-width:0;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13.5px}
-.fbk-provider{flex:0 1000 auto;min-width:0;font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.fbk-status{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.fbk-name{flex:0 1 auto;min-width:0;display:block;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13.5px}
+.fbk-provider{flex:0 1000 auto;min-width:0;display:block;font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fbk-status{display:block;font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .fbk-model[data-status="trying"] .fbk-status{color:var(--try-ink)}
 .fbk-model[data-status="failed"] .fbk-status{color:var(--fail-ink)}
 .fbk-model[data-status="answered"] .fbk-status{color:var(--ok-ink)}
-.fbk-meta{display:grid;justify-items:end;font-size:12px;line-height:16px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
-.fbk-meta>span:first-child{line-height:18px;font-weight:500;color:var(--ink)}
-.fbk-model[data-status="waiting"] .fbk-meta>span:first-child,
-.fbk-model[data-status="skipped"] .fbk-meta>span:first-child{color:var(--muted)}
-.fbk-bars{grid-column:2/4;display:flex;justify-content:space-between;gap:2px;min-width:0;overflow:hidden}
+.fbk-meta{flex:none;display:flex;flex-direction:column;align-items:flex-end;font-size:12px;line-height:16px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.fbk-meta>div:first-child{line-height:18px;font-weight:500;color:var(--ink)}
+.fbk-model[data-status="waiting"] .fbk-meta>div:first-child,
+.fbk-model[data-status="skipped"] .fbk-meta>div:first-child{color:var(--muted)}
+.fbk-bars{position:absolute;left:46px;right:12px;bottom:8px;display:flex;justify-content:space-between;gap:2px;min-width:0;overflow:hidden}
 .fbk-bars i{flex:none;width:5px;height:5px;border-radius:1.25px;background:var(--fill);transition:background-color 220ms ease,opacity 220ms ease}
 .fbk-model[data-status="trying"] .fbk-bars i.on{background:var(--try-dot);opacity:.7}
 .fbk-model[data-status="failed"] .fbk-bars i.on{background:var(--fail-dot);opacity:.75}
@@ -266,16 +267,16 @@ html[data-theme="dark"] .icon-sun{display:block}
 .fbk-pop-label{flex:none;white-space:nowrap;color:var(--muted)}
 .fbk-pop-value{flex:1;min-width:0;color:var(--ink);text-align:right;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
 .fbk-pop-err{color:var(--fail-ink);font-weight:600}
-/* responsive: narrow = stacked list */
-@media (max-width:680px){ .fbk-provider{display:none} }
-@media (max-width:560px){
+/* responsive: container-relative (matches original demo) */
+@container (max-width:680px){ .fbk-provider{display:none} }
+@container (max-width:520px){
   .fbk-flow{grid-template-columns:40px minmax(0,1fr);padding:16px 12px 18px 14px}
   .fbk-node--from{grid-column:1/-1;justify-self:start;min-width:170px;margin-bottom:12px}
   .fbk-links--wide,.fbk-node--to{display:none}
   .fbk-links--tree{display:block;align-self:start;width:40px;margin-top:-6px}
   .fbk-bar{flex-wrap:wrap;row-gap:4px}
   .fbk-title{flex-basis:100%}
-  .fbk-pop{width:min(280px,calc(100vw - 48px))}
+  .fbk-pop{width:min(280px,calc(100cqw - 48px))}
 }
 @media (prefers-reduced-motion:reduce){
   .fbk-link[data-status="trying"]{animation:none}
@@ -353,10 +354,10 @@ html[data-theme="dark"] .icon-sun{display:block}
 
         <ol class="fbk-models" id="fbkModels" aria-label="Models, in the order they're tried">
           <li class="fbk-model fbk-hov" id="m0" data-status="waiting" tabindex="0" aria-describedby="pop0">
-            <span class="fbk-logo" aria-hidden="true"><span class="px" id="px0" style="--px-c:#c2571b"><i></i><i class="on"></i><i></i><i class="on"></i><i class="on"></i><i></i><i></i><i class="on"></i><i></i></span><span class="fbk-n">1</span></span>
-            <span class="fbk-who"><span class="fbk-top"><span class="fbk-name" title="Claude Opus 5.5">Claude Opus 5.5</span><span class="fbk-provider">AWS Bedrock</span></span><span class="fbk-status" id="st0">Waiting</span></span>
-            <span class="fbk-meta"><span id="tm0">&ndash;</span><span id="cs0"></span></span>
-            <span class="fbk-bars" id="bars0" aria-hidden="true"></span>
+            <div class="fbk-logo" aria-hidden="true"><span class="px" id="px0" style="--px-c:#c2571b"><i></i><i class="on"></i><i></i><i class="on"></i><i class="on"></i><i></i><i></i><i class="on"></i><i></i></span><span class="fbk-n">1</span></div>
+            <div class="fbk-who"><div class="fbk-top"><div class="fbk-name" title="Claude Opus 5.5">Claude Opus 5.5</div><div class="fbk-provider">AWS Bedrock</div></div><div class="fbk-status" id="st0">Waiting</div></div>
+            <div class="fbk-meta"><div id="tm0">&ndash;</div><div id="cs0"></div></div>
+            <div class="fbk-bars" id="bars0" aria-hidden="true"></div>
             <span class="fbk-pop" id="pop0" role="tooltip">
               <span class="fbk-pop-head"><span class="fbk-pop-logo" aria-hidden="true">AW</span><span class="fbk-pop-who"><span class="fbk-pop-title">AWS Bedrock</span><span class="fbk-pop-sub">us-east-1</span></span><span class="fbk-pop-badge" id="bd0" data-tone="waiting">Waiting</span></span>
               <span class="fbk-pop-rows">
@@ -368,10 +369,10 @@ html[data-theme="dark"] .icon-sun{display:block}
             </span>
           </li>
           <li class="fbk-model fbk-hov" id="m1" data-status="waiting" tabindex="0" aria-describedby="pop1">
-            <span class="fbk-logo" aria-hidden="true"><span class="px" id="px1" style="--px-c:#1b7dc2"><i class="on"></i><i></i><i class="on"></i><i></i><i class="on"></i><i class="on"></i><i></i><i></i><i class="on"></i></span><span class="fbk-n">2</span></span>
-            <span class="fbk-who"><span class="fbk-top"><span class="fbk-name" title="GPT-6">GPT-6</span><span class="fbk-provider">Azure OpenAI</span></span><span class="fbk-status" id="st1">Waiting</span></span>
-            <span class="fbk-meta"><span id="tm1">&ndash;</span><span id="cs1"></span></span>
-            <span class="fbk-bars" id="bars1" aria-hidden="true"></span>
+            <div class="fbk-logo" aria-hidden="true"><span class="px" id="px1" style="--px-c:#1b7dc2"><i class="on"></i><i></i><i class="on"></i><i></i><i class="on"></i><i class="on"></i><i></i><i></i><i class="on"></i></span><span class="fbk-n">2</span></div>
+            <div class="fbk-who"><div class="fbk-top"><div class="fbk-name" title="GPT-6">GPT-6</div><div class="fbk-provider">Azure OpenAI</div></div><div class="fbk-status" id="st1">Waiting</div></div>
+            <div class="fbk-meta"><div id="tm1">&ndash;</div><div id="cs1"></div></div>
+            <div class="fbk-bars" id="bars1" aria-hidden="true"></div>
             <span class="fbk-pop" id="pop1" role="tooltip">
               <span class="fbk-pop-head"><span class="fbk-pop-logo" aria-hidden="true">AZ</span><span class="fbk-pop-who"><span class="fbk-pop-title">Azure OpenAI</span><span class="fbk-pop-sub">Sweden Central</span></span><span class="fbk-pop-badge" id="bd1" data-tone="waiting">Waiting</span></span>
               <span class="fbk-pop-rows">
@@ -383,10 +384,10 @@ html[data-theme="dark"] .icon-sun{display:block}
             </span>
           </li>
           <li class="fbk-model fbk-hov" id="m2" data-status="waiting" tabindex="0" aria-describedby="pop2">
-            <span class="fbk-logo" aria-hidden="true"><span class="px" id="px2" style="--px-c:#1b8a5a"><i></i><i class="on"></i><i class="on"></i><i></i><i class="on"></i><i></i><i class="on"></i><i></i><i class="on"></i></span><span class="fbk-n">3</span></span>
-            <span class="fbk-who"><span class="fbk-top"><span class="fbk-name" title="Gemini 3.8 Pro">Gemini 3.8 Pro</span><span class="fbk-provider">Google Vertex</span></span><span class="fbk-status" id="st2">Waiting</span></span>
-            <span class="fbk-meta"><span id="tm2">&ndash;</span><span id="cs2"></span></span>
-            <span class="fbk-bars" id="bars2" aria-hidden="true"></span>
+            <div class="fbk-logo" aria-hidden="true"><span class="px" id="px2" style="--px-c:#1b8a5a"><i></i><i class="on"></i><i class="on"></i><i></i><i class="on"></i><i></i><i class="on"></i><i></i><i class="on"></i></span><span class="fbk-n">3</span></div>
+            <div class="fbk-who"><div class="fbk-top"><div class="fbk-name" title="Gemini 3.8 Pro">Gemini 3.8 Pro</div><div class="fbk-provider">Google Vertex</div></div><div class="fbk-status" id="st2">Waiting</div></div>
+            <div class="fbk-meta"><div id="tm2">&ndash;</div><div id="cs2"></div></div>
+            <div class="fbk-bars" id="bars2" aria-hidden="true"></div>
             <span class="fbk-pop" id="pop2" role="tooltip">
               <span class="fbk-pop-head"><span class="fbk-pop-logo" aria-hidden="true">GV</span><span class="fbk-pop-who"><span class="fbk-pop-title">Google Vertex</span><span class="fbk-pop-sub">europe-west4</span></span><span class="fbk-pop-badge" id="bd2" data-tone="waiting">Waiting</span></span>
               <span class="fbk-pop-rows">
@@ -398,10 +399,10 @@ html[data-theme="dark"] .icon-sun{display:block}
             </span>
           </li>
           <li class="fbk-model fbk-hov" id="m3" data-status="waiting" tabindex="0" aria-describedby="pop3">
-            <span class="fbk-logo" aria-hidden="true"><span class="px" id="px3" style="--px-c:#5a5ad6"><i class="on"></i><i></i><i></i><i></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i class="on"></i></span><span class="fbk-n">4</span></span>
-            <span class="fbk-who"><span class="fbk-top"><span class="fbk-name" title="Grok 4">Grok 4</span><span class="fbk-provider">xAI</span></span><span class="fbk-status" id="st3">Waiting</span></span>
-            <span class="fbk-meta"><span id="tm3">&ndash;</span><span id="cs3"></span></span>
-            <span class="fbk-bars" id="bars3" aria-hidden="true"></span>
+            <div class="fbk-logo" aria-hidden="true"><span class="px" id="px3" style="--px-c:#5a5ad6"><i class="on"></i><i></i><i></i><i></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i class="on"></i></span><span class="fbk-n">4</span></div>
+            <div class="fbk-who"><div class="fbk-top"><div class="fbk-name" title="Grok 4">Grok 4</div><div class="fbk-provider">xAI</div></div><div class="fbk-status" id="st3">Waiting</div></div>
+            <div class="fbk-meta"><div id="tm3">&ndash;</div><div id="cs3"></div></div>
+            <div class="fbk-bars" id="bars3" aria-hidden="true"></div>
             <span class="fbk-pop" id="pop3" role="tooltip">
               <span class="fbk-pop-head"><span class="fbk-pop-logo" aria-hidden="true">XA</span><span class="fbk-pop-who"><span class="fbk-pop-title">xAI</span><span class="fbk-pop-sub">us-west</span></span><span class="fbk-pop-badge" id="bd3" data-tone="waiting">Waiting</span></span>
               <span class="fbk-pop-rows">

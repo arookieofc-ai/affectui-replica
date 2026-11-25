@@ -109,10 +109,58 @@ original — status/meta text is never dimmed, so every status stays ≥ 4.5:1.
   popover quote (hidden until `answered`), with the `Output · 412 tokens` row.
   Harness asserts both states.
 
+## Row-paint fix (this round)
+- **Symptom**: in a real browser each model row painted only the pixel-mark, the
+  number badge and the right-side time/cost — name, provider and status text were
+  in the DOM/accessibility tree but never painted. A standalone copy of the row
+  markup+CSS on an empty page painted fine, and the full page WITHOUT its script
+  still failed, so the cause was page structure/CSS context, not JS.
+- **Root cause**: each `.fbk-model` was a `display:grid`
+  (`26px minmax(0,1fr) auto / auto auto`) whose middle column was nested inline-level
+  `<span>`s restyled as `display:grid` (`.fbk-who`) + `display:flex` (`.fbk-top`)
+  with `minmax(0,1fr)` + `nowrap/ellipsis/min-width:0` inside a fixed
+  `grid-auto-rows:60px` track. That nested inline-grid/flex shrinking context
+  collapsed to zero painted width in the full-page context (grid auto-placement +
+  fixed-height track + two-row span layout) while the DOM text stayed intact.
+- **Fix — same visuals, robust layout, nothing else changed**:
+  - Row is now a flex row: `.fbk-model{display:flex;align-items:center;gap:10px}`
+    with `.fbk-logo` (fixed 26px), `.fbk-who{flex:1;min-width:0}` (middle column),
+    `.fbk-meta{flex:none}` (right time/cost). Middle column is block-level
+    `<div>`s: `.fbk-who{display:flex;flex-direction:column}` holding
+    `.fbk-top{display:flex}` (line 1: name `flex:0 1 auto` + provider
+    `flex:0 1000 auto`, provider still shrinks first) and `.fbk-status`
+    (line 2, `display:block`). All row text boxes are `display:block` divs with
+    the same `nowrap/ellipsis` rules, so no inline-grid/flex shrink trap remains.
+  - Progress bars are an absolutely-positioned bottom strip
+    (`.fbk-bars{position:absolute;left:46px;right:12px;bottom:8px}`, `left` =
+    `10px` padding + `26px` logo + `10px` gap, i.e. exactly the old `grid-column
+    2/4` span) with the same `space-between` 5px cells, colours and fill logic.
+    Row keeps `min-height:var(--row)` and the same padding/radius/shadow, so the
+    bars sit visually where they did before.
+  - Responsive queries now match the original demo: `container-type:inline-size`
+    on `.fbk`, `@container (max-width:680px){.fbk-provider{display:none}}` and
+    `@container (max-width:520px){…stacked flow…}` (previously viewport
+    `@media 680px/560px`; the 560px breakpoint is corrected to the original's
+    520px, popover width uses `100cqw`). Verified in `demo-original.js`.
+  - Strings, timings, loop, popovers (portalled `fixed`/`z-9999`/`.open`, JS
+    placement), themes and tokens are untouched.
+- **Verification (node only, no browser)**: `node --check` on the extracted inline
+  script: OK; `node harness.mjs`: ALL CHECKS PASSED; plus a stub assertion that
+  each row's rendered markup (`<li id="mN">` tags stripped) contains its
+  name/provider/status, that those live in `<div class="fbk-who/top/name/
+  provider/status/meta/bars">` under a `display:flex` row with
+  `.fbk-who{flex:1;min-width:0;flex-direction:column}`, bars absolute
+  `bottom:8px`, `container-type:inline-size` + `@container 680/520` present, no
+  viewport `@media 680/5xx`, and no `display:none`/`visibility:hidden`/
+  `opacity:0`/`color:transparent` hiding rule on `.fbk-name`/`.fbk-status`
+  (`overflow:hidden` + `text-overflow:ellipsis` + `min-width:0` is the intended
+  single-line-ellipsis pattern, not hiding; `opacity:.6/.5` waiting/skipped dim
+  is per the original).
+
 ## How to test
 Open `index.html` in a browser (or `python3 -m http.server`), watch one 13s loop,
 hover/click rows for details, toggle the moon/sun button for dark mode, narrow the
-window below ~560px for the stacked layout.
+component below ~520px container width for the stacked layout.
 
 ## Not verified
 Pixel-perfect match to the original Pro `.tsx` (only the compiled demo was read);

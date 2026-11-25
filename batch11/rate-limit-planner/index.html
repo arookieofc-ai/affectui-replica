@@ -92,8 +92,8 @@ body{
 .ui-rlp__scale>span{position:absolute; right:10px; margin-top:-8px; font-size:11px; line-height:16px;
   color:var(--muted); font-variant-numeric:tabular-nums; opacity:.85}
 .ui-rlp__scale>span[data-limit]{color:var(--danger-ink)}
-.ui-rlp__chart{position:relative; min-width:0; border-bottom:1px solid var(--line); cursor:crosshair}
-.ui-rlp__svg{position:absolute; inset:0; overflow:visible}
+.ui-rlp__chart{position:relative; min-width:0; border-bottom:1px solid var(--line); cursor:crosshair; overflow:hidden}
+.ui-rlp__svg{position:absolute; inset:0; overflow:hidden}
 .ui-rlp__line{fill:none; stroke:var(--border); stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round}
 .ui-rlp__line[data-plan]{stroke-dasharray:4 4}
 .ui-rlp__line[data-actual]{stroke:var(--muted)}
@@ -150,7 +150,7 @@ body{
 .ui-rlp__lane[data-state] .ui-rlp__name{color:var(--muted); font-weight:400}
 .ui-rlp__slot{position:relative; min-width:0}
 .ui-rlp__bar{position:absolute; top:9px; display:flex; align-items:center; justify-content:flex-end;
-  height:16px; min-width:18px; overflow:hidden; padding:0 6px; border-radius:7px;
+  height:16px; min-width:18px; overflow:hidden; padding:0 8px 0 6px; border-radius:7px;
   background:var(--sel-soft,rgba(1,144,254,.10)); box-shadow:inset 0 0 0 1px var(--sel-edge,rgba(1,144,254,.35));
   font-size:10.5px; font-weight:500; line-height:16px; color:var(--sel-ink,#0369a1);
   font-variant-numeric:tabular-nums; touch-action:none; cursor:grab;
@@ -167,7 +167,7 @@ html[data-theme="dark"] .ui-rlp__bar{color:var(--sel-ink,#7dd3fc)}
 .ui-rlp__bar-over{position:absolute; top:0; bottom:0; pointer-events:none;
   background:repeating-linear-gradient(-45deg,var(--danger) 0 1.5px,rgba(240,68,56,.18) 1.5px 4.5px)}
 html[data-theme="dark"] .ui-rlp__bar-over{background:repeating-linear-gradient(-45deg,var(--danger) 0 1.5px,rgba(255,107,95,.20) 1.5px 4.5px)}
-.ui-rlp__bar-peak{position:relative; overflow:hidden; white-space:nowrap}
+.ui-rlp__bar-peak{position:relative; overflow:hidden; white-space:nowrap; margin-right:1px; transform:translateX(-1px)}
 .ui-rlp__bar[data-tight] .ui-rlp__bar-peak{display:none}
 .ui-rlp__row-tools{position:absolute; top:7px; right:0; display:flex; gap:4px; opacity:0; pointer-events:none; transition:opacity 140ms ease}
 .ui-rlp__lane:is(:hover,:focus-within,[data-editing]) .ui-rlp__row-tools{opacity:1; pointer-events:auto}
@@ -551,15 +551,18 @@ function buildSkeleton(){
   g2.appendChild(svgEl('stop', { offset:'0', 'stop-color':'#0190fe', 'stop-opacity':'.28' }));
   g2.appendChild(svgEl('stop', { offset:'1', 'stop-color':'#0190fe', 'stop-opacity':'0' }));
   defs.appendChild(g1); defs.appendChild(g2);
+  var clip = svgEl('clipPath', { id:'rlp-clip' });
+  clip.appendChild(svgEl('rect', { x:'0', y:'0', width:String(chartW || 600), height:String(chartH) }));
+  defs.appendChild(clip);
   svgRoot.appendChild(defs);
-  pGrayFill = svgEl('path', { fill:'url(#rlp-gray)' }); svgRoot.appendChild(pGrayFill);
-  pSelFill  = svgEl('path', { fill:'url(#rlp-blue)' }); svgRoot.appendChild(pSelFill);
+  pGrayFill = svgEl('path', { fill:'url(#rlp-gray)', 'clip-path':'url(#rlp-clip)' }); svgRoot.appendChild(pGrayFill);
+  pSelFill  = svgEl('path', { fill:'url(#rlp-blue)', 'clip-path':'url(#rlp-clip)' }); svgRoot.appendChild(pSelFill);
   bufferLine = svgEl('line', { 'class':'ui-rlp__buffer' }); svgRoot.appendChild(bufferLine);
   limitLine  = svgEl('line', { 'class':'ui-rlp__limit' }); svgRoot.appendChild(limitLine);
-  linePlan   = svgEl('path', { 'class':'ui-rlp__line' }); linePlan.setAttribute('data-plan', ''); svgRoot.appendChild(linePlan);
-  lineActual = svgEl('path', { 'class':'ui-rlp__line' }); lineActual.setAttribute('data-actual', ''); svgRoot.appendChild(lineActual);
-  lineSel    = svgEl('path', { 'class':'ui-rlp__line' }); lineSel.setAttribute('data-sel', ''); svgRoot.appendChild(lineSel);
-  lineOver   = svgEl('path', { 'class':'ui-rlp__line' }); lineOver.setAttribute('data-over', ''); svgRoot.appendChild(lineOver);
+  linePlan   = svgEl('path', { 'class':'ui-rlp__line', 'clip-path':'url(#rlp-clip)' }); linePlan.setAttribute('data-plan', ''); svgRoot.appendChild(linePlan);
+  lineActual = svgEl('path', { 'class':'ui-rlp__line', 'clip-path':'url(#rlp-clip)' }); lineActual.setAttribute('data-actual', ''); svgRoot.appendChild(lineActual);
+  lineSel    = svgEl('path', { 'class':'ui-rlp__line', 'clip-path':'url(#rlp-clip)' }); lineSel.setAttribute('data-sel', ''); svgRoot.appendChild(lineSel);
+  lineOver   = svgEl('path', { 'class':'ui-rlp__line', 'clip-path':'url(#rlp-clip)' }); lineOver.setAttribute('data-over', ''); svgRoot.appendChild(lineOver);
   cpLine  = svgEl('line', { 'class':'ui-rlp__checkpoint' }); svgRoot.appendChild(cpLine);
   nowLine = svgEl('line', { 'class':'ui-rlp__now' }); svgRoot.appendChild(nowLine);
   guideLine = svgEl('line', { 'class':'ui-rlp__guide' });
@@ -676,6 +679,7 @@ function laneRow(run, m){
   bar.setAttribute('role', 'slider');
   bar.setAttribute('aria-label', run.name);
   bar.addEventListener('pointerdown', onBarDown(run.id));
+  bar.addEventListener('mousedown', onBarDown(run.id));
   bar.addEventListener('focus', function(){ select(run.id); });
   bar.addEventListener('keydown', onBarKey(run.id));
   var peak = el('span', 'ui-rlp__bar-peak', fmtNum(run.peak));
@@ -867,12 +871,12 @@ function paintChart(m){
   pSelFill.setAttribute('d', toArea(ptsS));
   linePlan.setAttribute('d', line);
   lineSel.setAttribute('d', lineS);
-  /* measured actuals for elapsed part */
+  /* measured actuals for elapsed part: x is a day offset (0..DAY), not a bucket index */
   if (MEASURED.length){
     var upto = Math.min(MEASURED.length, nowOffset), ap = [];
     for (i = 0; i <= upto; i += Math.max(1, Math.floor(buckets / 120))){
       var mm = Math.min(MEASURED.length - 1, Math.round(i / Math.max(1, upto) * (MEASURED.length - 1)));
-      ap.push([i / (buckets - 1) * chartW, yPos(MEASURED[mm] / LIMIT)]);
+      ap.push([i / DAY * chartW, yPos(MEASURED[mm] / LIMIT)]);
     }
     lineActual.setAttribute('d', smoothPath(ap));
   }
@@ -898,6 +902,10 @@ function paintChart(m){
   svgRoot.setAttribute('width', String(chartW));
   svgRoot.setAttribute('height', String(chartH));
   svgRoot.setAttribute('viewBox', '0 0 ' + chartW + ' ' + chartH);
+  try {
+    var clipRect = svgRoot.querySelector ? svgRoot.querySelector('#rlp-clip rect') : null;
+    if (clipRect){ clipRect.setAttribute('width', String(chartW)); clipRect.setAttribute('height', String(chartH)); }
+  } catch(e){}
 }
 function updateFlags(m){
   var left = nowOffset / DAY * chartW;
@@ -1168,31 +1176,49 @@ function patchRun(id, patch){
   updateDynamic();
 }
 
-/* ---------- drag with real pointer gestures ---------- */
+/* ---------- drag with real mouse + pointer gestures ---------- */
+/* updateDynamic() mutates bar positions in place and never rebuilds lanes,
+   so the dragged bar element survives the whole gesture. */
 var dragInfo = null;
+function dragStart(id, ev){
+  select(id);
+  var run = null, i;
+  for (i = 0; i < runs.length; i++) if (runs[i].id === id) run = runs[i];
+  if (!run || isPast(run)) return false;
+  stopAuto();
+  var track = lanesTrack.getBoundingClientRect ? lanesTrack.getBoundingClientRect() : { left:0, width:chartW || 600 };
+  var w = (track.width || chartW || 600);
+  var cx = (ev && typeof ev.clientX === 'number') ? ev.clientX : (track.left || 0);
+  dragInfo = { id:id, width:w, left:track.left || 0,
+    grabOffset: (cx - (track.left || 0)) / w * DAY - toOffset(run.at) };
+  dragId = id;
+  updateDynamic();
+  if (ev && ev.preventDefault) ev.preventDefault();
+  return true;
+}
 function onBarDown(id){
   return function(ev){
-    select(id);
-    var run = null, i;
-    for (i = 0; i < runs.length; i++) if (runs[i].id === id) run = runs[i];
-    if (!run || isPast(run)) return;
-    var track = lanesTrack.getBoundingClientRect ? lanesTrack.getBoundingClientRect() : { left:0, width:chartW || 600 };
-    var w = (track.width || chartW || 600);
-    dragInfo = { id:id, width:w, left:track.left || 0,
-      grabOffset:(ev.clientX - (track.left || 0)) / w * DAY - toOffset(run.at) };
-    dragId = id;
-    try { if (ev.currentTarget && ev.currentTarget.setPointerCapture && ev.pointerId !== undefined) ev.currentTarget.setPointerCapture(ev.pointerId); } catch(e){}
-    updateDynamic();
-    if (ev.preventDefault) ev.preventDefault();
+    if (dragStart(id, ev)){
+      try { if (ev.currentTarget && ev.currentTarget.setPointerCapture && ev.pointerId !== undefined) ev.currentTarget.setPointerCapture(ev.pointerId); } catch(e){}
+    }
   };
 }
-window.addEventListener('pointermove', function(ev){
+function onDragMove(ev){
   if (!dragInfo) return;
+  if (!ev || typeof ev.clientX !== 'number') return;
   var x = (ev.clientX - dragInfo.left) / dragInfo.width * DAY - dragInfo.grabOffset;
-  setAt(dragInfo.id, x);
-});
+  setAt(dragInfo.id, x); /* setAt snaps to SNAP=5 and calls updateDynamic for live values */
+}
+window.addEventListener('pointermove', onDragMove);
+document.addEventListener('pointermove', onDragMove);
+window.addEventListener('mousemove', onDragMove);
+document.addEventListener('mousemove', onDragMove);
 window.addEventListener('pointerup', endDrag);
+document.addEventListener('pointerup', endDrag);
+window.addEventListener('mouseup', endDrag);
+document.addEventListener('mouseup', endDrag);
 window.addEventListener('pointercancel', endDrag);
+document.addEventListener('pointercancel', endDrag);
 function endDrag(){
   if (!dragInfo) return;
   dragInfo = null; dragId = null;
@@ -1254,6 +1280,7 @@ function startLoop(){
 function stopAuto(){ autoPlay = false; }
 /* any trusted pointer/key interaction stops the demo loop (capture phase) */
 document.addEventListener('pointerdown', function(ev){ if (ev.isTrusted) stopAuto(); }, true);
+document.addEventListener('mousedown', function(ev){ if (ev.isTrusted) stopAuto(); }, true);
 document.addEventListener('keydown', function(ev){ if (ev.isTrusted) stopAuto(); }, true);
 /* clicking outside an open editor closes it */
 document.addEventListener('pointerdown', function(ev){

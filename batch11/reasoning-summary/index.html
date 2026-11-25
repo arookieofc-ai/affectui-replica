@@ -427,7 +427,7 @@ function renderCardHTML(o){
     var facts=[m.provider,nSteps+(nSteps===1?" step":" steps"),
       toks>0?fmtTokens(toks)+(toks===1?" token":" tokens"):null,cost].filter(Boolean);
     return '<li class="rs__model"'+(o.running&&t.runningModel===m.id?' data-on':'')+'>'+
-      '<button type="button" class="rs__model-btn" aria-expanded="'+open+'">'+
+      '<button type="button" class="rs__model-btn" data-model="'+esc(m.id)+'" aria-expanded="'+open+'">'+
       '<span class="rs__logo" aria-hidden="true">'+esc(m.name.trim().charAt(0).toUpperCase())+'</span>'+
       '<span class="rs__model-name" dir="auto" title="'+esc(m.name)+'">'+esc(m.name)+'</span>'+
       '<span class="rs__effort" aria-hidden="true" style="--mk:'+topKindColor(m.id)+'">'+bars+'</span>'+
@@ -560,34 +560,59 @@ function wire(){
     });
     el.addEventListener("blur",function(){setFilter(null);});
   });
-  /* model expand + footer toggles: native click on real <button>s */
-  var idx=0;
-  card.querySelectorAll(".rs__models .rs__model").forEach(function(li){
-    var btn=li.querySelector(".rs__model-btn");
-    btn.setAttribute("tabindex",idx===0?"0":"-1");
-    btn.addEventListener("click",function(){
-      state.expanded=state.expanded===MODELS[idx].id?null:MODELS[idx].id;
-      render(false);
-    });
+  /* roving tabindex assignment only — clicks are handled by a single
+     delegated listener on #card (attached once, survives innerHTML
+     re-renders between mousedown and mouseup so a real mouse click
+     always toggles). */
+  var mbtns=card.querySelectorAll(".rs__models .rs__model-btn");
+  mbtns.forEach(function(btn,i){
+    btn.setAttribute("tabindex",i===0?"0":"-1");
     btn.addEventListener("keydown",function(e){roving(e,card.querySelectorAll(".rs__models .rs__model-btn"),1);});
-    idx++;
   });
   var kbtns=card.querySelectorAll(".rs__kinds .rs__kind");
   kbtns.forEach(function(b,i){
     b.setAttribute("tabindex",i===0?"0":"-1");
     b.addEventListener("keydown",function(e){roving(e,kbtns,2);});
   });
-  var srcBtn=card.querySelector(".rs__sources");
-  if(srcBtn&&!srcBtn.disabled) srcBtn.addEventListener("click",function(){
-    state.panel=state.panel==="sources"?null:"sources";render(false);
-  });
-  var tog=card.querySelector(".rs__toggle");
-  if(tog) tog.addEventListener("click",function(){
-    state.panel=state.panel==="steps"?null:"steps";render(false);
-  });
   card.onkeydown=function(e){
     if(e.key==="Escape"&&(state.panel||state.expanded)){state.panel=null;state.expanded=null;render(false);e.stopPropagation();}
   };
+  ensureDelegated();
+}
+/* One stable click listener on #card itself (never rebuilt by render(),
+   so a scheduled re-render between mousedown and mouseup cannot swallow
+   the click: the click bubbles to #card either way). Toggle is id-based,
+   never a captured node/index, and re-render preserves state.expanded. */
+var _delegated=false;
+function findBtn(target,sel){
+  if(!target) return null;
+  if(typeof target.closest==="function"){
+    try{var hit=target.closest(sel);if(hit) return hit;}catch(_){}
+  }
+  var el=target;
+  var guard=0;
+  while(el&&guard++<8){
+    if(typeof el.matches==="function"){
+      try{if(el.matches(sel)) return el;}catch(_){}
+    }
+    el=el.parentNode||null;
+  }
+  return null;
+}
+function ensureDelegated(){
+  if(_delegated) return; _delegated=true;
+  card.addEventListener("click",function(e){
+    var t=e&&e.target?e.target:null;
+    var mBtn=findBtn(t,".rs__model-btn");
+    if(mBtn&&typeof mBtn.getAttribute==="function"){
+      var id=mBtn.getAttribute("data-model");
+      if(id){state.expanded=state.expanded===id?null:id;render(false);return;}
+    }
+    var sBtn=findBtn(t,".rs__sources");
+    if(sBtn&&!sBtn.disabled){state.panel=state.panel==="sources"?null:"sources";render(false);return;}
+    var tog=findBtn(t,".rs__toggle");
+    if(tog){state.panel=state.panel==="steps"?null:"steps";render(false);return;}
+  });
 }
 function roving(e,list,cols){
   var items=Array.prototype.slice.call(list);

@@ -35,18 +35,37 @@ search (±180 min, 15-min grid), median-peak `New run` placement, 240 ms leave /
 900 ms glide / 600 ms fresh timings, and the **auto-play loop**: Lead research
 11:00↔14:50 at 110 ms/tick with 6-tick lead-in and 14-tick end pauses, badge
 visibly sweeping `Under → Close → Over limit · 16:xx–17:xx`, stopping on real input.
-Real `pointerdown/move/up` dragging (with `setPointerCapture`), arrow/Shift/Home/End/
-PgUp/PgDn keyboard, Enter-to-edit, Delete-to-remove.
+Real `pointerdown/move/up` **and** `mousedown/mousemove/mouseup` dragging (document/
+window move+up listeners so the gesture survives pointer capture; `setPointerCapture`
+where available), arrow/Shift/Home/End/PgUp/PgDn keyboard, Enter-to-edit, Delete-to-remove.
+`updateDynamic()` mutates bars in place, so a drag never destroys the bar mid-gesture.
+
+## Visual-QA fixes (2026-11-25, same data/timings/behaviour)
+- **Grey measured polyline clipped:** the elapsed-actuals path used bucket-index
+  scaling (`i / (buckets-1) * chartW`) for a minute-offset series, pushing it to
+  ~1.8× plot width. Now uses day scaling (`i / DAY * chartW`), plus
+  `overflow:hidden` on `.ui-rlp__chart`/`.ui-rlp__svg` and an `rlp-clip` clipPath
+  (rect resized in `paintChart`) on all chart fills/lines.
+- **Real-mouse drag fixed:** bars previously listened only to `pointerdown` with
+  `window.pointermove/up`. A real `mousedown→mousemove→mouseup` sequence never
+  started the drag. Bars now listen to both `pointerdown` and `mousedown` via a
+  shared `dragStart()`; `mousemove`+`mouseup` are handled on **both** `document`
+  and `window` alongside the pointer events, with 5-min snapping and live
+  `aria-valuenow/valuetext` via `setAt()`. Trusted `mousedown` also stops autoplay.
+- **Row value labels:** `46k`/`82k` sat half on the bar's right edge; bar padding
+  is now `0 8px 0 6px` with the peak label nudged 2px left (`margin-right:1px` +
+  `translateX(-1px)`), fully inside the bar.
 
 ## Verification (all in-directory, no installs)
 - `node --check` on the extracted inline script: **pass**.
-- `harness.cjs` (DOM stub + virtual timers, since removed after the run): loaded the
-  page script, advanced timers through the **full loop** (11:00→14:50→pause→reverse→11:00),
-  and asserted **86 checks, 0 failures**: visible text (hidden/aria-only text excluded,
-  plus a CSS scan proving no hiding rule applies to asserted text), exact header/names/
-  flags, 9-cell marks, drag rescheduling + 5-min snap + live `aria-valuetext`,
-  keyboard moves, capture-phase dialog open, Escape close, over-limit reachability,
-  spread/add/remove, and the theme toggle both ways.
+- `harness-verify.cjs` (node only, DOM stub, kept in this dir): loads the page
+  script, stops autoplay, and simulates a **real mouse** `mousedown` on the Report
+  bar → stepped `mousemove` (+60px, +170px) → `mouseup` **on the document**.
+  Asserts the same bar node survives, `report 930 → 1340` (snapped `%5==0`),
+  live `aria-valuenow/valuetext` update, value persists after `mouseup`, and the
+  `data-actual` path maxX (112.5) stays within chartW (600). **All checks pass.**
+  Static asserts also cover the overflow/clip CSS, `rlp-clip`, day-scaled
+  coordinates, and mouse listeners.
 - **Light AND dark checked**: same visibility/state assertions re-run after toggling
   to `data-theme="dark"` (title, context, badge, verdict, all lane names), plus dark
   token presence (`#101012`, `#1c1c1f`); toggle returns cleanly to light.
