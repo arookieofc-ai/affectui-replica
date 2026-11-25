@@ -125,20 +125,21 @@ body{margin:0;background:var(--page);color:var(--ink);
 .board{display:flex;gap:18px;align-items:flex-start}
 .cards{flex:1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;min-width:0}
 .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);
-  box-shadow:var(--shadow);padding:16px;cursor:pointer;position:relative;transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease;text-align:left;width:100%;font:inherit;color:inherit}
+  box-shadow:var(--shadow);padding:16px 16px 14px;cursor:pointer;position:relative;transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease;text-align:left;width:100%;font:inherit;color:inherit}
 .card:hover{transform:translateY(-2px);border-color:var(--accent-border)}
 .card:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
-.card[aria-expanded="true"]{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-bg),var(--shadow)}
+.card[aria-expanded="true"]{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-bg),var(--shadow);padding-bottom:16px}
 .card.dim{opacity:.45;filter:saturate(.6)}
-.card-top{display:flex;align-items:center;gap:10px}
+.card-top{display:flex;align-items:center;gap:8px;min-width:0}
 .avatar{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;
   font-weight:800;color:var(--surface);font-size:15px;flex:none}
 .a1{background:linear-gradient(135deg,var(--av1a),var(--av1b))}
 .a2{background:linear-gradient(135deg,var(--av2a),var(--av2b))}
 .a3{background:linear-gradient(135deg,var(--av3a),var(--av3b))}
-.card-top b{font-size:15px;display:block;font-weight:600}
-.card-top small{color:var(--muted);font-size:12px}
-.pill{margin-left:auto;font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px;border:1px solid transparent;white-space:nowrap}
+.card-title{min-width:0;flex:1 1 auto;overflow:hidden}
+.card-top b{font-size:14px;display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.3}
+.card-top small{display:block;color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;word-break:keep-all;line-height:1.3}
+.pill{margin-left:auto;font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px;border:1px solid transparent;white-space:nowrap;flex:none}
 .pill.working{color:var(--working);background:var(--working-bg);border-color:var(--working-border)}
 .pill.waiting{color:var(--waiting);background:var(--waiting-bg);border-color:var(--waiting-border)}
 .pill.idle{color:var(--idle);background:var(--idle-bg);border-color:var(--idle-border)}
@@ -152,9 +153,10 @@ body{margin:0;background:var(--page);color:var(--ink);
 .legend{display:flex;gap:10px;font-size:11px;color:var(--muted);margin-bottom:10px}
 .dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:4px;vertical-align:baseline}
 .dot.dw{background:var(--working-dot)}.dot.dp{background:var(--waiting-dot)}.dot.di{background:var(--idle-dot)}
-.cost-row{display:flex;align-items:baseline;justify-content:space-between;border-top:1px dashed var(--border);padding-top:10px;margin-top:4px;gap:8px}
-.cost-row b{font-size:16px}.cost-row small{color:var(--muted);font-size:12px}
-.view{margin-top:10px;width:100%;border:1px solid var(--border);background:var(--subtle);border-radius:var(--radius);padding:8px;font-size:12px;font-weight:700;cursor:pointer;color:var(--ink);transition:background-color .15s ease,border-color .15s ease}
+.cost-row{display:block;border-top:1px dashed var(--border);padding-top:10px;margin-top:4px}
+.cost-desc{display:block;color:var(--muted);font-size:12px;line-height:1.4;overflow-wrap:break-word}
+.cost-amount{display:block;text-align:right;font-size:16px;margin-top:2px;line-height:1.3}
+.view{display:block;margin-top:12px;width:100%;box-sizing:border-box;text-align:center;border:1px solid var(--border);background:var(--subtle);border-radius:var(--radius);padding:8px;font-size:12px;font-weight:700;cursor:pointer;color:var(--ink);transition:background-color .15s ease,border-color .15s ease}
 .view:hover{border-color:var(--accent)}
 .card[aria-expanded="true"] .view{background:var(--ink);color:var(--page);border-color:var(--ink)}
 .panel{width:390px;flex:none;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);
@@ -342,7 +344,7 @@ function renderCards(){
     return `<button class="card ${matchFilter(f)}" data-id="${f.id}" aria-expanded="${isOpen}" data-idx="${idx}"
       aria-label="${f.name}, ${n} sub-agents, status ${st}. Activate to ${isOpen?"close":"open"} tree panel.">
       <div class="card-top"><span class="avatar ${f.cls}">${f.short}</span>
-        <span><b>${f.name}</b><small>${f.model}</small></span>${pillFor(st)}</div>
+        <span class="card-title"><b>${f.name}</b><small>${f.model}</small></span>${pillFor(st)}</div>
       <div class="counts"><span class="count"><b>${n}</b> sub-agents</span>
         <span class="count"><b>${c.tasks}</b> open tasks</span>
         <span class="count"><b>${c.w}</b> working</span></div>
@@ -350,7 +352,7 @@ function renderCards(){
       <div class="legend"><span><span class="dot dw"></span>${c.w} working</span>
         <span><span class="dot dp"></span>${c.p} waiting</span>
         <span><span class="dot di"></span>${c.i} idle</span></div>
-      <div class="cost-row"><small>${f.desc}</small><b>$${f.cost.toFixed(2)}</b></div>
+      <div class="cost-row"><small class="cost-desc">${f.desc}</small><b class="cost-amount">$${f.cost.toFixed(2)}</b></div>
       <span class="view">${isOpen?"▾ Fold back into card":"▸ View tree on the right"}</span>
     </button>`;
   }).join("");
