@@ -523,12 +523,30 @@ function replay(){
 
 /* ---- events + theme ---- */
 function bind(){
+  /* The 1s tick re-renders (innerHTML) while the approval badge is visible.
+     A press that spans a re-render loses its click (button is replaced
+     between down and up), so toggle the panel on press (capture) instead
+     of waiting for click. The following click (if the browser still fires
+     one) is then swallowed via askClickSkip so it cannot toggle back. */
+  var askPressAt=0, askPressType="", askClickSkip=false;
+  function askPress(e){
+    var t=e.target&&e.target.closest?e.target.closest('[data-act="ask"]'):null;
+    if(!t)return;
+    if(e.type==="mousedown"&&e.button!==undefined&&e.button!==0)return;
+    var now=Date.now();
+    if(e.type==="mousedown"&&askPressType==="pointerdown"&&(now-askPressAt)<500)return; /* compat dup */
+    askPressAt=now;askPressType=e.type;askClickSkip=true;
+    state.askOpen=!state.askOpen;render();
+    if(e.cancelable){try{e.preventDefault();}catch(_){}}
+  }
+  els.list.addEventListener("pointerdown",askPress,true);
+  els.list.addEventListener("mousedown",askPress,true);
   els.list.addEventListener("click",function(e){
     var t=e.target&&e.target.closest?e.target.closest("[data-act]"):null;
     if(!t)return;
     var act=t.getAttribute("data-act");
     if(act==="toggle"){var id=t.getAttribute("data-id");state.open[id]=!state.open[id];render();}
-    else if(act==="ask"){state.askOpen=!state.askOpen;render();}
+    else if(act==="ask"){if(askClickSkip){askClickSkip=false;return;}state.askOpen=!state.askOpen;render();}
     else if(act==="approve"){approve();}
     else if(act==="decline"){decline();}
   });

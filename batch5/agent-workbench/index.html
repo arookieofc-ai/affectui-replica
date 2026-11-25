@@ -150,6 +150,10 @@ body{
 @keyframes pop{from{opacity:0;transform:translateY(var(--py)) scale(.97)}}
 @keyframes popout{to{opacity:0;transform:translateY(var(--py)) scale(.98)}}
 .file-row .pop{top:calc(100% + 6px);right:-10px;left:-10px;width:auto}
+/* top-level layer: file/agent/tool popovers are portalled to <body> so they
+   paint above every card (old bug: file pop lived inside the files-card
+   stacking context, z-index 1, so the later Drive tool card covered its bottom) */
+.pop[data-layer="top"]{position:fixed;top:auto;bottom:auto;left:auto;right:auto;z-index:50;width:280px;max-width:calc(100vw - 16px);max-height:calc(100vh - 16px);overflow:auto}
 .pop-head{display:flex;align-items:center;gap:10px;min-width:0;padding:0 2px}
 .pop-who{display:grid;flex:1;min-width:0;line-height:16px}
 .pop-who>*{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
@@ -425,6 +429,30 @@ function toolState(toolId, vis, done){
   if(lastDone) return { s:'used', cur:null, last:lastDone };
   return { s:'ready', cur:null, last:null };
 }
+/* Pure popover placement (testable): given a trigger rect, pop size,
+   viewport and card rects, return {left, top, above} for a pop that stays
+   inside the viewport and avoids overlapping any card when possible. */
+function popPlacement(trig, popSize, vp, cards){
+  var w = Math.max(200, Math.min(popSize.w, vp.w - 16));
+  var h = Math.min(popSize.h, vp.h - 16);
+  var left = Math.max(8, Math.min(trig.left, vp.w - w - 8));
+  function hits(t, l){
+    var r = {left:l, top:t, right:l + w, bottom:t + h};
+    if(r.top < 8 || r.bottom > vp.h - 8) return true;
+    for(var i=0;i<cards.length;i++){
+      var c = cards[i];
+      if(r.left < c.right && r.right > c.left && r.top < c.bottom && r.bottom > c.top) return true;
+    }
+    return false;
+  }
+  var belowTop = trig.bottom + 8, aboveTop = trig.top - h - 8;
+  var belowHits = hits(belowTop, left);
+  var aboveHits = (aboveTop < 8) || hits(Math.max(8, aboveTop), left);
+  if(!belowHits) return {left:left, top:belowTop, above:false, w:w, h:h};
+  if(!aboveHits) return {left:left, top:Math.max(8, aboveTop), above:true, w:w, h:h};
+  if(aboveTop >= 8) return {left:left, top:Math.max(8, aboveTop), above:true, w:w, h:h};
+  return {left:left, top:Math.max(8, Math.min(belowTop, vp.h - h - 8)), above:false, w:w, h:h};
+}
 
 function init(scope){
   var root = document.getElementById('wb');
@@ -536,6 +564,62 @@ function init(scope){
     li.appendChild(lg);
     return li;
   }
+  /* Top-level popover layer: position a portalled pop next to its trigger,
+     flipped above when below-space is blocked, clamped inside the viewport,
+     and steered clear of card rects so no card can cover the pop's bottom. */
+  function popHeight(pop){
+    try{
+      if(pop.offsetHeight) return pop.offsetHeight;
+      var r = pop.getBoundingClientRect ? pop.getBoundingClientRect() : null;
+      if(r && r.height) return r.height;
+    }catch(e){}
+    return 180;
+  }
+  function cardRects(excludePop){
+    var out = [];
+    try{
+      var nodes = document.querySelectorAll ? document.querySelectorAll('.card, .file-row') : [];
+      for(var i=0;i<nodes.length;i++){
+        var n = nodes[i];
+        if(excludePop && (n === excludePop || (n.contains && n.contains(excludePop)))) continue;
+        if(n.getBoundingClientRect){
+          var r = n.getBoundingClientRect();
+          if(r && (r.width || r.height)) out.push({left:r.left, top:r.top, right:r.right, bottom:r.bottom});
+        }
+      }
+    }catch(e){}
+    return out;
+  }
+  function placePop(pop, trigger){
+    try{
+      var r = trigger.getBoundingClientRect ? trigger.getBoundingClientRect() : null;
+      if(!r || (!r.width && !r.height && !r.top && !r.bottom && !r.left && !r.right)) return;
+      var vw = (window.innerWidth || (document.documentElement && document.documentElement.clientWidth) || 1024);
+      var vh = (window.innerHeight || (document.documentElement && document.documentElement.clientHeight) || 768);
+      var w = r.width || 280;
+      try{
+        var host = document.getElementById('card-files');
+        if(host && host.getBoundingClientRect){
+          var hr = host.getBoundingClientRect();
+          if(hr && hr.width && hr.width < vw) w = Math.min(hr.width, vw - 16);
+        }
+      }catch(e){}
+      var ph = popHeight(pop);
+      var p = popPlacement(
+        {left:r.left, top:r.top, right:r.right, bottom:r.bottom},
+        {w:w, h:ph}, {w:vw, h:vh}, cardRects(pop));
+      pop.style.width = p.w + 'px';
+      if(p.h < ph) pop.style.maxHeight = p.h + 'px';
+      pop.style.left = p.left + 'px';
+      pop.style.top = p.top + 'px';
+      if(p.above) pop.classList.add('above'); else pop.classList.remove('above');
+    }catch(e){}
+  }
+  function repositionOpen(){
+    if(open && open.pop && open.trigger){
+      try{ placePop(open.pop, open.trigger); }catch(e){}
+    }
+  }
   function togglePop(kind, id){
     if(open && open.kind===kind && open.id===id){ closePop(); return; }
     closePop();
@@ -603,16 +687,29 @@ function init(scope){
     pop.appendChild(factsDl(facts));
     if(extra) pop.appendChild(extra);
     pop.addEventListener('pointerdown', function(e){ e.stopPropagation(); });
-    card.appendChild(pop);
+    /* portal to a top-level layer so no later card can paint over the pop */
+    pop.setAttribute('data-layer','top');
+    (document.body || card).appendChild(pop);
+    placePop(pop, trigger);
     card.classList.add('open');
     trigger.setAttribute('aria-expanded','true');
     trigger.setAttribute('aria-controls', pop.id);
     open = { kind:kind, id:id, pop:pop, card:card, trigger:trigger };
+    /* keep the portalled pop anchored while it is open */
+    if(!repositionOpen._wired){
+      repositionOpen._wired = true;
+      try{
+        if(window.addEventListener){
+          window.addEventListener('resize', repositionOpen);
+          window.addEventListener('scroll', repositionOpen, true);
+        }
+      }catch(e){}
+    }
   }
   function findFile(id){ for(var i=0;i<FILES.length;i++) if(FILES[i].id===id) return FILES[i]; return FILES[0]; }
   function findTool(id){ for(var i=0;i<TOOLS.length;i++) if(TOOLS[i].id===id) return TOOLS[i]; return TOOLS[0]; }
   document.addEventListener('pointerdown', function(e){
-    if(open && !open.card.contains(e.target)) closePop();
+    if(open && !open.card.contains(e.target) && !(open.pop && open.pop.contains(e.target))) closePop();
   });
   document.addEventListener('keydown', function(e){
     if(e.key === 'Escape') closePop();
@@ -871,10 +968,10 @@ if(typeof document!=='undefined' && document.getElementById && document.getEleme
     document.addEventListener('DOMContentLoaded', function(){ __api = init(); });
   }else{ __api = init(); }
 }
-if(typeof window!=='undefined') window.__awb = { init:init, createEngine:createEngine, markPattern:markPattern,
+if(typeof window!=='undefined') window.__awb = { init:init, createEngine:createEngine, markPattern:markPattern, popPlacement:popPlacement,
   STEPS:STEPS, TOOLS:TOOLS, FILES:FILES, USER:USER, AGENT:AGENT,
   get api(){ return __api; } };
-if(typeof globalThis!=='undefined') globalThis.__awb = (typeof window!=='undefined' && window.__awb) || { init:init, createEngine:createEngine, markPattern:markPattern, STEPS:STEPS, TOOLS:TOOLS, FILES:FILES, USER:USER, AGENT:AGENT };
+if(typeof globalThis!=='undefined') globalThis.__awb = (typeof window!=='undefined' && window.__awb) || { init:init, createEngine:createEngine, markPattern:markPattern, popPlacement:popPlacement, STEPS:STEPS, TOOLS:TOOLS, FILES:FILES, USER:USER, AGENT:AGENT };
 })();
 </script>
 </body>
