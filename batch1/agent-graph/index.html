@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent Graph — Agents &amp; Tools as a Living Network</title>
+<style>
+  /* ---- v2 design tokens (no ad-hoc hex outside this block) ---- */
+  :root, :root[data-theme="light"]{
+    --page:#fafaf9; --surface:#ffffff; --ink:#171717; --muted:#78716c; --subtle:#f5f5f4; --border:#e7e5e4;
+    --radius-lg:16px; --radius:10px; --radius-sm:6px;
+    --shadow:0 1px 2px rgba(0,0,0,.05), 0 4px 16px rgba(0,0,0,.05);
+    --accent:#2563eb; --accent-soft:#dbeafe; --accent-ink:#1d4ed8;
+    --success:#16a34a; --success-soft:#dcfce7; --success-ink:#15803d;
+    --warning:#f59e0b; --warning-bg:#fef3c7; --warning-soft:#fffbeb; --warning-text:#92400e;
+    --danger:#dc2626; --focus:#2563eb;
+    --wire:#e7e5e4; --wire-hot:#93c5fd; --stage-dot:#e7e5e4;
+    --idle-bg:#f5f5f4; --idle-text:#57534e;
+    --av-blue-bg:#dbeafe; --av-blue-fg:#1d4ed8;
+    --av-violet-bg:#ede9fe; --av-violet-fg:#6d28d9;
+    --av-green-bg:#dcfce7; --av-green-fg:#15803d;
+    --av-amber-bg:#fef3c7; --av-amber-fg:#92400e;
+    --av-rose-bg:#fce7f3; --av-rose-fg:#9d174d;
+    --av-slate-bg:#f5f5f4; --av-slate-fg:#57534e;
+    --av-cyan-bg:#cffafe; --av-cyan-fg:#0e7490;
+  }
+  :root[data-theme="dark"]{
+    --page:#101012; --surface:#1c1c1f; --ink:#ededed; --muted:#a1a1aa; --subtle:#26262a; --border:#2e2e33;
+    --shadow:0 1px 2px rgba(0,0,0,.5), 0 8px 24px rgba(0,0,0,.35);
+    --accent:#60a5fa; --accent-soft:#1e3a5f; --accent-ink:#bfdbfe;
+    --success:#4ade80; --success-soft:#14532d; --success-ink:#bbf7d0;
+    --warning:#fbbf24; --warning-bg:#451a03; --warning-soft:#451a03; --warning-text:#fde68a;
+    --danger:#f87171; --focus:#60a5fa;
+    --wire:#2e2e33; --wire-hot:#3b82f6; --stage-dot:#2e2e33;
+    --idle-bg:#26262a; --idle-text:#d4d4d8;
+    --av-blue-bg:#1e3a5f; --av-blue-fg:#bfdbfe;
+    --av-violet-bg:#3b2d6e; --av-violet-fg:#ddd6fe;
+    --av-green-bg:#14532d; --av-green-fg:#bbf7d0;
+    --av-amber-bg:#451a03; --av-amber-fg:#fde68a;
+    --av-rose-bg:#4c1d3a; --av-rose-fg:#fbcfe8;
+    --av-slate-bg:#26262a; --av-slate-fg:#e4e4e7;
+    --av-cyan-bg:#164e5a; --av-cyan-fg:#a5f3fc;
+  }
+  *{box-sizing:border-box}
+  html{color-scheme:light}
+  html[data-theme="dark"]{color-scheme:dark}
+  body{margin:0;background:var(--page);color:var(--ink);
+    font-family:system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;font-size:14px;line-height:1.45;
+    -webkit-font-smoothing:antialiased;transition:background .2s ease,color .2s ease}
+  .wrap{max-width:1120px;margin:0 auto;padding:20px 18px 40px}
+  header.top{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;
+    background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);
+    padding:12px 16px;box-shadow:var(--shadow)}
+  .brand{display:flex;gap:12px;align-items:center;min-width:0}
+  .logo{width:38px;height:38px;border-radius:var(--radius);background:linear-gradient(135deg,var(--av-blue-bg),var(--av-violet-bg) 55%,var(--av-rose-bg));
+    border:1px solid var(--border);display:grid;place-items:center;flex:none}
+  .logo i{width:10px;height:10px;border-radius:50%;background:var(--success);box-shadow:0 0 0 4px var(--success-soft);animation:blink 1.6s infinite}
+  @keyframes blink{50%{opacity:.45}}
+  h1{font-size:16px;margin:0;letter-spacing:-.01em}
+  .sub{font-size:13px;color:var(--muted);margin:2px 0 0}
+  .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  button{font:inherit;cursor:pointer}
+  .btn{border:1px solid var(--border);background:var(--surface);color:var(--ink);
+    border-radius:999px;padding:8px 14px;font-size:13px;font-weight:600;transition:background .15s ease,border-color .15s ease,transform .15s ease,opacity .15s ease}
+  .btn:hover{background:var(--subtle);border-color:var(--muted)}
+  .btn:active{transform:translateY(1px)}
+  .btn.primary{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+  .btn.primary:hover{opacity:.82;background:var(--ink)}
+  .btn:focus-visible,.node:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+  .btn[aria-pressed="true"]{background:var(--subtle)}
+  .stats{display:flex;gap:16px;margin:12px 4px 0;font-size:13px;color:var(--muted);flex-wrap:wrap;align-items:center}
+  .stats b{color:var(--ink)}
+  .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:1px}
+  .dot.call{background:var(--accent)} .dot.answer{background:var(--success)} .dot.wait{background:var(--warning)}
+  main.grid{display:grid;grid-template-columns:1fr 320px;gap:12px;margin-top:12px}
+  @media(max-width:880px){main.grid{grid-template-columns:1fr}}
+  .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow);overflow:hidden}
+  .panel-h{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .panel-h h2{font-size:13px;margin:0;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+  .legend{display:flex;gap:12px;font-size:12px;color:var(--muted);flex-wrap:wrap;align-items:center}
+  .stage{position:relative;height:560px;background:
+    radial-gradient(circle at 1px 1px,var(--stage-dot) 1px,transparent 1.4px) 0 0/22px 22px,var(--surface);
+    transition:background .2s ease}
+  svg.wires{position:absolute;inset:0;width:100%;height:100%}
+  .wire{fill:none;stroke:var(--wire);stroke-linecap:round;transition:opacity .2s ease}
+  .wire.hot{stroke:var(--wire-hot);stroke-linecap:round}
+  .wire.dim{opacity:.25}
+  .pulse{position:absolute;width:12px;height:12px;border-radius:50%;pointer-events:none;transform:translate(-50%,-50%)}
+  .pulse.out{background:var(--accent);box-shadow:0 0 0 4px var(--accent-soft)}
+  .pulse.back{background:var(--success);box-shadow:0 0 0 4px var(--success-soft)}
+  .col-label{position:absolute;font-size:11px;font-weight:800;letter-spacing:.1em;color:var(--muted);text-transform:uppercase}
+  .node{position:absolute;transform:translate(-50%,-50%);background:var(--surface);border:1px solid var(--border);
+    border-radius:var(--radius);padding:12px;min-width:150px;max-width:190px;box-shadow:var(--shadow);
+    display:flex;gap:10px;align-items:center;text-align:left;
+    transition:border-color .18s ease,box-shadow .18s ease,opacity .18s ease,background .2s ease,transform .18s ease}
+  .node:hover{border-color:var(--accent);box-shadow:var(--shadow);transform:translate(-50%,-50%) translateY(-1px)}
+  .node.agent{min-width:178px}
+  .node.tool{min-width:150px}
+  .node.selected{border-color:var(--accent);box-shadow:0 0 0 4px var(--accent-soft)}
+  .node.dim{opacity:.35}
+  .node.waiting{border-color:var(--warning);background:var(--warning-bg);animation:amberPulse 1.4s infinite}
+  .node.waiting .n-meta{color:var(--warning-text)}
+  @keyframes amberPulse{50%{box-shadow:0 0 0 6px var(--warning-bg)}}
+  .node.working .avatar{animation:breathe 2.2s ease-in-out infinite}
+  @keyframes breathe{50%{transform:scale(1.12)}}
+  .avatar{width:36px;height:36px;border-radius:var(--radius);display:grid;place-items:center;font-weight:800;font-size:15px;flex:none;border:1px solid var(--border)}
+  .a-orchestrator{background:var(--av-blue-bg);color:var(--av-blue-fg)}
+  .a-researcher{background:var(--av-violet-bg);color:var(--av-violet-fg)}
+  .a-analyst{background:var(--av-cyan-bg);color:var(--av-cyan-fg)}
+  .a-coder{background:var(--av-green-bg);color:var(--av-green-fg)}
+  .a-writer{background:var(--av-rose-bg);color:var(--av-rose-fg)}
+  .t-web{background:var(--av-amber-bg);color:var(--av-amber-fg)}
+  .t-notion{background:var(--av-slate-bg);color:var(--av-slate-fg)}
+  .t-hubspot{background:var(--av-rose-bg);color:var(--av-rose-fg)}
+  .t-db{background:var(--av-violet-bg);color:var(--av-violet-fg)}
+  .t-github{background:var(--av-slate-bg);color:var(--av-slate-fg)}
+  .t-stripe{background:var(--av-blue-bg);color:var(--av-blue-fg)}
+  .n-name{font-size:15px;font-weight:600;line-height:1.15}
+  .n-meta{font-size:12px;color:var(--muted);margin-top:3px}
+  .pill{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;border-radius:999px;padding:2px 10px;margin-top:6px;border:1px solid transparent}
+  .pill::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+  .pill.working{background:var(--success-soft);color:var(--success-ink);border-color:var(--success)}
+  .pill.waiting{background:var(--warning-bg);color:var(--warning-text);border-color:var(--warning)}
+  .pill.idle{background:var(--idle-bg);color:var(--idle-text);border-color:var(--border)}
+  .badge-need{position:absolute;top:-10px;right:-8px;background:var(--warning-bg);color:var(--warning-text);
+    border:1px solid var(--warning);font-size:10.5px;font-weight:800;border-radius:999px;padding:3px 9px;box-shadow:var(--shadow)}
+  aside.side{display:flex;flex-direction:column;gap:12px}
+  .details{padding:16px}
+  .details h3{margin:0;font-size:16px;font-weight:600}
+  .d-kind{font-size:12px;color:var(--muted)}
+  .d-row{display:flex;justify-content:space-between;gap:10px;font-size:13px;padding:7px 0;border-bottom:1px dashed var(--border)}
+  .d-row span:first-child{color:var(--muted)}
+  .d-empty{color:var(--muted);font-size:13px}
+  .task-box{background:var(--subtle);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;font-size:13px;margin-top:12px}
+  .wait-box{background:var(--warning-bg);border:1px solid var(--warning);border-radius:var(--radius);padding:10px 12px;font-size:13px;margin-top:12px}
+  .wait-text{color:var(--warning-text);font-weight:700}
+  .log{list-style:none;margin:0;padding:8px 0;max-height:260px;overflow:auto;font-size:12.5px}
+  .log li{padding:8px 16px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:baseline}
+  .log time{color:var(--muted);font-size:11px;flex:none}
+  .hint{font-size:12px;color:var(--muted);padding:0 16px 14px}
+  footer{font-size:12px;color:var(--muted);text-align:center;margin-top:18px}
+  @media(max-width:880px){.stage{height:600px}}
+  @media(max-width:640px){
+    .stage{height:760px}
+    .node.agent,.node.tool{min-width:0;max-width:44vw;padding:8px 10px}
+    .n-meta{display:none}
+    .n-name{font-size:13px}
+  }
+  @media(prefers-reduced-motion:reduce){
+    .logo i,.node.working .avatar,.node.waiting{animation:none}
+    *{transition:none}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <div class="logo" aria-hidden="true"><i></i></div>
+      <div>
+        <h1>Agent Graph</h1>
+        <p class="sub">Orchestrator, Researcher, Analyst, Coder and Writer calling Web search, Notion, HubSpot, Database, GitHub and Stripe.</p>
+      </div>
+    </div>
+    <div class="controls">
+      <button class="btn" id="themeBtn" aria-pressed="false" aria-label="Switch to dark mode">☾ Dark</button>
+      <button class="btn primary" id="pauseBtn" aria-pressed="false">Pause</button>
+      <button class="btn" id="waitBtn">Simulate “needs you”</button>
+      <button class="btn" id="resetBtn">Reset activity</button>
+    </div>
+  </header>
+
+  <div class="stats" aria-live="polite">
+    <span><span class="dot call"></span>Calls in view: <b id="statCalls">0</b></span>
+    <span><span class="dot answer"></span>Answers returned: <b id="statBack">0</b></span>
+    <span><span class="dot wait"></span>Waiting on you: <b id="statWait">0</b></span>
+    <span id="liveLabel">● live demo data</span>
+  </div>
+
+  <main class="grid">
+    <section class="panel" aria-label="Agent and tool network">
+      <div class="panel-h">
+        <h2>Living network</h2>
+        <div class="legend">
+          <span><span class="dot call"></span>call</span>
+          <span><span class="dot answer"></span>answer</span>
+          <span><span class="dot wait"></span>needs you</span>
+          <span>busy links grow thicker</span>
+        </div>
+      </div>
+      <div class="stage" id="stage">
+        <svg class="wires" id="wires" aria-hidden="true"></svg>
+        <span class="col-label" style="left:6%;top:10px">Agents</span>
+        <span class="col-label" style="right:6%;top:10px">Tools</span>
+      </div>
+      <p class="hint">Hover a card to trace its links. Click (or Tab + Enter) to pin details. Busy links grow thicker with traffic.</p>
+    </section>
+
+    <aside class="side">
+      <section class="panel details" aria-label="Details" aria-live="polite">
+        <div class="panel-h"><h2>Details</h2><span class="d-kind" id="dKind"></span></div>
+        <div class="details" id="details"></div>
+      </section>
+      <section class="panel" aria-label="Activity">
+        <div class="panel-h"><h2>Activity</h2><button class="btn" id="clearLog" style="padding:4px 10px">Clear</button></div>
+        <ul class="log" id="log"></ul>
+      </section>
+    </aside>
+  </main>
+  <footer>Standalone clean-room replica · demo data only · open <code>index.html</code> in a browser. No network calls.</footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* theme: default follows prefers-color-scheme, toggle overrides + persists */
+  var themeBtn=document.getElementById('themeBtn');
+  function getPreferred(){
+    try{
+      var s=localStorage.getItem('agent-graph-theme');
+      if(s==='light'||s==='dark')return s;
+    }catch(e){}
+    if(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches)return 'dark';
+    return 'light';
+  }
+  function applyTheme(t){
+    document.documentElement.setAttribute('data-theme',t);
+    var dark=t==='dark';
+    themeBtn.textContent=dark?'\u2600 Light':'\u263E Dark';
+    themeBtn.setAttribute('aria-pressed',String(dark));
+    themeBtn.setAttribute('aria-label',dark?'Switch to light mode':'Switch to dark mode');
+    try{localStorage.setItem('agent-graph-theme',t);}catch(e){}
+  }
+  applyTheme(getPreferred());
+  themeBtn.addEventListener('click',function(){
+    var cur=document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';
+    applyTheme(cur);
+  });
+
+  var stage=document.getElementById('stage'),
+      svg=document.getElementById('wires'),
+      detailsEl=document.getElementById('details'),
+      dKind=document.getElementById('dKind'),
+      logEl=document.getElementById('log');
+
+  /* original demo data: 5 agents + 6 tools */
+  var agents=[
+    {id:'orchestrator',name:'Orchestrator',model:'orchestrator-1 · planner',color:'a-orchestrator',
+     task:'Coordinate “Q3 launch”: brief → research → analysis → code → publish.',status:'working',x:22,y:13},
+    {id:'researcher',name:'Researcher',model:'search-2 · web-grounded',color:'a-researcher',
+     task:'Gather pricing pages and summarize competitor gaps.',status:'working',x:22,y:32},
+    {id:'analyst',name:'Analyst',model:'analysis-1 · sql + crm',color:'a-analyst',
+     task:'Query revenue + pipeline and explain churn drivers.',status:'working',x:22,y:51},
+    {id:'coder',name:'Coder',model:'code-3 · repo-aware',color:'a-coder',
+     task:'Implement retry with backoff + Stripe webhook check.',status:'idle',x:22,y:70},
+    {id:'writer',name:'Writer',model:'write-2 · docs + cms',color:'a-writer',
+     task:'Draft launch post in Notion, publish via HubSpot.',status:'idle',x:22,y:88}
+  ];
+  var tools=[
+    {id:'websearch',name:'Web search',meta:'search + fetch',color:'t-web',sym:'\u25CD',x:78,y:9},
+    {id:'notion',name:'Notion',meta:'docs · briefs',color:'t-notion',sym:'\u25A4',x:78,y:26},
+    {id:'hubspot',name:'HubSpot',meta:'crm · publish',color:'t-hubspot',sym:'\u25C9',x:78,y:43},
+    {id:'database',name:'Database',meta:'sql · metrics',color:'t-db',sym:'\u25A6',x:78,y:60},
+    {id:'github',name:'GitHub',meta:'repo · PRs',color:'t-github',sym:'\u2387',x:78,y:76},
+    {id:'stripe',name:'Stripe',meta:'billing · revenue',color:'t-stripe',sym:'\u25C6',x:78,y:91}
+  ];
+  var edges=[
+    {a:'orchestrator',t:'notion',label:'sync project brief'},
+    {a:'orchestrator',t:'database',label:'fetch launch context'},
+    {a:'researcher',t:'websearch',label:'fetch competitor pricing'},
+    {a:'researcher',t:'notion',label:'save findings'},
+    {a:'analyst',t:'database',label:'query metrics'},
+    {a:'analyst',t:'hubspot',label:'pull pipeline'},
+    {a:'analyst',t:'stripe',label:'pull revenue'},
+    {a:'coder',t:'github',label:'open PR with backoff fix'},
+    {a:'coder',t:'database',label:'migration check'},
+    {a:'coder',t:'stripe',label:'verify webhook'},
+    {a:'writer',t:'notion',label:'draft launch post'},
+    {a:'writer',t:'hubspot',label:'publish update'},
+    {a:'writer',t:'websearch',label:'fact check claims'}
+  ];
+  edges.forEach(function(e){e.count=0;e.el=null;e.hot=null;});
+
+  var byId={};
+  agents.forEach(function(a){a.kind='agent';byId[a.id]=a;});
+  tools.forEach(function(t){t.kind='tool';t.status='idle';byId[t.id]=t;});
+
+  var selectedId='orchestrator', paused=false, calls=0, backs=0;
+
+  function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');}
+
+  function nodeEl(n){
+    var b=document.createElement('button');
+    b.className='node '+n.kind+(n.kind==='agent'?' agent':' tool');
+    b.style.left=n.x+'%'; b.style.top=n.y+'%';
+    b.dataset.id=n.id;
+    b.setAttribute('aria-label',n.name+' '+(n.kind||''));
+    var av=n.kind==='agent'
+      ? '<div class="avatar '+n.color+'">'+esc(n.name[0])+'</div>'
+      : '<div class="avatar '+n.color+'" aria-hidden="true">'+esc(n.sym)+'</div>';
+    var meta=n.kind==='agent'? n.model : n.meta;
+    b.innerHTML=av+'<div><div class="n-name">'+esc(n.name)+'</div>'+
+      '<div class="n-meta">'+esc(meta)+'</div>'+
+      '<span class="pill '+(n.status||'idle')+'">'+(n.status||'idle')+'</span></div>';
+    b.addEventListener('click',function(){select(n.id);});
+    b.addEventListener('mouseenter',function(){highlight(n.id,true);});
+    b.addEventListener('mouseleave',function(){highlight(selectedId,false);});
+    b.addEventListener('focus',function(){highlight(n.id,true);});
+    b.addEventListener('blur',function(){highlight(selectedId,false);});
+    b.addEventListener('keydown',function(ev){if(ev.key==='Escape'){select(null);b.blur();}});
+    stage.appendChild(b);
+    n.el=b;
+    return b;
+  }
+  agents.forEach(nodeEl); tools.forEach(nodeEl);
+
+  function center(n){
+    var s=stage.getBoundingClientRect(), r=n.el.getBoundingClientRect();
+    return {x:r.left-s.left+r.width/2, y:r.top-s.top+r.height/2};
+  }
+  function drawWires(){
+    var s=stage.getBoundingClientRect();
+    svg.setAttribute('viewBox','0 0 '+s.width+' '+s.height);
+    while(svg.firstChild)svg.removeChild(svg.firstChild);
+    edges.forEach(function(e){
+      var A=center(byId[e.a]), B=center(byId[e.t]);
+      var mx=(A.x+B.x)/2;
+      var d='M'+A.x+' '+A.y+' C'+mx+' '+A.y+','+mx+' '+B.y+','+B.x+' '+B.y;
+      var ns='http://www.w3.org/2000/svg';
+      var base=document.createElementNS(ns,'path');
+      base.setAttribute('d',d); base.setAttribute('class','wire');
+      base.setAttribute('stroke-width',2+Math.min(e.count,12)*0.7);
+      base.style.opacity=.9;
+      var hot=document.createElementNS(ns,'path');
+      hot.setAttribute('d',d); hot.setAttribute('class','wire hot');
+      hot.setAttribute('stroke-width',2+Math.min(e.count,12)*0.7);
+      hot.style.opacity='0';
+      svg.appendChild(base); svg.appendChild(hot);
+      e.el=base; e.hot=hot; e.d=d;
+    });
+  }
+  function refreshNodes(){
+    Object.keys(byId).forEach(function(id){
+      var n=byId[id], el=n.el;
+      el.classList.toggle('working',n.status==='working');
+      el.classList.toggle('waiting',n.status==='waiting');
+      el.classList.toggle('selected',id===selectedId);
+      var pill=el.querySelector('.pill');
+      if(pill){pill.className='pill '+(n.status||'idle');pill.textContent=(n.status||'idle');}
+      var old=el.querySelector('.badge-need');
+      if(n.status==='waiting'&&!old){var s=document.createElement('span');s.className='badge-need';s.textContent='needs you';el.appendChild(s);}
+      if(n.status!=='waiting'&&old)old.remove();
+    });
+    var w=agents.filter(function(a){return a.status==='waiting';}).length;
+    document.getElementById('statCalls').textContent=calls;
+    document.getElementById('statBack').textContent=backs;
+    document.getElementById('statWait').textContent=w;
+  }
+
+  function linkedIds(id){
+    var out={}; out[id]=1;
+    edges.forEach(function(e){
+      if(e.a===id)out[e.t]=1;
+      if(e.t===id)out[e.a]=1;
+    });
+    return out;
+  }
+  function highlight(id,fromHover){
+    if(!id){
+      Object.keys(byId).forEach(function(k){byId[k].el.classList.remove('dim');});
+      edges.forEach(function(e){if(e.el){e.el.classList.remove('dim');e.hot.style.opacity='0';}});
+      return;
+    }
+    var keep=linkedIds(id);
+    Object.keys(byId).forEach(function(k){
+      byId[k].el.classList.toggle('dim',!keep[k]);
+    });
+    edges.forEach(function(e){
+      var on=(e.a===id||e.t===id);
+      if(e.el)e.el.classList.toggle('dim',!on);
+      if(e.hot)e.hot.style.opacity=on?'0.9':'0';
+    });
+  }
+
+  function fmtTime(){var d=new Date();return d.toTimeString().slice(0,8);}
+  function log(msg){
+    var li=document.createElement('li');
+    li.innerHTML='<time>'+fmtTime()+'</time><span>'+msg+'</span>';
+    logEl.prepend(li);
+    while(logEl.children.length>30)logEl.removeChild(logEl.lastChild);
+  }
+  function select(id){
+    selectedId=id;
+    if(!id){dKind.textContent='';detailsEl.innerHTML='<p class="d-empty">Select an agent or tool.</p>';highlight(null);refreshNodes();return;}
+    highlight(id,false);
+    var n=byId[id];
+    dKind.textContent=n.kind;
+    var links=edges.filter(function(e){return e.a===id||e.t===id;});
+    var rows=links.map(function(e){
+      var other=byId[e.a===id?e.t:e.a];
+      return '<div class="d-row"><span>'+(e.a===id?'\u2192 ':'\u2190 ')+esc(other.name)+'</span><span><b>'+e.count+'</b> calls</span></div>';
+    }).join('');
+    var extra='';
+    if(n.kind==='agent'){
+      extra='<div class="task-box"><b>Current task</b><br>'+esc(n.task)+'</div>';
+      if(n.status==='waiting'){
+        extra+='<div class="wait-box"><b class="wait-text">Waiting on you</b><br>\u201C'+esc(n.name)+'\u201D needs approval to continue.<br><br>'+
+          '<button class="btn primary" id="approveBtn">Approve &amp; resume</button></div>';
+      }
+    }else{
+      var callers=links.map(function(e){return esc(byId[e.a].name);}).join(', ');
+      extra='<div class="task-box"><b>Called by</b><br>'+(callers||'\u2014')+'</div>';
+    }
+    detailsEl.innerHTML='<h3>'+esc(n.name)+'</h3>'+
+      '<div class="d-row"><span>Status</span><span class="pill '+(n.status||'idle')+'">'+(n.status||'idle')+'</span></div>'+
+      '<div class="d-row"><span>'+(n.kind==='agent'?'Model':'Endpoint')+'</span><span>'+esc(n.model||n.meta)+'</span></div>'+rows+extra;
+    var ab=document.getElementById('approveBtn');
+    if(ab)ab.addEventListener('click',function(ev){ev.stopPropagation();resume(n);});
+    refreshNodes();
+  }
+  function resume(n){
+    n.status='working';
+    log('<b>'+esc(n.name)+'</b> approved — resumed work.');
+    refreshNodes(); select(selectedId);
+  }
+
+  var pulses=[];
+  function pathPoint(e,t){
+    try{
+      var L=e.el.getTotalLength();
+      return e.el.getPointAtLength(Math.max(0,Math.min(L,t*L)));
+    }catch(err){return {x:0,y:0};}
+  }
+  function toStage(pt){
+    var sr=svg.getBoundingClientRect(), st=stage.getBoundingClientRect();
+    return {x:pt.x+(sr.left-st.left), y:pt.y+(sr.top-st.top)};
+  }
+  function fire(edge,dir,cb){
+    if(paused||!edge.el)return;
+    var dot=document.createElement('div');
+    dot.className='pulse '+(dir==='out'?'out':'back');
+    stage.appendChild(dot);
+    pulses.push({edge:edge,dir:dir,el:dot,cb:cb,born:performance.now()});
+  }
+  function step(now){
+    for(var i=pulses.length-1;i>=0;i--){
+      var p=pulses[i], dur=p.dir==='out'?1100:900;
+      var k=(now-p.born)/dur;
+      if(k>=1){
+        p.el.remove(); pulses.splice(i,1);
+        if(p.cb)p.cb();
+        continue;
+      }
+      var t=p.dir==='out'?k:1-k;
+      var pt=toStage(pathPoint(p.edge,t));
+      p.el.style.left=pt.x+'px'; p.el.style.top=pt.y+'px';
+      if(p.edge.hot)p.edge.hot.style.opacity='1';
+    }
+    requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+
+  var callPhrases={
+    'orchestrator|notion':['sync project brief','update milestone owners'],
+    'orchestrator|database':['fetch launch context','load prior decisions'],
+    'researcher|websearch':['fetch competitor pricing','search usage-based pricing'],
+    'researcher|notion':['save findings summary','attach gap analysis'],
+    'analyst|database':['query churn cohorts','aggregate MRR by plan'],
+    'analyst|hubspot':['pull pipeline stages','sync deal owners'],
+    'analyst|stripe':['pull revenue by plan','check failed invoices'],
+    'coder|github':['open PR for retry fix','push backoff commit'],
+    'coder|database':['migration dry-run','verify retry counters'],
+    'coder|stripe':['verify webhook signature','replay billing event'],
+    'writer|notion':['draft launch post','revise feature bullets'],
+    'writer|hubspot':['publish update','schedule announcement'],
+    'writer|websearch':['fact check claims','fetch citation']
+  };
+  function tick(){
+    if(!paused){
+      var e=edges[Math.floor(Math.random()*edges.length)];
+      var e2=edges[Math.floor(Math.random()*edges.length)];
+      if(e2.count>e.count)e=e2;
+      var key=e.a+'|'+e.t, ph=callPhrases[key]||['call'];
+      var phrase=ph[Math.floor(Math.random()*ph.length)];
+      var A=byId[e.a];
+      if(A.status==='idle'){A.status='working';refreshNodes();}
+      if(A.status!=='waiting'){
+        (function(edge,agent,txt){
+          fire(edge,'out',function(){
+            edge.count++; calls++;
+            if(edge.el){
+              edge.el.setAttribute('stroke-width',2+Math.min(edge.count,12)*0.7);
+              edge.hot.setAttribute('stroke-width',2+Math.min(edge.count,12)*0.7);
+            }
+            log('<b>'+esc(agent.name)+'</b> → '+esc(byId[edge.t].name)+': '+esc(txt));
+            refreshNodes(); if(selectedId)select(selectedId);
+            setTimeout(function(){
+              fire(edge,'back',function(){
+                backs++;
+                log(esc(byId[edge.t].name)+' → <b>'+esc(agent.name)+'</b>: answer returned');
+                refreshNodes(); if(selectedId)select(selectedId);
+                setTimeout(function(){if(edge.hot)edge.hot.style.opacity='0';},600);
+              });
+            },250+Math.random()*400);
+          });
+        })(e,A,phrase);
+      }
+    }
+    setTimeout(tick,900+Math.random()*1400);
+  }
+
+  function needYou(id){
+    var a=id?byId[id]:agents[Math.floor(Math.random()*agents.length)];
+    if(!a||a.kind!=='agent')a=agents[0];
+    if(a.status==='waiting')return;
+    a.status='waiting';
+    log('<b>'+esc(a.name)+'</b> is <span class="wait-text">waiting on you</span> — approval needed.');
+    selectedId=a.id;
+    refreshNodes(); select(a.id);
+  }
+  function autoWait(){
+    if(!paused){
+      var waiting=agents.filter(function(a){return a.status==='waiting';});
+      if(waiting.length===0&&Math.random()<0.35)needYou();
+      else if(waiting.length>0&&Math.random()<0.5){
+        var a=waiting[0];a.status='working';
+        log('<b>'+esc(a.name)+'</b> resumed after input.');
+        refreshNodes(); if(selectedId)select(selectedId);
+      }
+      agents.forEach(function(x){if(x.status!=='waiting'&&Math.random()<0.12)x.status=(x.status==='working'?'idle':'working');});
+      refreshNodes();
+    }
+    setTimeout(autoWait,9000+Math.random()*8000);
+  }
+
+  document.getElementById('pauseBtn').addEventListener('click',function(){
+    paused=!paused;
+    this.textContent=paused?'Resume':'Pause';
+    this.setAttribute('aria-pressed',String(paused));
+    document.getElementById('liveLabel').textContent=paused?'\u25CB paused':'\u25CF live demo data';
+  });
+  document.getElementById('waitBtn').addEventListener('click',function(){
+    var idle=agents.filter(function(a){return a.status!=='waiting';});
+    needYou(idle.length?idle[0].id:'orchestrator');
+  });
+  document.getElementById('resetBtn').addEventListener('click',function(){
+    edges.forEach(function(e){e.count=0;if(e.el){e.el.setAttribute('stroke-width',2);e.hot.setAttribute('stroke-width',2);}});
+    calls=0;backs=0;
+    agents.forEach(function(a,i){a.status=i<3?'working':'idle';});
+    refreshNodes();select(selectedId);log('Activity counters reset.');
+  });
+  document.getElementById('clearLog').addEventListener('click',function(){logEl.innerHTML='';});
+
+  window.addEventListener('resize',drawWires);
+  drawWires(); refreshNodes(); select('orchestrator');
+  log('<b>Orchestrator</b> → Notion: sync project brief');
+  setTimeout(drawWires,60);
+  setTimeout(drawWires,400);
+  tick(); autoWait();
+})();
+</script>
+</body>
+</html>

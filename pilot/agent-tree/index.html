@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent Tree — Who started whom</title>
+<style>
+  :root{
+    --bg:#ffffff;
+    --ink:#0f172a;
+    --muted:#64748b;
+    --line:#e2e8f0;
+    --line-hi:#3b82f6;
+    --card:#ffffff;
+    --card-shadow:0 1px 2px rgba(15,23,42,.05),0 4px 16px rgba(15,23,42,.06);
+    --radius:14px;
+    --green-bg:#dcfce7; --green-tx:#15803d; --green-dot:#22c55e;
+    --amber-bg:#fef3c7; --amber-tx:#b45309; --amber-dot:#f59e0b;
+    --gray-bg:#f1f5f9; --gray-tx:#64748b; --gray-dot:#cbd5e1;
+    --blue-bg:#dbeafe; --blue-tx:#1d4ed8;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;background:var(--bg);color:var(--ink);
+    font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1080px;margin:0 auto;padding:28px 20px 60px}
+  header.top{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;justify-content:space-between;margin-bottom:6px}
+  h1{font-size:26px;margin:0;letter-spacing:-.02em}
+  .sub{color:var(--muted);margin:6px 0 0;font-size:14.5px}
+  .sub b{color:var(--ink);font-weight:600}
+  .toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  button.pill{
+    border:1px solid var(--line);background:#fff;border-radius:999px;
+    padding:7px 13px;font-size:13px;font-weight:600;color:#334155;cursor:pointer;
+  }
+  button.pill:hover{border-color:#cbd5e1;background:#f8fafc}
+  button.pill:focus-visible{outline:2px solid var(--line-hi);outline-offset:2px}
+  .legend{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:14px 0 4px;font-size:13px;color:var(--muted)}
+  .badge{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:3px 10px 3px 8px;font-size:12px;font-weight:700;letter-spacing:.01em}
+  .badge .dot{width:8px;height:8px;border-radius:50%;flex:none}
+  .b-working{background:var(--green-bg);color:var(--green-tx)}
+  .b-working .dot{background:var(--green-dot);animation:pulse 1.6s infinite}
+  .b-waiting{background:var(--amber-bg);color:var(--amber-tx)}
+  .b-waiting .dot{background:var(--amber-dot)}
+  .b-idle{background:var(--gray-bg);color:var(--gray-tx)}
+  .b-idle .dot{background:var(--gray-dot)}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(34,197,94,.5)}70%{box-shadow:0 0 0 6px rgba(34,197,94,0)}100%{box-shadow:0 0 0 0 rgba(34,197,94,0)}}
+  .totals{display:flex;flex-wrap:wrap;gap:10px;margin:14px 0 22px}
+  .stat{border:1px solid var(--line);border-radius:12px;padding:10px 14px;font-size:13px;background:#fff;min-width:130px}
+  .stat .k{color:var(--muted);font-size:12px;margin-bottom:2px}
+  .stat .v{font-size:17px;font-weight:750;font-variant-numeric:tabular-nums}
+  /* tree */
+  .tree{display:flex;flex-direction:column;align-items:center}
+  .node{display:flex;flex-direction:column;align-items:center;position:relative}
+  .card{
+    width:300px;background:var(--card);border:1.5px solid var(--line);
+    border-radius:var(--radius);box-shadow:var(--card-shadow);
+    padding:12px 13px;position:relative;cursor:pointer;
+    transition:border-color .15s,box-shadow .15s,opacity .15s,transform .15s;
+  }
+  .card:hover{border-color:#bfdbfe;box-shadow:0 1px 2px rgba(15,23,42,.06),0 8px 24px rgba(59,130,246,.14)}
+  .card.in-chain{border-color:var(--line-hi);box-shadow:0 0 0 3px rgba(59,130,246,.18),var(--card-shadow)}
+  .tree.hovering .card:not(.in-chain){opacity:.55}
+  .card.root{border-width:2px;width:330px}
+  .row1{display:flex;align-items:center;gap:8px}
+  .foldbtn{
+    width:22px;height:22px;flex:none;border-radius:7px;border:1px solid var(--line);
+    background:#f8fafc;color:#475569;font-size:13px;line-height:1;cursor:pointer;
+    display:inline-flex;align-items:center;justify-content:center;
+  }
+  .foldbtn:hover{background:#eef2ff;border-color:#bfdbfe}
+  .name{font-weight:750;font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .role{font-size:11.5px;color:var(--muted);font-weight:600;margin-left:auto;flex:none}
+  .row2{display:flex;align-items:center;gap:8px;margin-top:8px}
+  .model{font-size:12px;color:#475569;background:#f8fafc;border:1px solid var(--line);border-radius:999px;padding:2px 9px;font-weight:600}
+  .status{cursor:pointer;border:0}
+  button.status{font-family:inherit}
+  .row3{display:flex;gap:14px;margin-top:10px;font-size:12.5px;color:#334155;font-variant-numeric:tabular-nums}
+  .row3 .k{color:var(--muted);font-size:11px;display:block}
+  .row3 .n{font-weight:750;font-size:13.5px}
+  .branch{color:var(--blue-tx)}
+  .details{display:none;margin-top:10px;border-top:1px dashed var(--line);padding-top:9px;font-size:12.5px;color:#334155}
+  .card.open .details{display:block}
+  .details dt{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em}
+  .details dd{margin:1px 0 7px;font-weight:600}
+  .details dd span{font-weight:500;color:#475569}
+  .hintlink{color:var(--blue-tx);font-size:12px;font-weight:600;background:none;border:0;padding:0;cursor:pointer;margin-top:2px}
+  /* children */
+  .stem{width:2px;height:22px;background:var(--line)}
+  .node.in-chain > .stem,.kids.in-chain::before{background:var(--line-hi)}
+  .kids{display:flex;gap:18px;align-items:flex-start;justify-content:center;position:relative;padding-top:22px}
+  .kids::before{content:"";position:absolute;top:0;left:60px;right:60px;height:2px;background:var(--line);border-radius:2px}
+  .kid{position:relative;display:flex;flex-direction:column;align-items:center}
+  .kid::before{content:"";position:absolute;top:-22px;left:50%;width:2px;height:22px;background:var(--line)}
+  .kid.in-chain::before{background:var(--line-hi)}
+  .foldedline{
+    display:none;margin-top:10px;border:1px dashed #bfdbfe;background:#eff6ff;color:#1e40af;
+    border-radius:999px;padding:6px 13px;font-size:12.5px;font-weight:700;cursor:pointer;white-space:nowrap;
+  }
+  .node.collapsed > .foldedline{display:block}
+  .node.collapsed > .kids{display:none}
+  .node.collapsed > .stem{display:none}
+  .foot{margin-top:26px;color:var(--muted);font-size:12.5px;text-align:center}
+  kbd{border:1px solid var(--line);border-bottom-width:2px;border-radius:6px;padding:0 6px;font-size:11.5px;background:#f8fafc;font-family:inherit}
+  @media (max-width:760px){
+    .kids{flex-direction:column;align-items:stretch;padding-top:0;padding-left:22px;gap:14px}
+    .kids::before{left:11px;right:auto;top:8px;bottom:8px;width:2px;height:auto}
+    .kid{align-items:stretch}
+    .kid::before{left:-12px;top:26px;width:12px;height:2px}
+    .card,.card.root{width:100%}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .b-working .dot{animation:none}
+    *{transition:none !important}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Agent Tree</h1>
+      <p class="sub">Who started whom — an orchestrator and its sub-agents as a <b>live tree</b>. Hover a card to highlight its chain, click a branch to fold it to one line.</p>
+    </div>
+    <div class="toolbar" role="toolbar" aria-label="Tree controls">
+      <button class="pill" id="expandAll">Expand all</button>
+      <button class="pill" id="collapseAll">Collapse all</button>
+      <button class="pill" id="pauseBtn" aria-pressed="false">Pause live timers</button>
+    </div>
+  </header>
+
+  <div class="legend" aria-hidden="true">
+    <span class="badge b-working"><span class="dot"></span>working</span>
+    <span class="badge b-waiting"><span class="dot"></span>waiting</span>
+    <span class="badge b-idle"><span class="dot"></span>idle</span>
+    <span>· click status to cycle state · click card for details · <kbd>Enter</kbd> folds a branch</span>
+  </div>
+
+  <div class="totals" aria-live="polite">
+    <div class="stat"><div class="k">Branch cost (rollup)</div><div class="v" id="tCost">$0.43</div></div>
+    <div class="stat"><div class="k">Agents</div><div class="v" id="tAgents">4</div></div>
+    <div class="stat"><div class="k">Working now</div><div class="v" id="tWorking">3</div></div>
+    <div class="stat"><div class="k">Slowest branch</div><div class="v" id="tTime">9.8s</div></div>
+  </div>
+
+  <main class="tree" id="tree"></main>
+
+  <p class="foot">Demo data: <b>Research Lead</b> (GPT-5) orchestrates <b>Web Search</b> (Haiku), <b>Summarizer</b> (Sonnet) and <b>Fact Checker</b> (Sonnet, idle). Costs roll up to the parent. Timers tick live for working agents.</p>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  // Demo model — matches the public description
+  var NODES = {
+    root: { id:"root", name:"Research Lead", role:"orchestrator", model:"GPT-5",
+      status:"working", ownCost:0.00, elapsed:12.4, costRate:0.0011,
+      tool:"delegate ×3", task:"Coordinate research sub-agents", started:"t+0.0s",
+      children:["web","sum","fact"] },
+    web:  { id:"web", name:"Web Search", role:"sub-agent", model:"Haiku",
+      status:"working", ownCost:0.12, elapsed:4.2, costRate:0.0016,
+      tool:"web_search ×6", task:"Gather latest sources on topic", started:"t+1.1s", children:[] },
+    sum:  { id:"sum", name:"Summarizer", role:"sub-agent", model:"Sonnet",
+      status:"working", ownCost:0.31, elapsed:9.8, costRate:0.0021,
+      tool:"summarize ×2", task:"Condense results into brief", started:"t+2.6s", children:[] },
+    fact: { id:"fact", name:"Fact Checker", role:"sub-agent", model:"Sonnet",
+      status:"idle", ownCost:0.00, elapsed:0, costRate:0,
+      tool:"verify_claims (queued)", task:"Pending — verify claims", started:"—", children:[] }
+  };
+  var ORDER = ["working","waiting","idle"];
+  var collapsed = {};   // id -> true
+  var openDetail = {};  // id -> true
+  var paused = false;
+  var treeEl = document.getElementById("tree");
+
+  function branchCost(id){
+    var n = NODES[id], total = n.ownCost;
+    (n.children||[]).forEach(function(c){ total += branchCost(c); });
+    return total;
+  }
+  function fmt$(x){ return "$" + x.toFixed(2); }
+  function fmtT(s){ return s <= 0 ? "—" : s.toFixed(1) + "s"; }
+
+  function badge(status){
+    return '<span class="badge b-'+status+'" data-status><span class="dot"></span>'+status+'</span>';
+  }
+
+  function cardHTML(n){
+    var bc = branchCost(n.id);
+    var isRoot = n.id === "root";
+    var kids = (n.children||[]).length;
+    var chev = kids ? (collapsed[n.id] ? "▸" : "▾") : "·";
+    return '' +
+    '<article class="card'+(isRoot?' root':'')+(openDetail[n.id]?' open':'')+'" data-card="'+n.id+'" tabindex="0" ' +
+      'role="treeitem" aria-expanded="'+(!collapsed[n.id])+'" aria-label="'+n.name+', '+n.status+', '+fmt$(bc)+' branch">'+
+      '<div class="row1"><button class="foldbtn" data-fold title="'+(kids?'Fold / unfold branch':'Leaf agent')+'" aria-hidden="'+(!kids)+'">'+chev+'</button>'+
+      '<span class="name">'+n.name+'</span><span class="role">'+n.role+'</span></div>'+
+      '<div class="row2"><span class="model">'+n.model+'</span><button class="badge b-'+n.status+' status" data-cycle title="Click to cycle status">'+
+      '<span class="dot"></span>'+n.status+'</button></div>'+
+      '<div class="row3"><div><span class="k">Cost (self)</span><span class="n" data-own>'+fmt$(n.ownCost)+'</span></div>'+
+      '<div><span class="k">Branch total</span><span class="n branch" data-branch>'+fmt$(bc)+'</span></div>'+
+      '<div><span class="k">Time</span><span class="n" data-time>'+fmtT(n.elapsed)+'</span></div></div>'+
+      '<dl class="details"><dt>Task</dt><dd>'+n.task+'</dd>'+
+      '<dt>Tool</dt><dd><span>'+n.tool+'</span></dd>'+
+      '<dt>Started</dt><dd><span>'+n.started+'</span></dd></dl>'+
+      '<button class="hintlink" data-detail>'+(openDetail[n.id]?'Hide details':'Show details')+'</button>'+
+    '</article>';
+  }
+
+  function render(){
+    var r = NODES.root;
+    var kids = r.children.map(function(id){
+      var n = NODES[id];
+      return '<div class="kid" data-kid="'+id+'">'+cardHTML(n)+'</div>';
+    }).join("");
+    treeEl.innerHTML =
+      '<div class="node'+(collapsed.root?' collapsed':'')+'" data-node="root">'+
+        cardHTML(r)+
+        '<button class="foldedline" data-foldroot>▸ branch folded — '+
+          r.children.length+' agents · branch '+fmt$(branchCost("root"))+' · click to unfold</button>'+
+        '<div class="stem"></div>'+
+        '<div class="kids" role="group">'+kids+'</div>'+
+      '</div>';
+    updateTotals();
+  }
+
+  function updateTotals(){
+    document.getElementById("tCost").textContent = fmt$(branchCost("root"));
+    var ids = ["root","web","sum","fact"];
+    var w = ids.filter(function(id){return NODES[id].status==="working";}).length;
+    document.getElementById("tWorking").textContent = w;
+    document.getElementById("tAgents").textContent = ids.length;
+    var t = Math.max.apply(null, ids.map(function(id){return NODES[id].elapsed;}));
+    document.getElementById("tTime").textContent = fmtT(t);
+  }
+
+  // live refresh of numbers only (keeps focus / fold state)
+  function refreshNumbers(){
+    Object.keys(NODES).forEach(function(id){
+      var card = treeEl.querySelector('[data-card="'+id+'"]');
+      if(!card) return;
+      var n = NODES[id];
+      card.querySelector("[data-own]").textContent = fmt$(n.ownCost);
+      card.querySelector("[data-branch]").textContent = fmt$(branchCost(id));
+      card.querySelector("[data-time]").textContent = fmtT(n.elapsed);
+    });
+    updateTotals();
+  }
+
+  function chainIds(id){
+    // ancestors + self + descendants
+    var set = {};
+    set[id] = true;
+    // descendants
+    (function down(x){ (NODES[x].children||[]).forEach(function(c){ set[c]=true; down(c); }); })(id);
+    // ancestors: only root is parent in this demo tree
+    if(id !== "root") set["root"] = true;
+    return set;
+  }
+  function highlight(id){
+    var set = chainIds(id);
+    treeEl.classList.add("hovering");
+    treeEl.querySelectorAll("[data-card]").forEach(function(c){
+      c.classList.toggle("in-chain", !!set[c.getAttribute("data-card")]);
+    });
+    treeEl.querySelectorAll("[data-kid]").forEach(function(k){
+      k.classList.toggle("in-chain", !!set[k.getAttribute("data-kid")]);
+    });
+    var rn = treeEl.querySelector('[data-node="root"]');
+    if(rn) rn.classList.toggle("in-chain", !!set["root"]);
+  }
+  function clearHi(){
+    treeEl.classList.remove("hovering");
+    treeEl.querySelectorAll(".in-chain").forEach(function(e){e.classList.remove("in-chain");});
+  }
+
+  treeEl.addEventListener("mouseover", function(e){
+    var c = e.target.closest("[data-card]");
+    if(c) highlight(c.getAttribute("data-card"));
+  });
+  treeEl.addEventListener("mouseout", function(e){
+    if(e.target.closest && e.target.closest("[data-card]")) clearHi();
+  });
+  treeEl.addEventListener("focusin", function(e){
+    var c = e.target.closest ? e.target.closest("[data-card]") : null;
+    if(c) highlight(c.getAttribute("data-card"));
+  });
+  treeEl.addEventListener("focusout", clearHi);
+
+  treeEl.addEventListener("click", function(e){
+    var cyc = e.target.closest("[data-cycle]");
+    if(cyc){
+      e.stopPropagation();
+      var card = cyc.closest("[data-card]"), id = card.getAttribute("data-card");
+      var n = NODES[id];
+      n.status = ORDER[(ORDER.indexOf(n.status)+1)%ORDER.length];
+      if(n.status==="working" && n.elapsed<=0) n.elapsed = 0.1;
+      render(); 
+      var nc = treeEl.querySelector('[data-card="'+id+'"]');
+      if(nc){ nc.focus(); highlight(id); }
+      return;
+    }
+    var det = e.target.closest("[data-detail]");
+    if(det){
+      var dc = det.closest("[data-card]"), did = dc.getAttribute("data-card");
+      openDetail[did] = !openDetail[did];
+      render();
+      var rc = treeEl.querySelector('[data-card="'+did+'"]');
+      if(rc){ rc.focus(); }
+      return;
+    }
+    var fb = e.target.closest("[data-fold]");
+    if(fb){
+      var fc = fb.closest("[data-card]"), fid = fc ? fc.getAttribute("data-card") : null;
+      var key = fid || "root";
+      if(!(NODES[key].children||[]).length && key!=="root") return;
+      collapsed[key] = !collapsed[key];
+      render();
+      return;
+    }
+    if(e.target.closest("[data-foldroot]")){ collapsed.root = false; render(); return; }
+    var any = e.target.closest("[data-card]");
+    if(any){
+      var aid = any.getAttribute("data-card");
+      if((NODES[aid].children||[]).length){
+        collapsed[aid] = !collapsed[aid];
+      } else {
+        openDetail[aid] = !openDetail[aid];
+      }
+      render();
+    }
+  });
+
+  treeEl.addEventListener("keydown", function(e){
+    var card = e.target.closest ? e.target.closest("[data-card]") : null;
+    if(!card) return;
+    var id = card.getAttribute("data-card");
+    if(e.key==="Enter" || e.key===" "){
+      e.preventDefault();
+      if((NODES[id].children||[]).length){ collapsed[id]=!collapsed[id]; render(); }
+      else { openDetail[id]=!openDetail[id]; render(); }
+      var nc = treeEl.querySelector('[data-card="'+id+'"]');
+      if(nc) nc.focus();
+    } else if(e.key==="ArrowRight"){ e.preventDefault(); collapsed[id]=false; render();
+      var r2 = treeEl.querySelector('[data-card="'+id+'"]'); if(r2) r2.focus();
+    } else if(e.key==="ArrowLeft"){ e.preventDefault(); collapsed[id]=true; render();
+      var r3 = treeEl.querySelector('[data-card="'+id+'"]'); if(r3) r3.focus();
+    }
+  });
+
+  document.getElementById("expandAll").addEventListener("click", function(){
+    collapsed = {}; render();
+  });
+  document.getElementById("collapseAll").addEventListener("click", function(){
+    collapsed = {root:false, web:true, sum:true, fact:true};
+    // collapsing leaves has no visual children; fold the whole branch instead
+    collapsed = {root:true}; render();
+  });
+  document.getElementById("pauseBtn").addEventListener("click", function(){
+    paused = !paused;
+    this.textContent = paused ? "Resume live timers" : "Pause live timers";
+    this.setAttribute("aria-pressed", String(paused));
+  });
+
+  // live timers: working agents accrue time + a little cost
+  setInterval(function(){
+    if(paused) return;
+    var dirty = false;
+    Object.keys(NODES).forEach(function(id){
+      var n = NODES[id];
+      if(n.status==="working"){ n.elapsed += 0.1; n.ownCost += (n.costRate||0)*0.1; dirty = true; }
+    });
+    if(dirty) refreshNumbers();
+  }, 100);
+
+  render();
+})();
+</script>
+</body>
+</html>

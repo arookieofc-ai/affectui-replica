@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent Crew — Live Agent Tree</title>
+<script>
+(function(){try{var s=localStorage.getItem("agent-crew-theme");var t=s||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");document.documentElement.setAttribute("data-theme",t);}catch(e){}})();
+</script>
+<style>
+  /* ---- v2 design tokens (no ad-hoc hex outside this block) ---- */
+  :root,
+  html[data-theme="light"]{
+    --page:#fafaf9;
+    --surface:#ffffff;
+    --ink:#171717;
+    --ink-2:#1c1917;
+    --muted:#78716c;
+    --subtle:#f5f5f4;
+    --border:#e7e5e4;
+    --wire:#d6d3d1;
+    --wire-hot:#a8a29e;
+    --radius-lg:16px;
+    --radius:10px;
+    --radius-sm:6px;
+    --shadow:0 1px 2px rgba(0,0,0,.05),0 4px 16px rgba(0,0,0,.05);
+    --shadow-lift:0 2px 4px rgba(0,0,0,.06),0 10px 24px rgba(0,0,0,.08);
+    --working:#16a34a;
+    --working-bg:#dcfce7;
+    --working-text:#166534;
+    --waiting:#f59e0b;
+    --waiting-bg:#fef3c7;
+    --waiting-text:#92400e;
+    --waiting-border:#fcd34d;
+    --idle-dot:#a8a29e;
+    --idle-bg:#e7e5e4;
+    --idle-text:#57534e;
+    --failed:#dc2626;
+    --failed-bg:#fee2e2;
+    --failed-text:#991b1b;
+    --accent:#2563eb;
+    --accent-soft:#dbeafe;
+    --accent-text:#1e40af;
+    --overlay:rgba(28,25,23,.28);
+    --ease:180ms ease;
+  }
+  html[data-theme="dark"]{
+    --page:#101012;
+    --surface:#1c1c1f;
+    --ink:#ededed;
+    --ink-2:#ededed;
+    --muted:#a1a1aa;
+    --subtle:#26262a;
+    --border:#2e2e33;
+    --wire:#3a3a41;
+    --wire-hot:#71717a;
+    --shadow:0 1px 2px rgba(0,0,0,.45),0 8px 24px rgba(0,0,0,.45);
+    --shadow-lift:0 2px 6px rgba(0,0,0,.5),0 14px 32px rgba(0,0,0,.5);
+    --working:#4ade80;
+    --working-bg:#052e16;
+    --working-text:#bbf7d0;
+    --waiting:#fbbf24;
+    --waiting-bg:#451a03;
+    --waiting-text:#fde68a;
+    --waiting-border:#92400e;
+    --idle-dot:#71717a;
+    --idle-bg:#2e2e33;
+    --idle-text:#d4d4d8;
+    --failed:#f87171;
+    --failed-bg:#450a0a;
+    --failed-text:#fecaca;
+    --accent:#60a5fa;
+    --accent-soft:#172554;
+    --accent-text:#bfdbfe;
+    --overlay:rgba(0,0,0,.55);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:14px;background:var(--page);color:var(--ink);-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1080px;margin:0 auto;padding:20px 20px 48px}
+  header.top{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:6px}
+  .logo{width:34px;height:34px;border-radius:12px;background:var(--subtle);border:1px solid var(--border);display:grid;place-items:center;font-size:18px;box-shadow:var(--shadow)}
+  h1{font-size:20px;margin:0;letter-spacing:-.02em}
+  .sub{color:var(--muted);font-size:13px;margin:2px 0 0}
+  .top-actions{margin-left:auto;display:flex;align-items:center;gap:8px}
+  .live{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;background:var(--working-bg);color:var(--working-text);border:1px solid var(--border);padding:4px 10px;border-radius:999px}
+  .live i{width:8px;height:8px;border-radius:50%;background:var(--working);animation:blink 1.6s infinite}
+  .live.paused{background:var(--waiting-bg);color:var(--waiting-text);border-color:var(--waiting-border)}
+  .live.paused i{background:var(--waiting);animation:none}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
+  .theme-toggle{border:1px solid var(--border);background:var(--surface);color:var(--ink);border-radius:999px;width:36px;height:36px;display:grid;place-items:center;font-size:17px;cursor:pointer;box-shadow:var(--shadow);transition:background var(--ease),transform var(--ease),border-color var(--ease)}
+  .theme-toggle:hover{background:var(--subtle);transform:translateY(-1px)}
+  .theme-toggle:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:14px 0 12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:10px 12px;box-shadow:var(--shadow)}
+  .seg{display:flex;background:var(--subtle);border:1px solid var(--border);border-radius:12px;padding:3px;gap:2px;flex-wrap:wrap}
+  .seg button{border:0;background:transparent;padding:8px 14px;border-radius:9px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;transition:background var(--ease),color var(--ease)}
+  .seg button:hover{color:var(--ink)}
+  .seg button[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
+  .spacer{flex:1}
+  .btn{border:1px solid var(--border);background:var(--surface);border-radius:var(--radius);padding:8px 13px;font-size:13px;font-weight:600;cursor:pointer;color:var(--ink);transition:background var(--ease),border-color var(--ease),transform var(--ease)}
+  .btn:hover{background:var(--subtle);border-color:var(--wire-hot);transform:translateY(-1px)}
+  .btn:active{transform:none}
+  .btn.primary{background:var(--ink);color:var(--page);border-color:var(--ink)}
+  .btn.primary:hover{opacity:.88}
+  .btn:focus-visible,.card:focus-visible,.seg button:focus-visible,.theme-toggle:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);margin:0 2px 12px;align-items:center}
+  .legend b{font-weight:600;color:var(--ink)}
+  .dot{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:6px;vertical-align:baseline}
+  .d-work{background:var(--working);box-shadow:0 0 0 4px var(--working-bg)}
+  .d-wait{background:var(--waiting);box-shadow:0 0 0 4px var(--waiting-bg)}
+  .d-idle{background:var(--idle-dot);box-shadow:0 0 0 4px var(--idle-bg)}
+
+  #treeWrap{position:relative;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow);padding:26px 22px 24px;overflow:hidden}
+  #wires{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+  #wires path.wire{fill:none;stroke:var(--wire);stroke-width:2.5;stroke-linecap:round;transition:stroke var(--ease),opacity var(--ease),stroke-width var(--ease)}
+  #treeWrap.chain #wires path.wire{opacity:.25}
+  #treeWrap.chain #wires path.wire.hot{opacity:1;stroke:var(--wire-hot);stroke-width:3.5}
+  #wires circle.handoff-dot{fill:var(--waiting)}
+  .leadRow{display:flex;justify-content:center;position:relative;z-index:1}
+  .crewRow{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:64px;position:relative;z-index:1}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 15px 13px;box-shadow:var(--shadow);cursor:pointer;position:relative;transition:transform var(--ease),box-shadow var(--ease),border-color var(--ease),opacity var(--ease);text-align:left;width:100%;font:inherit;color:inherit}
+  .card:hover{transform:translateY(-2px);box-shadow:var(--shadow-lift);border-color:var(--wire-hot)}
+  #treeWrap.chain .card{opacity:.55}
+  #treeWrap.chain .card.hot{opacity:1;border-color:var(--wire-hot)}
+  .card.lead{max-width:420px;border-color:var(--accent-soft);background:var(--surface)}
+  .card.flash{animation:flash 1s}
+  @keyframes flash{0%{box-shadow:0 0 0 0 var(--waiting)}100%{box-shadow:0 0 0 16px transparent}}
+  .card.waiting{border-color:var(--waiting-border)}
+  .row1{display:flex;align-items:center;gap:8px}
+  .status{width:10px;height:10px;border-radius:50%;flex:none}
+  .status.working{background:var(--working);box-shadow:0 0 0 4px var(--working-bg);animation:blink 1.6s infinite}
+  .status.waiting{background:var(--waiting);box-shadow:0 0 0 4px var(--waiting-bg)}
+  .status.idle{background:var(--idle-dot);box-shadow:0 0 0 4px var(--idle-bg)}
+  .name{font-weight:700;font-size:15px;letter-spacing:-.01em}
+  .model{font-size:11px;font-weight:700;padding:3px 8px;border-radius:999px;background:var(--subtle);border:1px solid var(--border);color:var(--muted);margin-left:auto;white-space:nowrap}
+  .pill{font-size:11px;font-weight:700;padding:3px 8px;border-radius:999px;white-space:nowrap;border:1px solid transparent}
+  .pill.working{background:var(--working-bg);color:var(--working-text);border-color:var(--working)}
+  .pill.waiting{background:var(--waiting-bg);color:var(--waiting-text);border-color:var(--waiting-border)}
+  .pill.idle{background:var(--idle-bg);color:var(--idle-text);border-color:var(--border)}
+  .pill.paused{background:var(--idle-bg);color:var(--idle-text);border-color:var(--border)}
+  .role{font-size:11px;color:var(--muted)}
+  .task{font-size:13px;margin:10px 0 4px;line-height:1.45}
+  .task span{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:2px}
+  .ctx{margin-top:10px}
+  .ctx-top{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:5px}
+  .ctx-top b{color:var(--ink)}
+  .bar{height:8px;background:var(--subtle);border:1px solid var(--border);border-radius:999px;overflow:hidden}
+  .bar i{display:block;height:100%;border-radius:999px;background:var(--working);transition:width .8s ease}
+  .card.waiting .bar i{background:var(--waiting)}
+  .tools{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+  .tool{font-size:11.5px;font-weight:600;background:var(--subtle);border:1px solid var(--border);color:var(--ink);padding:3px 9px;border-radius:999px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  .hand{margin-top:10px;font-size:12px;color:var(--muted);background:var(--subtle);border:1px dashed var(--border);border-radius:var(--radius);padding:7px 9px;line-height:1.4}
+  .hand b{color:var(--ink)}
+  .branch{position:absolute;top:-46px;left:50%;transform:translateX(-50%);font-size:11px;font-weight:700;color:var(--muted);background:var(--surface);border:1px solid var(--border);padding:2px 10px;border-radius:999px;white-space:nowrap}
+
+  .scrim{position:fixed;inset:0;background:var(--overlay);opacity:0;pointer-events:none;transition:opacity var(--ease)}
+  .scrim.open{opacity:1;pointer-events:auto}
+  .drawer{position:fixed;top:0;right:0;height:100%;width:min(390px,94vw);background:var(--surface);border-left:1px solid var(--border);box-shadow:var(--shadow-lift);transform:translateX(105%);transition:transform 200ms ease;display:flex;flex-direction:column;z-index:30;color:var(--ink)}
+  .drawer.open{transform:none}
+  .drawer head{display:block;padding:18px 18px 14px;border-bottom:1px solid var(--border)}
+  .d-top{display:flex;align-items:center;gap:9px}
+  .d-top h2{margin:0;font-size:16px}
+  .x{margin-left:auto;border:1px solid var(--border);background:var(--surface);color:var(--ink);border-radius:9px;width:30px;height:30px;cursor:pointer;font-size:15px}
+  .x:hover{background:var(--subtle)}
+  .d-body{padding:16px 18px;overflow:auto;flex:1}
+  .sec{margin-bottom:16px}
+  .sec h3{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin:0 0 8px}
+  .sec p{font-size:13.5px;line-height:1.55;margin:0;background:var(--subtle);border:1px solid var(--border);border-radius:12px;padding:10px 12px;color:var(--ink)}
+  .kv{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+  .kv div{background:var(--subtle);border:1px solid var(--border);border-radius:var(--radius);padding:9px 10px}
+  .kv small{display:block;color:var(--muted);font-size:11px;margin-bottom:2px}
+  .kv b{font-size:14px}
+  .log{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;font-size:12.5px}
+  .log li{background:var(--subtle);border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px;line-height:1.45;color:var(--ink)}
+  .log time{color:var(--muted);font-size:11px;display:block}
+  .d-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:14px 18px;border-top:1px solid var(--border)}
+  .d-actions .btn{padding:10px}
+  #toast{position:fixed;left:50%;bottom:22px;transform:translate(-50%,20px);background:var(--ink);color:var(--page);font-size:13px;font-weight:600;padding:10px 16px;border-radius:12px;opacity:0;pointer-events:none;transition:all 200ms ease;z-index:50;max-width:90vw}
+  #toast.show{opacity:1;transform:translate(-50%,0)}
+  footer{color:var(--muted);font-size:12.5px;margin-top:14px;text-align:center}
+  @media (max-width:860px){
+    .crewRow{grid-template-columns:1fr;margin-top:26px}
+    .branch{display:none}
+    .leadRow .card{max-width:none}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{animation:none!important;transition:none!important}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="logo" aria-hidden="true">🌿</div>
+    <div>
+      <h1>Agent Crew</h1>
+      <p class="sub">One live tree — lead + sub-agents, handoffs in real time.</p>
+    </div>
+    <div class="top-actions">
+      <span class="live" id="liveBadge"><i></i><span id="liveText">Live</span></span>
+      <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode" title="Toggle light / dark">🌙</button>
+    </div>
+  </header>
+
+  <div class="toolbar">
+    <div class="seg" role="tablist" aria-label="Project switcher" id="projSeg"></div>
+    <div class="spacer"></div>
+    <button class="btn" id="pauseBtn">Pause live</button>
+    <button class="btn primary" id="handoffBtn">⚡ Send handoff</button>
+  </div>
+
+  <div class="legend">
+    <span><i class="dot d-work"></i><b>Working</b> executing now</span>
+    <span><i class="dot d-wait"></i><b>Waiting</b> needs input</span>
+    <span><i class="dot d-idle"></i><b>Idle</b> done</span>
+    <span style="margin-left:auto">Hover a card to trace its chain · Click for details</span>
+  </div>
+
+  <div id="treeWrap" aria-live="polite">
+    <svg id="wires" aria-hidden="true"></svg>
+    <div class="leadRow"><div style="position:relative" id="leadSlot"></div></div>
+    <div class="crewRow" id="crewRow"></div>
+  </div>
+
+  <footer>Standalone clean-room replica · demo data only · open <b>index.html</b> in a browser, no server needed.</footer>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-label="Agent details">
+  <head>
+    <div class="d-top">
+      <span class="status working" id="dDot"></span>
+      <h2 id="dName">Agent</h2>
+      <span class="model" id="dModel">—</span>
+      <button class="x" id="closeBtn" aria-label="Close details">✕</button>
+    </div>
+    <div style="margin-top:8px"><span class="pill working" id="dPill">working</span>
+    <span class="role" id="dRole"></span></div>
+  </head>
+  <div class="d-body">
+    <div class="sec"><h3>Current task</h3><p id="dTask"></p></div>
+    <div class="sec"><h3>Model &amp; usage</h3>
+      <div class="kv">
+        <div><small>Context</small><b id="dCtx">—</b></div>
+        <div><small>Tokens</small><b id="dTok">—</b></div>
+        <div><small>Cost</small><b id="dCost">—</b></div>
+      </div>
+      <div style="margin-top:8px"><div class="bar"><i id="dBar"></i></div></div>
+    </div>
+    <div class="sec"><h3>Tools</h3><div class="tools" id="dTools"></div></div>
+    <div class="sec"><h3>Last handoff</h3><p id="dHand"></p></div>
+    <div class="sec"><h3>Activity</h3><ul class="log" id="dLog"></ul></div>
+  </div>
+  <div class="d-actions">
+    <button class="btn primary" id="approveBtn">✓ Approve</button>
+    <button class="btn" id="declineBtn">✕ Decline</button>
+    <button class="btn" id="pauseAgentBtn">⏸ Pause</button>
+    <button class="btn" id="resumeBtn">▶ Resume</button>
+    <button class="btn" id="stopBtn">■ Stop</button>
+    <button class="btn" id="retryBtn">↻ Retry</button>
+  </div>
+</aside>
+<div id="toast" role="status"></div>
+
+<script>
+const PROJECTS = {
+  "Website Redesign": {
+    lead: {id:"lead", name:"Orchestrator", model:"GPT-5", status:"working",
+      task:"Coordinating the redesign sprint — briefed Researcher, reviewing Coder's homepage draft, Reviewer on standby.",
+      context:54, tools:["Linear","Notion","GitHub","Vercel"],
+      hand:"Assigned homepage draft to Coder · 2 min ago",
+      tokens:"48.2k", cost:"$1.84", turns:23},
+    crew: [
+      {id:"res", name:"Researcher", model:"Haiku", status:"working",
+        task:"Scanning 12 competitor homepages for nav patterns and pricing-page teardowns.",
+        context:62, tools:["Notion","GitHub"],
+        hand:"Received brief from Orchestrator · 6 min ago",
+        tokens:"31.7k", cost:"$0.22", turns:14},
+      {id:"cod", name:"Coder", model:"Sonnet", status:"working",
+        task:"Building the new homepage hero + pricing grid in index.html from Researcher's notes.",
+        context:41, tools:["GitHub","Vercel"],
+        hand:"Received homepage draft brief from Orchestrator · 2 min ago",
+        tokens:"52.4k", cost:"$0.79", turns:19},
+      {id:"rev", name:"Reviewer", model:"Sonnet", status:"waiting",
+        task:"Waiting on Coder's draft — will lint, check a11y and diff against the brief.",
+        context:18, tools:["Linear","GitHub"],
+        hand:"Waiting for Coder's handoff · queued",
+        tokens:"9.1k", cost:"$0.14", turns:6}
+    ]
+  },
+  "API Migration": {
+    lead: {id:"lead", name:"Orchestrator", model:"GPT-5", status:"working",
+      task:"Running the v1 → v2 migration — Researcher mapping endpoints, Coder rewriting clients.",
+      context:66, tools:["Linear","Notion","GitHub","Vercel"],
+      hand:"Asked Reviewer to audit auth flow · 1 min ago",
+      tokens:"61.0k", cost:"$2.31", turns:31},
+    crew: [
+      {id:"res", name:"Researcher", model:"Haiku", status:"working",
+        task:"Diffing v1 vs v2 OpenAPI specs, flagging breaking changes in auth + pagination.",
+        context:73, tools:["Notion","GitHub"],
+        hand:"Sent endpoint map to Coder · 4 min ago",
+        tokens:"40.2k", cost:"$0.31", turns:18},
+      {id:"cod", name:"Coder", model:"Sonnet", status:"working",
+        task:"Rewriting the JS + Python clients for the new pagination cursors.",
+        context:58, tools:["GitHub","Vercel"],
+        hand:"Received endpoint map from Researcher · 4 min ago",
+        tokens:"70.5k", cost:"$1.06", turns:26},
+      {id:"rev", name:"Reviewer", model:"Sonnet", status:"working",
+        task:"Auditing the new OAuth scopes and token-refresh path for regressions.",
+        context:33, tools:["Linear","Vercel"],
+        hand:"Received auth audit request from Orchestrator · 1 min ago",
+        tokens:"18.4k", cost:"$0.28", turns:9}
+    ]
+  },
+  "Launch Brief": {
+    lead: {id:"lead", name:"Orchestrator", model:"GPT-5", status:"working",
+      task:"Assembling the launch brief — waiting on Researcher's numbers, Coder polishing demos.",
+      context:38, tools:["Linear","Notion","GitHub","Vercel"],
+      hand:"Nudged Researcher for final stats · just now",
+      tokens:"22.6k", cost:"$0.91", turns:12},
+    crew: [
+      {id:"res", name:"Researcher", model:"Haiku", status:"waiting",
+        task:"Blocked on analytics export — needs the last 30 days of signup data.",
+        context:62, tools:["Notion","Linear"],
+        hand:"Waiting on analytics export · needs input",
+        tokens:"25.9k", cost:"$0.19", turns:11},
+      {id:"cod", name:"Coder", model:"Sonnet", status:"working",
+        task:"Polishing the interactive demo snippets for the brief.",
+        context:41, tools:["GitHub","Vercel"],
+        hand:"Received demo list from Orchestrator · 8 min ago",
+        tokens:"33.3k", cost:"$0.50", turns:13},
+      {id:"rev", name:"Reviewer", model:"Sonnet", status:"idle",
+        task:"Done — brief outline approved, idle until final draft lands.",
+        context:18, tools:["Linear","GitHub"],
+        hand:"Approved outline · 20 min ago",
+        tokens:"6.2k", cost:"$0.09", turns:4}
+    ]
+  }
+};
+let project = "Website Redesign";
+let live = true, selectedId = null, pausedAgents = new Set(), stoppedAgents = new Set();
+const HANDOFF_TEXTS = [
+  ["Orchestrator","Researcher","fresh brief with narrower scope"],
+  ["Orchestrator","Coder","homepage draft brief + notes"],
+  ["Orchestrator","Reviewer","review checklist + rubric"],
+  ["Researcher","Orchestrator","competitor teardown summary"],
+  ["Researcher","Coder","endpoint map + teardowns"],
+  ["Coder","Reviewer","draft v2 ready for lint + a11y"],
+  ["Coder","Orchestrator","hero section done, needs eyes"],
+  ["Reviewer","Orchestrator","lint report: 2 nits, 0 blockers"],
+  ["Reviewer","Coder","requested fixes: contrast + focus order"]
+];
+const $ = s => document.querySelector(s);
+const wrap = $("#treeWrap"), svg = $("#wires");
+
+/* theme */
+const themeBtn = $("#themeToggle");
+function currentTheme(){ return document.documentElement.getAttribute("data-theme") || "light"; }
+function paintThemeBtn(){ themeBtn.textContent = currentTheme()==="dark" ? "☀️" : "🌙"; themeBtn.setAttribute("aria-label", currentTheme()==="dark" ? "Switch to light mode" : "Switch to dark mode"); }
+function setTheme(t){ document.documentElement.setAttribute("data-theme",t); try{localStorage.setItem("agent-crew-theme",t);}catch(e){} paintThemeBtn(); requestAnimationFrame(drawWires); }
+themeBtn.addEventListener("click", ()=> setTheme(currentTheme()==="dark"?"light":"dark"));
+paintThemeBtn();
+
+function allAgents(){
+  const p = PROJECTS[project];
+  return [p.lead, ...p.crew];
+}
+function getAgent(id){ return allAgents().find(a=>a.id===id); }
+function displayStatus(a){
+  if(pausedAgents.has(a.id)) return "paused";
+  if(stoppedAgents.has(a.id)) return "idle";
+  return a.status;
+}
+
+function renderSeg(){
+  const seg = $("#projSeg"); seg.innerHTML = "";
+  Object.keys(PROJECTS).forEach(name=>{
+    const b = document.createElement("button");
+    b.textContent = name; b.setAttribute("role","tab");
+    b.setAttribute("aria-selected", name===project ? "true":"false");
+    b.onclick = ()=>{ project = name; selectedId=null; closeDrawer(); renderAll(); toast("Switched to “"+name+"”"); };
+    seg.appendChild(b);
+  });
+}
+
+function cardEl(a, isLead){
+  const b = document.createElement("button");
+  const st = displayStatus(a);
+  const pillCls = (st==="paused"||st==="idle") ? "idle" : st;
+  b.className = "card" + (isLead?" lead":"") + (a.status==="waiting"?" waiting":"");
+  b.dataset.id = a.id;
+  b.setAttribute("aria-label", a.name+", "+a.model+", "+st+", "+a.task);
+  b.innerHTML =
+    (isLead?"":'<span class="branch">sub-agent</span>') +
+    '<span class="row1"><span class="status '+(st==="paused"?"idle":st)+'"></span>'+
+    '<span class="name">'+a.name+'</span>'+
+    '<span class="model">'+a.model+'</span></span>'+
+    '<span class="row1" style="margin-top:6px"><span class="pill '+pillCls+'">'+st+'</span>'+
+    '<span class="role">'+(isLead?"lead · orchestrating":"agent · "+a.id)+'</span></span>'+
+    '<div class="task"><span>Doing now</span>'+a.task+'</div>'+
+    '<div class="ctx"><div class="ctx-top"><span>Context</span><b>'+Math.round(a.context)+'% full</b></div>'+
+    '<div class="bar"><i style="width:'+a.context+'%"></i></div></div>'+
+    '<div class="tools">'+a.tools.map(t=>'<span class="tool">'+t+'</span>').join("")+'</div>'+
+    '<div class="hand">⇄ <b>Last handoff:</b> '+a.hand+'</div>';
+  b.addEventListener("click", ()=>openDrawer(a.id));
+  b.addEventListener("mouseenter", ()=>trace(a.id,true));
+  b.addEventListener("mouseleave", ()=>trace(null,false));
+  b.addEventListener("focus", ()=>trace(a.id,true));
+  b.addEventListener("blur", ()=>trace(null,false));
+  b.addEventListener("keydown", e=>{
+    if(e.key==="Enter"||e.key===" "){ e.preventDefault(); openDrawer(a.id); }
+  });
+  return b;
+}
+
+function renderAll(){
+  renderSeg();
+  const p = PROJECTS[project];
+  const leadSlot = $("#leadSlot"); leadSlot.innerHTML="";
+  leadSlot.appendChild(cardEl(p.lead,true));
+  const row = $("#crewRow"); row.innerHTML="";
+  p.crew.forEach(a=>row.appendChild(cardEl(a,false)));
+  requestAnimationFrame(drawWires);
+  if(selectedId) fillDrawer(selectedId);
+  syncPauseBtn();
+}
+
+function cardCenter(el){
+  const wr = wrap.getBoundingClientRect(), r = el.getBoundingClientRect();
+  return {x:r.left-wr.left+r.width/2, y:r.top-wr.top};
+}
+function drawWires(){
+  const p = PROJECTS[project];
+  const leadEl = wrap.querySelector('[data-id="lead"]');
+  svg.innerHTML = "";
+  if(!leadEl) return;
+  const W = wrap.offsetWidth, H = wrap.offsetHeight;
+  svg.setAttribute("viewBox","0 0 "+W+" "+H);
+  const L = cardCenter(leadEl); L.y += leadEl.offsetHeight/2;
+  p.crew.forEach(a=>{
+    const el = wrap.querySelector('[data-id="'+a.id+'"]');
+    if(!el) return;
+    const T = cardCenter(el); T.y -= 6;
+    const mid = (L.y+T.y)/2;
+    const d = "M "+L.x+" "+L.y+" C "+L.x+" "+mid+", "+T.x+" "+mid+", "+T.x+" "+T.y;
+    const path = document.createElementNS("http://www.w3.org/2000/svg","path");
+    path.setAttribute("d",d); path.setAttribute("class","wire"); path.dataset.link=a.id;
+    svg.appendChild(path);
+  });
+}
+function trace(id,on){
+  if(!on){ wrap.classList.remove("chain");
+    wrap.querySelectorAll(".hot").forEach(e=>e.classList.remove("hot")); return; }
+  wrap.classList.add("chain");
+  wrap.querySelectorAll(".card").forEach(c=>c.classList.toggle("hot", c.dataset.id===id||c.dataset.id==="lead"));
+  svg.querySelectorAll("path.wire").forEach(p=>p.classList.toggle("hot", p.dataset.link===id||id==="lead"));
+}
+
+function nowT(){ const d=new Date(); return d.getHours()+":"+String(d.getMinutes()).padStart(2,"0")+":"+String(d.getSeconds()).padStart(2,"0"); }
+function logFor(a,text){ a.log=a.log||[]; a.log.unshift({t:nowT(),text}); }
+
+function sendHandoff(forceText){
+  const p = PROJECTS[project];
+  const pick = HANDOFF_TEXTS[Math.floor(Math.random()*HANDOFF_TEXTS.length)];
+  const [from,to,frag] = pick;
+  const toAgent = to==="Orchestrator" ? p.lead : p.crew.find(a=>a.name===to);
+  if(!toAgent || stoppedAgents.has(toAgent.id) || pausedAgents.has(toAgent.id)) return;
+  const toEl = wrap.querySelector('[data-id="'+toAgent.id+'"]');
+  const path = [...svg.querySelectorAll("path.wire")].find(w=>w.dataset.link===toAgent.id) ||
+               [...svg.querySelectorAll("path.wire")][0];
+  if(!path||!toEl) return;
+  let len=0; try{ len = path.getTotalLength(); }catch(e){ len=200; }
+  const c = document.createElementNS("http://www.w3.org/2000/svg","circle");
+  c.setAttribute("r","6"); c.setAttribute("class","handoff-dot");
+  c.setAttribute("style","fill:var(--waiting);filter:drop-shadow(0 0 6px var(--waiting))");
+  svg.appendChild(c);
+  const t0 = performance.now(), dur = 1100;
+  path.classList.add("hot");
+  (function step(t){
+    const k = Math.min(1,(t-t0)/dur);
+    try{
+      const pt = path.getPointAtLength(len*k);
+      c.setAttribute("cx",pt.x); c.setAttribute("cy",pt.y);
+    }catch(e){}
+    if(k<1) requestAnimationFrame(step);
+    else{
+      c.remove(); path.classList.remove("hot");
+      toAgent.hand = from+" → "+to+": "+frag+" · "+nowT();
+      if(!forceText && toAgent.status==="waiting" && Math.random()<.5) toAgent.status="working";
+      if(toAgent.status==="idle" && !stoppedAgents.has(toAgent.id)) toAgent.status="working";
+      logFor(toAgent, from+" → "+to+": "+frag);
+      if(forceText) logFor(toAgent, forceText);
+      toEl.classList.remove("flash"); void toEl.offsetWidth; toEl.classList.add("flash");
+      renderAll();
+    }
+  })(t0);
+}
+
+/* drawer */
+const drawer=$("#drawer"), scrim=$("#scrim");
+function openDrawer(id){
+  selectedId=id; fillDrawer(id);
+  drawer.classList.add("open"); scrim.classList.add("open");
+  $("#closeBtn").focus();
+}
+function closeDrawer(){ drawer.classList.remove("open"); scrim.classList.remove("open"); selectedId=null; }
+function fillDrawer(id){
+  const a=getAgent(id); if(!a) return;
+  const isLead = id==="lead";
+  const st = displayStatus(a);
+  $("#dDot").className="status "+(st==="paused"?"idle":st);
+  $("#dName").textContent=a.name;
+  const dm=$("#dModel"); dm.textContent=a.model; dm.className="model";
+  const pill=$("#dPill"); pill.textContent=st; pill.className="pill "+((st==="paused"||st==="idle")?"idle":st);
+  $("#dRole").textContent=isLead?" · lead":" · sub-agent of Orchestrator";
+  $("#dTask").textContent=a.task;
+  $("#dCtx").textContent=Math.round(a.context)+"%";
+  $("#dBar").style.width=a.context+"%";
+  $("#dTok").textContent=a.tokens; $("#dCost").textContent=a.cost;
+  $("#dTools").innerHTML=a.tools.map(t=>'<span class="tool">'+t+'</span>').join("");
+  $("#dHand").textContent=a.hand;
+  const log=$("#dLog"); log.innerHTML="";
+  (a.log||[{t:"—",text:"Session started · "+project}]).slice(0,5).forEach(e=>{
+    const li=document.createElement("li"); li.innerHTML="<time>"+e.t+"</time>"+e.text; log.appendChild(li);
+  });
+  $("#pauseAgentBtn").textContent = pausedAgents.has(id)?"⏸ Paused":"⏸ Pause";
+  $("#resumeBtn").disabled = !pausedAgents.has(id) && !stoppedAgents.has(id);
+}
+function toast(msg){
+  const t=$("#toast"); t.textContent=msg; t.classList.add("show");
+  clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove("show"),2200);
+}
+function syncPauseBtn(){
+  $("#pauseBtn").textContent=live?"Pause live":"Resume live";
+  $("#liveBadge").classList.toggle("paused",!live);
+  $("#liveText").textContent=live?"Live":"Paused";
+}
+
+$("#closeBtn").onclick=closeDrawer; scrim.onclick=closeDrawer;
+document.addEventListener("keydown",e=>{
+  if(e.key==="Escape") closeDrawer();
+  if(e.key==="ArrowRight"||e.key==="ArrowLeft"){
+    if(!drawer.classList.contains("open")) return;
+    const ids=allAgents().map(a=>a.id);
+    let i=ids.indexOf(selectedId);
+    i=(i+(e.key==="ArrowRight"?1:-1)+ids.length)%ids.length;
+    openDrawer(ids[i]);
+  }
+});
+$("#handoffBtn").onclick=()=>{ if(live) sendHandoff(); else toast("Live is paused — resume to send handoffs"); };
+$("#pauseBtn").onclick=()=>{
+  live=!live; syncPauseBtn();
+  toast(live?"Live handoffs resumed":"Live handoffs paused");
+};
+
+/* v2 required actions: Approve / Decline / Pause / Stop / Resume / Retry */
+$("#approveBtn").onclick=()=>{
+  const a=getAgent(selectedId); if(!a) return;
+  stoppedAgents.delete(a.id); pausedAgents.delete(a.id);
+  if(a.status==="waiting"||a.status==="idle") a.status="working";
+  logFor(a,"Approved by you · "+nowT()); fillDrawer(a.id); renderAll(); toast("Approved "+a.name+"’s work");
+};
+$("#declineBtn").onclick=()=>{
+  const a=getAgent(selectedId); if(!a) return;
+  a.status="waiting"; logFor(a,"Declined by you — requested changes · "+nowT());
+  a.hand="Declined by you — changes requested · "+nowT();
+  fillDrawer(a.id); renderAll(); toast("Declined "+a.name+" — changes requested");
+};
+$("#pauseAgentBtn").onclick=()=>{
+  const a=getAgent(selectedId); if(!a) return;
+  if(pausedAgents.has(a.id)) pausedAgents.delete(a.id); else { pausedAgents.add(a.id); logFor(a,"Paused by you"); }
+  fillDrawer(a.id); renderAll(); toast(a.name+(pausedAgents.has(a.id)?" paused":" unpaused"));
+};
+$("#resumeBtn").onclick=()=>{
+  const a=getAgent(selectedId); if(!a) return;
+  pausedAgents.delete(a.id); stoppedAgents.delete(a.id);
+  if(a.status!=="working") a.status="working";
+  logFor(a,"Resumed by you"); fillDrawer(a.id); renderAll(); toast(a.name+" resumed");
+};
+$("#stopBtn").onclick=()=>{
+  const a=getAgent(selectedId); if(!a) return;
+  stoppedAgents.add(a.id); pausedAgents.delete(a.id); a.status="idle";
+  logFor(a,"Stopped by you"); fillDrawer(a.id); renderAll(); toast(a.name+" stopped");
+};
+$("#retryBtn").onclick=()=>{
+  const a=getAgent(selectedId); if(!a) return;
+  stoppedAgents.delete(a.id); pausedAgents.delete(a.id);
+  a.context=12; a.status="working";
+  logFor(a,"Retried by you — context compacted"); fillDrawer(a.id); renderAll(); toast(a.name+"’s task retried");
+};
+
+window.addEventListener("resize", drawWires);
+setInterval(()=>{ /* context creep */
+  if(!live) return;
+  allAgents().forEach(a=>{
+    if(pausedAgents.has(a.id)||stoppedAgents.has(a.id)||a.status==="idle") return;
+    a.context=Math.min(95,a.context+Math.random()*0.7);
+  });
+  wrap.querySelectorAll(".card").forEach(c=>{
+    const a=getAgent(c.dataset.id); if(!a) return;
+    const b=c.querySelector(".ctx-top b"); if(b) b.textContent=Math.round(a.context)+"% full";
+    const bar=c.querySelector(".bar i"); if(bar) bar.style.width=a.context+"%";
+  });
+  if(selectedId){ const a=getAgent(selectedId); if(a){ $("#dCtx").textContent=Math.round(a.context)+"%"; $("#dBar").style.width=a.context+"%"; } }
+},2500);
+setInterval(()=>{ if(live && !document.hidden) sendHandoff(); },5200);
+
+renderAll();
+</script>
+</body>
+</html>
