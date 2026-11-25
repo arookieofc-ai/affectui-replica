@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent steering — Migrate users table</title>
+<style>
+  /* ---- design tokens ---- */
+  :root, html[data-theme="light"] {
+    --surface: #ffffff;
+    --page: #fafaf9;
+    --ink: #171717;
+    --ink-2: #1c1917;
+    --muted: #78716c;
+    --subtle: #f5f5f4;
+    --border: #e7e5e4;
+    --radius-lg: 16px;
+    --radius: 10px;
+    --radius-sm: 6px;
+    --shadow: 0 1px 2px rgba(0,0,0,.05), 0 4px 16px rgba(0,0,0,.05);
+    --work: #1d4ed8;
+    --work-bg: #dbeafe;
+    --work-dot: #2563eb;
+    --wait: #92400e;
+    --wait-bg: #fef3c7;
+    --wait-dot: #f59e0b;
+    --idle: #78716c;
+    --idle-bg: #f5f5f4;
+    --idle-dot: #a8a29e;
+    --fail: #b91c1c;
+    --fail-bg: #fee2e2;
+    --accent: #2563eb;
+    --accent-hover: #1d4ed8;
+    --danger: #b91c1c;
+    --danger-hover: #991b1b;
+    --focus: #2563eb;
+    --bar-track: #e7e5e4;
+    --bar-fill: #57534e;
+  }
+  html[data-theme="dark"] {
+    --surface: #1c1c1f;
+    --page: #101012;
+    --ink: #ededed;
+    --ink-2: #e7e5e4;
+    --muted: #a1a1aa;
+    --subtle: #26262a;
+    --border: #2e2e33;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 4px 16px rgba(0,0,0,.4);
+    --work: #bfdbfe;
+    --work-bg: #1e3a8a;
+    --work-dot: #60a5fa;
+    --wait: #fde68a;
+    --wait-bg: #451a03;
+    --wait-dot: #fbbf24;
+    --idle: #a1a1aa;
+    --idle-bg: #26262a;
+    --idle-dot: #71717a;
+    --fail: #fca5a5;
+    --fail-bg: #450a0a;
+    --accent: #60a5fa;
+    --accent-hover: #93c5fd;
+    --danger: #f87171;
+    --danger-hover: #fca5a5;
+    --focus: #93c5fd;
+    --bar-track: #2e2e33;
+    --bar-fill: #a1a1aa;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--page);
+    color: var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-size: 14px;
+    line-height: 1.45;
+    transition: background 180ms ease, color 180ms ease;
+  }
+  .page { max-width: 720px; margin: 0 auto; padding: 20px 16px 48px; }
+
+  /* ---- top bar ---- */
+  .topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .brand { font-size: 12px; color: var(--muted); letter-spacing: .02em; }
+  .theme-btn {
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--ink);
+    border-radius: 999px;
+    width: 34px; height: 34px;
+    font-size: 16px; line-height: 1;
+    cursor: pointer;
+    box-shadow: var(--shadow);
+    transition: transform 150ms ease, background 150ms ease;
+  }
+  .theme-btn:hover { transform: translateY(-1px); background: var(--subtle); }
+  :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+  /* ---- cards ---- */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
+    padding: 16px;
+    transition: border-color 150ms ease, box-shadow 180ms ease, transform 180ms ease;
+  }
+  .head h1 {
+    margin: 0;
+    font-size: 16px; font-weight: 600;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .head-row { display: flex; align-items: center; gap: 8px; margin-top: 2px; flex-wrap: wrap; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    border-radius: 999px;
+    font-size: 12px; font-weight: 600;
+    padding: 2px 10px;
+    border: 1px solid transparent;
+  }
+  .pill.work { color: var(--work); background: var(--work-bg); }
+  .pill.paused { color: var(--wait); background: var(--wait-bg); }
+  .pill.done { color: var(--work); background: var(--work-bg); }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex: none; }
+  .pill.work .dot { background: var(--work-dot); animation: blink 1.2s ease-in-out infinite; }
+  .pill.paused .dot { background: var(--wait-dot); }
+  @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+  .counts { font-size: 12px; color: var(--muted); }
+  .agentline { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 13px; }
+  .agentline .who { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .agentline .model { color: var(--muted); font-size: 12px; }
+
+  /* deterministic 3x3 pixel-mark identity */
+  .px {
+    display: inline-grid;
+    grid-template-columns: repeat(3, 7px);
+    grid-auto-rows: 7px;
+    gap: 1.5px;
+    flex: none;
+  }
+  .px-cell { width: 7px; height: 7px; border-radius: 1.5px; background: var(--bar-track); }
+  .px-cell.on { background: var(--px-c, var(--accent)); }
+  .px.live .px-cell.on { animation: twinkle 1.6s ease-in-out infinite; animation-delay: var(--d, 0s); }
+  @keyframes twinkle { 0%,100% { opacity: 1; } 50% { opacity: .45; } }
+
+  /* context: token counts + thin bar, right-aligned label */
+  .ctx { margin-top: 10px; text-align: right; }
+  .ctx-label { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .ctxbar { height: 3px; border-radius: 999px; background: var(--bar-track); margin-top: 5px; overflow: hidden; }
+  .ctxbar i { display: block; height: 100%; background: var(--bar-fill); border-radius: 999px; transition: width 300ms ease; }
+  .elapsed { font-size: 12px; color: var(--muted); margin-top: 8px; font-variant-numeric: tabular-nums; }
+
+  /* ---- column heading keeps reserved space above first card ---- */
+  .colhead {
+    margin: 20px 2px 8px;
+    font-size: 12px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: .06em;
+    color: var(--muted);
+  }
+  .colhead .n { color: var(--muted); font-weight: 400; }
+
+  /* ---- steps ---- */
+  .steps { display: flex; flex-direction: column; gap: 8px; }
+  .step {
+    display: flex; gap: 10px; align-items: flex-start;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 12px 12px 14px; /* bottom padding kept so notes never sit under buttons */
+    transition: border-color 150ms ease, transform 180ms ease, opacity 180ms ease;
+  }
+  .step:hover { transform: translateY(-1px); }
+  .step[data-state="todo"] { opacity: .85; }
+  .step[data-state="active"] { border-color: var(--work-dot); }
+  .step[data-state="done"] { opacity: .92; }
+  .snum {
+    flex: none;
+    width: 24px; height: 24px; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700;
+    background: var(--subtle); color: var(--muted);
+    border: 1px solid var(--border);
+  }
+  .step[data-state="active"] .snum { background: var(--work-bg); color: var(--work); border-color: transparent; }
+  .step[data-state="done"] .snum { background: var(--work-bg); color: var(--work); border-color: transparent; }
+  .snum .spin {
+    width: 12px; height: 12px; border-radius: 50%;
+    border: 2px solid var(--work-dot); border-top-color: transparent;
+    animation: rot 0.9s linear infinite;
+  }
+  @keyframes rot { to { transform: rotate(360deg); } }
+  .smain { flex: 1; min-width: 0; }
+  .stitle {
+    font-size: 14px; font-weight: 600;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .smeta { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .step[data-state="active"] .smeta { color: var(--work); }
+  .snotes { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+  .snote {
+    font-size: 12px;
+    border-radius: var(--radius-sm);
+    padding: 6px 8px;
+    border: 1px solid var(--border);
+    background: var(--subtle);
+    color: var(--ink-2);
+  }
+  .snote .tag {
+    display: inline-block;
+    font-size: 11px; font-weight: 700;
+    border-radius: 999px;
+    padding: 0 8px; margin-right: 6px;
+  }
+  .snote.now .tag { background: var(--fail-bg); color: var(--fail); }
+  .snote.next .tag { background: var(--wait-bg); color: var(--wait); }
+
+  /* ---- steering panel ---- */
+  .steer { margin-top: 12px; }
+  .steer h2 { margin: 0 0 4px; font-size: 15px; font-weight: 600; }
+  .steer p.sub { margin: 0 0 10px; font-size: 12px; color: var(--muted); }
+  .draftrow { display: flex; gap: 8px; }
+  .draftrow input {
+    flex: 1; min-width: 0;
+    font: inherit; font-size: 13px;
+    color: var(--ink);
+    background: var(--subtle);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 8px 10px;
+  }
+  .draftrow input::placeholder { color: var(--muted); }
+  .btn {
+    font: inherit; font-size: 13px; font-weight: 600;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--surface); color: var(--ink);
+    padding: 8px 14px;
+    cursor: pointer; white-space: nowrap;
+    transition: background 150ms ease, transform 150ms ease, border-color 150ms ease;
+  }
+  .btn:hover { transform: translateY(-1px); background: var(--subtle); }
+  .btn.primary { background: var(--accent); border-color: transparent; color: #fff; }
+  html[data-theme="dark"] .btn.primary { color: #101012; }
+  .btn.primary:hover { background: var(--accent-hover); }
+  .btn.danger { color: var(--danger); border-color: var(--danger); background: transparent; }
+  .btn.danger:hover { background: var(--fail-bg); }
+  .btn.ghost { background: transparent; }
+  .btnrow { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+  .queue { margin-top: 10px; }
+  .queue .qlabel { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+  .chips { display: flex; flex-direction: column; gap: 6px; }
+  .chip {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--wait-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 7px 8px 7px 10px;
+    font-size: 13px; color: var(--ink-2);
+  }
+  .chip .txt { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .chip button {
+    flex: none;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--ink);
+    font-size: 12px; font-weight: 600;
+    padding: 3px 10px; cursor: pointer;
+    transition: background 150ms ease;
+  }
+  .chip button:hover { background: var(--subtle); }
+  .chip .ui-st__chip-btn { color: var(--danger); border-color: var(--danger); }
+  .qempty { font-size: 12px; color: var(--muted); }
+  .donebar {
+    margin-top: 10px;
+    border-radius: var(--radius);
+    background: var(--work-bg); color: var(--work);
+    font-size: 13px; font-weight: 600;
+    padding: 9px 12px;
+  }
+  .hint { font-size: 12px; color: var(--muted); margin: 12px 2px 0; }
+  kbd {
+    font-family: inherit; font-size: 11px;
+    border: 1px solid var(--border); border-bottom-width: 2px;
+    border-radius: 4px; padding: 0 5px;
+    background: var(--surface);
+  }
+  @media (max-width: 520px) {
+    .draftrow { flex-direction: column; }
+    .draftrow .btn { width: 100%; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="topbar">
+    <span class="brand">affectUI · agent steering</span>
+    <button class="theme-btn" id="themeBtn" type="button" aria-label="Toggle dark mode" title="Toggle dark mode">☾</button>
+  </div>
+
+  <header class="card head" aria-live="polite">
+    <h1>Migrate users table</h1>
+    <div class="head-row">
+      <span class="pill work" id="statusPill"><span class="dot"></span><span id="statusText">Running</span></span>
+      <span class="counts" id="workCount">● 1 working</span>
+      <span class="counts">· 1 agent</span>
+    </div>
+    <div class="agentline">
+      <span id="agentMark" aria-hidden="true"></span>
+      <span class="who">migration-agent</span>
+      <span class="model">Opus 5.5</span>
+    </div>
+    <div class="ctx">
+      <span class="ctx-label" id="ctxLabel">44k / 200k</span>
+      <div class="ctxbar" role="progressbar" aria-label="Context usage"><i id="ctxFill" style="width:22%"></i></div>
+    </div>
+    <div class="elapsed" id="elapsed">elapsed 2:06</div>
+  </header>
+
+  <h2 class="colhead">Run plan <span class="n" id="planCount">· 0 of 5 done</span></h2>
+  <div class="steps" id="steps"></div>
+
+  <section class="card steer" aria-label="Steer this run">
+    <h2>Steer this run</h2>
+    <p class="sub">Queue a note for the next step, or interrupt the working step right now.</p>
+    <div class="draftrow">
+      <input id="draft" type="text" placeholder="Type a steering note…" autocomplete="off" aria-label="Steering note">
+      <button class="btn primary ui-st__send" id="queueBtn" type="button">Queue note</button>
+    </div>
+    <div class="btnrow">
+      <button class="btn danger" id="interruptBtn" type="button">Interrupt now</button>
+      <button class="btn ghost" id="pauseBtn" type="button">Pause</button>
+      <button class="btn ghost" id="restartBtn" type="button">Restart</button>
+    </div>
+    <div class="queue">
+      <div class="qlabel">Queued notes</div>
+      <div class="chips" id="queueList"></div>
+    </div>
+    <div class="donebar" id="doneBar" hidden>Run complete — restarting the demo shortly…</div>
+  </section>
+
+  <p class="hint"><kbd>Enter</kbd> queues a note · <kbd>Ctrl</kbd>+<kbd>Enter</kbd> interrupts immediately · ⚡ on a queued note interrupts with that note · any keypress stops the scripted autoplay.</p>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ===== original demo data (from demo-original.js — re-typed, not copied) ===== */
+  var AGENT_ID = 'migration-agent';
+  var AGENT_MODEL = 'Opus 5.5';
+  var STEP_DEFS = [
+    { id: 'read',  title: 'Read schema and 14 migrations' },
+    { id: 'draft', title: 'Plan the split into accounts and profiles' },
+    { id: 'write', title: 'Write migration 0042_split_users' },
+    { id: 'dry',   title: 'Dry run on staging' },
+    { id: 'pr',    title: 'Open a pull request for review' }
+  ];
+  var STEP_MS = { read: 1400, draft: 4600, write: 5200, dry: 2600, pr: 1800 };
+  var REWRITE = { write: 'Write migration 0042 for Postgres 16' };
+  var NOTE_A = 'Use Postgres 16 syntax \u2013 prod isn\u2019t on 17 yet';
+  var NOTE_B = 'Keep the old users view for a week';
+  var START_LAG_MS = 126000;      // clock starts 2:06 in, as in the original
+  var TYPE_MS = 38;               // autoplay typing speed, ms per char
+  var TYPE_GAP_MS = 420;          // pause after typing before "sending"
+  var INTERRUPT_RETRY_MS = 120;   // interrupt re-runs the active step after 120ms
+  var RESUME_MS = 200;
+  var RESTART_AUTO_MS = 3800;     // loop delay while autoplay is on
+  var RESTART_MANUAL_MS = 4200;   // loop delay after the user takes over
+  var SEND_A_AT = 900;            // autoplay: start typing note A
+  var SEND_B_AT = 5700;           // autoplay: start typing note B (200 + draft 4600 + 900)
+  var CHIP_AT = 8392;             // autoplay: click the interrupt chip on note B
+
+  /* ===== state ===== */
+  var steps = [];
+  var queue = [];
+  var status = 'running';         // running | paused | done
+  var draft = '';
+  var bootTime = 0;
+  var autoplay = true;
+  var noteSeq = 0;
+  var stepTimers = [];
+  var autoTimers = [];
+  var elapsedTimer = 0;
+
+  function $(id) { return document.getElementById(id); }
+
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function hash32(str) {
+    var h = 2166136261;
+    for (var i = 0; i < str.length; i++) {
+      h ^= str.charCodeAt(i);
+      h = (h * 16777619) >>> 0;
+    }
+    return h >>> 0;
+  }
+
+  /* deterministic 3x3 pixel-mark: exactly 9 cells, derived from the agent id */
+  function pixelMark(agentId, live) {
+    var h = hash32(agentId);
+    var hue = h % 360;
+    var bits = (h >>> 8) | 0;
+    if (bits === 0) bits = 0x1b5;
+    var cells = '';
+    for (var k = 0; k < 9; k++) {
+      var on = (bits >> (k % 24)) & 1;
+      var shade = 45 + ((h >> (k * 2)) % 12);
+      var cell = on
+        ? '<i class="px-cell on" style="--px-c:hsl(' + hue + ',65%,' + shade + '%);--d:' + (k * 0.18).toFixed(2) + 's"></i>'
+        : '<i class="px-cell"></i>';
+      cells += cell;
+    }
+    return '<span class="px' + (live ? ' live' : '') + '" role="img" aria-label="agent mark">' + cells + '</span>';
+  }
+
+  function later(list, fn, ms) {
+    var id = window.setTimeout(function () {
+      var i = list.indexOf(id);
+      if (i >= 0) list.splice(i, 1);
+      fn();
+    }, ms);
+    list.push(id);
+    return id;
+  }
+  function clearAll(list) {
+    for (var i = 0; i < list.length; i++) window.clearTimeout(list[i]);
+    list.length = 0;
+  }
+
+  function fmtDur(ms) { return (ms / 1000).toFixed(1) + 's'; }
+  function fmtElapsed(ms) {
+    var s = Math.max(0, Math.floor(ms / 1000));
+    var m = Math.floor(s / 60);
+    var r = s % 60;
+    return 'elapsed ' + m + ':' + (r < 10 ? '0' : '') + r;
+  }
+
+  /* ===== core behaviour (mirrors the original step machine) ===== */
+  function activeIndex() {
+    for (var i = 0; i < steps.length; i++) if (steps[i].status === 'active') return i;
+    return -1;
+  }
+
+  function advance(idx) {
+    if (status !== 'running') return;
+    if (idx >= steps.length) {
+      status = 'done';
+      renderAll();
+      later(stepTimers, resetAll, autoplay ? RESTART_AUTO_MS : RESTART_MANUAL_MS);
+      return;
+    }
+    steps[idx].status = 'active';
+    steps[idx].startedAt = Date.now();
+    renderAll();
+    (function (i) {
+      later(stepTimers, function () { completeStep(i); }, STEP_MS[steps[i].id] || 2000);
+    })(idx);
+  }
+
+  function completeStep(i) {
+    if (status !== 'running') return;
+    var done = steps[i];
+    done.status = 'done';
+    done.durationMs = Date.now() - startedMs(done.startedAt);
+    var carried = queue.slice();
+    queue = [];
+    var j = i + 1;
+    if (j < steps.length && carried.length) {
+      if (REWRITE[steps[j].id]) steps[j].title = REWRITE[steps[j].id];
+      for (var k = 0; k < carried.length; k++) {
+        carried[k].picked = 'next';
+        steps[j].notes.push(carried[k]);
+      }
+    }
+    renderAll();
+    advance(i + 1);
+  }
+
+  function startedMs(t) {
+    if (t === undefined) return Date.now();
+    return (typeof t === 'number') ? t : t.getTime();
+  }
+
+  function queueNote(text) {
+    if (!text) return;
+    noteSeq += 1;
+    queue.push({ id: 'n' + noteSeq, text: text, picked: 'queued' });
+    renderQueue();
+  }
+
+  /* interrupt: attach the note to the working step now and re-run that step */
+  function interruptWith(text, qid) {
+    if (!text) return;
+    var i = activeIndex();
+    if (i < 0) { queueNote(text); return; }
+    noteSeq += 1;
+    var note = { id: 'n' + noteSeq, text: text, picked: 'now' };
+    if (qid) queue = queue.filter(function (n) { return n.id !== qid; });
+    clearAll(stepTimers);
+    steps[i].notes.push(note);
+    renderAll();
+    (function (r) {
+      later(stepTimers, function () { advance(r); }, INTERRUPT_RETRY_MS);
+    })(i);
+  }
+
+  function removeQueued(id) {
+    queue = queue.filter(function (n) { return n.id !== id; });
+    renderQueue();
+  }
+
+  function pauseRun() {
+    if (status !== 'running') return;
+    clearAll(stepTimers);
+    status = 'paused';
+    renderAll();
+  }
+
+  function resumeRun() {
+    if (status !== 'paused') return;
+    status = 'running';
+    var i = activeIndex();
+    renderAll();
+    later(stepTimers, function () { advance(Math.max(0, i)); }, RESUME_MS);
+  }
+
+  /* ===== autoplay typing (same timings as the original scripted demo) ===== */
+  function typeNote(text, at, done) {
+    for (var c = 0; c < text.length; c++) {
+      (function (n) {
+        later(autoTimers, function () {
+          draft += text[n];
+          var el = $('draft');
+          if (el) el.value = draft;
+        }, at + n * TYPE_MS);
+      })(c);
+    }
+    later(autoTimers, done, at + text.length * TYPE_MS + TYPE_GAP_MS);
+  }
+
+  function sendDraft() {
+    if (!draft) return;
+    queueNote(draft);
+    draft = '';
+    var el = $('draft');
+    if (el) el.value = '';
+  }
+
+  function stopAutoplay() {
+    if (!autoplay) return;
+    autoplay = false;
+    clearAll(autoTimers);
+    draft = '';
+    var el = $('draft');
+    if (el) el.value = '';
+  }
+
+  function resetAll() {
+    clearAll(stepTimers);
+    clearAll(autoTimers);
+    steps = STEP_DEFS.map(function (s, i) {
+      return i === 0
+        ? { id: s.id, title: s.title, status: 'done', durationMs: STEP_MS[s.id], notes: [] }
+        : { id: s.id, title: s.title, status: 'todo', durationMs: 0, notes: [] };
+    });
+    queue = [];
+    draft = '';
+    status = 'running';
+    bootTime = Date.now() - START_LAG_MS;
+    var d = $('draft');
+    if (d) d.value = '';
+    renderAll();
+    startElapsed();
+    later(stepTimers, function () { advance(1); }, RESUME_MS);
+    if (!autoplay) return;
+    typeNote(NOTE_A, SEND_A_AT, sendDraft);
+    typeNote(NOTE_B, SEND_B_AT, sendDraft);
+    later(autoTimers, function () {
+      /* click the interrupt chip on the last queued note, like the original */
+      if (queue.length) {
+        var last = queue[queue.length - 1];
+        interruptWith(last.text, last.id);
+      }
+    }, CHIP_AT);
+  }
+
+  /* ===== rendering ===== */
+  function renderHeader() {
+    var pill = $('statusPill');
+    var label = status === 'running' ? 'Running' : status === 'paused' ? 'Paused' : 'Done';
+    if (pill) pill.className = 'pill ' + (status === 'paused' ? 'paused' : status === 'done' ? 'done' : 'work');
+    var st = $('statusText');
+    if (st) st.textContent = label;
+    var wc = $('workCount');
+    if (wc) wc.textContent = status === 'running' ? '\u25cf 1 working' : '\u25cb 0 working';
+    var live = status === 'running';
+    var am = $('agentMark');
+    if (am) am.innerHTML = pixelMark(AGENT_ID, live);
+    var doneCount = steps.filter(function (s) { return s.status === 'done'; }).length;
+    var ctxK = 44 + doneCount * 2;
+    var cl = $('ctxLabel');
+    if (cl) cl.textContent = ctxK + 'k / 200k';
+    var cf = $('ctxFill');
+    if (cf) cf.style.width = Math.round((ctxK / 200) * 100) + '%';
+    var pc = $('planCount');
+    if (pc) pc.textContent = '\u00b7 ' + doneCount + ' of ' + steps.length + ' done';
+    var pb = $('pauseBtn');
+    if (pb) pb.textContent = status === 'paused' ? 'Resume' : 'Pause';
+    var db = $('doneBar');
+    if (db) {
+      if (status === 'done') db.removeAttribute('hidden');
+      else db.setAttribute('hidden', '');
+    }
+  }
+
+  function renderSteps() {
+    var host = $('steps');
+    if (!host) return;
+    var html = '';
+    for (var i = 0; i < steps.length; i++) {
+      var s = steps[i];
+      var badge = s.status === 'done' ? '&#10003;'
+        : s.status === 'active' ? '<span class="spin"></span>'
+        : String(i + 1);
+      var meta = s.status === 'done' ? 'done in ' + fmtDur(s.durationMs)
+        : s.status === 'active' ? 'working\u2026' : 'queued';
+      var notes = '';
+      if (s.notes.length) {
+        notes = '<div class="snotes">';
+        for (var k = 0; k < s.notes.length; k++) {
+          var n = s.notes[k];
+          var tag = n.picked === 'now' ? 'now' : 'next';
+          var tagLabel = n.picked === 'now' ? 'now' : 'next';
+          notes += '<div class="snote ' + tag + '"><span class="tag">' + tagLabel + '</span>' + esc(n.text) + '</div>';
+        }
+        notes += '</div>';
+      }
+      html += '<article class="step" data-state="' + s.status + '">' +
+        '<span class="snum">' + badge + '</span>' +
+        '<div class="smain"><div class="stitle">' + esc(s.title) + '</div>' +
+        '<div class="smeta">' + meta + '</div>' + notes + '</div></article>';
+    }
+    host.innerHTML = html;
+  }
+
+  function renderQueue() {
+    var host = $('queueList');
+    if (!host) return;
+    if (!queue.length) {
+      host.innerHTML = '<div class="qempty">Empty — queued notes land on the next step.</div>';
+      return;
+    }
+    var html = '';
+    for (var i = 0; i < queue.length; i++) {
+      var n = queue[i];
+      html += '<div class="chip" data-id="' + esc(n.id) + '">' +
+        '<span class="txt">' + esc(n.text) + '</span>' +
+        '<button type="button" class="ui-st__chip-btn" data-act="promote" data-id="' + esc(n.id) + '" title="Interrupt with this note now">\u26a1 now</button>' +
+        '<button type="button" data-act="drop" data-id="' + esc(n.id) + '" title="Remove note">\u00d7</button></div>';
+    }
+    host.innerHTML = html;
+  }
+
+  function renderElapsed() {
+    var el = $('elapsed');
+    if (el) el.textContent = fmtElapsed(Date.now() - bootTime);
+  }
+
+  function renderAll() {
+    renderHeader();
+    renderSteps();
+    renderQueue();
+    renderElapsed();
+  }
+
+  function startElapsed() {
+    if (elapsedTimer) window.clearTimeout(elapsedTimer);
+    (function tick() {
+      renderElapsed();
+      elapsedTimer = window.setTimeout(tick, 1000);
+    })();
+  }
+
+  /* ===== theme ===== */
+  function setTheme(t) {
+    document.documentElement.setAttribute('data-theme', t);
+    try { window.localStorage.setItem('steer-theme', t); } catch (e) { /* private mode */ }
+    var b = $('themeBtn');
+    if (b) b.textContent = t === 'dark' ? '\u2600' : '\u263e';
+  }
+  function initTheme() {
+    var saved = null;
+    try { saved = window.localStorage.getItem('steer-theme'); } catch (e) { /* ignore */ }
+    var t = saved;
+    if (!t && window.matchMedia) {
+      try { t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'; }
+      catch (e) { t = 'light'; }
+    }
+    setTheme(t || 'light');
+  }
+
+  /* ===== wiring ===== */
+  function init() {
+    initTheme();
+    var tb = $('themeBtn');
+    if (tb) tb.addEventListener('click', function () {
+      var cur = document.documentElement.getAttribute('data-theme');
+      setTheme(cur === 'dark' ? 'light' : 'dark');
+    });
+
+    var input = $('draft');
+    if (input) {
+      input.addEventListener('input', function () { draft = input.value; });
+      input.addEventListener('keydown', function (e) {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+          e.preventDefault();
+          stopAutoplay();
+          interruptWith(input.value, null);
+          draft = '';
+          input.value = '';
+        } else if (e.key === 'Enter') {
+          e.preventDefault();
+          stopAutoplay();
+          sendDraft();
+        }
+      });
+    }
+    var qb = $('queueBtn');
+    if (qb) qb.addEventListener('click', function () { stopAutoplay(); sendDraft(); });
+    var ib = $('interruptBtn');
+    if (ib) ib.addEventListener('click', function () {
+      stopAutoplay();
+      if (draft) {
+        interruptWith(draft, null);
+        draft = '';
+        var el = $('draft');
+        if (el) el.value = '';
+      } else if (queue.length) {
+        var last = queue[queue.length - 1];
+        interruptWith(last.text, last.id);
+      }
+    });
+    var pb = $('pauseBtn');
+    if (pb) pb.addEventListener('click', function () {
+      stopAutoplay();
+      if (status === 'paused') resumeRun(); else pauseRun();
+    });
+    var rb = $('restartBtn');
+    if (rb) rb.addEventListener('click', function () { stopAutoplay(); resetAll(); });
+
+    var ql = $('queueList');
+    if (ql) ql.addEventListener('click', function (e) {
+      var t = e.target && e.target.closest ? e.target.closest('[data-act]') : null;
+      if (!t) return;
+      var id = t.getAttribute('data-id');
+      stopAutoplay();
+      if (t.getAttribute('data-act') === 'promote') {
+        var found = null;
+        for (var i = 0; i < queue.length; i++) if (queue[i].id === id) found = queue[i];
+        if (found) interruptWith(found.text, id);
+      } else {
+        removeQueued(id);
+      }
+    });
+
+    /* any real user input stops the scripted autoplay (as in the original) */
+    function userTookOver(e) {
+      if (e && e.isTrusted === false) return;
+      if (e && e.isTrusted !== undefined && !e.isTrusted) return;
+      stopAutoplay();
+    }
+    if (document.addEventListener) {
+      document.addEventListener('pointerdown', userTookOver, true);
+      document.addEventListener('keydown', userTookOver, true);
+    }
+
+    resetAll();
+  }
+
+  /* test hook for the headless harness (harmless in browsers) */
+  window.__steer = {
+    snap: function () {
+      return {
+        status: status,
+        autoplay: autoplay,
+        draft: draft,
+        steps: steps.map(function (s) {
+          return { id: s.id, title: s.title, status: s.status, notes: s.notes.slice() };
+        }),
+        queue: queue.slice()
+      };
+    },
+    queueNote: queueNote,
+    interruptWith: interruptWith,
+    pause: pauseRun,
+    resume: resumeRun,
+    reset: resetAll,
+    stopAuto: stopAutoplay,
+    setTheme: setTheme
+  };
+
+  init();
+})();
+</script>
+</body>
+</html>

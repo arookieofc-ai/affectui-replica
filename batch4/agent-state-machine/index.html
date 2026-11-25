@@ -1,0 +1,1144 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Atlas &mdash; Agent State Machine</title>
+<script>
+/* Early theme: stored choice wins, otherwise follow the OS. */
+try {
+  var t = null;
+  try { t = localStorage.getItem("asm-theme"); } catch (e) {}
+  if (t !== "light" && t !== "dark") {
+    t = (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) ? "dark" : "light";
+  }
+  document.documentElement.setAttribute("data-theme", t);
+} catch (e) {}
+</script>
+<style>
+/* ---------- Design tokens (every colour flows through these) ---------- */
+html[data-theme="light"] {
+  --page: #fafaf9;
+  --surface: #ffffff;
+  --ink: #171717;
+  --ink-soft: #3f3b37;
+  --muted: #6e6862;
+  --subtle: #f5f5f4;
+  --border: #e7e5e4;
+  --tag: #f3f2f1;
+  --box: #ffffff;
+  --edge: rgba(23, 23, 23, 0.34);
+  --edge-never: rgba(23, 23, 23, 0.18);
+  --edge-strong: rgba(23, 23, 23, 0.58);
+  --agent: #1d5fd1;
+  --run-fg: #006dcb;
+  --run-bg: rgba(0, 109, 203, 0.09);
+  --ok: #1fa855;
+  --ok-fg: #007d2e;
+  --ok-bg: rgba(0, 164, 51, 0.10);
+  --wait: #f59e0b;
+  --wait-fg: #92400e;
+  --wait-bg: #fef3c7;
+  --bad: #e5484d;
+  --bad-fg: #c22701;
+  --bad-bg: rgba(245, 43, 0, 0.09);
+  --focus: rgba(0, 109, 203, 0.7);
+  --shadow: 0 1px 2px rgba(0,0,0,.05), 0 4px 16px rgba(0,0,0,.05);
+  --shadow-on: 0 1px 2px rgba(0,0,0,.08), 0 8px 24px rgba(0,0,0,.10);
+  --pop-shadow: 0 0 0 1px var(--border), 0 16px 32px -12px rgba(0,0,0,.22);
+  --card-border: #e7e5e4;
+}
+html[data-theme="dark"] {
+  --page: #101012;
+  --surface: #1c1c1f;
+  --ink: #ededed;
+  --ink-soft: #d4d4d8;
+  --muted: #a1a1aa;
+  --subtle: #26262a;
+  --border: #2e2e33;
+  --tag: #2b2b30;
+  --box: #26262b;
+  --edge: rgba(255, 255, 255, 0.34);
+  --edge-never: rgba(255, 255, 255, 0.17);
+  --edge-strong: rgba(255, 255, 255, 0.60);
+  --agent: #5b93ff;
+  --run-fg: #7fb0ff;
+  --run-bg: rgba(91, 147, 255, 0.15);
+  --ok: #46c878;
+  --ok-fg: #6fd398;
+  --ok-bg: rgba(70, 200, 120, 0.14);
+  --wait: #fbbf24;
+  --wait-fg: #fde68a;
+  --wait-bg: #451a03;
+  --bad: #ff6369;
+  --bad-fg: #ff9d97;
+  --bad-bg: rgba(255, 90, 80, 0.16);
+  --focus: rgba(91, 147, 255, 0.8);
+  --shadow: 0 1px 2px rgba(0,0,0,.35), 0 6px 20px rgba(0,0,0,.35);
+  --shadow-on: 0 1px 2px rgba(0,0,0,.4), 0 10px 28px rgba(0,0,0,.5);
+  --pop-shadow: 0 0 0 1px var(--border), 0 16px 32px -12px rgba(0,0,0,.65);
+  --card-border: #2e2e33;
+}
+/* ---------- Page frame ---------- */
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--page);
+  color: var(--ink-soft);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  transition: background 200ms ease, color 200ms ease;
+}
+.page { max-width: 980px; margin: 0 auto; padding: 28px 20px 56px; }
+.page-head {
+  display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+  margin: 0 2px 14px;
+}
+.page-head h1 {
+  font-size: 15px; font-weight: 600; color: var(--ink);
+  margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.page-head .run-meta {
+  font-size: 12px; color: var(--muted); white-space: nowrap;
+}
+.theme-btn {
+  margin-left: auto; display: inline-flex; align-items: center; gap: 7px;
+  height: 30px; padding: 0 12px; border-radius: 999px;
+  border: 1px solid var(--border); background: var(--surface); color: var(--ink);
+  font: inherit; font-size: 12.5px; font-weight: 500; cursor: pointer;
+  box-shadow: var(--shadow);
+  transition: box-shadow 160ms ease, transform 160ms ease;
+}
+.theme-btn:hover { box-shadow: var(--shadow-on); transform: translateY(-1px); }
+.theme-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+/* ---------- Component card ---------- */
+.asm {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--card-border);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  padding: 20px 22px 22px;
+  display: grid; gap: 16px;
+  transition: background 200ms ease, border-color 200ms ease;
+}
+.asm-head {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; min-width: 0;
+  min-height: 24px;
+}
+.asm-who {
+  display: flex; flex: 1 1 0; align-items: center; gap: 8px;
+  min-width: min(170px, 100%);
+}
+.asm-who > b {
+  min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  font-size: 15px; font-weight: 600; color: var(--ink);
+}
+.asm-model {
+  display: inline-flex; align-items: center; gap: 5px; flex: 0 1 auto;
+  min-width: 0; max-width: 46%;
+  color: var(--muted); font-size: 12px; white-space: nowrap;
+}
+.asm-model > span:last-child {
+  min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+}
+.asm-sum {
+  display: inline-flex; align-items: center; gap: 10px;
+  margin-left: auto; font-size: 12px; line-height: 16px;
+}
+.asm-moves { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.asm-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  height: 20px; padding: 0 8px; border-radius: 999px;
+  background: var(--tag); color: var(--muted); font-weight: 500; white-space: nowrap;
+  max-width: 220px; overflow: hidden; text-overflow: ellipsis;
+}
+.asm-badge[data-state="active"] { background: var(--run-bg); color: var(--run-fg); }
+.asm-badge[data-state="waiting"] { background: var(--wait-bg); color: var(--wait-fg); }
+.asm-badge[data-state="done"] { background: var(--ok-bg); color: var(--ok-fg); }
+.asm-badge[data-state="failed"] { background: var(--bad-bg); color: var(--bad-fg); }
+.asm-pulse { flex: none; width: 6px; height: 6px; border-radius: 50%; background: currentColor; animation: asm-pulse 1.6s ease-in-out infinite; }
+/* ---------- 3x3 pixel-mark identity (exactly 9 cells) ---------- */
+.mk {
+  display: grid; grid-template-columns: repeat(3, 3px); grid-auto-rows: 3px;
+  gap: 1.5px; place-content: center; width: 16px; height: 16px; flex: none;
+}
+.mk i { border-radius: 0.75px; background: var(--agent); opacity: 0; }
+.mk i[data-on] { opacity: 1; }
+.mk[data-busy] i { animation: asm-pixel 1.2s ease-in-out infinite both; }
+.mk[data-busy] i:not([data-on]) { opacity: 0.16; }
+.node-top > .mk { width: 12px; height: 12px; grid-template-columns: repeat(3, 2.5px); grid-auto-rows: 2.5px; gap: 1px; }
+/* ---------- Canvas ---------- */
+.asm-track { min-width: 0; overflow-x: auto; overflow-y: hidden; border-radius: 10px; }
+.asm-zoom { position: relative; transform-origin: top left; }
+.asm-canvas { position: relative; direction: ltr; transition: opacity 300ms ease; }
+.asm-canvas[data-fading] { opacity: 0.3; }
+.asm-canvas svg.edges { position: absolute; inset: 0; z-index: 1; overflow: visible; pointer-events: none; }
+.edge path.wire { fill: none; stroke: var(--edge); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; transition: stroke 280ms ease, opacity 280ms ease; }
+.edge[data-state="never"] path.wire { stroke: var(--edge-never); stroke-dasharray: 3 4; }
+.edge path.head { fill: var(--edge); stroke: none; transition: fill 280ms ease, opacity 280ms ease; }
+.edge[data-state="never"] path.head { fill: var(--edge-never); }
+.edge[data-now] path.wire { stroke: var(--agent); }
+.edge[data-now] path.head { fill: var(--agent); }
+.beam { fill: none; stroke: var(--agent); stroke-width: 1.5; stroke-linecap: round; opacity: 0.55; stroke-dasharray: 7 105; animation: asm-beam 1.15s linear infinite; filter: drop-shadow(0 0 2px var(--agent)); }
+.dot { fill: var(--box); stroke: var(--edge); stroke-width: 1.5; transition: stroke 280ms ease, opacity 280ms ease; }
+.dot[data-state="never"] { stroke: var(--edge-never); }
+.start-dot { fill: var(--edge-strong); }
+/* focus-chain highlight: connected stays, the rest dim (never below legibility) */
+.asm-canvas[data-focus] .edge:not([data-lit]) path.wire,
+.asm-canvas[data-focus] .edge:not([data-lit]) path.head { opacity: 0.5; }
+.asm-canvas[data-focus] .edge[data-lit] path.wire { stroke: var(--edge-strong); }
+.asm-canvas[data-focus] .edge[data-lit] path.head { fill: var(--edge-strong); }
+.asm-canvas[data-focus] .dot:not([data-lit]) { opacity: 0.5; }
+.asm-canvas[data-focus] .node:not([data-lit]) { opacity: 0.78; }
+.asm-canvas[data-focus] .count:not([data-lit]) { opacity: 0.78; }
+/* ---------- State nodes ---------- */
+.node {
+  position: absolute; z-index: 2;
+  display: grid; align-content: center; gap: 4px;
+  width: 150px; height: 58px; padding: 0 10px 0 11px;
+  border: 1px solid var(--card-border); border-radius: 10px;
+  background: var(--box); color: var(--ink);
+  box-shadow: var(--shadow);
+  font: inherit; text-align: left; cursor: pointer;
+  transition: box-shadow 200ms ease, opacity 280ms ease, background-color 300ms ease, border-color 200ms ease;
+  animation: asm-in 360ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+.node:hover, .node[aria-expanded="true"] { box-shadow: var(--shadow-on); }
+.node:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.node-top { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.node-name {
+  min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  font-size: 13px; font-weight: 600; line-height: 18px; color: var(--ink);
+}
+.node-bot { display: flex; align-items: center; gap: 6px; min-width: 0; height: 18px; padding-left: 18px; }
+.node-meta {
+  flex: 0 0 auto; max-width: 100%; min-width: 0; overflow: hidden;
+  color: var(--muted); font-size: 11px; line-height: 14px;
+  font-variant-numeric: tabular-nums; white-space: nowrap; text-overflow: ellipsis;
+}
+.glyph { flex: none; color: var(--sc, var(--muted)); }
+.node[data-now] {
+  border-color: var(--agent);
+  background:
+    radial-gradient(90% 130% at 0% 0%, color-mix(in srgb, var(--agent) 16%, transparent), transparent 70%),
+    radial-gradient(70% 120% at 100% 100%, color-mix(in srgb, var(--agent) 9%, transparent), transparent 70%),
+    var(--box);
+  box-shadow: 0 0 0 1px var(--agent), 0 4px 14px -4px var(--agent);
+}
+.node[data-now]::after {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background: linear-gradient(100deg, transparent 30%, rgba(128, 128, 128, 0.14) 50%, transparent 70%);
+  background-size: 250% 100%;
+  animation: asm-sheen 1.8s ease-in-out infinite;
+}
+.node[data-now] .node-meta { color: var(--run-fg); }
+.node[data-kind="waiting"][data-now] { border-color: var(--wait); box-shadow: 0 0 0 1px var(--wait); animation: asm-ask 2s ease-in-out infinite; }
+.node[data-kind="waiting"][data-now]::after { display: none; }
+.node[data-kind="waiting"][data-now] :is(.glyph, .node-meta) { color: var(--wait-fg); }
+.node[data-kind="error"][data-now] { background: linear-gradient(var(--bad-bg), var(--bad-bg)), var(--box); border-color: var(--bad); box-shadow: 0 0 0 1px var(--bad); }
+.node[data-kind="error"][data-now]::after { display: none; }
+.node[data-kind="error"][data-now] :is(.glyph, .node-meta) { color: var(--bad-fg); }
+.node[data-kind="final"][data-now] { background: linear-gradient(var(--ok-bg), var(--ok-bg)), var(--box); border-color: var(--ok); box-shadow: 0 0 0 1px var(--ok); }
+.node[data-kind="final"][data-now]::after { display: none; }
+.node[data-kind="final"][data-now] :is(.glyph, .node-meta) { color: var(--ok-fg); }
+/* ---------- Tool tiles: small circular icons ---------- */
+.tiles { display: inline-flex; flex: 0 1 auto; min-width: 0; margin-left: auto; padding: 2px 1px 2px 2px; overflow: hidden; }
+.tile {
+  display: grid; flex: none; place-items: center;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: var(--tc, var(--tag)); color: #fff;
+  font-size: 9px; font-weight: 700; line-height: 1;
+  box-shadow: 0 0 0 1px rgba(128,128,128,.25), 0 1px 2px rgba(0,0,0,.12);
+}
+.tile > b { font-size: 9px; line-height: 1; color: #fff; font-weight: 700; }
+.tiles > .tile + .tile { margin-left: -5px; }
+.tile-more { width: auto; min-width: 18px; padding: 0 4px; background: var(--tag); color: var(--muted); font-size: 9px; }
+/* ---------- Transition count chips ---------- */
+.count {
+  position: absolute; z-index: 3;
+  display: inline-flex; align-items: center; height: 18px; padding: 0 6px;
+  border: 1px solid var(--card-border); border-radius: 999px;
+  background: var(--box); color: var(--ink-soft);
+  box-shadow: var(--shadow);
+  font: inherit; font-size: 11px; font-weight: 500; line-height: 16px;
+  font-variant-numeric: tabular-nums; cursor: pointer;
+  transform: translate(-50%, -50%);
+  transition: box-shadow 200ms ease, opacity 280ms ease, color 200ms ease;
+  animation: asm-chip 300ms cubic-bezier(0.22, 1, 0.36, 1) 700ms backwards;
+  white-space: nowrap;
+}
+.count:hover, .count[aria-expanded="true"] { box-shadow: var(--shadow-on); color: var(--ink); }
+.count:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.count[data-never] { color: var(--muted); border-style: dashed; }
+.count-n { display: inline-block; animation: asm-tick 420ms cubic-bezier(0.22, 1, 0.36, 1); }
+/* ---------- Detail popover ---------- */
+.asm-pop { position: absolute; z-index: 10; width: 256px; max-width: calc(100% - 16px); }
+.pop {
+  display: grid; gap: 8px;
+  background: var(--surface); color: var(--ink-soft);
+  border: 1px solid var(--card-border); border-radius: 10px;
+  box-shadow: var(--pop-shadow);
+  padding: 12px 12px 14px;
+  font-size: 12px; line-height: 16px;
+  animation: asm-pop 180ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.pop p { margin: 0; }
+.pop-top { display: flex; align-items: center; gap: 4px; min-width: 0; min-height: 20px; }
+.pop-close {
+  display: grid; place-items: center; flex: none;
+  width: 22px; height: 22px; margin: -2px -4px -2px auto; padding: 0;
+  border: 0; border-radius: 5px; background: none; color: var(--muted); cursor: pointer;
+}
+.pop-close:hover { background: var(--tag); color: var(--ink); }
+.pop-close:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.pop-title { font-size: 13px; line-height: 18px; font-weight: 600; color: var(--ink); overflow-wrap: anywhere; }
+.pop-text { color: var(--ink-soft); display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+.pop-muted { color: var(--muted); }
+.pop-route { display: flex; align-items: center; gap: 5px; min-width: 0; color: var(--muted); }
+.pop-route > span { min-width: 0; overflow: hidden; color: var(--ink); font-weight: 600; white-space: nowrap; text-overflow: ellipsis; }
+.chip {
+  max-width: 100%; overflow: hidden; padding: 1px 8px; border-radius: 999px;
+  background: var(--tag); color: var(--muted);
+  font-size: 11px; line-height: 16px; white-space: nowrap; text-overflow: ellipsis;
+}
+.chip[data-kind="now"] { background: var(--run-bg); color: var(--run-fg); }
+.chip[data-kind="waiting"] { background: var(--wait-bg); color: var(--wait-fg); }
+.chip[data-kind="error"] { background: var(--bad-bg); color: var(--bad-fg); }
+.chip[data-kind="final"] { background: var(--ok-bg); color: var(--ok-fg); }
+.pop-tools { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.pop-tools > li { display: flex; align-items: center; gap: 6px; min-width: 0; color: var(--ink); }
+.pop-tools > li > span[dir] { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.pop-tools .tile { margin: 0; }
+.pop-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin: 0; padding-top: 8px; border-top: 1px solid var(--border); }
+.pop-stats dt { color: var(--muted); font-size: 11px; line-height: 14px; }
+.pop-stats dd { margin: 0; color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+.pop-list { display: grid; gap: 4px; margin: 0; padding: 8px 0 0; border-top: 1px solid var(--border); list-style: none; }
+.pop-list > li { display: flex; align-items: center; gap: 5px; min-width: 0; color: var(--muted); }
+.pop-trigger { flex: 0 1 auto; min-width: 0; overflow: hidden; color: var(--ink-soft); white-space: nowrap; text-overflow: ellipsis; }
+.pop-to { flex: 0 1 auto; min-width: 0; overflow: hidden; color: var(--ink); font-weight: 600; white-space: nowrap; text-overflow: ellipsis; }
+.pop-n { flex: none; margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; }
+.pop-actions { display: flex; justify-content: flex-end; gap: 6px; padding-top: 8px; border-top: 1px solid var(--border); }
+.btn {
+  display: inline-flex; align-items: center; height: 28px; padding: 0 14px;
+  border: 1px solid var(--card-border); border-radius: 999px;
+  background: var(--box); color: var(--ink);
+  font: inherit; font-size: 13px; font-weight: 500; cursor: pointer;
+  box-shadow: var(--shadow);
+  transition: box-shadow 160ms ease, opacity 160ms ease;
+}
+.btn:hover { box-shadow: var(--shadow-on); }
+.btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.btn-primary { background: var(--ink); border-color: var(--ink); color: var(--surface); font-weight: 600; box-shadow: none; }
+.btn-primary:hover { box-shadow: none; opacity: 0.86; }
+.page-hint { margin: 12px 2px 0; font-size: 12px; color: var(--muted); }
+/* ---------- Motion ---------- */
+@keyframes asm-in { from { opacity: 0; transform: scale(0.96); } }
+@keyframes asm-chip { from { opacity: 0; transform: translate(-50%, -50%) scale(0.85); } }
+@keyframes asm-tick { from { opacity: 0; transform: translateY(5px); } }
+@keyframes asm-sheen { from { background-position: 150% 0; } to { background-position: -50% 0; } }
+@keyframes asm-pixel { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
+@keyframes asm-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+@keyframes asm-ask { 0%, 100% { box-shadow: 0 0 0 1px var(--wait); } 50% { box-shadow: 0 0 0 5px transparent, 0 0 0 1px var(--wait); } }
+@keyframes asm-pop { from { opacity: 0; transform: translateY(-3px) scale(0.98); } }
+@keyframes asm-beam { from { stroke-dashoffset: 112; } to { stroke-dashoffset: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .asm *, .asm *::before, .asm *::after, .pop { animation: none !important; transition: none !important; }
+  .beam { display: none; }
+}
+/* ---------- Narrow: stacked list, no overlap ---------- */
+@media (max-width: 560px) {
+  .asm { padding: 14px 14px 18px; }
+  .asm-model { max-width: 100%; }
+  .asm-sum { margin-left: 0; }
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="page-head">
+    <h1>Billing fix</h1>
+    <span class="run-meta" id="run-meta">1 working &middot; 1 agent</span>
+    <button class="theme-btn" id="theme-btn" type="button" aria-label="Toggle dark mode"></button>
+  </div>
+
+  <section class="asm" id="asm" aria-label="Atlas &ndash; agent state machine">
+    <div class="asm-head" id="asm-head"></div>
+    <div class="asm-track" id="asm-track">
+      <div class="asm-zoom" id="asm-zoom">
+        <div class="asm-canvas" id="asm-canvas"></div>
+        <div class="asm-pop" id="asm-pop" hidden></div>
+      </div>
+    </div>
+  </section>
+  <p class="page-hint">Live run &mdash; states advance on their own. Click a state or a count chip to inspect it; hover or focus a state to trace its chain. Esc closes the card.</p>
+</div>
+
+<script>
+(function () {
+"use strict";
+
+/* ================= Original demo data (values read from demo-original.js) ================= */
+var AGENT = { id: "atlas", name: "Atlas", model: "Claude Opus 5.5" };
+
+var STATES = [
+  { id: "plan", label: "Planning", color: "#8b5cf6", tools: ["Linear", "Notion"],
+    desc: "Works out the next step from the task and what it has found so far." },
+  { id: "mem", label: "Recalling memory", color: "#6366f1", tools: ["Notion"],
+    desc: "Looks up what it learned the last time it touched billing." },
+  { id: "tool", label: "Calling tool", color: "#0ea5e9", tools: ["GitHub", "Linear", "Slack"],
+    desc: "Runs search_code, read_file or the test suite \u2013 retries once on a timeout." },
+  { id: "ask", label: "Waiting for you", kind: "waiting", color: "#e8a200", tools: ["Slack"],
+    desc: "Needs your OK before it changes billing code." },
+  { id: "delegate", label: "Delegating", color: "#f97316", tools: ["Scout", "GitHub"],
+    desc: "Hands the search through old invoices to Scout and waits for its findings." },
+  { id: "read", label: "Reading results", color: "#14b8a6", tools: ["GitHub", "Notion"],
+    desc: "Decides whether what came back is enough to go on." },
+  { id: "tests", label: "Running tests", color: "#84cc16", tools: ["GitHub Actions"],
+    desc: "Runs the billing tests against the change." },
+  { id: "fix", label: "Fixing error", kind: "error", color: "#e5484d", tools: ["GitHub", "Linear"],
+    desc: "A test failed \u2013 reads the error and patches the change." },
+  { id: "write", label: "Writing answer", color: "#ec4899", tools: ["GitHub", "Slack"],
+    desc: "Drafts the fix and the summary for the pull request." },
+  { id: "done", label: "Done", kind: "final", color: "#1fa855", tools: [], desc: "" }
+];
+
+var COL = { plan: 0, mem: 0, tool: 1, ask: 1, delegate: 1, read: 2, tests: 2, fix: 2, write: 3, done: 3 };
+var ROW = { plan: 0, mem: 1, tool: 0, ask: 1, delegate: 2, read: 0, tests: 1, fix: 2, write: 0, done: 1 };
+
+var EDGES = [
+  { from: "plan", to: "mem", label: "recall" },
+  { from: "mem", to: "plan", label: "found notes" },
+  { from: "plan", to: "tool", label: "needs data" },
+  { from: "tool", to: "tool", label: "timeout, retry",
+    detail: "The test runner timed out after 30s \u2013 tried once more." },
+  { from: "tool", to: "read", label: "tool result" },
+  { from: "read", to: "plan", label: "not enough",
+    detail: "The first search found the caller, not the rounding itself." },
+  { from: "plan", to: "ask", label: "needs approval" },
+  { from: "ask", to: "tool", label: "approved" },
+  { from: "plan", to: "delegate", label: "too big alone" },
+  { from: "delegate", to: "read", label: "Scout reported" },
+  { from: "read", to: "tests", label: "code changed" },
+  { from: "tests", to: "fix", label: "failing",
+    detail: "test_invoice_totals: expected 104.99, got 105.00" },
+  { from: "fix", to: "tests", label: "patched" },
+  { from: "tests", to: "write", label: "all green" },
+  { from: "read", to: "write", label: "has the answer" },
+  { from: "write", to: "done", label: "sent" }
+];
+
+/* Visit order with per-step dwell times (ms), then a short fade and loop. */
+var TIMELINE = [
+  ["plan", 2000], ["mem", 1600], ["plan", 1400], ["tool", 1600],
+  ["read", 1600], ["plan", 1400], ["delegate", 2000], ["read", 1600],
+  ["plan", 1400], ["ask", 3400], ["tool", 1400], ["tool", 1600],
+  ["read", 1600], ["tests", 1800], ["fix", 1800], ["tests", 1600],
+  ["write", 2200], ["done", 3800]
+];
+var AVG = { plan: 6000, mem: 3000, tool: 12000, read: 7000, ask: 41000,
+            delegate: 38000, tests: 26000, fix: 9000, write: 12000, done: 0 };
+var OCC = {};
+TIMELINE.forEach(function (s) { OCC[s[0]] = (OCC[s[0]] || 0) + 1; });
+
+var TOOL_COLOR = {
+  "Linear": "#5E6AD2", "Notion": "#8a8a8a", "GitHub": "#44474f",
+  "Slack": "#C2185B", "Scout": "#D97757", "GitHub Actions": "#2088FF"
+};
+
+var KIND_CHIP = { normal: "State", waiting: "Waits for a person", error: "Error", final: "Final state" };
+var MARK_DELAYS = [0, 120, 240, 120, 240, 360, 240, 360, 480];
+
+/* ================= Pure helpers ================= */
+function fmtInt(n) {
+  return new Intl.NumberFormat("en").format(Math.max(0, Math.round(n)));
+}
+function fmtCompact(n) {
+  n = Math.max(0, Math.round(n));
+  if (n < 10000) return fmtInt(n);
+  return new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(n);
+}
+function fmtTime(ms) {
+  var t = Math.max(0, Math.round((Number.isFinite(ms) ? ms : 0) / 1000));
+  if (t < 60) return t + "s";
+  var m = Math.floor(t / 60);
+  if (m < 60) return m + "m " + String(t % 60).padStart(2, "0") + "s";
+  return Math.floor(m / 60) + "h " + String(m % 60).padStart(2, "0") + "m";
+}
+function esc(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+/* Deterministic 3x3 pixel-mark from an id: hash, then stream bits until at
+   least 5 of the 9 cells are on (always returns exactly 9 cells). */
+function pixelPattern(id) {
+  var h = 0, k, x, p, i, on;
+  for (i = 0; i < id.length; i++) h = ((h * 31) + id.charCodeAt(i)) >>> 0;
+  for (k = 0; k < 64; k++) {
+    x = (h ^ ((k * 2654435769) >>> 0)) >>> 0;
+    p = [];
+    on = 0;
+    for (i = 0; i < 9; i++) {
+      x = ((x * 1103515245) + 12345) >>> 0;
+      var bit = (x >>> 16) & 1;
+      p.push(bit);
+      on += bit;
+    }
+    if (on >= 5) return p;
+  }
+  return [1, 0, 1, 0, 1, 0, 1, 0, 1];
+}
+
+function markHTML(id, busy) {
+  var cells = pixelPattern(String(id));
+  var out = '<span class="mk"' + (busy ? ' data-busy=""' : '') + ' aria-hidden="true">';
+  for (var k = 0; k < 9; k++) {
+    out += '<i' + (cells[k] ? ' data-on=""' : '') +
+      ' style="animation-delay:' + MARK_DELAYS[k] + 'ms"></i>';
+  }
+  return out + "</span>";
+}
+
+function glyphHTML(kind, color) {
+  var c = esc(color || "");
+  if (kind === "final") {
+    return '<svg class="glyph" width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true" style="--sc:' + c + '">' +
+      '<circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/>' +
+      '<circle cx="12" cy="12" r="4.5" fill="currentColor"/></svg>';
+  }
+  if (kind === "waiting") {
+    return '<svg class="glyph" width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true" style="--sc:' + c + '">' +
+      '<circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="2"/>' +
+      '<path d="M12 7.5V12l3 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  }
+  if (kind === "error") {
+    return '<svg class="glyph" width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true" style="--sc:' + c + '">' +
+      '<circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="2"/>' +
+      '<path d="M14.5 9.5l-5 5M9.5 9.5l5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+  }
+  return '<svg class="glyph" width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true" style="--sc:' + c + '">' +
+    '<circle cx="12" cy="12" r="6" stroke="currentColor" stroke-width="2.2"/></svg>';
+}
+
+function byId(id) {
+  for (var i = 0; i < STATES.length; i++) if (STATES[i].id === id) return STATES[i];
+  return null;
+}
+function edgeKey(e) { return e.from + "\u2192" + e.to; }
+
+/* ================= Layout (grid + routed edges) ================= */
+var NW = 150, NH = 58, GX = 56, GY = 48, PL = 16, PT = 52, PR = 16, PB = 24;
+var NCOL = 4, NROW = 3;
+var CW = PL + NCOL * NW + (NCOL - 1) * GX + PR;   /* 800 */
+var CH = PT + NROW * NH + (NROW - 1) * GY + PB;   /* 346 */
+
+function nodeXY(id) {
+  return { x: PL + COL[id] * (NW + GX), y: PT + ROW[id] * (NH + GY) };
+}
+
+function layoutEdge(e) {
+  var a = nodeXY(e.from), b = nodeXY(e.to);
+  var ax = a.x, ay = a.y, bx = b.x, by = b.y;
+  var acx = ax + NW / 2, bcx = bx + NW / 2;
+  var amid = ay + NH / 2, bmid = by + NH / 2;
+  var d, hx, chip, kind;
+  if (e.from === e.to) {
+    kind = "self";
+    var x1 = ax + NW - 26, x2 = ax + 48, top = ay - 18;
+    d = "M" + x1 + " " + ay + "V" + (top + 4) + " Q" + x1 + " " + top + " " + (x1 - 4) + " " + top +
+        "H" + (x2 + 4) + " Q" + x2 + " " + top + " " + x2 + " " + (top + 4) + "V" + (ay - 7);
+    hx = "M" + (x2 - 4) + " " + (ay - 14) + "L" + x2 + " " + (ay - 7) + "L" + (x2 + 4) + " " + (ay - 14) + "Z";
+    chip = [(x1 + x2) / 2, top];
+  } else if (COL[e.to] > COL[e.from]) {
+    kind = "forward";
+    var sx = ax + NW, ex = bx - 7;
+    if (Math.abs(amid - bmid) < 1) {
+      d = "M" + sx + " " + amid + "H" + ex;
+      chip = [(sx + bx) / 2, amid];
+    } else {
+      var mx = (sx + bx) / 2, dy = bmid > amid ? 1 : -1;
+      d = "M" + sx + " " + amid + "H" + (mx - 4) + " Q" + mx + " " + amid + " " + mx + " " + (amid + dy * 4) +
+          "V" + (bmid - dy * 4) + " Q" + mx + " " + bmid + " " + (mx + 4) + " " + bmid + "H" + ex;
+      chip = [mx, (amid + bmid) / 2];
+    }
+    hx = "M" + (bx - 8) + " " + (bmid - 4) + "L" + (bx - 1) + " " + bmid + "L" + (bx - 8) + " " + (bmid + 4) + "Z";
+  } else if (COL[e.to] === COL[e.from]) {
+    var down = ROW[e.to] > ROW[e.from];
+    kind = down ? "down" : "up";
+    var vx = acx + (down ? 18 : -18);
+    if (down) {
+      d = "M" + vx + " " + (ay + NH) + "V" + (by - 7);
+      hx = "M" + (vx - 4) + " " + (by - 8) + "L" + vx + " " + (by - 1) + "L" + (vx + 4) + " " + (by - 8) + "Z";
+      chip = [vx, (ay + NH + by) / 2];
+    } else {
+      d = "M" + vx + " " + (by + NH) + "V" + (ay + 58 + 7);
+      hx = "M" + (vx - 4) + " " + (ay + 58 + 7) + "L" + vx + " " + (ay + 58) + "L" + (vx + 4) + " " + (ay + 58 + 7) + "Z";
+      chip = [vx, (by + NH + ay) / 2];
+    }
+  } else {
+    kind = "back";
+    var lane = 16;
+    var fx = ax + 40, tx = bcx;
+    d = "M" + fx + " " + ay + "V" + (lane + 4) + " Q" + fx + " " + lane + " " + (fx - 4) + " " + lane +
+        "H" + (tx + 4) + " Q" + tx + " " + lane + " " + tx + " " + (lane + 4) + "V" + (by - 7);
+    hx = "M" + (tx - 4) + " " + (by - 14) + "L" + tx + " " + (by - 7) + "L" + (tx + 4) + " " + (by - 14) + "Z";
+    chip = [(fx + tx) / 2, lane];
+  }
+  var dot = kind === "self" ? [ax + NW - 26, ay] :
+    kind === "back" ? [fx, ay] :
+    (kind === "up" || kind === "down") ? [vx, kind === "down" ? ay + NH : ay] :
+    [ax + NW, amid];
+  return { kind: kind, d: d, head: hx, chip: chip, dot: dot };
+}
+var LAYOUT = EDGES.map(function (e) { return layoutEdge(e); });
+
+/* ================= Run state ================= */
+var S = {
+  idx: 0,
+  visited: [TIMELINE[0][0]],
+  sel: null,    /* {kind:"state",id} | {kind:"edge",id} */
+  hover: null,  /* state id traced by hover/focus */
+  fading: false,
+  timer: null
+};
+
+function snapshot() {
+  var visits = {}, counts = {}, total = 0, i, e, k;
+  STATES.forEach(function (s) { visits[s.id] = 0; });
+  EDGES.forEach(function (ed) { counts[edgeKey(ed)] = 0; });
+  S.visited.forEach(function (id) { visits[id] = (visits[id] || 0) + 1; });
+  for (i = 1; i < S.visited.length; i++) {
+    k = S.visited[i - 1] + "\u2192" + S.visited[i];
+    if (k in counts) { counts[k]++; total++; }
+  }
+  var times = {};
+  STATES.forEach(function (s) {
+    times[s.id] = visits[s.id] > 0 ? (visits[s.id] * (AVG[s.id] || 0)) / Math.max(1, OCC[s.id] || 1) : undefined;
+  });
+  return { current: S.visited[S.visited.length - 1], visits: visits, counts: counts, total: total, times: times };
+}
+
+function statusOf(current) {
+  if (!current) return "idle";
+  var st = byId(current);
+  if (!st) return "idle";
+  if (st.kind === "final") return "done";
+  if (st.kind === "waiting") return "waiting";
+  if (st.kind === "error") return "failed";
+  return "active";
+}
+var STATUS_LABEL = { idle: "Not started", done: "Done", waiting: "Waiting for you", failed: "Failed", active: "Running" };
+
+function connectedTo(id) {
+  var set = {};
+  EDGES.forEach(function (e) {
+    if (e.from === id || e.to === id) { set[edgeKey(e)] = true; }
+  });
+  return set;
+}
+function touches(edgeKeyStr, id) {
+  var parts = edgeKeyStr.split("\u2192");
+  return parts[0] === id || parts[1] === id;
+}
+
+/* ================= HTML builders (pure string output) ================= */
+function tileHTML(name) {
+  var c = TOOL_COLOR[name] || "#666";
+  var ch = (name || "?").charAt(0).toUpperCase();
+  return '<span class="tile" title="' + esc(name) + '" style="--tc:' + c + '"><b>' + esc(ch) + "</b></span>";
+}
+
+function headHTML(snap) {
+  var st = byId(snap.current);
+  var status = statusOf(snap.current);
+  var label = STATUS_LABEL[status];
+  var badge = label;
+  if (status === "active" && st && st.label !== label) badge = "Running \u00b7 " + st.label;
+  var moves = fmtInt(snap.total) + " " + (snap.total === 1 ? "transition" : "transitions");
+  return '<span class="asm-who">' + markHTML(AGENT.id, status === "active") +
+    "<b>" + esc(AGENT.name) + "</b>" +
+    '<span class="asm-model"><span>' + esc(AGENT.model) + "</span></span></span>" +
+    '<span class="asm-sum"><span class="asm-moves">' + esc(moves) + "</span>" +
+    '<span class="asm-badge" data-state="' + status + '" role="status">' +
+    (status === "active" ? '<span class="asm-pulse" aria-hidden="true"></span>' : "") +
+    esc(badge) + "</span></span>";
+}
+
+function nodeHTML(st, snap, focusId) {
+  var p = nodeXY(st.id);
+  var isNow = snap.current === st.id;
+  var seen = (snap.visits[st.id] || 0) > 0 || isNow;
+  var kind = st.kind || "normal";
+  var bits = [];
+  if (snap.times[st.id] !== undefined && Number.isFinite(snap.times[st.id])) bits.push(fmtTime(snap.times[st.id]));
+  if (snap.visits[st.id]) bits.push(fmtCompact(snap.visits[st.id]) + "\u00d7");
+  var meta = bits.length ? bits.join(" \u00b7 ") : (isNow ? "Now" : "Not reached");
+  var sel = S.sel && S.sel.kind === "state" && S.sel.id === st.id;
+  var dim = focusId && focusId !== st.id && !EDGES.some(function (e) {
+    return (e.from === focusId && e.to === st.id) || (e.to === focusId && e.from === st.id);
+  });
+  var lit = focusId && (focusId === st.id || EDGES.some(function (e) {
+    return (e.from === focusId && e.to === st.id) || (e.to === focusId && e.from === st.id);
+  }));
+  var aria = st.label + (isNow ? " \u2013 current state" : "") +
+    ((snap.visits[st.id] || 0) ? (", entered " + fmtInt(snap.visits[st.id]) + ((snap.visits[st.id] === 1) ? " time" : " times")) : ", not reached yet") +
+    ((snap.times[st.id] !== undefined && Number.isFinite(snap.times[st.id])) ? (", " + fmtTime(snap.times[st.id])) : "");
+  var icon = (isNow && kind === "normal") ? markHTML(AGENT.id, true) : glyphHTML(kind, st.color);
+  var tiles = "";
+  if (st.tools && st.tools.length) {
+    var shown = st.tools.length > 3 ? st.tools.slice(0, 2) : st.tools.slice(0, 3);
+    tiles = '<span class="tiles" aria-hidden="true">' +
+      shown.map(tileHTML).join("") +
+      (st.tools.length > 3 ? '<span class="tile tile-more">+' + (st.tools.length - 2) + "</span>" : "") +
+      "</span>";
+  }
+  return '<button type="button" class="node" data-state="' + esc(st.id) + '" data-kind="' + kind + '"' +
+    (isNow ? ' data-now=""' : "") + (seen ? ' data-seen=""' : "") +
+    (dim ? ' data-dim=""' : "") + (lit ? ' data-lit=""' : "") +
+    ' style="left:' + p.x + "px;top:" + p.y + "px;--sc:" + esc(st.color) + '"' +
+    ' aria-expanded="' + (sel ? "true" : "false") + '" aria-label="' + esc(aria) + '">' +
+    '<span class="node-top">' + icon + '<span class="node-name">' + esc(st.label) + "</span></span>" +
+    '<span class="node-bot"><span class="node-meta">' + esc(meta) + "</span>" + tiles + "</span></button>";
+}
+
+function canvasHTML(snap, focusId, lastEdgeKey, lastN) {
+  var out = '<svg class="edges" width="' + CW + '" height="' + CH + '" viewBox="0 0 ' + CW + " " + CH + '" aria-hidden="true">';
+  var first = nodeXY(STATES[0].id);
+  var fy = first.y + NH / 2;
+  out += '<g class="edge" data-state="done"><circle class="start-dot" cx="8" cy="' + fy + ' r="5"/>' +
+    '<path class="wire" d="M13 ' + fy + "H" + first.x + '"/>' +
+    '<path class="head" d="M' + (first.x - 7) + " " + (fy - 4) + "L" + first.x + " " + fy + "L" + (first.x - 7) + " " + (fy + 4) + 'Z"/></g>';
+  EDGES.forEach(function (e, i) {
+    var L = LAYOUT[i], k = edgeKey(e);
+    var n = Math.max(0, snap.counts[k] || 0);
+    var lit = focusId && touches(k, focusId);
+    var now = lastEdgeKey === k;
+    out += '<g class="edge" data-state="' + (n > 0 ? "done" : "never") + '"' +
+      (lit ? ' data-lit=""' : "") + (now ? ' data-now=""' : "") + ">" +
+      '<path class="wire" d="' + L.d + '"/>' +
+      '<path class="head" d="' + L.head + '"/>';
+    if (now) {
+      for (var b = 0; b < 4; b++) {
+        out += '<path class="beam" d="' + L.d + '" style="animation-delay:' + (b * 140) + 'ms"/>';
+      }
+    }
+    out += "</g>";
+  });
+  out += "</svg>";
+  out += '<svg class="edges" width="' + CW + '" height="' + CH + '" viewBox="0 0 ' + CW + " " + CH + '" aria-hidden="true">';
+  EDGES.forEach(function (e) {
+    var L = LAYOUT[EDGES.indexOf(e)], k = edgeKey(e);
+    var n = Math.max(0, snap.counts[k] || 0);
+    var lit = focusId && touches(k, focusId);
+    out += '<circle class="dot" cx="' + L.dot[0] + '" cy="' + L.dot[1] + '" r="3.25" data-state="' +
+      (n > 0 ? "done" : "never") + '"' + (lit ? ' data-lit=""' : "") + "/>";
+  });
+  out += "</svg>";
+  STATES.forEach(function (st, i) {
+    void i;
+    out += nodeHTML(st, snap, focusId);
+  });
+  EDGES.forEach(function (e) {
+    var L = LAYOUT[EDGES.indexOf(e)], k = edgeKey(e);
+    var n = Math.max(0, snap.counts[k] || 0);
+    var sel = S.sel && S.sel.kind === "edge" && S.sel.id === k;
+    var lit = focusId && touches(k, focusId);
+    var aria = e.label + ": " + byId(e.from).label + " to " + byId(e.to).label + ", " +
+      (n > 0 ? (fmtInt(n) + (n === 1 ? " time" : " times")) : "never");
+    out += '<button type="button" class="count" data-edge="' + esc(k) + '"' +
+      (n === 0 ? ' data-never=""' : "") + (lit ? ' data-lit=""' : "") +
+      ' style="left:' + L.chip[0] + "px;top:" + L.chip[1] + '"' +
+      ' aria-expanded="' + (sel ? "true" : "false") + '" aria-label="' + esc(aria) + '">' +
+      '<span class="count-n">' + esc(fmtCompact(n)) + "\u00d7</span></button>";
+  });
+  return out;
+}
+
+function statePopHTML(st, snap) {
+  var kind = st.kind || "normal";
+  var isNow = snap.current === st.id;
+  var out = '<div class="pop" role="dialog" aria-label="' + esc(st.label) + '">' +
+    '<div class="pop-top"><span class="chip" data-kind="' + kind + '">' + esc(KIND_CHIP[kind]) + "</span>" +
+    (isNow ? '<span class="chip" data-kind="now">Now</span>' : "") +
+    '<button type="button" class="pop-close" data-close="" aria-label="Close">' +
+    '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
+    '<path d="M18 6 6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>' +
+    "</button></div>" +
+    '<p class="pop-title">' + esc(st.label) + "</p>";
+  if (st.desc) out += '<p class="pop-text">' + esc(st.desc) + "</p>";
+  if (st.tools && st.tools.length) {
+    out += '<ul class="pop-tools" aria-label="Tools">' + st.tools.map(function (t) {
+      return "<li>" + tileHTML(t) + "<span dir=\"auto\">" + esc(t) + "</span></li>";
+    }).join("") + "</ul>";
+  }
+  var entered = (snap.visits[st.id] || 0);
+  out += '<dl class="pop-stats"><div><dt>Time here</dt><dd>' +
+    ((snap.times[st.id] !== undefined && Number.isFinite(snap.times[st.id])) ? esc(fmtTime(snap.times[st.id])) : "\u2013") +
+    "</dd></div><div><dt>Entered</dt><dd>" + (entered ? esc(fmtInt(entered)) + "\u00d7" : "Not yet") + "</dd></div></dl>";
+  var outs = EDGES.filter(function (e) { return e.from === st.id; });
+  if (outs.length) {
+    out += '<ul class="pop-list" aria-label="Leaves to">' + outs.map(function (e) {
+      var k = edgeKey(e);
+      return "<li>" + '<span class="pop-trigger" dir="auto">' + esc(e.label) + "</span>" +
+        '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
+        '<path d="M5 12h14m-5-5 5 5-5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+        '<span class="pop-to" dir="auto">' + esc(byId(e.to).label) + "</span>" +
+        '<span class="pop-n">' + esc(fmtInt(snap.counts[k] || 0)) + "\u00d7</span></li>";
+    }).join("") + "</ul>";
+  } else if (kind === "final") {
+    out += '<p class="pop-muted">The run ends here</p>';
+  }
+  if (kind === "waiting" && isNow) {
+    out += '<div class="pop-actions"><button type="button" class="btn" data-reject="">Reject</button>' +
+      '<button type="button" class="btn btn-primary" data-approve="">Approve</button></div>';
+  }
+  return out + "</div>";
+}
+
+function edgePopHTML(e, snap) {
+  var k = edgeKey(e);
+  var L = LAYOUT[EDGES.indexOf(e)];
+  var chip = L.kind === "self" ? "Retry" : (L.kind === "back" ? "Back" : "Transition");
+  var n = Math.max(0, snap.counts[k] || 0);
+  var fromTotal = EDGES.filter(function (x) { return x.from === e.from; })
+    .reduce(function (a, x) { return a + Math.max(0, snap.counts[edgeKey(x)] || 0); }, 0);
+  var out = '<div class="pop" role="dialog" aria-label="' + esc(e.label) + '">' +
+    '<div class="pop-top"><span class="chip">' + esc(chip) + "</span>" +
+    '<button type="button" class="pop-close" data-close="" aria-label="Close">' +
+    '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
+    '<path d="M18 6 6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>' +
+    "</button></div>" +
+    '<p class="pop-title">' + esc(e.label) + "</p>" +
+    '<p class="pop-route"><span dir="auto">' + esc(byId(e.from).label) + "</span>" +
+    '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
+    '<path d="M5 12h14m-5-5 5 5-5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+    '<span dir="auto">' + esc(byId(e.to).label) + "</span></p>";
+  if (e.detail) out += '<p class="pop-text">' + esc(e.detail) + "</p>";
+  out += '<dl class="pop-stats"><div><dt>Taken</dt><dd>' + (n > 0 ? esc(fmtInt(n)) + "\u00d7" : "Never") +
+    "</dd></div><div><dt>Share of exits</dt><dd>" +
+    (fromTotal ? Math.round(n / fromTotal * 100) + "%" : "\u2013") + "</dd></div></dl>";
+  return out + "</div>";
+}
+
+/* ================= DOM wiring ================= */
+var headEl, canvasEl, popEl, trackEl, zoomEl;
+var lastEdge = null; /* {key, n} for the beam */
+
+function currentFocusId() {
+  if (S.hover) return S.hover;
+  if (S.sel && S.sel.kind === "state") return S.sel.id;
+  if (S.sel && S.sel.kind === "edge") {
+    var p = S.sel.id.split("\u2192");
+    return p[1] || null;
+  }
+  return null;
+}
+
+function render() {
+  if (!headEl) return;
+  var snap = snapshot();
+  headEl.innerHTML = headHTML(snap);
+  var focusId = currentFocusId();
+  if (focusId) canvasEl.setAttribute("data-focus", "");
+  else canvasEl.removeAttribute("data-focus");
+  if (S.fading) canvasEl.setAttribute("data-fading", "");
+  else canvasEl.removeAttribute("data-fading");
+  canvasEl.innerHTML = canvasHTML(snap, focusId, lastEdge && lastEdge.key, lastEdge && lastEdge.n);
+  renderPop(snap);
+  fit();
+}
+
+function renderPop(snap) {
+  if (!popEl) return;
+  snap = snap || snapshot();
+  if (!S.sel) { popEl.hidden = true; popEl.innerHTML = ""; return; }
+  var html = "", left = 8, top = 8;
+  if (S.sel.kind === "state") {
+    var st = byId(S.sel.id);
+    if (!st) { popEl.hidden = true; popEl.innerHTML = ""; return; }
+    var p = nodeXY(st.id);
+    html = statePopHTML(st, snap);
+    left = Math.min(Math.max(p.x + NW / 2 - 128, 8), Math.max(8, CW - 264));
+    top = (ROW[st.id] >= NROW - 1) ? (p.y - 10) : (p.y + NH + 10);
+    popEl.dataset.side = (ROW[st.id] >= NROW - 1) ? "above" : "below";
+  } else {
+    var e = null;
+    EDGES.forEach(function (x) { if (edgeKey(x) === S.sel.id) e = x; });
+    if (!e) { popEl.hidden = true; popEl.innerHTML = ""; return; }
+    var L = LAYOUT[EDGES.indexOf(e)];
+    html = edgePopHTML(e, snap);
+    left = Math.min(Math.max(L.chip[0] - 128, 8), Math.max(8, CW - 264));
+    top = L.chip[1] + 14;
+    if (top > CH - 190) top = L.chip[1] - 14;
+    popEl.dataset.side = "below";
+  }
+  popEl.hidden = false;
+  popEl.innerHTML = html;
+  popEl.style.left = Math.round(left) + "px";
+  if (popEl.dataset.side === "above") {
+    popEl.style.top = Math.round(top) + "px";
+    popEl.style.transform = "translateY(-100%)";
+  } else {
+    popEl.style.top = Math.round(top) + "px";
+    popEl.style.transform = "";
+  }
+}
+
+function fit() {
+  try {
+    if (!trackEl || !zoomEl) return;
+    var w = trackEl.clientWidth || 0;
+    if (!w) return;
+    var s = Math.min(1, w / CW);
+    zoomEl.style.width = (CW * s) + "px";
+    zoomEl.style.height = (CH * s) + "px";
+    canvasEl.style.width = CW + "px";
+    canvasEl.style.height = CH + "px";
+    canvasEl.style.transform = s < 1 ? ("scale(" + s + ")") : "";
+    canvasEl.style.transformOrigin = "top left";
+    popEl.style.transform = "";
+    if (popEl.dataset.side === "above") popEl.style.transform = "translateY(-100%) scale(" + (1 / s) + ")";
+    else if (s < 1) popEl.style.transform = "scale(" + (1 / s) + ")";
+    popEl.style.transformOrigin = "top left";
+  } catch (e) {}
+}
+
+/* Hover / focus chain highlight without full re-render (keeps focus stable). */
+function paintHover(id) {
+  S.hover = id || null;
+  try {
+    var focusId = currentFocusId();
+    if (focusId) canvasEl.setAttribute("data-focus", "");
+    else canvasEl.removeAttribute("data-focus");
+    var nodes = canvasEl.querySelectorAll(".node");
+    var i, el, sid;
+    for (i = 0; i < nodes.length; i++) {
+      el = nodes[i];
+      sid = el.getAttribute("data-state");
+      var linked = focusId && (focusId === sid || EDGES.some(function (e) {
+        return (e.from === focusId && e.to === sid) || (e.to === focusId && e.from === sid);
+      }));
+      if (!focusId || linked) el.removeAttribute("data-dim");
+      else el.setAttribute("data-dim", "");
+      if (linked) el.setAttribute("data-lit", "");
+      else el.removeAttribute("data-lit");
+    }
+    var edges = canvasEl.querySelectorAll("svg.edges .edge, .count, svg.edges .dot");
+    for (i = 0; i < edges.length; i++) {
+      el = edges[i];
+      var on = false;
+      if (focusId) {
+        if (el.classList && el.classList.contains("count")) {
+          on = touches(el.getAttribute("data-edge") || "", focusId);
+        } else {
+          var w = el.querySelector ? el.querySelector(".wire") : null;
+          var dd = w ? w.getAttribute("d") : "";
+          on = EDGES.some(function (e, j) { return LAYOUT[j].d === dd && touches(edgeKey(e), focusId); });
+        }
+      }
+      if (!focusId || on) { el.removeAttribute("data-dim"); }
+      if (on) el.setAttribute("data-lit", "");
+      else el.removeAttribute("data-lit");
+    }
+  } catch (e) {}
+}
+
+/* ================= Timeline engine ================= */
+function clearTimer() {
+  try { if (S.timer) clearTimeout(S.timer); } catch (e) {}
+  S.timer = null;
+}
+function schedule(ms) {
+  clearTimer();
+  try {
+    S.timer = setTimeout(advance, ms);
+    if (S.timer && typeof S.timer.unref === "function") { try { S.timer.unref(); } catch (e) {} }
+  } catch (e) {}
+}
+function advance() {
+  if (S.idx < TIMELINE.length - 1) {
+    S.idx++;
+    var id = TIMELINE[S.idx][0];
+    S.visited.push(id);
+    var prev = S.visited[S.visited.length - 2];
+    var k = prev + "\u2192" + id;
+    var n = 0, i;
+    for (i = 1; i < S.visited.length; i++) {
+      if (S.visited[i - 1] + "\u2192" + S.visited[i] === k) n++;
+    }
+    lastEdge = { key: k, n: n };
+    render();
+    schedule(TIMELINE[S.idx][1]);
+  } else {
+    S.fading = true;
+    render();
+    try {
+      S.timer = setTimeout(function () {
+        S.idx = 0;
+        S.visited = [TIMELINE[0][0]];
+        lastEdge = null;
+        S.fading = false;
+        render();
+        schedule(TIMELINE[0][1]);
+      }, 420);
+      if (S.timer && typeof S.timer.unref === "function") { try { S.timer.unref(); } catch (e) {} }
+    } catch (e) {}
+  }
+}
+function reset() {
+  S.idx = 0;
+  S.visited = [TIMELINE[0][0]];
+  lastEdge = null;
+  S.fading = false;
+  render();
+  schedule(TIMELINE[0][1]);
+}
+function approve() {
+  /* Waiting node approved: jump forward one step immediately. */
+  if (snapshot().current === "ask" && S.idx < TIMELINE.length - 1) {
+    clearTimer();
+    advance();
+  }
+}
+
+/* ================= Events ================= */
+function onRootClick(ev) {
+  var t = ev.target;
+  function closest(sel) {
+    while (t && t !== canvasEl && t !== popEl) {
+      if (t.getAttribute && t.getAttribute(sel) !== null && t.getAttribute(sel) !== undefined) return t;
+      if (t.matches && t.matches("[" + sel + "]")) return t;
+      t = t.parentNode;
+    }
+    return null;
+  }
+  var el = ev.target;
+  function up(sel) {
+    var n = el;
+    while (n && n !== document) {
+      if (n.getAttribute && n.hasAttribute && n.hasAttribute(sel)) return n;
+      n = n.parentNode;
+    }
+    return null;
+  }
+  var c;
+  if ((c = up("data-close"))) { S.sel = null; render(); return; }
+  if ((c = up("data-approve"))) { S.sel = null; approve(); render(); return; }
+  if ((c = up("data-reject"))) { S.sel = null; reset(); return; }
+  var st = up("data-state");
+  if (st) {
+    var id = st.getAttribute("data-state");
+    S.sel = (S.sel && S.sel.kind === "state" && S.sel.id === id) ? null : { kind: "state", id: id };
+    render();
+    return;
+  }
+  var ch = up("data-edge");
+  if (ch) {
+    var k = ch.getAttribute("data-edge");
+    S.sel = (S.sel && S.sel.kind === "edge" && S.sel.id === k) ? null : { kind: "edge", id: k };
+    render();
+  }
+}
+function onRootOver(ev) {
+  var n = ev.target;
+  while (n && n !== document) {
+    if (n.getAttribute && n.hasAttribute && n.hasAttribute("data-state")) {
+      if (S.hover !== n.getAttribute("data-state")) paintHover(n.getAttribute("data-state"));
+      return;
+    }
+    n = n.parentNode;
+  }
+  if (S.hover) paintHover(null);
+}
+function onRootOut(ev) {
+  var to = ev.relatedTarget;
+  var inside = false;
+  var n = to;
+  while (n && n !== document) {
+    if (n.getAttribute && n.hasAttribute && (n.hasAttribute("data-state") || (n.classList && n.classList.contains && n.classList.contains("node")))) { inside = true; break; }
+    n = n.parentNode;
+  }
+  if (!inside && S.hover) paintHover(null);
+}
+function onKey(ev) {
+  if (ev.key === "Escape" && S.sel) { S.sel = null; render(); }
+}
+
+/* ================= Theme ================= */
+function themeIcon() {
+  var dark = document.documentElement.getAttribute("data-theme") === "dark";
+  var sun = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
+    '<circle cx="12" cy="12" r="4.5" stroke="currentColor" stroke-width="2"/>' +
+    '<path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M19.1 4.9l-1.8 1.8M6.7 17.3l-1.8 1.8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+  var moon = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
+    '<path d="M20 14.5A8.5 8.5 0 0 1 9.5 4 8.5 8.5 0 1 0 20 14.5Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>';
+  return (dark ? sun : moon) + "<span>" + (dark ? "Light" : "Dark") + "</span>";
+}
+function paintThemeBtn() {
+  var b = document.getElementById("theme-btn");
+  if (b) b.innerHTML = themeIcon();
+}
+function toggleTheme() {
+  var cur = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
+  document.documentElement.setAttribute("data-theme", cur);
+  try { localStorage.setItem("asm-theme", cur); } catch (e) {}
+  paintThemeBtn();
+}
+
+/* ================= Init ================= */
+function init() {
+  headEl = document.getElementById("asm-head");
+  canvasEl = document.getElementById("asm-canvas");
+  popEl = document.getElementById("asm-pop");
+  trackEl = document.getElementById("asm-track");
+  zoomEl = document.getElementById("asm-zoom");
+  var root = document.getElementById("asm");
+  paintThemeBtn();
+  var tb = document.getElementById("theme-btn");
+  if (tb && tb.addEventListener) tb.addEventListener("click", toggleTheme);
+  if (root) {
+    if (root.addEventListener) {
+      root.addEventListener("click", onRootClick);
+      root.addEventListener("mouseover", onRootOver);
+      root.addEventListener("mouseout", onRootOut);
+      root.addEventListener("focusin", onRootOver);
+      root.addEventListener("focusout", onRootOut);
+    }
+  }
+  if (document.addEventListener) document.addEventListener("keydown", onKey);
+  try { if (window.addEventListener) window.addEventListener("resize", fit); } catch (e) {}
+  render();
+  schedule(TIMELINE[0][1]);
+}
+
+if (typeof document !== "undefined") {
+  if (document.readyState === "loading" && document.addEventListener) {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
+}
+
+/* Test hooks (used by the headless harness; harmless in the browser). */
+try {
+  if (typeof window !== "undefined") {
+    window.__asm = {
+      state: S, snapshot: snapshot, pixelPattern: pixelPattern,
+      fmtTime: fmtTime, fmtCompact: fmtCompact, fmtInt: fmtInt,
+      advance: advance, reset: reset, approve: approve, render: render,
+      layout: LAYOUT, size: { w: CW, h: CH },
+      html: function () {
+        var snap = snapshot();
+        return headHTML(snap) + canvasHTML(snap, currentFocusId(), lastEdge && lastEdge.key, lastEdge && lastEdge.n);
+      }
+    };
+  }
+} catch (e) {}
+
+})();
+</script>
+</body>
+</html>
