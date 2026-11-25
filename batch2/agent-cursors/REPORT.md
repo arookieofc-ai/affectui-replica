@@ -77,6 +77,36 @@ this environment); cursor x/y are computed live from the replica's own text
 layout, so exact pixel positions may differ slightly from the original's
 measured rects. Cost ticker rates reuse the original per-agent rates.
 
+## Visual QA fix (2026-11-25) — Table tab first-letter truncation
+- **Defect (browser QA, dark theme, after full playback and after `Accept all`):**
+  in the Table tab, the 4 original task rows showed only the first letter per
+  cell (`W / R / E / L` in Task, `W / D / O` in Owner, `N` in Due); only the
+  two scripted added rows (`Press kit / Designer / Nov 8`,
+  `Partner email / Ops / Nov 11`) were complete. Doc view was unaffected.
+- **Root cause:** `renderTable()` in `index.html` distinguished
+  `[text, tone]` status pills from plain-text cells with `(c && c[1]) ? …`.
+  Strings are indexable, so for e.g. `'Write the launch post'` the test saw
+  `c[1] === 'r'` (truthy) and stored `text: c[0]` (`'W'`) plus a bogus
+  `tone: c[1]` (which also wrapped the single letter in a `.pill`). Only the
+  array-form Status column and the separately-built extra rows survived.
+  The suggestion-typing (`p1`/`a1`/`o1`) and accept paths never mutate
+  `cell.text` except for the targeted accept splice, so the truncation was
+  present before, during, and after typing — not caused by typing.
+- **Fix (one line, same file):** test with `Array.isArray(c)` instead:
+  `var isArr=Array.isArray(c); var tone=isArr?c[1]:null; var txt=isArr?c[0]:c;`
+  Text columns now keep full text with `tone:null` (no pill wrap); Status
+  keeps `blue/gray/amber` pills; added rows and Doc view untouched.
+- **Verification:** node harness replicated the file's cell-creation logic —
+  old expression reproduces `W/R/E/L…`, fixed expression yields all four
+  original rows verbatim before typing, base text stays full at every
+  partial-typing step (`N→Nov 10`, `M→Maya`, `D→Doing`), post-accept cells
+  read `Nov 10 / Maya / Doing` with untouched originals intact, and added
+  rows intact; `renderCellRich` confirmed not to assign `cell.text`.
+  Re-ran: `node --check` passes on the extracted script, token audit `0`
+  hex after `/* base */` (57 in token block), contrast re-checked
+  (light 17.93/4.80/6.37/4.97/6.37, dark 14.52/6.63/12.03 — all AA),
+  54,189 bytes (<200KB), light+dark tokens unchanged.
+
 ## How to test
 1. `open index.html` in a browser (or serve this directory).
 2. Watch the autoplay: cursors glide, suggestions type in, `r1` auto-accepts,
