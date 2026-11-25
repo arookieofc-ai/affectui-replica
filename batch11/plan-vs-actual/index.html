@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plan vs actual — Ship the pricing page</title>
+<style>
+/* ---- design tokens ---- */
+:root, :root[data-theme="light"] {
+  --surface: #ffffff;
+  --page: #fafaf9;
+  --ink: #1c1917;
+  --ink-strong: #171717;
+  --muted: #78716c;
+  --subtle: #f5f5f4;
+  --border: #e7e5e4;
+  --radius-lg: 16px;
+  --radius: 10px;
+  --radius-sm: 6px;
+  --shadow: 0 1px 2px rgba(0,0,0,.05), 0 4px 16px rgba(0,0,0,.05);
+  --accent: #0060e2;
+  --accent-soft: rgba(0,96,226,.4);
+  --actual-bg: rgba(166,81,240,.10);
+  --actual-edge: rgba(166,81,240,.30);
+  --actual-mark: rgba(166,81,240,.72);
+  --over-bg: rgba(242,138,46,.15);
+  --over-edge: rgba(242,138,46,.42);
+  --over-ink: #b25e00;
+  --early-ink: rgba(0,125,46,.88);
+  --early-fill: rgba(95,200,138,.14);
+  --wait-bg: #fef3c7;
+  --wait-ink: #92400e;
+  --wait-dot: #f59e0b;
+  --ghost: rgba(0,0,0,.26);
+  --grid: rgba(0,0,0,.045);
+  --link: rgba(0,0,0,.5);
+  --faint: rgba(0,0,0,.30);
+  --forecast-bg: rgba(0,0,0,.035);
+  --forecast-edge: rgba(0,0,0,.07);
+  --focus-ring: rgba(0,96,226,.7);
+  --shine: rgba(0,0,0,.10);
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  --surface: #1c1c1f;
+  --page: #101012;
+  --ink: #ededed;
+  --ink-strong: #ffffff;
+  --muted: #a1a1aa;
+  --subtle: #26262a;
+  --border: #2e2e33;
+  --shadow: 0 0 0 .5px rgba(255,255,255,.10), 0 4px 18px rgba(0,0,0,.45);
+  --accent: #4fb0fe;
+  --accent-soft: rgba(79,176,254,.55);
+  --actual-bg: rgba(185,138,240,.16);
+  --actual-edge: rgba(185,138,240,.38);
+  --actual-mark: rgba(185,138,240,.80);
+  --over-bg: rgba(242,161,92,.18);
+  --over-edge: rgba(242,161,92,.45);
+  --over-ink: #ffb35c;
+  --early-ink: #5fc88a;
+  --early-fill: rgba(125,207,159,.14);
+  --wait-bg: #451a03;
+  --wait-ink: #fde68a;
+  --wait-dot: #fbbf24;
+  --ghost: rgba(255,255,255,.30);
+  --grid: rgba(255,255,255,.055);
+  --link: rgba(255,255,255,.55);
+  --faint: rgba(255,255,255,.30);
+  --forecast-bg: rgba(255,255,255,.05);
+  --forecast-edge: rgba(255,255,255,.09);
+  --focus-ring: rgba(77,141,255,.8);
+  --shine: rgba(255,255,255,.40);
+  color-scheme: dark;
+}
+/* hard rule: hidden must always win over author display */
+[hidden] { display: none !important; }
+
+/* ---- page shell ---- */
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px; line-height: 20px;
+  background: var(--page); color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; margin: -1px;
+  clip-path: inset(50%); overflow: hidden; white-space: nowrap;
+}
+.page { max-width: 920px; margin: 0 auto; padding: 20px 16px 40px; }
+.topbar { display: flex; justify-content: flex-end; margin-bottom: 12px; }
+.theme-toggle {
+  display: inline-flex; align-items: center; gap: 8px;
+  border: 1px solid var(--border); background: var(--surface); color: var(--ink);
+  border-radius: 999px; padding: 6px 12px; font: inherit; font-size: 13px;
+  cursor: pointer; box-shadow: var(--shadow);
+  transition: transform 150ms ease, background-color 150ms ease, border-color 150ms ease;
+}
+.theme-toggle:hover { transform: translateY(-1px); border-color: var(--muted); background: var(--subtle); }
+.theme-toggle:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.theme-toggle svg { display: block; }
+
+/* ---- component card ---- */
+.pvac {
+  background: var(--surface); color: var(--muted);
+  border: 1px solid var(--border); border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  font-size: 13px; line-height: 20px; text-align: left;
+  container-type: inline-size;
+}
+.pvac__head {
+  display: flex; align-items: center; gap: 8px; min-width: 0;
+  padding: 12px 14px 12px 16px; border-bottom: 1px solid var(--border);
+}
+.pvac__mark { display: grid; place-items: center; width: 16px; flex: none; color: var(--accent); }
+.pvac__mark svg { display: block; }
+.pvac__title {
+  flex: 0 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  font-weight: 600; font-size: 15px; color: var(--ink-strong);
+}
+.pvac__task {
+  flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  color: var(--muted); font-size: 13px;
+}
+.pvac__stats { display: flex; align-items: center; gap: 14px; margin: 0 4px 0 0; flex: none; font-size: 12px; line-height: 16px; white-space: nowrap; }
+.pvac__stat { display: flex; align-items: baseline; gap: 6px; margin: 0; }
+.pvac__stat dt { color: var(--muted); font-weight: 400; }
+.pvac__stat dd { margin: 0; font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; transition: color 200ms ease; }
+.pvac__stat dd > span { font-weight: 400; color: var(--muted); }
+.pvac__stat[data-over] dd { color: var(--over-ink); }
+.pvac__live { font-weight: inherit; }
+.pvac__live[data-live] {
+  background: linear-gradient(90deg, currentColor 0%, currentColor 38%, var(--shine) 50%, currentColor 62%, currentColor 100%) 0 0 / 300% 100%;
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+  animation: pvac-shine 900ms linear infinite;
+}
+.pvac__verdict {
+  flex: none; min-width: 92px; height: 22px; padding: 0 10px; border: 0;
+  border-radius: 999px; background: var(--subtle); color: var(--muted);
+  font-size: 12px; font-weight: 600; line-height: 22px; text-align: center; white-space: nowrap;
+  font-variant-numeric: tabular-nums; transition: background-color 200ms ease, color 200ms ease;
+}
+.pvac__verdict[data-state="late"] { background: var(--over-bg); color: var(--over-ink); }
+.pvac__verdict[data-state="early"] { background: var(--early-fill); color: var(--early-ink); }
+
+/* ---- body / timeline ---- */
+.pvac__body { position: relative; }
+.pvac__axis {
+  display: flex; align-items: center; height: 30px; padding-left: 16px;
+  border-bottom: 1px solid var(--border);
+  font-size: 10px; font-weight: 600; letter-spacing: .5px; text-transform: uppercase; color: var(--muted);
+}
+.pvac__layer, .pvac__links {
+  position: absolute; top: 0; bottom: 0;
+  left: calc(16px + 188px + 14px); right: 16px;
+  pointer-events: none;
+}
+.pvac__tick { position: absolute; top: 0; bottom: 40px; left: calc(var(--v) * 100% / var(--range)); width: 1px; background: var(--grid); }
+.pvac__tick > span { position: absolute; top: 7px; left: 6px; font-size: 12px; line-height: 16px; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.pvac__tick[data-flip] > span { left: auto; right: 6px; }
+.pvac__now { position: absolute; top: 30px; bottom: 40px; left: calc(var(--v) * 100% / var(--range)); width: 1px; background: var(--accent-soft); }
+.pvac__now::before { content: ""; position: absolute; top: -2.5px; left: -2px; width: 5px; height: 5px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 3px var(--surface); }
+.pvac__gap { position: absolute; top: 30px; bottom: 39px; left: calc(var(--s) * 100% / var(--range)); width: max(0px, calc(var(--d) * 100% / var(--range))); }
+.pvac__gap[data-state="late"] { background: var(--over-bg); opacity: .55; }
+.pvac__gap[data-state="early"] { background: var(--early-fill); opacity: .8; }
+.pvac__finish { position: absolute; top: 30px; bottom: 34px; left: calc(var(--v) * 100% / var(--range)); width: 0; border-left: 1px dashed var(--ghost); }
+.pvac__finish[data-kind="eta"] { border-left-style: solid; border-left-color: var(--over-edge); }
+.pvac__finish[data-kind="eta"][data-state="early"] { border-left-color: var(--early-ink); }
+.pvac__finish > span { position: absolute; top: calc(100% + 2px); height: 20px; padding: 0 6px; border-radius: var(--radius-sm); font-size: 12px; font-weight: 600; line-height: 20px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.pvac__finish[data-side="left"] > span { right: -1px; }
+.pvac__finish[data-side="right"] > span { left: -1px; }
+.pvac__finish[data-kind="plan"] > span { background: var(--subtle); color: var(--muted); }
+.pvac__finish[data-kind="eta"] > span { background: var(--over-bg); color: var(--over-ink); }
+.pvac__finish[data-kind="eta"][data-state="early"] > span { background: var(--early-fill); color: var(--early-ink); }
+
+.pvac__row {
+  position: relative; display: grid; grid-template-columns: 188px minmax(0,1fr); column-gap: 14px;
+  min-height: 32px; padding: 0 16px 0 16px; outline: none;
+  transition: background-color 140ms ease, opacity 200ms ease;
+  cursor: pointer; border-radius: 2px;
+}
+.pvac__row:hover, .pvac__row[data-focus] { background: var(--subtle); }
+.pvac__row:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+.pvac__body[data-focus] .pvac__row:not([data-lit]) { opacity: .75; }
+.pvac__name { display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 32px; }
+.pvac__state { display: grid; place-items: center; width: 16px; flex: none; color: var(--faint); }
+.pvac__state svg { display: block; }
+.pvac__state[data-status="running"] { color: var(--accent); }
+.pvac__state[data-status="done"] { color: var(--muted); }
+.pvac__spin { animation: pvac-spin 900ms linear infinite; }
+.pvac__label { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--ink); font-size: 13px; }
+.pvac__row[data-status="waiting"] .pvac__label { color: var(--muted); }
+.pvac__track { position: relative; min-width: 0; min-height: 32px; }
+.pvac__bar, .pvac__ghost {
+  position: absolute; top: calc(50% - 7px);
+  left: calc(var(--s) * 100% / var(--range));
+  width: max(2px, calc(var(--d) * 100% / var(--range)));
+  height: 14px; border-radius: 4px;
+}
+.pvac__bar { overflow: hidden; background: var(--k-bg); box-shadow: inset 0 0 0 .5px var(--k-edge); }
+.pvac__bar[data-kind="actual"] { --k-bg: var(--actual-bg); --k-edge: var(--actual-edge); }
+.pvac__row:hover .pvac__bar[data-kind="actual"],
+.pvac__row[data-focus] .pvac__bar[data-kind="actual"] { box-shadow: inset 0 0 0 1px var(--actual-mark); }
+.pvac__bar[data-kind="over"] { --k-bg: var(--over-bg); --k-edge: var(--over-edge); border-top-left-radius: 0; border-bottom-left-radius: 0; }
+.pvac__bar[data-kind="forecast"] { --k-bg: var(--forecast-bg); --k-edge: var(--forecast-edge); }
+.pvac__bar[data-rest] { border-top-left-radius: 0; border-bottom-left-radius: 0; }
+.pvac__bar[data-status="running"]:not([data-over])::before,
+.pvac__bar[data-kind="over"][data-status="running"]::before {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent, var(--surface), transparent) -60px 0 / 60px 100% no-repeat;
+  opacity: .7; animation: pvac-sweep 1500ms linear infinite;
+}
+.pvac__bar[data-status="running"]:not([data-over])::after,
+.pvac__bar[data-kind="over"][data-status="running"]::after {
+  content: ""; position: absolute; top: 0; right: 0; bottom: 0; width: min(28px,100%);
+  background: linear-gradient(90deg, transparent, var(--k-edge));
+  animation: pvac-glow 1100ms ease-in-out infinite alternate;
+}
+.pvac__ghost { border: 1px dashed var(--ghost); pointer-events: none; }
+.pvac__tag {
+  position: absolute; top: calc(50% - 9px); display: flex; align-items: center; gap: 5px;
+  height: 18px; padding: 0 4px; border-radius: 4px; background: var(--surface);
+  font-size: 12px; line-height: 16px; color: var(--muted); white-space: nowrap;
+  font-variant-numeric: tabular-nums; pointer-events: none; max-width: 100%; overflow: hidden;
+}
+.pvac__tag[data-side="after"] { left: max(0px, min(calc(var(--s) * 100% / var(--range) + 3px), calc(100% - var(--tw) * 1px))); }
+.pvac__tag[data-side="before"] { right: max(0px, min(calc(100% - var(--s) * 100% / var(--range) + 3px), calc(100% - var(--tw) * 1px))); }
+.pvac__tag[data-status="waiting"] { color: var(--faint); }
+.pvac__took { color: var(--ink); }
+.pvac__diff { height: 16px; padding: 0 4px; border-radius: 4px; background: var(--early-fill); color: var(--early-ink); font-weight: 600; line-height: 16px; }
+.pvac__diff[data-late] { background: var(--over-bg); color: var(--over-ink); }
+.pvac__cost { color: var(--muted); }
+.pvac__cost::before { content: "·"; margin-right: 5px; color: var(--faint); }
+.pvac__row:hover .pvac__tag, .pvac__row[data-focus] .pvac__tag { background: none; }
+
+.pvac__link {
+  position: absolute;
+  top: calc(30px + var(--from) * 32px + 16px + 7px);
+  left: calc(var(--x0) - .5px);
+  width: max(2px, calc(var(--x1) - var(--x0) + .5px));
+  height: calc((var(--to) - var(--from)) * 32px - 7px);
+  border-left: 1px solid var(--link); border-bottom: 1px solid var(--link);
+  border-bottom-left-radius: 5px;
+}
+.pvac__link::before, .pvac__link::after {
+  content: ""; position: absolute; width: 5px; height: 5px;
+  border: 1px solid var(--link); border-radius: 1px; background: var(--surface);
+}
+.pvac__link::before { top: -2.5px; left: -3px; }
+.pvac__link::after { right: -2.5px; bottom: -3px; background: var(--link); }
+
+.pvac__foot {
+  display: flex; align-items: center; gap: 14px; min-height: 40px; margin-top: 4px; padding: 8px 0 8px 16px;
+  border-top: 1px solid var(--border); font-size: 12px; line-height: 16px; color: var(--muted);
+}
+.pvac__key { display: inline-flex; align-items: center; gap: 6px; }
+.pvac__key::before { content: ""; width: 14px; height: 8px; border-radius: 2.5px; }
+.pvac__key[data-kind="plan"]::before { border: 1px dashed var(--ghost); }
+.pvac__key[data-kind="actual"]::before { background: var(--actual-bg); box-shadow: inset 0 0 0 .5px var(--actual-edge); }
+.pvac__key[data-kind="over"]::before { background: var(--over-bg); box-shadow: inset 0 0 0 .5px var(--over-edge); }
+
+/* ---- detail popover ---- */
+.pvac__scrim { position: fixed; inset: 0; z-index: 40; background: rgba(0,0,0,.25); }
+.pvac__detail {
+  position: fixed; z-index: 41; left: 50%; top: 50%; transform: translate(-50%,-50%);
+  width: min(360px, calc(100vw - 32px));
+  background: var(--surface); color: var(--ink);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: var(--shadow); padding: 14px 16px 16px;
+}
+.pvac__detail h2 { margin: 0 0 2px; font-size: 15px; font-weight: 600; color: var(--ink-strong); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.pvac__detail .pvac__dsub { margin: 0 0 10px; font-size: 12px; color: var(--muted); }
+.pvac__drows { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; margin: 0 0 12px; font-size: 12px; }
+.pvac__drows div { background: var(--subtle); border-radius: var(--radius-sm); padding: 6px 8px; }
+.pvac__drows dt { color: var(--muted); font-size: 11px; }
+.pvac__drows dd { margin: 0; color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+.pvac__dclose {
+  border: 1px solid var(--border); background: var(--subtle); color: var(--ink);
+  border-radius: 999px; padding: 6px 14px; font: inherit; font-size: 13px; cursor: pointer;
+  transition: background-color 150ms ease, border-color 150ms ease;
+}
+.pvac__dclose:hover { background: var(--surface); border-color: var(--muted); }
+.pvac__dclose:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+
+.page__note { margin-top: 12px; font-size: 12px; color: var(--muted); }
+
+@keyframes pvac-sweep { to { background-position: calc(100% + 60px) 0; } }
+@keyframes pvac-glow { from { opacity: .45; } to { opacity: 1; } }
+@keyframes pvac-spin { to { transform: rotate(360deg); } }
+@keyframes pvac-shine { from { background-position: 100% 0; } to { background-position: 0 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .pvac, .pvac *, .pvac *::before, .pvac *::after { animation: none !important; transition: none !important; }
+}
+@media (max-width: 560px) {
+  .pvac__body { --pvac-name: 120px; }
+  .pvac__row { grid-template-columns: 120px minmax(0,1fr); }
+  .pvac__layer, .pvac__links { left: calc(12px + 120px + 10px); right: 12px; }
+  .pvac__axis, .pvac__row { padding-left: 12px; }
+  .pvac__row { padding-right: 12px; }
+  .pvac__task { display: none; }
+  .pvac__head { flex-wrap: wrap; row-gap: 6px; padding: 10px 12px; }
+  .pvac__stats { order: 3; flex-basis: 100%; flex-wrap: wrap; gap: 4px 16px; margin: 0; }
+  .pvac__verdict { margin-left: auto; }
+  .pvac__foot { flex-wrap: wrap; row-gap: 4px; }
+  .pvac__finish > span { display: none; }
+  .pvac__tick:nth-child(even) > span { display: none; }
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <h1 class="visually-hidden">Plan vs actual — Ship the pricing page</h1>
+  <div class="topbar">
+    <button class="theme-toggle" id="themeToggle" type="button" aria-label="Switch to dark theme">
+      <span id="themeIcon" aria-hidden="true"></span><span id="themeLabel">Dark</span>
+    </button>
+  </div>
+
+  <main>
+    <section class="pvac" id="pvac" aria-label="Plan vs actual">
+      <header class="pvac__head">
+        <span class="pvac__mark" id="pvacMark" aria-hidden="true"></span>
+        <span class="pvac__title" id="pvacTitle" title="Plan vs actual">Plan vs actual</span>
+        <span class="pvac__task" id="pvacTask" title="Ship the pricing page">Ship the pricing page</span>
+        <dl class="pvac__stats">
+          <div class="pvac__stat" id="statTime">
+            <dt>Time</dt>
+            <dd><b class="pvac__live" id="timeLive">0:00</b><span id="timePlan"> / 0:00</span></dd>
+          </div>
+          <div class="pvac__stat" id="statCost">
+            <dt>Cost</dt>
+            <dd><b class="pvac__live" id="costLive">$0.00</b><span id="costPlan"> / $0.00</span></dd>
+          </div>
+        </dl>
+        <span class="pvac__verdict" id="verdict" data-state="on">On plan</span>
+      </header>
+      <div class="pvac__body" id="pvacBody" role="list" aria-label="Steps">
+        <div class="pvac__axis" aria-hidden="true">Step</div>
+        <div class="pvac__layer" id="pvacLayer" aria-hidden="true"></div>
+        <div class="pvac__links" id="pvacLinks" aria-hidden="true"></div>
+        <div id="pvacRows"></div>
+        <div class="pvac__foot" aria-hidden="true">
+          <span class="pvac__key" data-kind="plan">Plan</span>
+          <span class="pvac__key" data-kind="actual">Actual</span>
+          <span class="pvac__key" data-kind="over">Over plan</span>
+        </div>
+      </div>
+    </section>
+    <p class="page__note">Live demo: agents work through the plan at 10&times; speed and the timeline loops. Select a step to see plan vs actual detail. Toggle the theme above any time.</p>
+  </main>
+</div>
+
+<div class="pvac__scrim" id="detailScrim" hidden></div>
+<div class="pvac__detail" id="detailBox" role="dialog" aria-modal="true" aria-labelledby="detailTitle" hidden>
+  <h2 id="detailTitle"></h2>
+  <p class="pvac__dsub" id="detailSub"></p>
+  <dl class="pvac__drows">
+    <div><dt>Planned</dt><dd id="dPlan"></dd></div>
+    <div><dt>Actual</dt><dd id="dActual"></dd></div>
+    <div><dt>Difference</dt><dd id="dDiff"></dd></div>
+    <div><dt>Cost</dt><dd id="dCost"></dd></div>
+  </dl>
+  <button class="pvac__dclose" id="detailClose" type="button">Close</button>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var root = document.documentElement;
+
+  /* ---------- theme toggle (default = original demo appearance: light) ---------- */
+  var toggle = document.getElementById("themeToggle");
+  var themeIcon = document.getElementById("themeIcon");
+  var themeLabel = document.getElementById("themeLabel");
+  var SUN = '<svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true"><circle cx="7.5" cy="7.5" r="3" stroke="currentColor" stroke-width="1.4"/><path d="M7.5 1v1.6M7.5 12.4V14M1 7.5h1.6M12.4 7.5H14M2.9 2.9l1.1 1.1M11 11l1.1 1.1M12.1 2.9L11 4M4 11l-1.1 1.1" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>';
+  var MOON = '<svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true"><path d="M12.5 9.3A5.3 5.3 0 0 1 5.7 2.5a5.3 5.3 0 1 0 6.8 6.8Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>';
+  function paintToggle(theme) {
+    themeIcon.innerHTML = theme === "dark" ? SUN : MOON;
+    themeLabel.textContent = theme === "dark" ? "Light" : "Dark";
+    toggle.setAttribute("aria-label", theme === "dark" ? "Switch to light theme" : "Switch to dark theme");
+  }
+  function currentTheme() { return root.getAttribute("data-theme") === "dark" ? "dark" : "light"; }
+  function applyTheme(theme) {
+    root.setAttribute("data-theme", theme);
+    try { localStorage.setItem("pvac-theme", theme); } catch (e) {}
+    paintToggle(theme);
+  }
+  (function initTheme() {
+    var stored = null;
+    try { stored = localStorage.getItem("pvac-theme"); } catch (e) {}
+    if (stored === "dark" || stored === "light") { applyTheme(stored); return; }
+    // No stored choice: default to the original demo's appearance (light),
+    // unless the OS explicitly prefers dark.
+    var prefersDark = false;
+    try { prefersDark = !!(window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches); } catch (e) {}
+    applyTheme(prefersDark ? "dark" : "light");
+  })();
+  toggle.addEventListener("click", function () {
+    applyTheme(currentTheme() === "dark" ? "light" : "dark");
+  });
+
+  /* ---------- demo data (verbatim from the original demo) ---------- */
+  var STEPS = [
+    { id: "brief",  title: "Read the brief",       plan: 20000, planCost: 0.04, took: 16000, spent: 0.03 },
+    { id: "copy",   title: "Draft the copy",       plan: 40000, planCost: 0.18, deps: ["brief"], took: 52000, spent: 0.23 },
+    { id: "layout", title: "Build the layout",     plan: 60000, planCost: 0.32, deps: ["brief"], took: 85000, spent: 0.47 },
+    { id: "tests",  title: "Write the tests",      plan: 30000, planCost: 0.10, deps: ["copy"], took: 28000, spent: 0.09 },
+    { id: "stripe", title: "Wire up Stripe",       plan: 45000, planCost: 0.16, deps: ["layout"], took: 38000, spent: 0.14 },
+    { id: "run",    title: "Run tests and fix",    plan: 35000, planCost: 0.20, deps: ["stripe", "tests"], took: 55000, spent: 0.31 },
+    { id: "pr",     title: "Open the pull request", plan: 15000, planCost: 0.03, deps: ["run"], took: 14000, spent: 0.03 }
+  ];
+  var TASK = "Ship the pricing page";
+  var TITLE = "Plan vs actual";
+  var SPEED = 10;              // 10x demo speed, as in the original
+  var OVER_MS = 1500;          // overrun pill threshold
+  var TICK_CANDIDATES = [30000, 60000, 120000, 300000, 600000, 900000, 1800000,
+    3600000, 7200000, 10800000, 21600000, 43200000, 86400000, 172800000, 604800000];
+
+  // True virtual start/end per step, derived from actual durations with a 1s handoff gap.
+  var CHAIN = (function () {
+    var ends = {};
+    return STEPS.map(function (st) {
+      var start = 0;
+      (st.deps || []).forEach(function (d) { start = Math.max(start, (ends[d] || 0) + 1000); });
+      ends[st.id] = start + st.took;
+      return { id: st.id, start: start, end: start + st.took };
+    });
+  })();
+  var LOOP_END = Math.max.apply(null, CHAIN.map(function (c) { return c.end; }));
+  var LOOP_HOLD_VIRTUAL = 4000 * SPEED; // ~4s real-time pause on the finished state before looping
+
+  /* ---------- formatting (same behaviour as the original demo) ---------- */
+  function pad2(n) { return String(n).padStart(2, "0"); }
+  function fmtDur(totalSec) {
+    totalSec = Math.max(0, Math.round(totalSec));
+    if (totalSec >= 86400) return Math.floor(totalSec / 86400) + "d " + Math.floor((totalSec % 86400) / 3600) + "h";
+    if (totalSec >= 3600) return Math.floor(totalSec / 3600) + ":" + pad2(Math.floor((totalSec % 3600) / 60)) + ":" + pad2(totalSec % 60);
+    return Math.floor(totalSec / 60) + ":" + pad2(totalSec % 60);
+  }
+  function fmtMs(ms) { return fmtDur(ms / 1000); }
+  function fmtDiff(ms) {
+    var t = Math.round(Math.abs(ms) / 1000);
+    var body = t < 60 ? t + "s" : fmtDur(t);
+    return (ms < 0 ? "\u2212" : "+") + body; // minus sign U+2212, as in the original
+  }
+  var usd = (function () {
+    try { return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }); }
+    catch (e) { return null; }
+  })();
+  function fmtCost(v) {
+    if (v !== 0 && Math.abs(v) < 0.005) return (v < 0 ? "-" : "") + "<$0.01";
+    if (usd) return usd.format(v);
+    return "$" + v.toFixed(2);
+  }
+
+  /* ---------- schedule: plan (ps/pe) vs actual (as/ae) per step ---------- */
+  function num(v) { return (typeof v === "number" && isFinite(v)) ? v : undefined; }
+  function computeSchedule(liveSteps, now) {
+    var byId = {};
+    var order = {};
+    liveSteps.forEach(function (s, i) { byId[s.id] = s; order[s.id] = i; });
+    var memo = {};
+    var active = {};
+    function visit(step, idx) {
+      if (memo[step.id]) return memo[step.id];
+      if (active[step.id]) { // dependency cycle guard: break the loop
+        var br = { step: step, index: idx, status: "waiting", ps: now, pe: now + step.plan, as: now, ae: now + step.plan };
+        memo[step.id] = br; return br;
+      }
+      active[step.id] = true;
+      var depRows = (step.deps || []).map(function (d) { return byId[d]; })
+        .filter(function (d) { return d && !active[d.id]; })
+        .map(function (d) { return visit(d, order[d.id]); });
+      delete active[step.id];
+      var ps = Math.max.apply(null, [0].concat(depRows.map(function (r) { return r.pe; })));
+      var pe = ps + step.plan;
+      var status = step.end !== undefined ? "done" : (step.start !== undefined ? "running" : "waiting");
+      var as, ae;
+      if (status === "done") { as = (step.start !== undefined ? step.start : step.end - step.plan); ae = step.end; }
+      else if (status === "running") { as = step.start; ae = Math.max(now, step.start + step.plan); }
+      else { as = Math.max.apply(null, [now].concat(depRows.map(function (r) { return r.ae; }))); ae = as + step.plan; }
+      var row = { step: step, index: idx, status: status, ps: ps, pe: pe, as: as, ae: ae };
+      memo[step.id] = row;
+      return row;
+    }
+    return liveSteps.map(function (s, i) { return visit(s, i); });
+  }
+
+  function liveStepsAt(now) {
+    return STEPS.map(function (st, i) {
+      var c = CHAIN[i];
+      var started = c.start <= now;
+      var out = { id: st.id, title: st.title, plan: st.plan, planCost: st.planCost, deps: st.deps ? st.deps.slice() : [] };
+      if (started) {
+        out.start = c.start;
+        out.cost = st.spent * Math.min(1, (now - c.start) / st.took);
+      }
+      if (c.end <= now) { out.end = c.end; out.cost = st.spent; }
+      return out;
+    });
+  }
+
+  function computeRange(rows, now) {
+    var planEnd = Math.max.apply(null, [0].concat(rows.map(function (r) { return r.pe; })));
+    var eta = Math.max.apply(null, [0].concat(rows.map(function (r) { return r.ae; })));
+    var span = Math.max(planEnd, eta, now) * 1.22;
+    var tick = span > 240000 ? 60000 : 30000;
+    TICK_CANDIDATES.forEach(function (cand) { if (cand > tick && span / tick > 10) tick = cand; });
+    var range = Math.ceil(span / tick) * tick || tick;
+    return { planEnd: planEnd, eta: eta, range: range, tick: tick };
+  }
+
+  /* ---------- static DOM: icons, rows, layer (built ONCE, never rebuilt in the tick loop) ---------- */
+  var ICON_MARK = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="1.5" y="2.5" width="7" height="3" rx="1.5" fill="currentColor"/><rect x="5" y="6.5" width="8" height="3" rx="1.5" fill="currentColor" opacity="0.6"/><rect x="8.5" y="10.5" width="6" height="3" rx="1.5" fill="currentColor" opacity="0.32"/></svg>';
+  var ICON_DONE = '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M3 7.4 5.7 10 11 4.2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  var ICON_WAIT = '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><circle cx="7" cy="7" r="4.5" stroke="currentColor" stroke-width="1.2" stroke-dasharray="2 2"/></svg>';
+  function spinIcon() {
+    // NOTE: classes on SVG must use setAttribute (className assignment throws on SVG in browsers).
+    var s = '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true" class="pvac__spin"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-opacity="0.22" stroke-width="1.5"/><path d="M7 2a5 5 0 0 1 5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
+    var tmp = document.createElement("span");
+    tmp.innerHTML = s;
+    var svg = tmp.firstChild;
+    if (svg && svg.setAttribute) svg.setAttribute("class", "pvac__spin");
+    return tmp.innerHTML;
+  }
+
+  document.getElementById("pvacMark").innerHTML = ICON_MARK;
+  document.getElementById("pvacTitle").textContent = TITLE;
+  document.getElementById("pvacTask").textContent = TASK;
+
+  var bodyEl = document.getElementById("pvacBody");
+  var rowsEl = document.getElementById("pvacRows");
+  var layerEl = document.getElementById("pvacLayer");
+  var linksEl = document.getElementById("pvacLinks");
+  var verdictEl = document.getElementById("verdict");
+  var timeLiveEl = document.getElementById("timeLive");
+  var timePlanEl = document.getElementById("timePlan");
+  var costLiveEl = document.getElementById("costLive");
+  var costPlanEl = document.getElementById("costPlan");
+  var statTime = document.getElementById("statTime");
+  var statCost = document.getElementById("statCost");
+
+  // Build one row element per step, once.
+  var rowRefs = STEPS.map(function (st) {
+    var row = document.createElement("div");
+    row.className = "pvac__row";
+    row.setAttribute("role", "listitem");
+    row.setAttribute("tabindex", "0");
+    row.setAttribute("data-step", st.id);
+
+    var name = document.createElement("span");
+    name.className = "pvac__name";
+    var state = document.createElement("span");
+    state.className = "pvac__state";
+    var label = document.createElement("span");
+    label.className = "pvac__label";
+    label.setAttribute("dir", "auto");
+    label.title = st.title;
+    label.textContent = st.title;
+    name.appendChild(state);
+    name.appendChild(label);
+
+    var track = document.createElement("span");
+    track.className = "pvac__track";
+    var ghost = document.createElement("span");
+    ghost.className = "pvac__ghost";
+    var barA = document.createElement("span"); // actual / forecast body
+    var barB = document.createElement("span"); // over-plan tail (hidden unless overrunning)
+    barB.setAttribute("hidden", "");
+    var rest = document.createElement("span"); // remaining forecast while running
+    rest.setAttribute("hidden", "");
+    var tag = document.createElement("span");
+    tag.className = "pvac__tag";
+    var took = document.createElement("span");
+    took.className = "pvac__took";
+    var diff = document.createElement("span");
+    diff.className = "pvac__diff";
+    diff.setAttribute("hidden", "");
+    var cost = document.createElement("span");
+    cost.className = "pvac__cost";
+    cost.setAttribute("hidden", "");
+    tag.appendChild(took);
+    tag.appendChild(diff);
+    tag.appendChild(cost);
+    track.appendChild(barA);
+    track.appendChild(barB);
+    track.appendChild(rest);
+    track.appendChild(ghost);
+    track.appendChild(tag);
+
+    row.appendChild(name);
+    row.appendChild(track);
+    rowsEl.appendChild(row);
+    return { id: st.id, row: row, state: state, barA: barA, barB: barB, rest: rest, ghost: ghost, tag: tag, took: took, diff: diff, cost: cost, last: {} };
+  });
+  var rowById = {};
+  rowRefs.forEach(function (r) { rowById[r.id] = r; });
+
+  // Dependency links, built once; positions updated per tick.
+  var linkPairs = [];
+  STEPS.forEach(function (st) {
+    (st.deps || []).forEach(function (d) { linkPairs.push([d, st.id]); });
+  });
+  var linkRefs = linkPairs.map(function (pair) {
+    var el = document.createElement("span");
+    el.className = "pvac__link";
+    linksEl.appendChild(el);
+    return { el: el, from: pair[0], to: pair[1] };
+  });
+
+  // Layer children (ticks / gap / plan+eta flags / now line), built once.
+  var gapEl = document.createElement("span");
+  gapEl.className = "pvac__gap";
+  var planFlag = document.createElement("span");
+  planFlag.className = "pvac__finish";
+  planFlag.setAttribute("data-kind", "plan");
+  var planFlagLabel = document.createElement("span");
+  planFlag.appendChild(planFlagLabel);
+  var etaFlag = document.createElement("span");
+  etaFlag.className = "pvac__finish";
+  etaFlag.setAttribute("data-kind", "eta");
+  var etaFlagLabel = document.createElement("span");
+  etaFlag.appendChild(etaFlagLabel);
+  var nowEl = document.createElement("span");
+  nowEl.className = "pvac__now";
+  var tickRefs = [];
+  layerEl.appendChild(gapEl);
+  layerEl.appendChild(planFlag);
+  layerEl.appendChild(etaFlag);
+  layerEl.appendChild(nowEl);
+
+  function setVars(el, s, d) {
+    el.style.setProperty("--s", s);
+    el.style.setProperty("--d", Math.max(0, d));
+  }
+  function setText(el, v, cache, key) {
+    if (cache[key] !== v) { el.textContent = v; cache[key] = v; }
+  }
+
+  /* ---------- hover / focus chain highlight (attribute-only, never a re-render) ---------- */
+  var focusId = null;
+  function applyFocus() {
+    if (focusId) bodyEl.setAttribute("data-focus", "");
+    else bodyEl.removeAttribute("data-focus");
+    var lit = {};
+    if (focusId) {
+      lit[focusId] = true;
+      linkPairs.forEach(function (p) {
+        if (p[0] === focusId) lit[p[1]] = true;
+        if (p[1] === focusId) lit[p[0]] = true;
+      });
+    }
+    rowRefs.forEach(function (r) {
+      if (r.id === focusId) r.row.setAttribute("data-focus", "");
+      else r.row.removeAttribute("data-focus");
+      if (lit[r.id]) r.row.setAttribute("data-lit", "");
+      else r.row.removeAttribute("data-lit");
+    });
+    // keep aria in sync without rebuilding anything
+    rowRefs.forEach(function (r) {
+      var on = r.id === focusId;
+      r.row.setAttribute("aria-selected", on ? "true" : "false");
+    });
+  }
+  function setFocus(id) {
+    if (focusId === id) return; // hover/focus must never trigger a full re-render
+    focusId = id;
+    applyFocus();
+  }
+  rowRefs.forEach(function (r) {
+    r.row.addEventListener("pointerenter", function () { setFocus(r.id); });
+    r.row.addEventListener("pointerleave", function () { if (focusId === r.id) setFocus(null); });
+    r.row.addEventListener("focus", function () { setFocus(r.id); });
+    r.row.addEventListener("blur", function () { if (focusId === r.id) setFocus(null); });
+  });
+
+  /* ---------- click-to-open detail (opens on pointerdown capture) ---------- */
+  var scrim = document.getElementById("detailScrim");
+  var detailBox = document.getElementById("detailBox");
+  var detailTitle = document.getElementById("detailTitle");
+  var detailSub = document.getElementById("detailSub");
+  var lastOpener = null;
+  function openDetail(id, opener) {
+    var st = null, c = null;
+    STEPS.forEach(function (s, i) { if (s.id === id) { st = s; c = CHAIN[i]; } });
+    if (!st) return;
+    lastOpener = opener || null;
+    detailTitle.textContent = st.title;
+    var live = liveStepsAt(state.now);
+    var found = null;
+    live.forEach(function (s) { if (s.id === id) found = s; });
+    var rows = computeSchedule(live, state.now);
+    var sched = null;
+    rows.forEach(function (r) { if (r.step.id === id) sched = r; });
+    var status = sched ? sched.status : "waiting";
+    detailSub.textContent = status === "done" ? "Done" : (status === "running" ? "Running" : "Waiting") +
+      ((st.deps && st.deps.length) ? " · after " + st.deps.join(", ") : " · no dependencies");
+    document.getElementById("dPlan").textContent = fmtMs(st.plan) + " · " + fmtCost(st.planCost);
+    var actualMs = sched ? (status === "done" ? (sched.ae - sched.as) : Math.max(0, state.now - sched.as)) : 0;
+    document.getElementById("dActual").textContent = status === "waiting" ? "—" : fmtMs(actualMs);
+    var d = actualMs - st.plan;
+    document.getElementById("dDiff").textContent = (status === "waiting" || Math.abs(d) < OVER_MS) ? "On plan" : fmtDiff(d);
+    document.getElementById("dCost").textContent = (found && found.cost !== undefined ? fmtCost(found.cost) : "—") + " / " + fmtCost(st.planCost);
+    scrim.removeAttribute("hidden");
+    detailBox.removeAttribute("hidden");
+    var btn = document.getElementById("detailClose");
+    if (btn && btn.focus) { try { btn.focus(); } catch (e) {} }
+  }
+  function closeDetail() {
+    if (detailBox.hasAttribute("hidden")) return;
+    detailBox.setAttribute("hidden", "");
+    scrim.setAttribute("hidden", "");
+    if (lastOpener && lastOpener.focus) { try { lastOpener.focus(); } catch (e) {} }
+    lastOpener = null;
+  }
+  rowRefs.forEach(function (r) {
+    // pointerdown capture so the dialog opens even if a later click is swallowed
+    r.row.addEventListener("pointerdown", function () { openDetail(r.id, r.row); }, true);
+    r.row.addEventListener("keydown", function (ev) {
+      if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); openDetail(r.id, r.row); }
+    });
+  });
+  document.getElementById("detailClose").addEventListener("click", closeDetail);
+  scrim.addEventListener("click", closeDetail);
+  document.addEventListener("keydown", function (ev) {
+    if (ev.key === "Escape") closeDetail();
+  });
+
+  /* ---------- per-tick update: move bars + text only, never rebuild the DOM ---------- */
+  var state = { now: 0, range: 60000, planEnd: 0, eta: 0, verdict: "", allDone: false };
+  var headCache = {};
+
+  function update(now) {
+    state.now = now;
+    var live = liveStepsAt(now);
+    var rows = computeSchedule(live, now);
+    var rg = computeRange(rows, now);
+    state.range = rg.range; state.planEnd = rg.planEnd; state.eta = rg.eta;
+
+    var byId = {};
+    rows.forEach(function (r) { byId[r.step.id] = r; });
+    var allDone = rows.every(function (r) { return r.status === "done"; });
+    state.allDone = allDone;
+    var H = rg.eta - rg.planEnd;
+    var verdictState = Math.abs(H) < OVER_MS ? "on" : (H > 0 ? "late" : "early");
+    var verdictText = verdictState === "on" ? "On plan"
+      : (H > 0 ? fmtDiff(H) + " " + (allDone ? "late" : "behind")
+               : fmtDiff(H).slice(1) + " " + (allDone ? "early" : "ahead"));
+    state.verdict = verdictText;
+
+    // header (only touch text when it actually changed)
+    setText(timeLiveEl, fmtMs(allDone ? rg.eta : now), headCache, "tLive");
+    setText(timePlanEl, " / " + fmtMs(rg.planEnd), headCache, "tPlan");
+    var costNow = live.reduce(function (a, s) { return a + (s.cost || 0); }, 0);
+    var costPlan = STEPS.reduce(function (a, s) { return a + s.planCost; }, 0);
+    setText(costLiveEl, fmtCost(costNow), headCache, "cLive");
+    setText(costPlanEl, " / " + fmtCost(costPlan), headCache, "cPlan");
+    if (headCache.verdict !== verdictText) { verdictEl.textContent = verdictText; headCache.verdict = verdictText; }
+    if (headCache.vState !== verdictState) { verdictEl.setAttribute("data-state", verdictState); headCache.vState = verdictState; }
+    var over = !allDone && now > rg.planEnd;
+    if (!!headCache.over !== over) { headCache.over = over; over ? statTime.setAttribute("data-over", "") : statTime.removeAttribute("data-over"); }
+    var costOver = costPlan > 0 && costNow > costPlan;
+    if (!!headCache.costOver !== costOver) { headCache.costOver = costOver; costOver ? statCost.setAttribute("data-over", "") : statCost.removeAttribute("data-over"); }
+    var liveOn = !allDone;
+    if (!!headCache.liveOn !== liveOn) {
+      headCache.liveOn = liveOn;
+      if (liveOn) { timeLiveEl.setAttribute("data-live", ""); costLiveEl.setAttribute("data-live", ""); }
+      else { timeLiveEl.removeAttribute("data-live"); costLiveEl.removeAttribute("data-live"); }
+    }
+
+    // layer: ticks (counts change rarely; add/remove only then)
+    var ticks = [];
+    for (var v = rg.tick; v < rg.range; v += rg.tick) ticks.push(v);
+    if (headCache.tickKey !== ticks.join(",") + "|" + rg.range) {
+      headCache.tickKey = ticks.join(",") + "|" + rg.range;
+      while (tickRefs.length) layerEl.removeChild(tickRefs.pop().el);
+      var trackW = 600;
+      try {
+        var tr = rowRefs.length && rowRefs[0].row.querySelector ? rowRefs[0].row.querySelector(".pvac__track") : null;
+        if (tr && tr.getBoundingClientRect) trackW = tr.getBoundingClientRect().width || 600;
+      } catch (e) {}
+      ticks.forEach(function (v) {
+        var t = document.createElement("span");
+        t.className = "pvac__tick";
+        var lab = document.createElement("span");
+        lab.textContent = fmtMs(v);
+        t.appendChild(lab);
+        t.style.setProperty("--v", v);
+        // flip labels that would overflow the right edge
+        if (trackW > 0 && (v / rg.range) * trackW + 6 + fmtMs(v).length * 7 > trackW) t.setAttribute("data-flip", "");
+        layerEl.insertBefore(t, gapEl);
+        tickRefs.push({ el: t });
+      });
+    }
+    // gap shading between plan finish and moving ETA
+    if (Math.abs(H) >= OVER_MS) {
+      gapEl.removeAttribute("hidden");
+      gapEl.setAttribute("data-state", H > 0 ? "late" : "early");
+      setVars(gapEl, Math.min(rg.planEnd, rg.eta), Math.abs(H));
+    } else gapEl.setAttribute("hidden", "");
+
+    // plan + ETA finish flags (the ETA flag is the "moving finish")
+    planFlag.style.setProperty("--v", rg.planEnd);
+    planFlagLabel.textContent = "Plan " + fmtMs(rg.planEnd);
+    planFlag.setAttribute("data-side", H < 0 ? "right" : "left");
+    etaFlag.style.setProperty("--v", rg.eta);
+    etaFlagLabel.textContent = (allDone ? "Done " : "ETA ") + fmtMs(rg.eta);
+    etaFlag.setAttribute("data-side", H < 0 ? "left" : "right");
+    etaFlag.setAttribute("data-state", verdictState);
+    if (Math.abs(H) < OVER_MS) etaFlag.setAttribute("data-hidden", "");
+    else etaFlag.removeAttribute("data-hidden");
+    nowEl.style.setProperty("--v", now);
+    if (allDone) nowEl.setAttribute("hidden", "");
+    else nowEl.removeAttribute("hidden");
+
+    // rows
+    rows.forEach(function (r) {
+      var ref = rowById[r.step.id];
+      var st = STEPS[r.index];
+      var actualMs = r.status === "done" ? (r.ae - r.as) : (r.status === "running" ? Math.max(0, now - r.as) : 0);
+      var overBy = actualMs - st.plan;
+      var isOver = r.status !== "waiting" && overBy >= OVER_MS;
+      var showDiff = (r.status === "done" || isOver) && Math.abs(overBy) >= OVER_MS;
+
+      if (ref.last.status !== r.status) {
+        ref.last.status = r.status;
+        ref.row.setAttribute("data-status", r.status);
+        ref.state.setAttribute("data-status", r.status);
+        ref.state.innerHTML = r.status === "done" ? ICON_DONE : (r.status === "running" ? spinIcon() : ICON_WAIT);
+        var aria = st.title + ": " + (r.status === "done"
+          ? "took " + fmtMs(r.ae - r.as) + ", planned " + fmtMs(st.plan)
+          : (r.status === "running" ? "running for " + fmtMs(now - r.as) + " of " + fmtMs(st.plan) + " planned"
+             : "starts in about " + fmtMs(Math.max(0, r.as - now))));
+        ref.row.setAttribute("aria-label", aria);
+      }
+      // bars (position-only updates every tick; no node churn)
+      if (r.status === "waiting") {
+        ref.barA.className = "pvac__bar";
+        ref.barA.setAttribute("data-kind", "forecast");
+        ref.barA.removeAttribute("data-status");
+        ref.barA.removeAttribute("data-rest");
+        setVars(ref.barA, r.as, r.ae - r.as);
+        ref.barB.setAttribute("hidden", "");
+        ref.rest.setAttribute("hidden", "");
+      } else {
+        var endX = r.status === "running" ? now : r.ae;
+        ref.barA.className = "pvac__bar";
+        ref.barA.setAttribute("data-kind", "actual");
+        ref.barA.setAttribute("data-status", r.status);
+        if (isOver) ref.barA.setAttribute("data-over", "");
+        else ref.barA.removeAttribute("data-over");
+        setVars(ref.barA, r.as, Math.max(0, endX - r.as));
+        if (isOver) {
+          ref.barB.removeAttribute("hidden");
+          ref.barB.className = "pvac__bar";
+          ref.barB.setAttribute("data-kind", "over");
+          ref.barB.setAttribute("data-status", r.status);
+          setVars(ref.barB, r.as + st.plan, Math.max(0, endX - r.as - st.plan));
+        } else ref.barB.setAttribute("hidden", "");
+        if (r.status === "running" && !isOver) {
+          ref.rest.removeAttribute("hidden");
+          ref.rest.className = "pvac__bar";
+          ref.rest.setAttribute("data-kind", "forecast");
+          ref.rest.setAttribute("data-rest", "");
+          setVars(ref.rest, now, Math.max(0, r.ae - now));
+        } else ref.rest.setAttribute("hidden", "");
+      }
+      setVars(ref.ghost, r.ps, r.pe - r.ps);
+
+      // tag: waiting shows plan; live shows elapsed + diff pill + growing cost
+      var waitSec = r.status === "waiting" ? Math.max(0, Math.round((r.as - now) / 1000)) : 0;
+      if (r.status === "waiting") {
+        setText(ref.took, fmtMs(st.plan), ref.last, "took");
+        if (ref.last.wait !== waitSec) {
+          ref.last.wait = waitSec;
+          ref.row.setAttribute("aria-label", st.title + ": starts in about " + fmtMs(waitSec * 1000));
+        }
+      } else {
+        setText(ref.took, fmtMs(actualMs), ref.last, "took");
+      }
+      if (showDiff) {
+        ref.diff.removeAttribute("hidden");
+        setText(ref.diff, fmtDiff(overBy), ref.last, "diff");
+        if (!!ref.last.late !== (overBy > 0)) {
+          ref.last.late = overBy > 0;
+          if (overBy > 0) ref.diff.setAttribute("data-late", "");
+          else ref.diff.removeAttribute("data-late");
+        }
+      } else {
+        if (ref.last.diff !== null) { ref.diff.setAttribute("hidden", ""); ref.last.diff = null; }
+      }
+      var liveCost = live[r.index].cost;
+      if (r.status !== "waiting" && liveCost !== undefined) {
+        ref.cost.removeAttribute("hidden");
+        setText(ref.cost, fmtCost(liveCost), ref.last, "cost");
+      } else if (ref.last.cost !== null) { ref.cost.setAttribute("hidden", ""); ref.last.cost = null; }
+
+      // tag side: keep the pill inside the track
+      var anchor = r.status === "waiting" ? r.as : Math.max(r.as, r.status === "running" ? now : r.ae);
+      var beyond = anchor / rg.range > 0.8 ? "before" : "after";
+      if (ref.last.side !== beyond) { ref.last.side = beyond; ref.tag.setAttribute("data-side", beyond); }
+      ref.tag.setAttribute("data-status", r.status);
+      ref.tag.style.setProperty("--s", anchor);
+      var estW = (ref.took.textContent.length + (showDiff ? 5 : 0) + (ref.cost.hasAttribute("hidden") ? 0 : 9)) * 7 + 12;
+      ref.tag.style.setProperty("--tw", estW);
+    });
+
+    // links between dependent steps (position-only updates)
+    rows.forEach(function (r) { byId[r.step.id] = r; });
+    linkRefs.forEach(function (L) {
+      var a = byId[L.from], b = byId[L.to];
+      if (!a || !b) { L.el.setAttribute("hidden", ""); return; }
+      L.el.removeAttribute("hidden");
+      var x0 = Math.max(a.as, Math.min(a.ae, Math.max(a.ae, b.as) - 0)) ;
+      // elbow starts near the end of the predecessor bar, drops to the successor row
+      var fromX = Math.min(a.ae, Math.max(a.as, b.as - (rg.range * 12 / 600)));
+      L.el.style.setProperty("--from", a.index);
+      L.el.style.setProperty("--to", b.index);
+      L.el.style.setProperty("--x0", "calc(" + fromX + " * 100% / " + rg.range + " + 3px)");
+      L.el.style.setProperty("--x1", "calc(" + Math.max(fromX, b.as) + " * 100% / " + rg.range + " - 0px)");
+      void x0;
+    });
+  }
+
+  /* ---------- demo loop: 10x clock, pause on done, then loop (mirrors the original) ---------- */
+  var raf = window.requestAnimationFrame || function (cb) { return setTimeout(function () { cb(Date.now()); }, 32); };
+  var caf = window.cancelAnimationFrame || clearTimeout;
+  var reduceMotion = false;
+  try { reduceMotion = !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches); } catch (e) {}
+  var t0 = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
+  var lastFrame = t0;
+  var rafId = 0;
+  function frame(t) {
+    rafId = raf(frame);
+    if (t - lastFrame < 32) return; // throttle like the original (~30fps)
+    lastFrame = t;
+    var virtual = (t - t0) * SPEED;
+    if (virtual > LOOP_END + LOOP_HOLD_VIRTUAL) t0 = t; // loop back to the start
+    var now = Math.min(LOOP_END, Math.max(0, virtual > LOOP_END + LOOP_HOLD_VIRTUAL ? 0 : virtual));
+    update(now);
+  }
+  update(0);
+  if (!reduceMotion) rafId = raf(frame);
+
+  /* test hooks (used by the in-dir verification harness) */
+  window.__pvac = {
+    steps: STEPS, chain: CHAIN, loopEnd: LOOP_END, speed: SPEED,
+    state: state, update: update, liveStepsAt: liveStepsAt,
+    computeSchedule: computeSchedule, computeRange: computeRange,
+    fmtMs: fmtMs, fmtDiff: fmtDiff, fmtCost: fmtCost,
+    openDetail: openDetail, closeDetail,
+    setClock: function (now) { update(now); },
+    stop: function () { if (rafId) caf(rafId); rafId = 0; }
+  };
+})();
+</script>
+</body>
+</html>
