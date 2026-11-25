@@ -198,6 +198,9 @@
   .step[data-state="active"] .smeta { color: var(--work); }
   .snotes { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
   .snote {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
     font-size: 12px;
     border-radius: var(--radius-sm);
     padding: 6px 8px;
@@ -206,10 +209,16 @@
     color: var(--ink-2);
   }
   .snote .tag {
-    display: inline-block;
+    flex: none;
+    align-self: flex-start;
     font-size: 11px; font-weight: 700;
     border-radius: 999px;
-    padding: 0 8px; margin-right: 6px;
+    padding: 0 8px;
+  }
+  .snote .txt {
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: break-word;
   }
   .snote.now .tag { background: var(--fail-bg); color: var(--fail); }
   .snote.next .tag { background: var(--wait-bg); color: var(--wait); }
@@ -385,6 +394,7 @@
   var stepTimers = [];
   var autoTimers = [];
   var elapsedTimer = 0;
+  var pausedAt = 0;
 
   function $(id) { return document.getElementById(id); }
 
@@ -421,18 +431,44 @@
     return '<span class="px' + (live ? ' live' : '') + '" role="img" aria-label="agent mark">' + cells + '</span>';
   }
 
+  function nowMs() { return Date.now(); }
+
+  function arm(t) {
+    t.due = nowMs() + t.remaining;
+    t.id = window.setTimeout(function () {
+      var i = t.list.indexOf(t);
+      if (i >= 0) t.list.splice(i, 1);
+      t.done = true;
+      t.fn();
+    }, t.remaining);
+  }
   function later(list, fn, ms) {
-    var id = window.setTimeout(function () {
-      var i = list.indexOf(id);
-      if (i >= 0) list.splice(i, 1);
-      fn();
-    }, ms);
-    list.push(id);
-    return id;
+    var t = { fn: fn, list: list, remaining: ms, due: 0, id: 0, done: false };
+    arm(t);
+    list.push(t);
+    return t;
   }
   function clearAll(list) {
-    for (var i = 0; i < list.length; i++) window.clearTimeout(list[i]);
+    for (var i = 0; i < list.length; i++) {
+      try { window.clearTimeout(list[i].id); } catch (e) { /* ignore */ }
+    }
     list.length = 0;
+  }
+  /* Pause support: freeze every pending timer (remaining time is kept), then
+     re-arm them on resume so the whole run — steps, interrupt re-runs and
+     scripted autoplay — holds still while paused. */
+  function freeze(list) {
+    var tnow = nowMs();
+    for (var i = 0; i < list.length; i++) {
+      var t = list[i];
+      try { window.clearTimeout(t.id); } catch (e) { /* ignore */ }
+      t.remaining = Math.max(0, t.due - tnow);
+    }
+  }
+  function unfreeze(list) {
+    for (var i = 0; i < list.length; i++) {
+      if (!list[i].done) arm(list[i]);
+    }
   }
 
   function fmtDur(ms) { return (ms / 1000).toFixed(1) + 's'; }
@@ -454,7 +490,7 @@
     if (idx >= steps.length) {
       status = 'done';
       renderAll();
-      later(stepTimers, resetAll, autoplay ? RESTART_AUTO_MS : RESTART_MANUAL_MS);
+      later(stepTimers, function () { resetAll(true); }, autoplay ? RESTART_AUTO_MS : RESTART_MANUAL_MS);
       return;
     }
     steps[idx].status = 'active';
@@ -473,12 +509,18 @@
     var carried = queue.slice();
     queue = [];
     var j = i + 1;
-    if (j < steps.length && carried.length) {
-      if (REWRITE[steps[j].id]) steps[j].title = REWRITE[steps[j].id];
-      for (var k = 0; k < carried.length; k++) {
-        carried[k].picked = 'next';
-        steps[j].notes.push(carried[k]);
+    if (j < steps.length) {
+      if (carried.length) {
+        if (REWRITE[steps[j].id]) steps[j].title = REWRITE[steps[j].id];
+        for (var k = 0; k < carried.length; k++) {
+          carried[k].picked = 'next';
+          steps[j].notes.push(carried[k]);
+        }
       }
+    } else if (carried.length) {
+      /* last step has no "next" card: keep the notes queued instead of
+         silently dropping them, so they drain into the next round. */
+      queue = carried;
     }
     renderAll();
     advance(i + 1);
@@ -499,6 +541,13 @@
   /* interrupt: attach the note to the working step now and re-run that step */
   function interruptWith(text, qid) {
     if (!text) return;
+    if (status !== 'running') {
+      /* frozen (paused) or finished: never restart the run from here. A chip
+         promote is already sitting in the queue, otherwise queue the note. */
+      if (!qid) queueNote(text);
+      else renderQueue();
+      return;
+    }
     var i = activeIndex();
     if (i < 0) { queueNote(text); return; }
     noteSeq += 1;
@@ -519,17 +568,30 @@
 
   function pauseRun() {
     if (status !== 'running') return;
-    clearAll(stepTimers);
+    /* freeze the whole run: step timers, interrupt re-runs, scripted
+       autoplay timers and the elapsed clock all hold still. */
+    freeze(stepTimers);
+    freeze(autoTimers);
+    stopElapsed();
+    pausedAt = nowMs();
     status = 'paused';
     renderAll();
   }
 
   function resumeRun() {
     if (status !== 'paused') return;
+    var gap = nowMs() - pausedAt;
+    pausedAt = 0;
+    /* shift time bases so the clock and step durations exclude the pause */
+    bootTime += gap;
+    for (var i = 0; i < steps.length; i++) {
+      if (steps[i].status === 'active') steps[i].startedAt += gap;
+    }
     status = 'running';
-    var i = activeIndex();
+    unfreeze(autoTimers);
+    unfreeze(stepTimers);
+    startElapsed();
     renderAll();
-    later(stepTimers, function () { advance(Math.max(0, i)); }, RESUME_MS);
   }
 
   /* ===== autoplay typing (same timings as the original scripted demo) ===== */
@@ -537,8 +599,17 @@
     for (var c = 0; c < text.length; c++) {
       (function (n) {
         later(autoTimers, function () {
-          draft += text[n];
+          if (!autoplay) return;
           var el = $('draft');
+          if (el && el.value !== draft) {
+            /* the box changed out from under the script (user typing, paste,
+               IME, autofill): adopt the user's text and stop the script —
+               never overwrite user input. */
+            draft = el.value;
+            stopAutoplay();
+            return;
+          }
+          draft += text[n];
           if (el) el.value = draft;
         }, at + n * TYPE_MS);
       })(c);
@@ -558,20 +629,24 @@
     if (!autoplay) return;
     autoplay = false;
     clearAll(autoTimers);
-    draft = '';
+    /* preserve whatever is in the box — never wipe user-typed text */
     var el = $('draft');
-    if (el) el.value = '';
+    if (el) draft = el.value;
   }
 
-  function resetAll() {
+  function resetAll(auto) {
     clearAll(stepTimers);
     clearAll(autoTimers);
+    stopElapsed();
+    pausedAt = 0;
     steps = STEP_DEFS.map(function (s, i) {
       return i === 0
         ? { id: s.id, title: s.title, status: 'done', durationMs: STEP_MS[s.id], notes: [] }
         : { id: s.id, title: s.title, status: 'todo', durationMs: 0, notes: [] };
     });
-    queue = [];
+    /* auto restarts (done-loop) keep queued notes so nothing is silently
+       dropped; a manual Restart starts with a clean queue. */
+    queue = auto ? queue : [];
     draft = '';
     status = 'running';
     bootTime = Date.now() - START_LAG_MS;
@@ -639,7 +714,7 @@
           var n = s.notes[k];
           var tag = n.picked === 'now' ? 'now' : 'next';
           var tagLabel = n.picked === 'now' ? 'now' : 'next';
-          notes += '<div class="snote ' + tag + '"><span class="tag">' + tagLabel + '</span>' + esc(n.text) + '</div>';
+          notes += '<div class="snote ' + tag + '"><span class="tag">' + tagLabel + '</span><span class="txt">' + esc(n.text) + '</span></div>';
         }
         notes += '</div>';
       }
@@ -671,7 +746,10 @@
 
   function renderElapsed() {
     var el = $('elapsed');
-    if (el) el.textContent = fmtElapsed(Date.now() - bootTime);
+    if (!el) return;
+    /* while paused the clock shows the frozen value — it must not advance */
+    var base = (status === 'paused' && pausedAt) ? pausedAt : Date.now();
+    el.textContent = fmtElapsed(base - bootTime);
   }
 
   function renderAll() {
@@ -682,11 +760,18 @@
   }
 
   function startElapsed() {
-    if (elapsedTimer) window.clearTimeout(elapsedTimer);
+    stopElapsed();
     (function tick() {
       renderElapsed();
       elapsedTimer = window.setTimeout(tick, 1000);
     })();
+  }
+
+  function stopElapsed() {
+    if (elapsedTimer) {
+      try { window.clearTimeout(elapsedTimer); } catch (e) { /* ignore */ }
+      elapsedTimer = 0;
+    }
   }
 
   /* ===== theme ===== */
@@ -718,7 +803,17 @@
 
     var input = $('draft');
     if (input) {
-      input.addEventListener('input', function () { draft = input.value; });
+      input.addEventListener('input', function () {
+        draft = input.value;
+        /* any edit — typing, paste, IME, autofill, scripted insertText —
+           stops the scripted auto-play immediately and keeps the user's text */
+        if (autoplay) stopAutoplay();
+      });
+      input.addEventListener('focus', function () {
+        /* focus means the user is about to type: halt the script now so it
+           can never overwrite what they are going to write */
+        if (autoplay) stopAutoplay();
+      });
       input.addEventListener('keydown', function (e) {
         if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
           e.preventDefault();
@@ -804,7 +899,8 @@
     resume: resumeRun,
     reset: resetAll,
     stopAuto: stopAutoplay,
-    setTheme: setTheme
+    setTheme: setTheme,
+    pending: function () { return { step: stepTimers.length, auto: autoTimers.length }; }
   };
 
   init();

@@ -19,7 +19,7 @@
   --x-blue:#0070d6; --x-amber:#b25e00; --x-orange:#d9661a; --x-red:#c4320a;
   --x-green:#1e8a4f; --x-teal:#0f8a7c; --x-cyan:#0a87b8; --x-purple:#8a3fd1;
   --x-pink:#c42a7e; --x-gray:rgba(0,0,0,.5);
-  --track:rgba(0,0,0,.06); --hover:rgba(0,0,0,.035); --focus:rgba(1,144,254,.7);
+  --track:rgba(0,0,0,.06); --hover:rgba(0,0,0,.075); --focus:rgba(1,144,254,.7);
   --sheen:rgba(255,255,255,.75); --ease:cubic-bezier(.32,.72,.24,1);
 }
 html[data-theme="dark"]{
@@ -35,7 +35,7 @@ html[data-theme="dark"]{
   --x-blue:#4fb0fe; --x-amber:#ffb35c; --x-orange:#f2a15c; --x-red:#ff8a7a;
   --x-green:#7dcf9f; --x-teal:#4fc3b4; --x-cyan:#5cc6ee; --x-purple:#b98af0;
   --x-pink:#f06db5; --x-gray:rgba(255,255,255,.55);
-  --track:rgba(255,255,255,.07); --hover:rgba(255,255,255,.05); --focus:rgba(79,176,254,.8);
+  --track:rgba(255,255,255,.07); --hover:rgba(255,255,255,.11); --focus:rgba(79,176,254,.8);
   --sheen:rgba(255,255,255,.16);
 }
 *{box-sizing:border-box}
@@ -85,8 +85,9 @@ html[data-theme="dark"] .cpx__badge[data-tone="warn"]{background:var(--amber-bg)
 .cpx__meter{position:relative;padding:16px 16px 4px}
 .cpx__track{position:relative;display:flex;gap:1px;height:3px;overflow:visible;border-radius:999px;background:var(--track)}
 .cpx__slice{flex:none;min-width:2px;border-radius:999px;background:var(--c);
-  animation:cpx-grow 700ms var(--ease) both;transition:opacity 200ms ease}
+  animation:cpx-grow 700ms var(--ease) both;transition:opacity 200ms ease,filter 200ms ease}
 .cpx__slice[data-dim]{opacity:.75}
+.cpx__slice[data-on]{opacity:1;filter:saturate(1.35) brightness(.92)}
 .cpx__slice[data-going]::after{content:"";position:absolute;inset:0;border-radius:inherit;
   background:linear-gradient(100deg,transparent 20%,var(--sheen) 50%,transparent 80%) -150% 0/60% 100% no-repeat;
   animation:cpx-sheen 1.3s ease-in-out infinite}
@@ -109,7 +110,7 @@ html[data-theme="dark"] .cpx__badge[data-tone="warn"]{background:var(--amber-bg)
   animation:cpx-in 320ms var(--ease) both}
 .cpx__row[data-fold]{animation:none}
 .cpx__row[data-card]{cursor:pointer}
-.cpx__row[data-on]{background:var(--hover)}
+.cpx__row[data-on]{background:var(--hover);box-shadow:inset 0 0 0 1px var(--border)}
 .cpx__row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .cpx__line,.cpx__ghost{display:flex;align-items:center;gap:8px;height:32px;padding:0 8px;min-width:0}
 .cpx__icon{display:grid;flex:none;place-items:center;width:16px;height:20px;color:var(--c)}
@@ -429,7 +430,7 @@ function render(){
     var card = hasCard(e, folding);
     h += '<li class="cpx__row" data-kind="' + e.kind + '" data-row="' + e.id + '"' +
       (state.compacting.indexOf(e.id) >= 0 ? ' data-going' : '') +
-      (state.selected === e.id ? ' data-on' : '') + (folding ? ' data-fold' : '') +
+      (state.hover === e.id || state.selected === e.id ? ' data-on' : '') + (folding ? ' data-fold' : '') +
       (card ? ' data-card' : '') + (card ? ' aria-expanded="' + (state.selected === e.id) + '"' : '') +
       ' tabindex="0" role="button" aria-label="' + esc(KIND[e.kind].name + ", " + label + ", " + fmt(e.tokens) + " tokens") +
       (state.compacting.indexOf(e.id) >= 0 ? ", being compacted" : '') + '"' +

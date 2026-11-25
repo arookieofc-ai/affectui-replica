@@ -977,15 +977,41 @@ function makeTile(id,block,view,comp){
   updateTileState(b,id,view,comp);
   return b;
 }
+function kindSuffix(id,block,view,comp){
+  if(!block) return '';
+  if(view==='before'&&comp){
+    var f=fateOf(comp,id);
+    if(f==='summarized') return ' · summarized';
+    if(f==='dropped') return ' · dropped';
+    return ' · kept';
+  }
+  return '· '+(KIND_LABEL[block.kind]||block.kind);
+}
+/* Fit-based label visibility (own code, behaviour matched to the original's
+   intent): the original only gates on tile size (w>=54/h>=28/h>=44/w>=120),
+   which still renders half-cut words on narrow tiles ("Tool definition",
+   "Project me", "checkout", …). We additionally require the text to fit in
+   the label box (left:10px, ~4px breathing room) using a conservative
+   per-character estimate, so a label is hidden entirely instead of showing a
+   clipped word. The full label stays available via aria-label + tooltip. */
+function fitsLabel(txt,avail,per){ return avail>0&&txt.length*per<=avail; }
 function updateTileText(b,id,block,view,comp){
   if(!block&&id!=='__free') return;
   var r={w:b._w||0,h:b._h||0};
-  var o=r.w>=54&&r.h>=28, s=o&&r.h>=44, l=s&&r.w>=120;
+  var avail=r.w-14;
   var val=Math.round(state.disp[id]||0);
+  var tkTxt=fmt(val);
+  var free=(id==='__free');
+  var nmTxt=free?'Free':(block?block.label:'');
+  var hasIcon=!free&&!!(block&&block.icon);
+  var kdTxt=free?'':(' '+kindSuffix(id,block,view,comp));
+  var oBase=r.w>=54&&r.h>=28, sBase=r.w>=54&&r.h>=44, lBase=sBase&&r.w>=120;
+  var o=oBase&&fitsLabel(nmTxt,avail-(hasIcon?18:0),7.3);
+  var s=sBase&&fitsLabel(tkTxt,avail,6.7);
+  var l=lBase&&fitsLabel(tkTxt+kdTxt,avail,6.3);
   var key=id+'|'+val+'|'+o+'|'+s+'|'+l+'|'+(block?block.label:'')+'|'+view;
   if(key===b._last) return;
   b._last=key;
-  var free=(id==='__free');
   if(free){
     b._nm.textContent='Free';
     b._tk.textContent=fmt(val);

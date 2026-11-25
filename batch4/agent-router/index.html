@@ -12,7 +12,7 @@
   --shadow:0 1px 2px rgba(0,0,0,.05),0 4px 16px rgba(0,0,0,.05);
   --card-shadow:0 0 0 1px var(--border),0 1px 2px rgba(0,0,0,.04);
   --brand-bg:#eaf1ff; --brand-fg:#2456d6;
-  --ok-bg:#e6f6ed; --ok-fg:#1e8a4f;
+  --ok-bg:#e6f6ed; --ok-fg:#007d2e;
   --warn-bg:#fef3c7; --warn-fg:#92400e; --warn-dot:#f59e0b;
   --danger-bg:#fdecea; --danger-fg:#c4320a;
   --pink-bg:#fdf0f7; --pink-fg:#c21f78;
@@ -167,9 +167,18 @@ html[data-theme="dark"] .slot-empty{box-shadow:inset 0 1px 4px rgba(0,0,0,.5),in
 .human .n{font-weight:700}
 /* detail panel */
 .panel{position:fixed;margin:0;border:0;padding:10px;display:grid;gap:8px;width:248px;max-width:calc(100vw - 16px);
+  max-height:calc(100vh - 16px);max-height:calc(100dvh - 16px);overflow-y:auto;overscroll-behavior:contain;
   border-radius:8px;background:var(--surface);color:var(--muted);box-shadow:var(--shadow),0 20px 44px -12px rgba(0,0,0,.28);
   font-size:12px;line-height:16px;z-index:50}
 .panel[hidden]{display:none}
+.panel[data-side="right"]{animation:pop-right 160ms var(--ease) both}
+.panel[data-side="left"]{animation:pop-left 160ms var(--ease) both}
+.panel[data-side="up"]{animation:pop-up 160ms var(--ease) both}
+.panel[data-side="down"]{animation:pop-down 160ms var(--ease) both}
+@keyframes pop-right{from{opacity:0;transform:translateX(-4px) scale(.98)}}
+@keyframes pop-left{from{opacity:0;transform:translateX(4px) scale(.98)}}
+@keyframes pop-up{from{opacity:0;transform:translateY(4px) scale(.98)}}
+@keyframes pop-down{from{opacity:0;transform:translateY(-4px) scale(.98)}}
 .panel-head{display:flex;align-items:center;gap:8px;min-width:0}
 .panel-name{flex:1;min-width:0;overflow:hidden;font-weight:600;color:var(--ink);white-space:nowrap;text-overflow:ellipsis}
 .panel-close{display:grid;flex:none;place-items:center;width:20px;height:20px;border:0;border-radius:5px;
@@ -513,6 +522,40 @@ function drawLinks(reqs,agents,layout,routerSt){
     }).join("");
   }catch(e){/* keep page alive without links */}
 }
+function positionPanel(){
+  var r=null;
+  if(state.openId){
+    var reqs=buildRequests();
+    for(var k=0;k<reqs.length;k++) if(reqs[k].id===state.openId){r=reqs[k];break;}
+  }
+  if(!r) return;
+  /* position near card: prefer right, flip left, else above/below — always inside viewport */
+  var card=map.querySelector('[data-id="req:'+r.id+'"]');
+  if(!card||!card.getBoundingClientRect) return;
+  var M=8, pw=248;
+  var vw=window.innerWidth||1024, vh=window.innerHeight||768;
+  var rc=card.getBoundingClientRect();
+  var ph=panel.offsetHeight||320;
+  if(!(ph>0)) ph=320;
+  if(ph>vh-M*2) ph=vh-M*2;
+  var w=Math.min(pw,vw-M*2);
+  var clampY=function(y){var max=Math.max(M,vh-ph-M);return Math.round(Math.min(Math.max(M,y),max));};
+  var s;
+  if(rc.right+8+pw<=vw-M){
+    s={x:Math.round(rc.right+8),y:clampY(rc.top+rc.height/2-ph/2),side:"right"};
+  } else if(rc.left-8-pw>=M){
+    s={x:Math.round(rc.left-8-pw),y:clampY(rc.top+rc.height/2-ph/2),side:"left"};
+  } else {
+    var e=Math.min(Math.max(rc.width||0,pw),vw-M*2);
+    var up=(rc.bottom+6+ph>vh-M)&&(rc.top-6-ph>=M);
+    var y=up?Math.round(rc.top-6-ph):Math.round(Math.min(rc.bottom+6,Math.max(M,vh-ph-M)));
+    s={x:Math.round(Math.min(Math.max(M,rc.left),Math.max(M,vw-e-M))),y:y,side:up?"up":"down"};
+    w=e;
+  }
+  panel.style.width=Math.round(w)+"px";
+  panel.style.left=s.x+"px";panel.style.top=s.y+"px";
+  panel.setAttribute("data-side",s.side);
+}
 function renderPanel(reqs,agents){
   var r=reqs.filter(function(x){return x.id===state.openId;})[0];
   if(!r){panel.hidden=true;return;}
@@ -544,14 +587,8 @@ function renderPanel(reqs,agents){
     });
     box.appendChild(b);
   });
-  /* position near card */
-  var card=map.querySelector('[data-id="req:'+r.id+'"]');
-  if(card){
-    var rc=card.getBoundingClientRect(), pw=248;
-    var x=Math.min(Math.max(8,rc.right+8),Math.max(8,window.innerWidth-pw-8));
-    var y=rc.top+window.scrollY+rc.height/2-60;
-    panel.style.left=x+"px"; panel.style.top=Math.max(8,y)+"px";
-  }
+  /* position near card: flip above/left when there is no room below/right, clamp inside viewport */
+  positionPanel();
 }
 
 /* interactions */
@@ -612,7 +649,8 @@ function fit(){
   if(map.getAttribute("data-layout")!==next){map.setAttribute("data-layout",next);render();}
 }
 if(window.ResizeObserver){new ResizeObserver(fit).observe(map);}
-window.addEventListener("resize",fit);
+window.addEventListener("resize",function(){fit();if(!panel.hidden)positionPanel();});
+window.addEventListener("scroll",function(){if(!panel.hidden)positionPanel();},true);
 
 /* timers: exact original cadence */
 function tick(){

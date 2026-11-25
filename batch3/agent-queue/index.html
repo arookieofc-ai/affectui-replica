@@ -206,6 +206,7 @@ body{
   box-shadow:var(--shadow);transition:box-shadow 150ms ease;
 }
 .worker:hover{box-shadow:var(--shadow-pop)}
+.worker:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
 .avatar{
   flex:none;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;
   font-size:11px;font-weight:700;background:var(--subtle);color:var(--ink);
@@ -664,6 +665,7 @@ function jobLabel(j){
 function makeJobBtn(job, shape){
   var b = document.createElement("button");
   b.type = "button";
+  b.tabIndex = 0;
   b.className = shape === "chip" ? "chip" : "sq";
   b.setAttribute("aria-label", jobLabel(job));
   b.setAttribute("aria-haspopup", "dialog");
@@ -781,6 +783,18 @@ function onJobKey(e, id){
   else if (e.key === "Escape") { closePop(); }
 }
 function render(){
+  /* KEYBOARD FIX: remember which job row holds Tab focus BEFORE rebuilding.
+     render() replaces every chip/sq/worker node; without this the focused
+     node is detached and the browser drops focus to <body>, so the next Tab
+     restarts at the top (Pause/-/+ only) and Enter/Space reach nothing. */
+  var keepId = null;
+  try {
+    var ae0 = document.activeElement;
+    if (ae0 && ae0.closest && document.contains(ae0)) {
+      var h0 = ae0.closest("[data-job-id]");
+      if (h0) keepId = h0.getAttribute("data-job-id") || (h0.dataset && h0.dataset.jobId) || null;
+    }
+  } catch (e0) { keepId = null; }
   var waiting = waitingSorted();
   var running = sim.jobs.filter(function(j){ return j.status === "running"; });
   var limited = isLimited();
@@ -877,6 +891,32 @@ function render(){
     }
     workersEl.appendChild(row);
   });
+  /* KEYBOARD FIX: restore Tab focus to the same job after the rebuild, so a
+     focus -> 250ms step -> Enter gesture reaches a live node. Skip while the
+     dialog is open (focus belongs on Close then). If the job is gone, move
+     focus to the first remaining job row to keep a visible Tab stop. */
+  if (keepId && !openId) {
+    try {
+      var repl = null;
+      var all = document.querySelectorAll("[data-job-id]");
+      for (var ri = 0; ri < all.length; ri++) {
+        var cid = all[ri].getAttribute ? all[ri].getAttribute("data-job-id") : null;
+        if (cid === keepId) { repl = all[ri]; break; }
+      }
+      if (repl && document.activeElement !== repl && repl.focus) {
+        try { repl.focus({ preventScroll: true }); } catch (eFS) { repl.focus(); }
+      } else if (!repl) {
+        try {
+          /* Previously focused job finished/left: keep a visible Tab stop by
+             moving focus to the first remaining job row. Only runs when the
+             previous focus was on a job (keepId set), so header controls are
+             never disturbed. */
+          var first = document.querySelector(".chip,.sq") || all[0] || null;
+          if (first && first.focus) { try { first.focus({ preventScroll: true }); } catch (eFF) { first.focus(); } }
+        } catch (eGone) {}
+      }
+    } catch (eR) {}
+  }
   document.getElementById("doneCount").textContent = sim.done.toLocaleString("en-US");
   document.getElementById("failCount").textContent = sim.failed.toLocaleString("en-US");
   /* chart */

@@ -107,6 +107,7 @@ html[data-theme="dark"] .ic-moon{display:none} html[data-theme="dark"] .ic-sun{d
 .db__tool{display:grid;place-items:center;width:16px;height:16px;flex:none;border-radius:50%;font-size:9px;font-weight:700;line-height:1;color:#fff}
 .db__empty{display:grid;place-items:center;min-height:52px;padding:8px 10px;font-size:12px;line-height:16px;color:var(--muted);text-align:center}
 .db__ghost{position:absolute;z-index:50;box-shadow:var(--lift);cursor:grabbing;pointer-events:none;transform:rotate(1.5deg) scale(1.02)}
+.db__ghost[hidden]{display:none}
 .db__agents{padding:14px 12px 12px}
 .db__roster{display:grid;gap:4px}
 .db__agent{display:grid;grid-template-columns:30px minmax(0,1fr) auto;grid-template-areas:"avatar who load" "avatar queue queue";column-gap:12px;row-gap:8px;padding:10px;border-radius:calc(var(--radius-lg) - 4px);transition:background-color 180ms ease,box-shadow 180ms ease}
@@ -136,11 +137,12 @@ html[data-theme="dark"] .ic-moon{display:none} html[data-theme="dark"] .ic-sun{d
 .db__tag[data-kind="busy"]{background:var(--surface);border:1px solid var(--border);color:var(--muted)}
 .db__tag[data-kind="preview"]{background:var(--surface);box-shadow:var(--shadow-card);color:var(--brand)}
 .db__tag[data-kind="suggest"]{background:var(--amber-bg);color:var(--amber)}
-.db__queue{grid-area:queue;display:flex;flex-wrap:wrap;gap:4px;min-width:0}
+.db__queue{grid-area:queue;display:grid;gap:4px;min-width:0}
 .db__queue:empty{display:none}
-.db__chip{display:inline-flex;align-items:center;gap:5px;max-width:100%;height:26px;padding:0 10px 0 7px;border-radius:999px;background:var(--surface);box-shadow:var(--shadow-card);font-size:12px;line-height:16px;color:var(--muted);cursor:grab;touch-action:none}
+.db__queue>li{min-width:0}
+.db__chip{display:flex;align-items:center;gap:5px;width:100%;height:26px;padding:0 10px 0 7px;border-radius:999px;background:var(--surface);box-shadow:var(--shadow-card);font-size:12px;line-height:16px;color:var(--muted);cursor:grab;touch-action:none}
 .db__chip[data-running]{background:var(--brand-bg);box-shadow:none;color:var(--brand);font-weight:500}
-.db__chip-title{min-width:0;max-width:150px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.db__chip-title{flex:1 1 auto;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .db__spin{animation:db-spin 900ms linear infinite}
 .db__spin svg{width:12px;height:12px;display:block}
 @keyframes db-spin{to{transform:rotate(360deg)}}
@@ -523,7 +525,8 @@ board.addEventListener("pointermove",function(e){
 },true);
 function endDrag(e,cancelled){
   if(!drag)return;
-  var d=drag;drag=null;press=null;ghost.hidden=true;
+  var d=drag;drag=null;press=null;
+  ghost.hidden=true;ghost.innerHTML="";ghost.style.left="";ghost.style.top="";ghost.style.width="";
   if(!d.active){
     /* tap without drag -> open details (element was never rebuilt mid-press, delegation is on #board) */
     if(!cancelled&&e){openDetails(d.id);}

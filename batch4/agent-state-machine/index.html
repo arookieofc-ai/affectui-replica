@@ -171,8 +171,8 @@ body {
 .mk[data-busy] i:not([data-on]) { opacity: 0.16; }
 .node-top > .mk { width: 12px; height: 12px; grid-template-columns: repeat(3, 2.5px); grid-auto-rows: 2.5px; gap: 1px; }
 /* ---------- Canvas ---------- */
-.asm-track { min-width: 0; overflow-x: auto; overflow-y: hidden; border-radius: 10px; }
-.asm-zoom { position: relative; transform-origin: top left; }
+.asm-track { min-width: 0; overflow-x: auto; overflow-y: auto; border-radius: 10px; padding-top: 14px; padding-bottom: 12px; padding-left: 2px; padding-right: 2px; }
+.asm-zoom { position: relative; transform-origin: top left; overflow: visible; }
 .asm-canvas { position: relative; direction: ltr; transition: opacity 300ms ease; }
 .asm-canvas[data-fading] { opacity: 0.3; }
 .asm-canvas svg.edges { position: absolute; inset: 0; z-index: 1; overflow: visible; pointer-events: none; }
@@ -186,19 +186,22 @@ body {
 .dot { fill: var(--box); stroke: var(--edge); stroke-width: 1.5; transition: stroke 280ms ease, opacity 280ms ease; }
 .dot[data-state="never"] { stroke: var(--edge-never); }
 .start-dot { fill: var(--edge-strong); }
-/* focus-chain highlight: connected stays, the rest dim (never below legibility) */
+/* focus-chain highlight: connected chain uses agent colour + glow, rest dims strongly */
 .asm-canvas[data-focus] .edge:not([data-lit]) path.wire,
-.asm-canvas[data-focus] .edge:not([data-lit]) path.head { opacity: 0.5; }
-.asm-canvas[data-focus] .edge[data-lit] path.wire { stroke: var(--edge-strong); }
-.asm-canvas[data-focus] .edge[data-lit] path.head { fill: var(--edge-strong); }
-.asm-canvas[data-focus] .dot:not([data-lit]) { opacity: 0.5; }
-.asm-canvas[data-focus] .node:not([data-lit]) { opacity: 0.78; }
-.asm-canvas[data-focus] .count:not([data-lit]) { opacity: 0.78; }
+.asm-canvas[data-focus] .edge:not([data-lit]) path.head { opacity: 0.30; }
+.asm-canvas[data-focus] .edge[data-lit] path.wire { stroke: var(--agent); stroke-width: 2.4; opacity: 1; filter: drop-shadow(0 0 3px var(--agent)); }
+.asm-canvas[data-focus] .edge[data-lit] path.head { fill: var(--agent); opacity: 1; }
+.asm-canvas[data-focus] .dot:not([data-lit]) { opacity: 0.30; }
+.asm-canvas[data-focus] .dot[data-lit] { stroke: var(--agent); opacity: 1; }
+.asm-canvas[data-focus] .node:not([data-lit]) { opacity: 0.55; }
+.asm-canvas[data-focus] .node[data-lit] { opacity: 1; border-color: var(--agent); box-shadow: 0 0 0 1px var(--agent), var(--shadow-on); }
+.asm-canvas[data-focus] .count:not([data-lit]) { opacity: 0.45; }
+.asm-canvas[data-focus] .count[data-lit] { opacity: 1; border-color: var(--agent); color: var(--ink); box-shadow: 0 0 0 1px var(--agent), var(--shadow-on); }
 /* ---------- State nodes ---------- */
 .node {
   position: absolute; z-index: 2;
   display: grid; align-content: center; gap: 4px;
-  width: 150px; height: 58px; padding: 0 10px 0 11px;
+  width: 172px; height: 58px; padding: 0 10px 0 11px;
   border: 1px solid var(--card-border); border-radius: 10px;
   background: var(--box); color: var(--ink);
   box-shadow: var(--shadow);
@@ -211,7 +214,7 @@ body {
 .node-top { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .node-name {
   min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
-  font-size: 13px; font-weight: 600; line-height: 18px; color: var(--ink);
+  font-size: 12.5px; font-weight: 600; line-height: 18px; color: var(--ink); letter-spacing: -0.01em;
 }
 .node-bot { display: flex; align-items: center; gap: 6px; min-width: 0; height: 18px; padding-left: 18px; }
 .node-meta {
@@ -259,6 +262,7 @@ body {
 /* ---------- Transition count chips ---------- */
 .count {
   position: absolute; z-index: 3;
+  scroll-margin-top: 14px;
   display: inline-flex; align-items: center; height: 18px; padding: 0 6px;
   border: 1px solid var(--card-border); border-radius: 999px;
   background: var(--box); color: var(--ink-soft);
@@ -275,7 +279,7 @@ body {
 .count[data-never] { color: var(--muted); border-style: dashed; }
 .count-n { display: inline-block; animation: asm-tick 420ms cubic-bezier(0.22, 1, 0.36, 1); }
 /* ---------- Detail popover ---------- */
-.asm-pop { position: absolute; z-index: 10; width: 256px; max-width: calc(100% - 16px); }
+.asm-pop { position: absolute; z-index: 10; width: 256px; max-width: calc(100% - 16px); max-height: calc(100% - 16px); }
 .pop {
   display: grid; gap: 8px;
   background: var(--surface); color: var(--ink-soft);
@@ -283,6 +287,7 @@ body {
   box-shadow: var(--pop-shadow);
   padding: 12px 12px 14px;
   font-size: 12px; line-height: 16px;
+  max-height: 300px; overflow-y: auto; overscroll-behavior: contain;
   animation: asm-pop 180ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 .pop p { margin: 0; }
@@ -530,7 +535,7 @@ function byId(id) {
 function edgeKey(e) { return e.from + "\u2192" + e.to; }
 
 /* ================= Layout (grid + routed edges) ================= */
-var NW = 150, NH = 58, GX = 56, GY = 48, PL = 16, PT = 52, PR = 16, PB = 24;
+var NW = 172, NH = 58, GX = 48, GY = 48, PL = 16, PT = 62, PR = 16, PB = 24;
 var NCOL = 4, NROW = 3;
 var CW = PL + NCOL * NW + (NCOL - 1) * GX + PR;   /* 800 */
 var CH = PT + NROW * NH + (NROW - 1) * GY + PB;   /* 346 */
@@ -580,7 +585,7 @@ function layoutEdge(e) {
     }
   } else {
     kind = "back";
-    var lane = 16;
+    var lane = 26;
     var fx = ax + 40, tx = bcx;
     d = "M" + fx + " " + ay + "V" + (lane + 4) + " Q" + fx + " " + lane + " " + (fx - 4) + " " + lane +
         "H" + (tx + 4) + " Q" + tx + " " + lane + " " + tx + " " + (lane + 4) + "V" + (by - 7);
@@ -851,19 +856,45 @@ function render() {
   fit();
 }
 
+function popEstHeight(kind, waiting) {
+  if (kind === "state") return waiting ? 330 : 270;
+  return 190;
+}
+function applyPopBox(maxH) {
+  try {
+    popEl.style.maxHeight = Math.round(maxH) + "px";
+    var inner = popEl.querySelector ? popEl.querySelector(".pop") : null;
+    if (inner && inner.style) {
+      inner.style.maxHeight = Math.round(Math.min(maxH, 300)) + "px";
+      inner.style.overflowY = "auto";
+    }
+  } catch (e) {}
+}
 function renderPop(snap) {
   if (!popEl) return;
   snap = snap || snapshot();
   if (!S.sel) { popEl.hidden = true; popEl.innerHTML = ""; return; }
-  var html = "", left = 8, top = 8;
+  var html = "", left = 8, top = 8, maxH = 300;
   if (S.sel.kind === "state") {
     var st = byId(S.sel.id);
     if (!st) { popEl.hidden = true; popEl.innerHTML = ""; return; }
     var p = nodeXY(st.id);
     html = statePopHTML(st, snap);
     left = Math.min(Math.max(p.x + NW / 2 - 128, 8), Math.max(8, CW - 264));
-    top = (ROW[st.id] >= NROW - 1) ? (p.y - 10) : (p.y + NH + 10);
-    popEl.dataset.side = (ROW[st.id] >= NROW - 1) ? "above" : "below";
+    var est = popEstHeight("state", (st.kind === "waiting" && snap.current === st.id));
+    var belowTop = p.y + NH + 10, aboveTop = p.y - 10;
+    var availBelow = CH - 8 - belowTop, availAbove = aboveTop - 8;
+    if (est <= availBelow) {
+      top = belowTop; popEl.dataset.side = "below"; maxH = Math.min(300, availBelow);
+    } else if (est <= availAbove) {
+      top = aboveTop; popEl.dataset.side = "above"; maxH = Math.min(300, availAbove);
+    } else if (availBelow >= availAbove) {
+      top = belowTop; popEl.dataset.side = "below"; maxH = Math.max(140, availBelow);
+    } else {
+      top = Math.max(8, aboveTop - Math.max(140, availAbove)); popEl.dataset.side = "above"; maxH = Math.max(140, availAbove);
+      if (popEl.dataset.side === "above") top = aboveTop;
+    }
+    top = Math.min(Math.max(top, 8), Math.max(8, CH - 60));
   } else {
     var e = null;
     EDGES.forEach(function (x) { if (edgeKey(x) === S.sel.id) e = x; });
@@ -871,9 +902,12 @@ function renderPop(snap) {
     var L = LAYOUT[EDGES.indexOf(e)];
     html = edgePopHTML(e, snap);
     left = Math.min(Math.max(L.chip[0] - 128, 8), Math.max(8, CW - 264));
-    top = L.chip[1] + 14;
-    if (top > CH - 190) top = L.chip[1] - 14;
-    popEl.dataset.side = "below";
+    var estE = popEstHeight("edge", false);
+    var bTop = L.chip[1] + 14, aTop = L.chip[1] - 14 - estE;
+    var avB = CH - 8 - bTop, avA = aTop - 8;
+    if (estE <= avB) { top = bTop; popEl.dataset.side = "below"; maxH = Math.min(300, avB); }
+    else if (avA >= 0) { top = L.chip[1] - 14; popEl.dataset.side = "above"; maxH = Math.min(300, L.chip[1] - 14 - 8); }
+    else { top = Math.min(bTop, Math.max(8, CH - estE - 8)); popEl.dataset.side = "below"; maxH = Math.max(140, CH - top - 8); }
   }
   popEl.hidden = false;
   popEl.innerHTML = html;
@@ -885,6 +919,7 @@ function renderPop(snap) {
     popEl.style.top = Math.round(top) + "px";
     popEl.style.transform = "";
   }
+  applyPopBox(maxH);
 }
 
 function fit() {
@@ -971,6 +1006,10 @@ function advance() {
     }
     lastEdge = { key: k, n: n };
     render();
+    /* Hold at "Waiting for you" until the user clicks Approve/Reject.
+       (Original demo auto-advances after 3400ms; we pause so the buttons
+       stay clickable. Approve resumes, Reject restarts.) */
+    if (TIMELINE[S.idx][0] === "ask") { clearTimer(); return; }
     schedule(TIMELINE[S.idx][1]);
   } else {
     S.fading = true;
@@ -1129,7 +1168,11 @@ try {
       state: S, snapshot: snapshot, pixelPattern: pixelPattern,
       fmtTime: fmtTime, fmtCompact: fmtCompact, fmtInt: fmtInt,
       advance: advance, reset: reset, approve: approve, render: render,
-      layout: LAYOUT, size: { w: CW, h: CH },
+      renderPop: renderPop, nodeXY: nodeXY, byId: byId,
+      STATES: STATES, EDGES: EDGES, TIMELINE: TIMELINE, AVG: AVG, OCC: OCC,
+      COL: COL, ROW: ROW, NCOL: NCOL, NROW: NROW, NW: NW, NH: NH, CW: CW, CH: CH,
+      statePopHTML: statePopHTML, edgePopHTML: edgePopHTML,
+      layout: LAYOUT, size: function(){ return { w: CW, h: CH }; },
       html: function () {
         var snap = snapshot();
         return headHTML(snap) + canvasHTML(snap, currentFocusId(), lastEdge && lastEdge.key, lastEdge && lastEdge.n);

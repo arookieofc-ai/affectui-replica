@@ -405,6 +405,7 @@ function contextHTML(gate){
 var t=0, paused=false, userDec={}, userSeq=0;
 var selectedId=null, showFull=false, editing=false, editText='';
 var openRowId=null, leaving=null, announce='';
+var lastFrontId=null;
 var startStamp=null, timerId=null;
 
 function visibleGates(now){
@@ -482,6 +483,11 @@ function render(){
   var app=$('app'); if(!app)return;
   var all=visibleGates(t), open=openGates(all), dec=decidedGates(all);
   var E=frontGate(open), D=E?open.indexOf(E):-1;
+  /* reset in-progress edit/full-context when the front card changes
+     (loop advance or pagination), so a new card never inherits the
+     previous card's draft — mirrors the original's E.id-change guard */
+  var _fid=E?E.id:null;
+  if(lastFrontId!==_fid){lastFrontId=_fid;editing=false;editText='';showFull=false;}
   var rej=null, i;
   for(i=0;i<all.length;i++){if(all[i].status==='rejected'){rej=all[i];break;}}
   var state=rej?'stopped':(open.length?'waiting':(t<10.6?'running':'done'));
