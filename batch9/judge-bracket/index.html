@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Judge Bracket — Fix: customers charged twice</title>
+<style>
+:root{
+  --page:#fafaf9; --surface:#ffffff; --ink:#171717; --ink2:#1c1917;
+  --muted:#78716c; --faint:#a8a29e; --subtle:#f5f5f4; --tray:#f0efed;
+  --border:#e7e5e4; --border-strong:#d6d3d1;
+  --radius-lg:16px; --radius:10px; --radius-sm:6px;
+  --shadow:0 1px 2px rgba(0,0,0,.05),0 4px 16px rgba(0,0,0,.05);
+  --shadow-hover:0 1px 2px rgba(0,0,0,.07),0 6px 20px rgba(0,0,0,.09);
+  --brand-bg:#eaf1ff; --brand-fg:#1e40d8;
+  --ok-bg:#e8f6ee; --ok-fg:#146c3c;
+  --wait-bg:#fef3c7; --wait-fg:#92400e; --wait-dot:#f59e0b;
+  --fail:#dc2626; --fail-bg:#fee2e2;
+  --rail:#e2e2e5; --won-line:#b4b4ba; --path:#2f6bff;
+  --focus:rgba(47,107,255,.7);
+  --ease:cubic-bezier(.32,.72,.24,1);
+}
+html[data-theme="dark"]{
+  --page:#101012; --surface:#1c1c1f; --ink:#ededed; --ink2:#ededed;
+  --muted:#a1a1aa; --faint:#63636b; --subtle:#26262a; --tray:#19191c;
+  --border:#2e2e33; --border-strong:#3a3a40;
+  --shadow:0 0 0 1px var(--border),0 1px 2px rgba(0,0,0,.3);
+  --shadow-hover:0 0 0 1px var(--border-strong),0 2px 8px rgba(0,0,0,.5);
+  --brand-bg:#1b2b4a; --brand-fg:#8ab4ff;
+  --ok-bg:#163022; --ok-fg:#5fc88a;
+  --wait-bg:#451a03; --wait-fg:#fde68a;
+  --fail:#f87171; --fail-bg:#3f1d1d;
+  --rail:#333338; --won-line:#5a5a61; --path:#4fb0fe;
+  --focus:rgba(77,141,255,.8);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--page); color:var(--ink);
+  font:400 14px/20px system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  -webkit-font-smoothing:antialiased; padding:24px 16px 48px;
+}
+.page{max-width:1060px;margin:0 auto}
+.topbar{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.topbar .proj{font-weight:650;font-size:15px;color:var(--ink);white-space:nowrap}
+.topbar .counts{font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.topbar .spacer{flex:1}
+.btn{
+  display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;
+  border:1px solid var(--border);border-radius:999px;background:var(--surface);
+  color:var(--ink);font:500 12.5px/1 system-ui,sans-serif;cursor:pointer;
+  transition:box-shadow 150ms ease,transform 150ms ease,background 150ms ease;
+}
+.btn:hover{box-shadow:var(--shadow-hover)}
+.btn:active{transform:scale(.97)}
+.btn:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.btn.primary{background:var(--ink);color:var(--page);border-color:transparent}
+.btn.icon{width:32px;height:32px;padding:0;justify-content:center;border-radius:50%}
+.ctx{margin:0 0 12px;font-size:12px;color:var(--muted)}
+.ctx .bar{height:3px;border-radius:99px;background:var(--subtle);margin-top:6px;overflow:hidden}
+.ctx .bar i{display:block;height:100%;width:22%;background:var(--brand-fg);border-radius:99px}
+.ctx .lbl{text-align:right;display:block;margin-top:4px;font-variant-numeric:tabular-nums}
+/* ---- bracket component ---- */
+.jb{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);
+  box-shadow:var(--shadow);padding:14px 14px 16px;transition:background 200ms ease}
+.jb__head{display:flex;align-items:center;gap:8px;min-width:0;padding:0 2px 12px}
+.jb__mark{display:grid;place-items:center;width:16px;color:var(--muted);flex:none}
+.jb__title{font-weight:600;color:var(--ink);white-space:nowrap;font-size:14px}
+.jb__task{flex:0 1 auto;min-width:0;overflow:hidden;color:var(--muted);
+  white-space:nowrap;text-overflow:ellipsis;font-size:13px}
+.jb__live{display:inline-flex;align-items:center;gap:4px;height:18px;margin-left:auto;
+  padding:0 8px 0 5px;border-radius:999px;background:var(--wait-bg);font-size:11px;
+  font-weight:600;color:var(--wait-fg);white-space:nowrap;opacity:0;transition:opacity 200ms ease;flex:none}
+.jb__live[data-on]{opacity:1}
+.jb__live .dot{width:7px;height:7px;border-radius:50%;background:var(--wait-dot);animation:pulse 900ms linear infinite}
+@keyframes pulse{50%{opacity:.35}}
+.jb__sum{flex:none;min-width:130px;font-size:12px;color:var(--muted);text-align:right;
+  font-variant-numeric:tabular-nums;white-space:nowrap}
+.jb__controls{display:flex;gap:8px;align-items:center;padding:0 2px 10px;flex-wrap:wrap}
+.jb__controls .hint{font-size:12px;color:var(--muted)}
+.jb__bracket{position:relative;margin-top:26px;min-height:60px}
+/* pixel-mark: exactly 9 cells */
+.px{display:inline-grid;grid-template-columns:repeat(3,4px);grid-template-rows:repeat(3,4px);
+  gap:1px;flex:none;width:16px;height:16px;padding:1px}
+.px i{width:4px;height:4px;border-radius:1px;background:var(--px-c,#888);opacity:.28}
+.px i[data-on]{opacity:1}
+.px[data-live] i[data-on]{animation:tw 1.1s ease-in-out infinite;animation-delay:var(--d,0ms)}
+@keyframes tw{50%{opacity:.35}}
+.jb__rounds>span{position:absolute;top:-22px;overflow:hidden;font-size:10px;font-weight:600;
+  line-height:14px;letter-spacing:.5px;text-transform:uppercase;color:var(--faint);
+  white-space:nowrap;text-overflow:ellipsis;transition:color 300ms ease}
+.jb__rounds>span[data-on]{color:var(--muted)}
+.jb__lines{position:absolute;top:0;left:0;overflow:visible;pointer-events:none}
+.jb__line{fill:none;stroke:var(--rail);stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;transition:stroke 300ms ease}
+.jb__line[data-state="won"]{stroke:var(--won-line)}
+.jb__line[data-state="lost"]{stroke-dasharray:2 4}
+.jb__line--path{stroke:var(--path);stroke-dasharray:1;stroke-dashoffset:0;animation:draw 420ms var(--ease) both;animation-delay:calc(var(--step,0)*320ms)}
+@keyframes draw{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
+.jb__match{position:absolute;z-index:1;display:flex;flex-direction:column;justify-content:space-between;
+  border-radius:11px;transition:opacity 200ms ease;background:none;border:0;padding:0;font:inherit;color:inherit;
+  cursor:pointer;text-align:left}
+.jb__match:disabled{cursor:default}
+.jb__match[data-dim]{opacity:.78}
+.jb__match:focus-visible{outline:2px solid var(--focus);outline-offset:2px;opacity:1}
+.jb__slot{position:relative;display:flex;align-items:center;height:40px;border-radius:10px;
+  background:var(--surface);box-shadow:var(--shadow);transition:box-shadow 200ms ease,background 200ms ease}
+@media(hover:hover){.jb__match:not(:disabled):hover .jb__slot:not([data-empty]){box-shadow:var(--shadow-hover)}}
+.jb__match[aria-pressed="true"] .jb__slot:not([data-empty]){box-shadow:var(--shadow-hover)}
+.jb__slot[data-empty]{border:1px dashed var(--border-strong);background:transparent;box-shadow:none}
+.jb__slot[data-lost]{background:var(--tray);box-shadow:none}
+.jb__slot[data-lost] .jb__name{color:var(--muted)}
+.jb__slot-in{display:flex;align-items:center;gap:7px;width:100%;min-width:0;padding:0 9px 0 6px}
+.jb__slot-in[data-arrive]{animation:arrive 420ms var(--ease) both}
+@keyframes arrive{from{opacity:0;transform:translateX(-16px)}}
+.jb__name{flex:1;min-width:0;overflow:hidden;font-size:12.5px;font-weight:500;line-height:18px;
+  color:var(--ink);white-space:nowrap;text-overflow:ellipsis}
+.jb__match[data-live] .jb__name{background:linear-gradient(90deg,var(--ink) 0 40%,var(--muted) 50%,var(--ink) 60% 100%);
+  background-size:250% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;
+  animation:shine 900ms linear infinite}
+@keyframes shine{from{background-position:100% 0}to{background-position:0 0}}
+.jb__score{flex:none;font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.jb__slot[data-won] .jb__score{font-weight:600;color:var(--ink)}
+.jb__won{display:grid;flex:none;place-items:center;width:14px;height:14px;border-radius:50%;
+  background:var(--ok-bg);color:var(--ok-fg);font-size:10px;font-weight:700}
+.jb__cup{display:grid;flex:none;place-items:center;width:18px;height:18px;border-radius:5px;
+  background:var(--brand-bg);color:var(--brand-fg);font-size:11px}
+/* narrow / list mode */
+.jb[data-narrow] .jb__bracket{display:grid;gap:14px;margin-top:0}
+.jb__list{display:grid;gap:6px}
+.jb__list-name{font-size:10px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--faint)}
+.jb__list[data-on] .jb__list-name{color:var(--muted)}
+.jb__match--row{position:relative;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px}
+.jb__match--row .jb__slot{height:36px}
+/* panel */
+.jb__panel{margin-top:18px;overflow:hidden;border-radius:var(--radius-lg);background:var(--tray);
+  transition:height 280ms var(--ease)}
+.jb__panel-in{display:grid;gap:8px;padding:12px;animation:fade 220ms ease both}
+@keyframes fade{from{opacity:0}}
+.jb__panel-head{display:flex;align-items:center;gap:8px;min-width:0}
+.jb__panel-name{font-weight:600;color:var(--ink);flex:none}
+.jb__panel-meta{margin-left:auto;font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.jb__versus{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px}
+.jb__answer{display:grid;align-content:start;gap:4px;min-width:0;padding:10px 12px 14px;
+  border-radius:12px;background:var(--surface);box-shadow:var(--shadow)}
+.jb__answer[data-lost]{opacity:.75}
+.jb__answer-head{display:flex;align-items:center;gap:7px;min-width:0}
+.jb__answer-name{flex:1;min-width:0;overflow:hidden;font-size:12.5px;font-weight:600;color:var(--ink);
+  white-space:nowrap;text-overflow:ellipsis}
+.jb__badge{display:inline-flex;align-items:center;height:16px;padding:0 6px;border-radius:4px;
+  background:var(--brand-bg);font-size:10.5px;font-weight:600;color:var(--brand-fg);white-space:nowrap}
+.jb__answer-meta{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.jb__output{max-height:76px;overflow:auto;font-size:12px;line-height:18px;color:var(--muted);
+  white-space:pre-line;overflow-wrap:anywhere;margin:0;scrollbar-width:thin}
+.jb__reason{padding:2px 4px;font-size:12.5px;color:var(--ink);margin:0}
+.jb__reason b{font-weight:600}
+.jb__actions{display:flex;justify-content:flex-end;padding-bottom:2px}
+@media(max-width:640px){
+  .jb__versus{grid-template-columns:minmax(0,1fr)}
+  .jb__sum{min-width:0}
+  .jb__task{display:none}
+}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+  .jb__match[data-live] .jb__name{background:none;color:var(--ink)}
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="topbar">
+    <span class="proj">payments-checkout</span>
+    <span class="counts" id="counts"></span>
+    <span class="spacer"></span>
+    <button class="btn icon" id="themeBtn" aria-label="Toggle dark mode" title="Toggle theme">◐</button>
+  </div>
+  <div class="ctx" aria-label="Context usage">
+    <span id="ctxLabel">Judge context · 44k / 200k</span>
+    <span class="bar" aria-hidden="true"><i></i></span>
+  </div>
+  <section class="jb" id="jb" aria-label="Judge bracket">
+    <header class="jb__head">
+      <span class="jb__mark" aria-hidden="true">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 3.5h3.5v9H2M5.5 8h3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity=".45"/><rect x="9.5" y="5.6" width="5" height="4.8" rx="1.4" fill="currentColor"/></svg>
+      </span>
+      <span class="jb__title">Judge</span>
+      <span class="jb__task" id="taskTitle" title=""></span>
+      <span class="jb__live" id="livePill"><span class="dot"></span>Judging</span>
+      <span class="jb__sum" id="sumLine" aria-live="polite"></span>
+    </header>
+    <div class="jb__controls">
+      <button class="btn primary" id="replayBtn">↺ Replay</button>
+      <button class="btn" id="pauseBtn" aria-pressed="false">⏸ Pause</button>
+      <span class="hint">Click a matchup to inspect the verdict · arrow keys move · Esc clears</span>
+    </div>
+    <div class="jb__bracket" id="bracket" role="group" aria-label="8 attempts, judged by Claude Opus"></div>
+    <section class="jb__panel" id="panel" aria-label="Match" aria-live="polite"><div class="jb__panel-in" id="panelIn"></div></section>
+  </section>
+  <p class="ctx" style="margin-top:12px">Clean-room replica · original demo data preserved verbatim · open <code>index.html</code> directly, no network needed.</p>
+</div>
+<script>
+(function(){
+"use strict";
+/* ===== original demo data (verbatim values, re-typed structure) ===== */
+var JUDGE="Claude Opus";
+var TASK="Fix: customers charged twice when a payment is retried";
+var CONTENDERS=[
+ {id:"c1",name:"Idempotency key",model:"Sonnet",meta:"Sonnet · +18 −4 · 3 files · 42/42 tests",output:"Sends one idempotency key per checkout, so Stripe returns the first charge on a retry instead of making a second.\nstripe.paymentIntents.create(params, { idempotencyKey: checkout.id })"},
+ {id:"o1",name:"Retry guard",model:"GPT-5",meta:"GPT-5 · +9 −1 · 1 file · 41/42 tests",output:"Skips the retry when the first request is still pending.\nif (pending.has(checkout.id)) return pending.get(checkout.id)\nFails: webhook arrives before the client retry"},
+ {id:"g1",name:"Row lock",model:"Gemini",meta:"Gemini · +31 −6 · 4 files · 42/42 tests",output:"Takes a row lock on the order before charging, so two requests can't charge the same order.\nSELECT … FROM orders WHERE id = $1 FOR UPDATE"},
+ {id:"x1",name:"No retries",model:"Grok",meta:"Grok · +2 −14 · 2 files · 39/42 tests",output:"Turns off automatic retries for payment requests.\nmaxNetworkRetries: 0\nFails: 3 tests for flaky networks"},
+ {id:"c2",name:"Webhook dedupe",model:"Sonnet",meta:"Sonnet · +24 −3 · 2 files · 42/42 tests",output:"Stores every Stripe event id it has handled and ignores repeats, so a replayed webhook can't fulfil an order twice.\nif (await seen(event.id)) return 200"},
+ {id:"o2",name:"State machine",model:"GPT-5",meta:"GPT-5 · +112 −40 · 7 files · 42/42 tests",output:"Rewrites checkout as a state machine – pending, charged, fulfilled – and only charges from pending.\nThorough, but touches seven files and the order model."},
+ {id:"g2",name:"Button debounce",model:"Gemini",meta:"Gemini · +6 −0 · 1 file · 40/42 tests",output:"Disables the Pay button for 3 seconds after a click.\nFails: server-side retries still charge twice"},
+ {id:"x2",name:"Refund later",model:"Grok",meta:"Grok · +38 −0 · 2 files · 42/42 tests",output:"A nightly job finds double charges and refunds the second one.\nCustomers still see two charges until the next morning."}
+];
+/* ordered verdicts: [matchKey, {winner, scores, reason}] — exact original values */
+var VERDICTS=[
+ ["0:0",{winner:"c1",scores:[9.1,6.2],reason:"The idempotency key fixes the cause at the source; the retry guard misses the case where the webhook arrives before the client retries."}],
+ ["0:1",{winner:"g1",scores:[8.3,4.1],reason:"The lock keeps retries working; turning them off breaks three tests for flaky networks."}],
+ ["0:2",{winner:"c2",scores:[8.7,7.2],reason:"Same safety in 2 files instead of 7 – the state machine is the bigger change for the same result."}],
+ ["0:3",{winner:"x2",scores:[3.8,5.1],reason:"Neither stops the double charge; refunding at least gets the money back, the debounce does nothing for server retries."}],
+ ["1:0",{winner:"c1",scores:[9.2,8.0],reason:"Both stop the second charge – the key needs no lock and no extra query on every checkout."}],
+ ["1:1",{winner:"c2",scores:[8.8,4.6],reason:"Deduping the webhook prevents the second fulfilment; refunds after the fact still show customers two charges."}],
+ ["2:0",{winner:"c1",scores:[9.4,8.6],reason:"The idempotency key stops the double charge before it happens; webhook dedupe only stops the second fulfilment. Ship the key – and keep the dedupe as a follow-up."}]
+];
+/* ===== timings (exact originals) ===== */
+var TICK_MS=900, START_DELAY=2, TICKS_PER=2, TAIL=14;
+var TOTAL=START_DELAY+VERDICTS.length*TICKS_PER+TAIL; /* 30 */
+var SLOT_H=40, COL_GAP=28, COL_MIN=176;
+/* ===== pure logic (exposed for headless test) ===== */
+function roundName(r,total){
+  if(r===total-1) return "Final";
+  if(r===total-2) return "Semifinal";
+  if(r===total-3) return "Quarterfinal";
+  return "Round "+(r+1);
+}
+function buildRounds(contenders,verdictMap){
+  var byId={},i; for(i=0;i<contenders.length;i++) byId[contenders[i].id]=contenders[i];
+  var r=Math.max(1,Math.round(Math.log2(Math.max(2,contenders.length))));
+  var rounds=[],slots=[],ys=[],k;
+  for(k=0;k<Math.pow(2,r);k++) slots.push(contenders[k]);
+  for(k=0;k<Math.pow(2,r);k++) ys.push(Math.floor(k/2)*100+(k%2)*44+SLOT_H/2);
+  var cur=slots,curY=ys;
+  for(var e=0;e<r;e++){
+    var row=[],next=[],nextY=[];
+    for(var o=0;o<cur.length/2;o++){
+      var key=e+":"+o,a=cur[2*o],b=cur[2*o+1];
+      var v=(a&&b)?verdictMap[key]:undefined;
+      var w;
+      if(e===0&&!!a!==!!b){w=a||b;}
+      else if(v&&(v.winner===(a&&a.id)||v.winner===(b&&b.id))){w=byId[v.winner];}
+      var ya=curY[2*o],yb=curY[2*o+1];
+      row.push({key:key,round:e,index:o,a:a,b:b,verdict:v,winner:w,ya:ya,yb:yb});
+      next.push(w); nextY.push((ya+yb)/2);
+    }
+    rounds.push(row); cur=next; curY=nextY;
+  }
+  var champ=rounds[r-1][0].winner;
+  var height=Math.pow(2,r-1)*84+(Math.pow(2,r-1)-1)*16;
+  return {rounds:rounds,champion:champ,height:height,total:r};
+}
+function tickDerived(tick){
+  var n=Math.max(0,Math.min(VERDICTS.length,Math.floor((tick-START_DELAY)/TICKS_PER)));
+  var map={}; for(var i=0;i<n;i++) map[VERDICTS[i][0]]=VERDICTS[i][1];
+  var judging=(tick>=START_DELAY&&n<VERDICTS.length)?VERDICTS[n][0]:undefined;
+  return {revealed:n,map:map,judgingKey:judging};
+}
+function hashId(id){var h=0;for(var i=0;i<id.length;i++) h=(h*31+id.charCodeAt(i))>>>0;return h;}
+function pxHue(id){return hashId(id)%360;}
+function pxPattern(id){ /* 9-bit deterministic pattern, always exactly 9 cells rendered */
+  var h=hashId(id); var bits=[];
+  for(var i=0;i<9;i++) bits.push((h>>(i%13))&1 ? true : (i%2===0));
+  bits[4]=true; return bits;
+}
+function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+function fmt(n){return n.toFixed(1);}
+if(typeof globalThis!=="undefined"){
+  globalThis.JudgeBracket={CONTENDERS:CONTENDERS,VERDICTS:VERDICTS,JUDGE:JUDGE,TASK:TASK,
+    TICK_MS:TICK_MS,START_DELAY:START_DELAY,TICKS_PER:TICKS_PER,TOTAL:TOTAL,
+    roundName:roundName,buildRounds:buildRounds,tickDerived:tickDerived,pxHue:pxHue,pxPattern:pxPattern,fmt:fmt};
+}
+/* ===== DOM app (only when a real document exists) ===== */
+if(typeof document==="undefined"||!document.querySelector||!document.querySelector("#bracket")) return;
+var bracketEl=document.querySelector("#bracket"),panelEl=document.querySelector("#panel"),
+    panelIn=document.querySelector("#panelIn"),sumEl=document.querySelector("#sumLine"),
+    liveEl=document.querySelector("#livePill"),taskEl=document.querySelector("#taskTitle"),
+    countsEl=document.querySelector("#counts"),jbEl=document.querySelector("#jb");
+taskEl.textContent=TASK; taskEl.title=TASK;
+var tick=0,paused=false,userKey=null,lastSnap="";
+function narrow(){
+  var w=(jbEl&&jbEl.clientWidth)||bracketEl.clientWidth||800;
+  return w < (COL_MIN*3+COL_GAP*2);
+}
+function liveIds(){
+  var d=tickDerived(tick),m=buildRounds(CONTENDERS,d.map);
+  var live=m.rounds.map(function(row){return row.filter(function(x){return x.key===d.judgingKey&&x.a&&x.b&&!x.winner;})[0];}).filter(Boolean)[0];
+  return live?[(live.a&&live.a.id),(live.b&&live.b.id)]:[];
+}
+function pixelMark(id,isLive){
+  var hue=pxHue(id),pat=pxPattern(id),cells="";
+  for(var i=0;i<9;i++){
+    cells+='<i'+(pat[i]?' data-on':'')+' style="--d:'+(i*90)+'ms;'+(pat[i]?'--px-c:hsl('+hue+',65%,45%)':'')+'"></i>';
+  }
+  return '<span class="px" aria-hidden="true"'+(isLive?' data-live':'')+'>'+cells+'</span>';
+}
+function slotHTML(m,side,isNarrow,liveSet){
+  var c=m[side],won=!!(c&&m.winner&&m.winner.id===c.id),
+      lost=!!(c&&m.winner&&!won),
+      score=m.verdict&&m.verdict.scores?(side==="a"?m.verdict.scores[0]:m.verdict.scores[1]):undefined,
+      champ=won&&m.round===2;
+  if(!c) return '<span class="slot-wrap"><span class="jb__slot" data-empty><span class="jb__slot-in"><span class="jb__name" style="color:var(--muted)">TBD</span></span></span></span>';
+  var inner=pixelMark(c.id,liveSet.indexOf(c.id)>=0)
+    +'<span class="jb__name" title="'+esc(c.name)+'">'+esc(c.name)+'</span>'
+    +(champ?'<span class="jb__cup" aria-label="Winner">🏆</span>':"")
+    +(score!==undefined&&!isNarrow?'<span class="jb__score">'+fmt(score)+'</span>'
+      :(!champ&&won&&!isNarrow?'<span class="jb__won">✓</span>':""));
+  return '<span class="jb__slot"'+(won?' data-won':"")+(lost?' data-lost':"")+(champ?' data-champ':"")+'>'
+    +'<span class="jb__slot-in"'+(m.round>0?' data-arrive':"")+'>'+inner+'</span></span>';
+}
+function elbow(x1,y1,x2,y2){
+  var mx=(x1+x2)/2;
+  if(Math.abs(y1-y2)<1) return "M"+x1+" "+y1+"H"+x2;
+  var s=y2>y1?1:-1,r=Math.min(6,Math.abs(y2-y1)/2,(x2-x1)/2);
+  return "M"+x1+" "+y1+"H"+(mx-r)+"Q"+mx+" "+y1+" "+mx+" "+(y1+s*r)+"V"+(y2-s*r)+"Q"+mx+" "+y2+" "+(mx+r)+" "+y2+"H"+x2;
+}
+function render(){
+  var d=tickDerived(tick),built=buildRounds(CONTENDERS,d.map),
+      rounds=built.rounds,champ=built.champion,
+      flat=rounds.reduce(function(a,r){return a.concat(r);},[]),
+      decided=flat.filter(function(x){return x.winner;}).length,
+      live=flat.filter(function(x){return x.key===d.judgingKey&&x.a&&x.b&&!x.winner;})[0],
+      curRound=rounds.findIndex(function(r){return r.some(function(x){return !x.winner;});}),
+      isNarrow=narrow(),
+      snap=[tick,decided,d.judgingKey||"-",userKey||"-",isNarrow?"n":"w",paused?"p":"r",champ?champ.id:"-"].join("|");
+  if(snap===lastSnap) return; /* re-render ONLY on actual state change */
+  lastSnap=snap;
+  var judgingCount=live?2:0;
+  countsEl.textContent="Judge · "+judgingCount+" judging · 8 attempts";
+  liveEl.toggleAttribute("data-on",!!live);
+  sumEl.textContent=champ?champ.name+" wins":(curRound>=0?roundName(curRound,rounds.length)+" · "+decided+"/"+flat.length:decided+"/"+flat.length);
+  var liveSet=live?[(live.a.id),(live.b.id)]:[];
+  var html="";
+  if(!isNarrow){
+    var w=Math.max(300,(jbEl.clientWidth||800)-28),colW=Math.floor((w-(rounds.length-1)*COL_GAP)/rounds.length);
+    if(colW<COL_MIN) colW=COL_MIN;
+    var X=function(r){return r*(colW+COL_GAP);};
+    html+='<div class="jb__rounds" aria-hidden="true">'+rounds.map(function(row,r){
+      return '<span style="left:'+X(r)+'px;width:'+colW+'px"'+(r===curRound?' data-on':"")+'>'+esc(roundName(r,rounds.length))+'</span>';
+    }).join("")+'</div>';
+    var paths="";
+    flat.filter(function(x){return x.round<rounds.length-1;}).forEach(function(x){
+      var x1=X(x.round)+colW,x2=X(x.round+1),ym=(x.ya+x.yb)/2;
+      ["a","b"].forEach(function(s){
+        var o=x[s],st=x.winner?(x.winner.id===(o&&o.id)?"won":"lost"):"open";
+        paths+='<path class="jb__line" data-state="'+st+'" d="'+elbow(x1,s==="a"?x.ya:x.yb,x2,ym)+'"/>';
+      });
+    });
+    if(champ) flat.filter(function(x){return x.winner&&x.winner.id===champ.id&&x.round<rounds.length-1;}).forEach(function(x){
+      var x1=X(x.round)+colW,x2=X(x.round+1),ym=(x.ya+x.yb)/2;
+      var s=x.a&&x.a.id===champ.id?"a":"b";
+      paths+='<path class="jb__line jb__line--path" style="--step:'+x.round+'" d="'+elbow(x1,s==="a"?x.ya:x.yb,x2,ym)+'" pathLength="1"/>';
+    });
+    html+='<svg class="jb__lines" width="'+(X(rounds.length-1)+colW)+'" height="'+built.height+'" aria-hidden="true">'+paths+'</svg>';
+    flat.forEach(function(x){
+      html+='<button type="button" class="jb__match" data-key="'+x.key+'"'
+        +' style="left:'+X(x.round)+'px;top:'+(x.ya-SLOT_H/2)+'px;width:'+colW+'px;height:'+(x.yb-x.ya+SLOT_H)+'px"'
+        +(x===live?' data-live':"")+((userKey&&userKey!==x.key)?' data-dim':"")
+        +' aria-pressed="'+(selKey()===x.key)+'" aria-label="'+esc(label(x,rounds,live))+'"'
+        +((!x.a&&!x.b)?" disabled":"")+'>'
+        +slotHTML(x,"a",false,liveSet)+slotHTML(x,"b",false,liveSet)+'</button>';
+    });
+    bracketEl.style.height=built.height+"px";
+  }else{
+    bracketEl.style.height="";
+    html+=rounds.map(function(row,r){
+      return '<div class="jb__list"'+(r===curRound?' data-on':"")+'>'
+        +'<span class="jb__list-name">'+esc(roundName(r,rounds.length))+'</span>'
+        +row.map(function(x){
+          return '<button type="button" class="jb__match jb__match--row" data-key="'+x.key+'"'
+            +(x===live?' data-live':"")+((userKey&&userKey!==x.key)?' data-dim':"")
+            +' aria-pressed="'+(selKey()===x.key)+'" aria-label="'+esc(label(x,rounds,live))+'"'
+            +((!x.a&&!x.b)?" disabled":"")+'>'
+            +slotHTML(x,"a",true,liveSet)+slotHTML(x,"b",true,liveSet)+'</button>';
+        }).join("")+'</div>';
+    }).join("");
+  }
+  bracketEl.setAttribute("data-narrow",isNarrow?"":null);
+  if(isNarrow) jbEl.setAttribute("data-narrow",""); else jbEl.removeAttribute("data-narrow");
+  bracketEl.innerHTML=html;
+  renderPanel(built,rounds,live,champ);
+}
+function selKey(){
+  var d=tickDerived(tick),built=buildRounds(CONTENDERS,d.map),
+      flat=built.rounds.reduce(function(a,r){return a.concat(r);},[]),
+      live=flat.filter(function(x){return x.key===d.judgingKey&&x.a&&x.b&&!x.winner;})[0];
+  if(userKey&&flat.some(function(x){return x.key===userKey;})) return userKey;
+  if(live) return live.key;
+  if(built.champion) return built.rounds[built.rounds.length-1][0].key;
+  var dec=flat.filter(function(x){return x.winner;});
+  return dec.length?dec[dec.length-1].key:flat[0].key;
+}
+function label(x,rounds,live){
+  var t=roundName(x.round,rounds.length)+(rounds[x.round].length>1?" "+(x.index+1):"");
+  var base=t+": "+(x.a?x.a.name:"to be decided")+" against "+(x.b?x.b.name:"to be decided");
+  if(x.winner) return base+", "+x.winner.name+" won";
+  if(live&&x===live) return base+", being judged";
+  return base;
+}
+function renderPanel(built,rounds,live,champ){
+  var flat=built.rounds.reduce(function(a,r){return a.concat(r);},[]),
+      key=selKey(),z=flat.filter(function(x){return x.key===key;})[0]||flat[0];
+  var head=roundName(z.round,rounds.length)+(rounds[z.round].length>1?" "+(z.index+1):"");
+  var meta=(live&&z===live)?JUDGE+" is comparing…":(z.winner?( "Judged by "+JUDGE):"Not judged yet");
+  function ansHTML(side){
+    var c=z[side],won=!!(c&&z.winner&&z.winner.id===c.id),lost=!!(c&&z.winner&&!won);
+    var sc=z.verdict&&z.verdict.scores?(side==="a"?z.verdict.scores[0]:z.verdict.scores[1]):undefined;
+    return '<div class="jb__answer"'+(won?' data-won':"")+(lost?' data-lost':"")+'>'
+      +'<div class="jb__answer-head">'+(c?pixelMark(c.id,false):"")
+      +'<span class="jb__answer-name">'+esc(c?c.name:"To be decided")+'</span>'
+      +(won?'<span class="jb__badge">Winner</span>':"")
+      +(sc!==undefined?'<span class="jb__score">'+fmt(sc)+'</span>':"")+'</div>'
+      +(c&&c.meta?'<span class="jb__answer-meta">'+esc(c.meta)+'</span>':"")
+      +'<p class="jb__output"'+(c&&c.output?' tabindex="0" aria-label="Answer of '+esc(c.name)+'"':"")+'>'+esc(c&&c.output?c.output:(c?"No output given.":"Waits for the round before."))+'</p></div>';
+  }
+  var h='<div class="jb__panel-head"><span class="jb__panel-name">'+esc(head)+'</span>'
+    +'<span class="jb__panel-meta">'+esc(meta)+'</span></div>'
+    +'<div class="jb__versus">'+ansHTML("a")+ansHTML("b")+'</div>'
+    +(z.verdict&&z.verdict.reason?'<p class="jb__reason"><b>Judge: </b>'+esc(z.verdict.reason)+'</p>':"");
+  var isFinal=champ&&z.key===rounds[rounds.length-1][0].key;
+  if(isFinal) h+='<div class="jb__actions"><button type="button" class="btn primary" id="useBtn">Use '+esc(champ.name)+' ↺</button></div>';
+  panelIn.innerHTML=h;
+  var ub=document.querySelector("#useBtn");
+  if(ub) ub.addEventListener("click",function(){tick=0;userKey=null;render();});
+}
+/* select on pointerdown (capture) so a click is never lost across a rebuild */
+bracketEl.addEventListener("pointerdown",function(ev){
+  var b=ev.target&&ev.target.closest?ev.target.closest("[data-key]"):null;
+  if(!b||b.disabled) return;
+  var k=b.getAttribute("data-key");
+  userKey=(userKey===k)?null:k;
+  render();
+  var nb=bracketEl.querySelector('[data-key="'+k+'"]');
+  if(nb) nb.focus({preventScroll:true});
+},true);
+bracketEl.addEventListener("click",function(ev){
+  var b=ev.target&&ev.target.closest?ev.target.closest("[data-key]"):null;
+  if(!b) return;
+  ev.preventDefault();
+},true);
+bracketEl.addEventListener("keydown",function(ev){
+  var b=ev.target&&ev.target.closest?ev.target.closest("[data-key]"):null;
+  if(!b) return;
+  var d=tickDerived(tick),built=buildRounds(CONTENDERS,d.map),flat=[];
+  built.rounds.forEach(function(r){flat=flat.concat(r);});
+  var cur=flat.filter(function(x){return x.key===b.getAttribute("data-key");})[0];
+  var t=null,nk=null;
+  if(ev.key==="Escape"&&userKey){ev.preventDefault();userKey=null;render();return;}
+  if(ev.key==="ArrowDown"||ev.key==="ArrowUp"){
+    var row=built.rounds[cur.round];
+    var ni=cur.index+(ev.key==="ArrowDown"?1:-1);
+    if(row[ni]) nk=row[ni].key;
+  }else if(ev.key==="ArrowRight"){
+    if(built.rounds[cur.round+1]) nk=built.rounds[cur.round+1][Math.floor(cur.index/2)].key;
+  }else if(ev.key==="ArrowLeft"){
+    if(built.rounds[cur.round-1]) nk=built.rounds[cur.round-1][cur.index*2].key;
+  }
+  if(nk){ev.preventDefault();var nb=bracketEl.querySelector('[data-key="'+nk+'"]');if(nb) nb.focus();}
+});
+document.querySelector("#replayBtn").addEventListener("click",function(){tick=0;userKey=null;paused=false;
+  document.querySelector("#pauseBtn").textContent="⏸ Pause";
+  document.querySelector("#pauseBtn").setAttribute("aria-pressed","false");render();});
+document.querySelector("#pauseBtn").addEventListener("click",function(ev){
+  paused=!paused;ev.currentTarget.textContent=paused?"▶ Play":"⏸ Pause";
+  ev.currentTarget.setAttribute("aria-pressed",paused?"true":"false");render();});
+var themeBtn=document.querySelector("#themeBtn");
+function setTheme(t){document.documentElement.setAttribute("data-theme",t);try{localStorage.setItem("jb-theme",t);}catch(e){}}
+(function initTheme(){
+  var saved=null; try{saved=localStorage.getItem("jb-theme");}catch(e){}
+  if(saved==="light"||saved==="dark") setTheme(saved);
+  else setTheme(window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");
+})();
+themeBtn.addEventListener("click",function(){
+  setTheme(document.documentElement.getAttribute("data-theme")==="dark"?"light":"dark");
+});
+var rT=null;
+window.addEventListener("resize",function(){clearTimeout(rT);rT=setTimeout(render,120);});
+setInterval(function(){ if(paused) return; tick=tick>=TOTAL?0:tick+1; render(); },TICK_MS);
+render();
+})();
+</script>
+</body>
+</html>

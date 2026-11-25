@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Onboard new signups · flow-builder</title>
+<style>
+:root{
+  --page:#fafaf9; --surface:#ffffff; --ink:#171717; --ink2:#1c1917;
+  --muted:#78716c; --subtle:#f5f5f4; --border:#e7e5e4;
+  --radius-lg:16px; --radius:10px; --radius-sm:6px;
+  --shadow:0 1px 2px rgba(0,0,0,.05),0 4px 16px rgba(0,0,0,.05);
+  --shadow-pop:0 12px 32px -8px rgba(0,0,0,.18),0 2px 8px rgba(0,0,0,.08);
+  --work:#0284c7; --work-bg:#e0f2fe; --work-fg:#0c4a6e;
+  --ok:#15803d; --ok-bg:#dcfce7; --ok-fg:#166534;
+  --wait:#f59e0b; --wait-bg:#fef3c7; --wait-fg:#92400e;
+  --idle:#78716c; --idle-bg:#f5f5f4; --idle-fg:#57534e;
+  --fail:#dc2626; --fail-bg:#fee2e2; --fail-fg:#991b1b;
+  --link:#0284c7; --focus:#2563eb; --mark:#2563eb;
+  --card-w:264px;
+}
+html[data-theme="dark"]{
+  --page:#101012; --surface:#1c1c1f; --ink:#ededed; --ink2:#ededed;
+  --muted:#a1a1aa; --subtle:#26262a; --border:#2e2e33;
+  --shadow:0 1px 2px rgba(0,0,0,.5),0 4px 16px rgba(0,0,0,.4);
+  --shadow-pop:0 12px 32px -8px rgba(0,0,0,.7),0 2px 8px rgba(0,0,0,.5);
+  --work:#38bdf8; --work-bg:rgba(56,189,248,.14); --work-fg:#bae6fd;
+  --ok:#4ade80; --ok-bg:rgba(74,222,128,.13); --ok-fg:#bbf7d0;
+  --wait:#fbbf24; --wait-bg:#451a03; --wait-fg:#fde68a;
+  --idle:#a1a1aa; --idle-bg:#26262a; --idle-fg:#d4d4d8;
+  --fail:#f87171; --fail-bg:rgba(248,113,113,.14); --fail-fg:#fecaca;
+  --link:#4fb0fe; --focus:#6ea8fe; --mark:#6ea8fe;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--page); color:var(--ink);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:14px; line-height:1.45; -webkit-font-smoothing:antialiased;
+  min-height:100vh; display:flex; justify-content:center; padding:20px 12px 40px;
+}
+.page{width:100%; max-width:860px}
+.pagebar{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px}
+.crumb{font-size:12.5px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.theme-btn{display:inline-flex; align-items:center; gap:7px; height:30px; padding:0 12px;
+  border-radius:999px; border:1px solid var(--border); background:var(--surface); color:var(--ink);
+  font:inherit; font-size:12.5px; font-weight:600; cursor:pointer; box-shadow:var(--shadow);
+  transition:background 150ms ease,transform 150ms ease}
+.theme-btn:hover{background:var(--subtle)}
+.theme-btn:active{transform:scale(.96)}
+.theme-btn:focus-visible,.fb-run:focus-visible,.fb-card:focus-visible,.fb-plus:focus-visible,
+.fb-item-btn:focus-visible,.fb-undo:focus-visible,.fb-remove:focus-visible,.fb-start:focus-visible{outline:2px solid var(--focus); outline-offset:2px}
+/* ---- component ---- */
+.fb{position:relative; display:flex; flex-direction:column; width:100%;
+  background:transparent; color:var(--muted); font-size:13px}
+.fb-head{display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:34px; margin-bottom:6px}
+.fb-name{display:flex; align-items:baseline; gap:8px; min-width:0}
+.fb-name h3{margin:0; font-size:15px; font-weight:600; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.fb-name .count{flex:none; font-size:12.5px; color:var(--muted); font-variant-numeric:tabular-nums}
+.fb-run{display:inline-flex; flex:none; align-items:center; gap:6px; height:30px; padding:0 14px;
+  border-radius:999px; border:1px solid var(--border); background:var(--surface); color:var(--ink);
+  font-size:13px; font-weight:600; cursor:pointer; box-shadow:var(--shadow);
+  transition:background 150ms ease,opacity 150ms ease,transform 150ms ease}
+.fb-run:hover:not(:disabled){background:var(--subtle)}
+.fb-run:active:not(:disabled){transform:scale(.97)}
+.fb-run.solid{background:var(--ink); color:var(--page); border-color:transparent}
+.fb-run.solid:hover:not(:disabled){opacity:.88; background:var(--ink)}
+.fb-run:disabled{opacity:.45; cursor:default}
+.fb-canvas{position:relative; overflow:auto; overscroll-behavior:contain; scrollbar-width:none;
+  cursor:grab; border:1px solid var(--border); border-radius:var(--radius-lg);
+  background:var(--surface); box-shadow:var(--shadow); max-height:520px}
+.fb-canvas::-webkit-scrollbar{display:none}
+.fb-canvas.panning{cursor:grabbing; user-select:none}
+.fb-flow{display:flex; flex-direction:column; align-items:center; width:max-content; min-width:100%; padding:28px 16px 30px}
+.fb-item{display:flex; flex-direction:column; align-items:center}
+.fb-step{position:relative; width:var(--card-w); transition:opacity 200ms ease; animation:fb-in 380ms ease both}
+.fb-selecting .fb-step:not([data-selected]){opacity:.78}
+.fb-card{display:block; width:100%; text-align:start; cursor:pointer; font:inherit; color:inherit;
+  background:var(--subtle); border:1px solid var(--border); border-radius:var(--radius-lg);
+  padding:4px; transition:transform 150ms ease,box-shadow 150ms ease}
+.fb-card:hover{box-shadow:var(--shadow)}
+.fb-card:active{transform:scale(.985)}
+.fb-step[data-selected] .fb-card{box-shadow:0 0 0 2px var(--link)}
+.fb-face{position:relative; display:grid; gap:7px; min-height:92px; padding:10px 10px 12px;
+  background:var(--surface); border-radius:calc(var(--radius-lg) - 4px); overflow:hidden}
+.fb-top{display:flex; align-items:center; gap:8px; min-width:0; min-height:30px}
+.fb-tile{display:grid; flex:none; place-items:center; width:26px; height:26px; border-radius:8px;
+  background:var(--surface); border:1px solid var(--border); color:var(--ink)}
+.fb-step[data-kind="trigger"] .fb-tile{background:var(--ink); color:var(--page); border-color:transparent}
+.fb-text{display:grid; flex:1; min-width:0}
+.fb-title{font-weight:600; font-size:14px; line-height:17px; color:var(--ink);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.fb-detail{font-size:12px; line-height:15px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.fb-tag{display:inline-flex; flex:none; align-self:start; align-items:center; gap:4px; height:19px; padding:0 7px;
+  border-radius:999px; background:var(--idle-bg); color:var(--idle-fg);
+  font-size:11px; font-weight:600; line-height:18px; white-space:nowrap}
+.fb-tag[data-tone="running"]{background:var(--work-bg); color:var(--work-fg)}
+.fb-tag[data-tone="done"]{background:var(--ok-bg); color:var(--ok-fg)}
+.fb-tag[data-tone="failed"]{background:var(--fail-bg); color:var(--fail-fg)}
+.fb-tag[data-tone="wait"]{background:var(--wait-bg); color:var(--wait-fg)}
+.fb-spin{width:10px; height:10px; border-radius:50%; flex:none;
+  border:1.5px solid currentColor; border-top-color:transparent; animation:fb-turn 700ms linear infinite; opacity:.9}
+.fb-act{font-size:12.5px; line-height:17px; color:var(--muted);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.fb-step[data-status="failed"] .fb-act{color:var(--fail-fg)}
+.fb-act.live{background:linear-gradient(90deg,var(--muted) 0 35%,var(--ink) 50%,var(--muted) 65% 100%);
+  background-size:260% 100%; -webkit-background-clip:text; background-clip:text; color:transparent;
+  animation:fb-shine 2s linear infinite}
+.fb-meter-row{display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:8px; height:14px}
+.fb-meter{position:relative; overflow:hidden; height:3px; border-radius:2px; background:var(--border)}
+.fb-meter i{position:absolute; inset:0; border-radius:inherit; background:var(--link);
+  transform:scaleX(0); transform-origin:left; transition:transform 500ms ease}
+.fb-meter[data-tone="running"] i{transform:none;
+  background:linear-gradient(90deg,transparent,var(--link) 50%,transparent);
+  background-size:50% 100%; background-repeat:no-repeat; animation:fb-sweep 1.1s ease-in-out infinite}
+.fb-meter[data-tone="done"] i{transform:none; opacity:.75}
+.fb-meter[data-tone="failed"] i{transform:none; background:var(--fail)}
+.fb-num{min-width:30px; font-size:11px; color:var(--muted); text-align:end; font-variant-numeric:tabular-nums}
+.fb-step[data-status="skipped"]{opacity:.78}
+.fb-step[data-status="skipped"] .fb-card{background:transparent}
+.fb-step[data-status="skipped"] .fb-face{background:transparent; border:1px dashed var(--border)}
+.fb-step[data-status="skipped"] .fb-tile{background:transparent}
+/* connectors */
+.fb-link{position:relative; display:grid; place-items:center; width:24px; height:46px}
+.fb-link::before{content:""; position:absolute; top:0; bottom:0; left:50%; width:1.5px; margin-left:-.75px;
+  border-radius:1px; background:var(--link); opacity:.55; transform-origin:top; animation:fb-draw 350ms ease both}
+.fb-link.end{height:38px; align-items:end}
+.fb-link.skipped::before{background:repeating-linear-gradient(var(--link) 0 3px,transparent 3px 6px); opacity:.5}
+.fb-link.run::after{content:""; position:absolute; top:0; left:50%; width:1.5px; height:16px; margin-left:-.75px;
+  background:linear-gradient(transparent,var(--link)); animation:fb-drop 1s ease-in-out infinite}
+.fb-dot{position:absolute; top:-3px; left:50%; width:7px; height:7px; margin-left:-3.5px; border-radius:50%;
+  background:var(--surface); border:1.5px solid var(--link)}
+.fb-plus{position:relative; z-index:1; display:grid; place-items:center; width:22px; height:22px; border-radius:50%;
+  background:var(--surface); border:1px solid var(--border); color:var(--muted); cursor:pointer;
+  box-shadow:var(--shadow); transition:transform 150ms ease,color 150ms ease; font-size:14px; line-height:1}
+.fb-plus:hover:not(:disabled),.fb-plus[aria-expanded="true"]{transform:scale(1.15) rotate(90deg); color:var(--work); border-color:var(--link)}
+.fb-plus:disabled{opacity:0; cursor:default}
+/* fork */
+.fb-fork{position:relative; padding-top:16px; display:flex; flex-direction:column; align-items:center}
+.fb-fork::before{content:""; position:absolute; top:0; left:50%; width:1.5px; height:16px; margin-left:-.75px; background:var(--link); opacity:.55}
+.fb-lanes{display:flex; align-items:flex-start}
+.fb-lane{position:relative; display:flex; flex-direction:column; align-items:center; padding:20px 14px 0}
+.fb-lane::before,.fb-lane::after{content:""; position:absolute; top:0; height:18px; border:0 solid var(--link); opacity:.55}
+.fb-lane::before{left:0; right:50%; border-top-width:1.5px}
+.fb-lane::after{left:calc(50% - .75px); right:0; border-top-width:1.5px; border-left-width:1.5px}
+.fb-lane:first-child::before{display:none}
+.fb-lane:first-child::after{border-top-left-radius:10px}
+.fb-lane:last-child::after{display:none}
+.fb-lane:last-child:not(:first-child)::before{right:calc(50% - .75px); border-right-width:1.5px; border-top-right-radius:10px}
+.fb-lane[data-skipped]{opacity:.78}
+.fb-lane[data-skipped] .fb-path{text-decoration:line-through}
+.fb-path{position:relative; z-index:1; max-width:calc(var(--card-w) - 48px); padding:1px 9px; border-radius:999px;
+  background:var(--work-bg); color:var(--work-fg); font-size:12px; font-weight:600; line-height:18px;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-bottom:2px}
+/* footer */
+.fb-foot{display:flex; align-items:center; justify-content:space-between; gap:8px; min-height:34px; margin-top:6px; font-size:12.5px; color:var(--muted)}
+.fb-note{display:flex; align-items:center; gap:8px; min-width:0; overflow:hidden; white-space:nowrap}
+.fb-note b{color:var(--ink); font-weight:600; overflow:hidden; text-overflow:ellipsis}
+.fb-pill{flex:none; padding:0 8px; border-radius:999px; font-size:11px; line-height:19px; font-weight:600}
+.fb-pill[data-tone="info"]{background:var(--work-bg); color:var(--work-fg)}
+.fb-pill[data-tone="ok"]{background:var(--ok-bg); color:var(--ok-fg)}
+.fb-pill[data-tone="alert"]{background:var(--fail-bg); color:var(--fail-fg)}
+.fb-note kbd{display:inline-block; min-width:18px; padding:0 4px; border-radius:4px; background:var(--surface);
+  border:1px solid var(--border); font:inherit; font-size:11px; line-height:16px; text-align:center}
+.fb-undo{display:inline-flex; flex:none; align-items:center; gap:5px; height:28px; padding:0 12px;
+  border-radius:999px; border:1px solid var(--border); background:var(--surface); color:var(--ink);
+  font-size:12.5px; font-weight:600; cursor:pointer; box-shadow:var(--shadow)}
+.fb-undo:hover{background:var(--subtle)}
+.fb-remove{position:absolute; top:-9px; right:-9px; z-index:2; display:grid; place-items:center;
+  width:22px; height:22px; border-radius:50%; background:var(--surface); border:1px solid var(--border);
+  color:var(--muted); cursor:pointer; box-shadow:var(--shadow-pop); font-size:12px}
+.fb-remove:hover{color:var(--fail)}
+/* empty start */
+.fb-start{display:flex; align-items:center; gap:10px; width:var(--card-w); min-height:64px; padding:10px 12px;
+  border-radius:var(--radius-lg); border:1.5px dashed var(--border); background:transparent; color:var(--muted);
+  font:inherit; text-align:start; cursor:pointer}
+.fb-start:hover{background:var(--surface); border-color:var(--link)}
+.fb-start .fb-title{color:var(--ink)}
+/* menu */
+.fb-menu{position:absolute; z-index:30; display:grid; width:min(250px,calc(100% - 16px)); max-height:300px; overflow-y:auto;
+  padding:4px; border-radius:14px; background:var(--surface); border:1px solid var(--border); box-shadow:var(--shadow-pop);
+  animation:fb-pop 160ms ease both}
+.fb-item-btn{display:flex; align-items:center; gap:10px; min-height:42px; padding:5px 8px; border-radius:8px;
+  background:none; border:0; font:inherit; text-align:start; cursor:pointer; color:var(--ink); width:100%}
+.fb-item-btn:hover,.fb-item-btn:focus-visible{background:var(--subtle)}
+.fb-mi{display:grid; flex:none; place-items:center; width:26px; height:26px; border-radius:8px;
+  background:var(--surface); border:1px solid var(--border); color:var(--ink); font-size:13px}
+.fb-mt{display:grid; min-width:0}
+.fb-mt>span{overflow:hidden; white-space:nowrap; text-overflow:ellipsis}
+.fb-mt>span:first-child{font-size:13.5px; color:var(--ink); font-weight:600}
+.fb-mt>span:last-child{font-size:11.5px; color:var(--muted)}
+/* pixel mark: exactly 9 cells */
+.fb-mark{display:grid; grid-template-columns:repeat(3,3px); grid-auto-rows:3px; gap:1.5px;
+  place-content:center; width:16px; height:16px; flex:none}
+.fb-mark i{border-radius:.75px; background:var(--mark); opacity:0; transition:opacity 200ms ease}
+.fb-mark i.on{opacity:1}
+.fb-mark.busy i{animation:fb-pixel 1.2s ease-in-out infinite}
+.fb-mark.busy i:not(.on){opacity:.18}
+.fb-svg{width:14px; height:14px; flex:none}
+@keyframes fb-pixel{0%,100%{opacity:1}50%{opacity:.2}}
+@keyframes fb-turn{to{transform:rotate(360deg)}}
+@keyframes fb-sweep{from{background-position:-100% 0}to{background-position:200% 0}}
+@keyframes fb-shine{from{background-position:100% 0}to{background-position:0 0}}
+@keyframes fb-in{from{opacity:0; transform:translateY(8px) scale(.97)}}
+@keyframes fb-draw{from{transform:scaleY(0)}}
+@keyframes fb-pop{from{opacity:0; transform:scale(.96) translateY(-3px)}}
+@keyframes fb-drop{0%{transform:translateY(-14px); opacity:0}25%{opacity:1}100%{transform:translateY(44px); opacity:0}}
+@media (max-width:560px){
+  .fb{--card-w:100%}
+  .fb-step{width:min(100%,320px)}
+  .fb-lanes{flex-direction:column; align-items:stretch; width:100%}
+  .fb-lane{padding:14px 0 0}
+  .fb-lane::before,.fb-lane::after{display:none}
+  .fb-path{max-width:100%}
+  body{padding:12px 8px 32px}
+}
+@media (prefers-reduced-motion:reduce){
+  .fb *,.fb *::before,.fb *::after{animation:none !important; transition:none !important}
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="pagebar">
+    <span class="crumb">flow-builder · clean-room replica</span>
+    <button class="theme-btn" id="themeBtn" type="button" aria-label="Toggle dark mode">◐ <span id="themeLbl">Dark</span></button>
+  </div>
+  <section class="fb" id="fb" aria-label="Onboard new signups"></section>
+</div>
+<script>
+(function(){
+"use strict";
+/* ===== exact demo data extracted from demo-original.js (own re-encoding) ===== */
+var DEMO = [
+  {id:"signup", kind:"trigger", icon:"form", title:"New signup", detail:"Signup form", note:"Someone signs up on the website"},
+  {id:"research", kind:"agent", title:"Research the company", detail:"Claude · web search", note:"Reads their site, finds size and industry"},
+  {id:"size", kind:"branch", title:"Company size", detail:"employees > 200", paths:[
+    {id:"enterprise", label:"Enterprise", steps:[
+      {id:"ping", kind:"action", icon:"slack", title:"Tell sales", detail:"Slack · #new-accounts", note:"Posts the company brief for sales"},
+      {id:"deal", kind:"action", icon:"database", title:"Create deal", detail:"CRM · Inbound pipeline", note:"Adds a deal with the research attached"}
+    ]},
+    {id:"self", label:"Self-serve", steps:[
+      {id:"welcome", kind:"action", icon:"mail", title:"Send welcome email", detail:"Gmail · from Flo", note:"A personal welcome, written from the research"},
+      {id:"wait", kind:"wait", title:"Wait", detail:"2 days", note:"Gives them time to look around"},
+      {id:"tips", kind:"action", icon:"mail", title:"Send tips email", detail:"Gmail · 3 quick wins", note:"Three things worth trying first"}
+    ]}
+  ]}
+];
+/* add-step templates (from demo-original ie/ae) */
+var TEMPLATES = [
+  {kind:"agent", title:"Ask an agent", detail:"Reads, sorts, writes", note:"Tell it what to do in a sentence"},
+  {kind:"action", icon:"mail", title:"Send email", detail:"Gmail", note:"Sends one email"},
+  {kind:"action", icon:"slack", title:"Post message", detail:"Slack", note:"Posts to a channel"},
+  {kind:"action", icon:"database", title:"Update record", detail:"Database", note:"Changes one row"},
+  {kind:"action", icon:"http", title:"HTTP request", detail:"Any API", note:"Calls a URL and keeps the answer"},
+  {kind:"branch", title:"If / else", detail:"Split into two paths", paths:["Yes","No"]},
+  {kind:"wait", title:"Wait", detail:"1 hour", note:"Holds, then carries on"}
+];
+var TRIGGERS = [
+  {kind:"trigger", icon:"webhook", title:"Webhook", detail:"When a request comes in"},
+  {kind:"trigger", icon:"schedule", title:"Schedule", detail:"Every day at 9:00"},
+  {kind:"trigger", icon:"form", title:"Form submitted", detail:"When someone fills in a form"}
+];
+var KIND_LABEL = {trigger:"Trigger", action:"Action", agent:"Agent", branch:"If / else", wait:"Wait"};
+var STEP_MS = {agent:1700, wait:1000}; /* else 650 */
+var START_DELAY = 300, STEP_GAP = 120, AUTO_DELAY = 1200;
+function stepMs(n){ return n.kind==="agent" ? 1700 : n.kind==="wait" ? 1000 : 650; }
+/* traversal order: follow second path (index min(1,len-1)), skip the others — matches original */
+function flatAll(steps){
+  var out=[];
+  (function walk(list){ for (var k=0;k<list.length;k++){ var n=list[k]; out.push(n);
+    (n.paths||[]).forEach(function(p){ walk(p.steps||[]); }); } })(steps||[]);
+  return out;
+}
+function buildSequence(steps){
+  var seq=[];
+  (function walk(list){
+    for (var k=0;k<list.length;k++){
+      var r=list[k], paths=r.paths||[];
+      var active = paths.length ? paths[Math.min(1,paths.length-1)] : null;
+      var skip = paths.filter(function(p){return p!==active;}).reduce(function(a,p){
+        a.push(p.id); (p.steps||[]).forEach(function(s){a.push(s.id);}); return a; },[]);
+      seq.push({id:r.id, ms:stepMs(r), skip:skip});
+      if (active) walk(active.steps||[]);
+    }
+  })(steps||[]);
+  return seq;
+}
+/* deterministic 3x3 pixel-mark pattern per id (own hash, >=5 cells on) */
+var PIX_DELAYS=[0,120,240,120,240,360,240,360,480];
+function pixelPattern(id){
+  var h=0, i, k;
+  for (i=0;i<id.length;i++){ h=((h*31)+id.charCodeAt(i))>>>0; }
+  for (var att=0; att<64; att++){
+    var bits=[], n=0, x=(h ^ (att*2654435761))>>>0;
+    for (k=0;k<9;k++){ var b=((x>>((k*5+att*3)%24))&3)!==0 ? 1 : (((x>>(k+att))&1)); bits.push(b?1:0); if(b)n++; }
+    if (n>=5) return bits;
+  }
+  return [1,0,1,0,1,0,1,0,1];
+}
+function fmtDur(ms){
+  var s=ms/1000;
+  if (s<10) return s.toFixed(1)+"s";
+  if (s<60) return Math.round(s)+"s";
+  return Math.floor(s/60)+"m "+String(Math.round(s%60)).padStart(2,"0")+"s";
+}
+function plural(n,w){ return n.toLocaleString()+" "+w+(n===1?"":"s"); }
+/* tiny stroke icons (own drawings) */
+var ICONS={
+  mail:'<svg class="fb-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M4 7l8 6 8-6"/></svg>',
+  slack:'<svg class="fb-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="2"/><rect x="13" y="13" width="7" height="7" rx="2"/><path d="M11 7.5h6a2 2 0 012 2V15M13 16.5H7a2 2 0 01-2-2V9"/></svg>',
+  database:'<svg class="fb-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><ellipse cx="12" cy="5.5" rx="7.5" ry="2.8"/><path d="M4.5 5.5v13c0 1.6 3.4 2.8 7.5 2.8s7.5-1.2 7.5-2.8v-13M4.5 12c0 1.6 3.4 2.8 7.5 2.8s7.5-1.2 7.5-2.8"/></svg>',
+  http:'<svg class="fb-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M10 14a5 5 0 007 0l3-3a5 5 0 00-7-7l-1.5 1.5M14 10a5 5 0 00-7 0l-3 3a5 5 0 007 7l1.5-1.5"/></svg>',
+  branch:'<svg class="fb-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="6" cy="6" r="2.4"/><circle cx="6" cy="18" r="2.4"/><circle cx="18" cy="12" r="2.4"/><path d="M8 7l7.5 3.6M8 17l7.5-3.6"/></svg>',
+  wait:'<svg class="fb-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>',
+  webhook:'<svg class="fb-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M9 16a4 4 0 116 0M12 12V4M12 4L9 6.5M12 4l3 2.5"/></svg>',
+  schedule:'<svg class="fb-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>',
+  form:'<svg class="fb-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><rect x="5" y="3.5" width="14" height="17" rx="2.5"/><path d="M9 9h6M9 13h6"/></svg>',
+  flash:'<svg class="fb-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true"><path d="M13 3L5 13.5h5L11 21l8-10.5h-5L13 3z"/></svg>',
+  task:'<svg class="fb-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><rect x="5" y="4.5" width="14" height="15" rx="3"/><path d="M9 12l2 2 4-4.5"/></svg>',
+  check:'<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 12.5l5 5L19.5 6.5"/></svg>',
+  close:'<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  play:'<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg>',
+  stop:'<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2.5"/></svg>',
+  undo:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 5L3 10l5 5M3 10h11a6 6 0 016 6v1"/></svg>'
+};
+function iconFor(n){
+  if (n.icon && ICONS[n.icon]) return ICONS[n.icon];
+  if (n.kind==="branch") return ICONS.branch;
+  if (n.kind==="wait") return ICONS.wait;
+  if (n.kind==="trigger") return ICONS.flash;
+  return ICONS.task;
+}
+/* ---------- state ---------- */
+function clone(o){ return JSON.parse(JSON.stringify(o)); }
+var state = {
+  steps: clone(DEMO),
+  status: {},            /* id -> running|done|failed|skipped */
+  selected: null,
+  undo: [],
+  toast: null,           /* removed title */
+  menu: null,            /* {lane,index,x,y,up,label,isTrigger} */
+  startTimes: {},        /* id -> performance.now at running */
+  endTimes: {}           /* id -> elapsed ms */
+};
+var timers=[], toastTimer=null, tickTimer=null, seqCounter=0;
+var rootEl=document.getElementById("fb");
+var reduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+function allSteps(){ return flatAll(state.steps); }
+function isRunning(){ return allSteps().some(function(n){return state.status[n.id]==="running";}); }
+function runningNode(){ return allSteps().filter(function(n){return state.status[n.id]==="running";})[0]||null; }
+function statusOf(id){ var s=state.status[id]; return (s && s!=="idle") ? s : undefined; }
+/* render only on state change — never inside the 100ms tick */
+var lastRenderKey="";
+function renderKey(){
+  return JSON.stringify([state.steps,state.status,state.selected,state.toast,state.menu]);
+}
+function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+function markHTML(id,busy){
+  var bits=pixelPattern(id), h="";
+  for (var k=0;k<9;k++){ h+='<i class="'+(bits[k]?"on":"")+'" style="animation-delay:'+PIX_DELAYS[k]+'ms"></i>'; }
+  return '<span class="fb-mark'+(busy?" busy":"")+'" aria-hidden="true">'+h+'</span>';
+}
+function badgeFor(n,first){
+  var st=statusOf(n.id);
+  if (st==="running") return {t:"running", label:"Running", spin:true};
+  if (st==="done") return {t:"done", label:"Passed", icon:"check"};
+  if (st==="failed") return {t:"failed", label:"Failed", icon:"close"};
+  if (st==="skipped") return {t:"", label:"Skipped", tone:"wait"};
+  return {t:"", label:KIND_LABEL[first?"trigger":n.kind]||n.kind};
+}
+function cardHTML(n,lane,idx,first){
+  var st=statusOf(n.id), sel=state.selected===n.id, b=badgeFor(n,first);
+  var busy=st==="running";
+  var tile = n.kind==="agent" ? markHTML(n.id,busy) : iconFor(n);
+  var tagInner = b.spin ? '<span class="fb-spin"></span>' : (b.icon?ICONS[b.icon]:"");
+  var elapsed = state.endTimes[n.id]!=null ? fmtDur(state.endTimes[n.id])
+    : (st==="skipped" ? "–" : (st ? "" : "–"));
+  var canRemove = sel && !isRunning() && !(first && state.steps.length>1);
+  return '<div class="fb-step" data-step="'+esc(n.id)+'" data-kind="'+esc(first?"trigger":n.kind)+'"'
+    + (st?' data-status="'+st+'"':'') + (sel?' data-selected':'') + '>'
+    + '<button type="button" class="fb-card" data-card="'+esc(n.id)+'" aria-pressed="'+(sel?"true":"false")+'"'
+    + ' title="'+esc(n.detail ? n.title+" – "+n.detail : n.title)+'">'
+    + '<span class="fb-face">'
+    + '<span class="fb-top"><span class="fb-tile">'+tile+'</span>'
+    + '<span class="fb-text"><span class="fb-title" dir="auto">'+esc(n.title)+'</span>'
+    + '<span class="fb-detail" dir="auto">'+esc(n.detail||KIND_LABEL[n.kind]||"")+'</span></span>'
+    + '<span class="fb-tag"'+(b.t?' data-tone="'+b.t+'"':(b.tone?' data-tone="'+b.tone+'"':""))+' id="'+esc(n.id)+'-st">'+tagInner+esc(b.label)+'</span></span>'
+    + '<span class="fb-act'+(busy?" live":"")+'" dir="auto">'+esc(n.note||"")+'</span>'
+    + '<span class="fb-meter-row" aria-hidden="true"><span class="fb-meter"'+(st?' data-tone="'+st+'"':"")+'><i></i></span>'
+    + '<span class="fb-num" data-num="'+esc(n.id)+'">'+esc(elapsed)+'</span></span>'
+    + '</span></button>'
+    + (canRemove?'<button type="button" class="fb-remove" data-remove="'+esc(n.id)+'" aria-label="Remove '+esc(n.title)+'">✕</button>':"")
+    + '</div>';
+}
+function plusHTML(lane,idx,label,end){
+  var dis=isRunning()?" disabled":"";
+  var open=state.menu && state.menu.lane===lane && state.menu.index===idx;
+  return '<div class="fb-link'+(end?" end":"")+'"><i class="fb-dot"></i>'
+    + '<button type="button" class="fb-plus" data-plus data-lane="'+esc(lane)+'" data-index="'+idx+'"'
+    + ' aria-label="'+esc(label)+'" aria-haspopup="menu" aria-expanded="'+(open?"true":"false")+'"'+dis+'>+</button></div>';
+}
+function flowHTML(list,lane,laneLabel){
+  var h="", i, n;
+  for (i=0;i<list.length;i++){
+    n=list[i];
+    var first=(lane==="root"&&i===0);
+    if (i>0||lane!=="root") h+=plusHTML(lane,i, i?("Add a step after "+list[i-1].title):("Add a step at the start of "+laneLabel), false);
+    h+=cardHTML(n,lane,i,first);
+    if (n.paths){
+      var st=statusOf(n.id);
+      h+='<div class="fb-fork"><i class="fb-dot"></i><div class="fb-lanes">';
+      n.paths.forEach(function(p){
+        var sk=state.status[p.id]==="skipped";
+        h+='<div class="fb-lane"'+(sk?' data-skipped':"")+'><span class="fb-path" dir="auto" title="'+esc(p.label||"")+'">'+esc(p.label||"")+'</span>'
+          + flowHTML(p.steps||[],p.id,p.label||"") + '</div>';
+      });
+      h+='</div></div>';
+    }
+  }
+  var tailLabel = list.length?("Add a step after "+list[list.length-1].title):("Add a step to "+laneLabel);
+  h+=plusHTML(lane,list.length,tailLabel,true);
+  return h;
+}
+function render(){
+  var key=renderKey();
+  if (key===lastRenderKey) return; /* re-render only when state changes */
+  lastRenderKey=key;
+  var steps=state.steps, all=allSteps();
+  var running=isRunning();
+  var doneCount=all.filter(function(n){return state.status[n.id]==="done";}).length;
+  var failed=all.filter(function(n){return state.status[n.id]==="failed";})[0]||null;
+  var complete=all.length>0 && all.every(function(n){var s=state.status[n.id]; return s&&s!=="idle";});
+  var headCount=plural(all.length,"step");
+  var right = running
+    ? '<button type="button" class="fb-run" data-stop><span aria-hidden="true">'+ICONS.stop+'</span>Stop</button>'
+    : '<button type="button" class="fb-run solid" data-run'+((running||all.length<2)?" disabled":"")+'>'
+      + '<span aria-hidden="true">'+ICONS.play+'</span>'+(running?"Running…":"Run test")+'</button>';
+  var flow = steps.length ? flowHTML(steps,"root","flow")
+    : '<button type="button" class="fb-start" data-plus data-lane="root" data-index="0" aria-haspopup="menu" aria-expanded="false">'
+      + '<span class="fb-tile">+</span><span class="fb-text"><span class="fb-title">Add a trigger</span>'
+      + '<span class="fb-detail">What starts this workflow</span></span></button>';
+  var foot;
+  if (state.toast && !running){
+    foot='<span class="fb-note">Removed <b>'+esc(state.toast)+'</b></span>'
+      + '<button type="button" class="fb-undo" data-undo><span aria-hidden="true">'+ICONS.undo+'</span>Undo</button>';
+  } else if (running){
+    var rn=runningNode();
+    foot='<span class="fb-note"><span class="fb-pill" data-tone="info">Running</span>'
+      + '<span class="fb-note-text">'+esc(rn?rn.title:"")+'</span></span>';
+  } else if (failed){
+    foot='<span class="fb-note"><span class="fb-pill" data-tone="alert">Failed</span>'
+      + '<span class="fb-note-text">at '+esc(failed.title)+'</span></span>';
+  } else if (complete){
+    foot='<span class="fb-note"><span class="fb-pill" data-tone="ok">Passed</span>'
+      + '<span class="fb-note-text">'+esc(plural(doneCount,"step")+" ran")+'</span></span>';
+  } else if (state.selected){
+    foot='<span class="fb-note"><kbd>⌥</kbd><kbd>↑↓</kbd> moves · <kbd>⌫</kbd> removes · <kbd>Esc</kbd> deselects</span>';
+  } else {
+    foot='<span class="fb-note">'+(steps.length?"Add steps with the + on each line":"Start with what sets it off")+'</span>';
+  }
+  var menu="";
+  if (state.menu){
+    var m=state.menu, items=m.isTrigger?TRIGGERS:TEMPLATES;
+    menu='<div class="fb-menu" role="menu" aria-label="'+esc(m.isTrigger?"Add a trigger":m.label)+'" data-menu '
+      + 'style="left:'+m.x+'px;'+(m.up?("bottom:calc(100% - "+m.y+"px)"):("top:"+m.y+"px"))+'">';
+    items.forEach(function(t,i){
+      menu+='<button type="button" role="menuitem" class="fb-item-btn" data-add="'+i+'">'
+        + '<span class="fb-mi">'+(t.kind==="agent"?markHTML("tpl-"+t.title,false):iconFor(t))+'</span>'
+        + '<span class="fb-mt"><span>'+esc(t.title)+'</span>'+(t.detail?'<span>'+esc(t.detail)+'</span>':"")+'</span></button>';
+    });
+    menu+='</div>';
+  }
+  rootEl.className="fb"+(state.selected&&!running?" fb-selecting":"");
+  rootEl.setAttribute("aria-label","Onboard new signups");
+  rootEl.innerHTML='<div class="fb-head"><div class="fb-name"><h3 title="Onboard new signups" dir="auto">Onboard new signups</h3>'
+    + '<span class="count" dir="auto">'+esc(headCount)+'</span></div>'+right+'</div>'
+    + '<div class="fb-canvas" data-canvas style="height:420px" role="group" aria-label="Workflow steps">'
+    + '<div class="fb-flow">'+flow+'</div></div>'
+    + '<div class="fb-foot" role="status" aria-live="polite">'+foot+'</div>'+menu;
+  if (state.menu){
+    var mi=rootEl.querySelector("[data-menu] [role=menuitem]");
+    if (mi && document.activeElement && document.activeElement.hasAttribute && document.activeElement.hasAttribute("data-plus")){ try{mi.focus({preventScroll:true});}catch(e){} }
+  }
+}
+/* ---------- mutations ---------- */
+function pushUndo(){ state.undo.push(clone(state.steps)); if (state.undo.length>20) state.undo.shift(); }
+function clearTimers(){ timers.forEach(function(t){clearTimeout(t);}); timers=[]; if(tickTimer){clearInterval(tickTimer); tickTimer=null;} }
+function stopRun(){
+  clearTimers();
+  var ns={};
+  Object.keys(state.status).forEach(function(k){ if(state.status[k]!=="running") ns[k]=state.status[k]; });
+  state.status=ns; state.startTimes={};
+  render();
+}
+function findLane(lane){ return lane==="root"?state.steps:null; }
+function insertAt(lane,idx,tpl){
+  pushUndo();
+  var nid=tpl.kind+"-"+Date.now().toString(36)+(seqCounter++).toString(36);
+  var node={id:nid,kind:tpl.kind,title:tpl.title,detail:tpl.detail,note:tpl.note,icon:tpl.icon};
+  function ins(list){
+    if (tpl.kind==="branch"){
+      var labels=(tpl.paths&&tpl.paths.length?tpl.paths:["Yes","No"]);
+      node.paths=labels.map(function(lb,i){ return {id:nid+"-p"+i,label:lb,steps:(i===0?list.slice(idx):[])}; });
+      return list.slice(0,idx).concat([node]);
+    }
+    return list.slice(0,idx).concat([node]).concat(list.slice(idx));
+  }
+  if (lane==="root"){ state.steps=ins(state.steps); }
+  else { (function walk(list){ for(var k=0;k<list.length;k++){ var n=list[k];
+    (n.paths||[]).forEach(function(p){ if(p.id===lane) p.steps=ins(p.steps); else walk(p.steps||[]); }); } })(state.steps); }
+  state.selected=nid; state.toast=null;
+  stopRunSilent(); render(); focusCard(nid);
+  function stopRunSilent(){ clearTimers(); state.status={}; state.startTimes={}; state.endTimes={}; }
+}
+function removeStep(id){
+  var loc=findLoc(state.steps,id);
+  if(!loc) return;
+  if(loc.lane==="root"&&loc.index===0&&state.steps.length>1) return;
+  pushUndo();
+  var prev=flatAll(state.steps), pi=0;
+  for(var k=0;k<prev.length;k++) if(prev[k].id===id){pi=Math.max(0,k-1);break;}
+  function strip(list){ return list.filter(function(n){return n.id!==id;}).map(function(n){
+    if(n.paths) n.paths.forEach(function(p){p.steps=strip(p.steps||[]);}); return n; }); }
+  /* branch lanes: also drop steps inside removed path handled by filter above via paths? paths live on branch node; id may be a lane id (path id) — handle */
+  state.steps=strip(state.steps);
+  (function stripLanes(list){ list.forEach(function(n){ if(n.paths) n.paths=n.paths.filter(function(p){return p.id!==id;}); (n.paths||[]).forEach(function(p){stripLanes(p.steps||[]);}); }); })(state.steps);
+  var gone=(function f(l){for(var i=0;i<l.length;i++){if(l[i].id===id)return l[i]; var r=l[i].paths||[]; for(var j=0;j<r.length;j++){var g=f(r[j].steps||[]); if(g)return g;}} return null;})(prev);
+  state.toast=gone?gone.title:"Step";
+  if(state.selected===id) state.selected=null;
+  clearTimers(); state.status={}; state.startTimes={}; state.endTimes={};
+  render();
+  if(toastTimer) clearTimeout(toastTimer);
+  toastTimer=setTimeout(function(){ state.toast=null; render(); },6000);
+  var target=prev[pi]; if(target&&target.id!==id) focusCard(target.id);
+}
+function moveStep(id,dir){
+  var loc=findLoc(state.steps,id); if(!loc) return;
+  function mv(list){
+    var i=loc.index, j=i+dir;
+    if(j<0||j>=list.length) return list;
+    if(loc.lane==="root"&&(i===0||j===0)) return list;
+    if(list[i].kind==="branch"||list[j].kind==="branch") return list;
+    var c=list.slice(); var t=c[i]; c[i]=c[j]; c[j]=t; return c;
+  }
+  pushUndo();
+  if(loc.lane==="root") state.steps=mv(state.steps);
+  else (function walk(list){list.forEach(function(n){(n.paths||[]).forEach(function(p){ if(p.id===loc.lane) p.steps=mv(p.steps); else walk(p.steps||[]); });});})(state.steps);
+  render(); focusCard(id);
+}
+function findLoc(list,id,lane){
+  lane=lane||"root";
+  for(var i=0;i<list.length;i++){ if(list[i].id===id) return {lane:lane,index:i};
+    var ps=list[i].paths||[];
+    for(var j=0;j<ps.length;j++){ var r=findLoc(ps[j].steps||[],id,ps[j].id); if(r) return r; } }
+  return null;
+}
+function focusCard(id){
+  requestAnimationFrame(function(){
+    var el=rootEl.querySelector('[data-card="'+CSS.escape(id)+'"]');
+    if(el) el.focus({preventScroll:true});
+  });
+}
+function undo(){
+  var prev=state.undo.pop(); if(!prev) return;
+  state.steps=prev; state.toast=null; if(state.selected&&!findLoc(state.steps,state.selected)) state.selected=null;
+  clearTimers(); state.status={}; state.startTimes={}; state.endTimes={}; render();
+}
+/* ---------- run animation (timers only change state, then render) ---------- */
+function startTick(){
+  if(tickTimer||reduced) return;
+  tickTimer=setInterval(function(){
+    /* tick updates ONLY the elapsed text nodes — no re-render here */
+    var now=performance.now(), changed=false;
+    for(var id in state.startTimes){ if(state.status[id]==="running"){
+      var el=rootEl.querySelector('[data-num="'+CSS.escape(id)+'"]');
+      if(el) el.textContent=fmtDur(now-state.startTimes[id]);
+      changed=true;
+    }}
+    if(!changed && !isRunning()){ clearInterval(tickTimer); tickTimer=null; }
+  },100);
+}
+function run(){
+  clearTimers(); state.status={}; state.startTimes={}; state.endTimes={}; state.toast=null; state.selected=null;
+  var seq=buildSequence(state.steps), t=START_DELAY;
+  seq.forEach(function(s){
+    (function(item,at){
+      timers.push(setTimeout(function(){
+        state.status[item.id]="running"; state.startTimes[item.id]=performance.now();
+        render(); startTick(); scrollToId(item.id);
+      },at));
+      timers.push(setTimeout(function(){
+        delete state.startTimes[item.id];
+        state.status[item.id]="done"; state.endTimes[item.id]=item.ms;
+        (item.skip||[]).forEach(function(k){ state.status[k]="skipped"; });
+        render();
+      },at+item.ms));
+    })(s,t);
+    t+=s.ms+STEP_GAP;
+  });
+  render();
+}
+function scrollToId(id){
+  var cv=rootEl.querySelector("[data-canvas]"), el=rootEl.querySelector('[data-step="'+CSS.escape(id)+'"]');
+  if(!cv||!el) return;
+  var cr=cv.getBoundingClientRect(), r=el.getBoundingClientRect();
+  var top=cv.scrollTop, left=cv.scrollLeft;
+  if(r.bottom>cr.bottom-24) top+=r.bottom-cr.bottom+24+32;
+  else if(r.top<cr.top+24) top-=cr.top+24-r.top;
+  if(r.right>cr.right-24) left+=r.right-cr.right+24;
+  else if(r.left<cr.left+24) left-=cr.left+24-r.left;
+  try{ cv.scrollTo({top:top,left:left,behavior:reduced?"auto":"smooth"}); }catch(e){ cv.scrollTop=top; cv.scrollLeft=left; }
+}
+/* ---------- menu open on pointerdown (capture) so clicks survive rebuild ---------- */
+function openMenu(lane,idx,label,anchor,isTrigger){
+  var host=rootEl.getBoundingClientRect(), r=anchor.getBoundingClientRect();
+  var w=Math.min(250,host.width-16);
+  var x=Math.min(Math.max(8,r.left+r.width/2-host.left-w/2),host.width-w-8);
+  var count=(isTrigger?TRIGGERS:TEMPLATES).length;
+  var mh=Math.min(300,count*44+8);
+  var below=host.bottom-r.bottom-14, above=r.top-host.top-14;
+  var up=below<mh&&above>below;
+  state.menu={lane:lane,index:idx,x:x,y:up?(r.top-host.top-6):(r.bottom-host.top+6),up:up,
+    max:Math.max(120,Math.min(mh,up?above:below)),label:label,isTrigger:!!isTrigger};
+  render();
+}
+function closeMenu(refocus){ state.menu=null; render(); if(refocus&&refocus.focus){try{refocus.focus({preventScroll:true});}catch(e){}} }
+var lastPointerOpener=null;
+rootEl.addEventListener("pointerdown",function(e){
+  var plus=e.target&&e.target.closest?e.target.closest("[data-plus]"):null;
+  if(plus && !plus.disabled){
+    /* capture-phase-equivalent: handle on pointerdown before any rebuild can eat the click */
+    e.preventDefault();
+    lastPointerOpener=plus;
+    var lane=plus.getAttribute("data-lane"), idx=+plus.getAttribute("data-index");
+    var empty=(lane==="root"&&state.steps.length===0);
+    if(state.menu&&state.menu.lane===lane&&state.menu.index===idx){ closeMenu(null); return; }
+    openMenu(lane,idx,plus.getAttribute("aria-label")||"Add a step",plus,empty);
+    return;
+  }
+  if(state.menu){
+    var inMenu=e.target&&e.target.closest?e.target.closest("[data-menu]"):null;
+    if(!inMenu) closeMenu(null);
+  }
+},true);
+rootEl.addEventListener("click",function(e){
+  var t=e.target;
+  var q=function(s){ return t&&t.closest?t.closest(s):null; };
+  var plus=q("[data-plus]");
+  if(plus && !plus.disabled){
+    if(lastPointerOpener===plus){ lastPointerOpener=null; return; } /* already opened on pointerdown (mouse) */
+    var lane=plus.getAttribute("data-lane"), idx=+plus.getAttribute("data-index");
+    var empty=(lane==="root"&&state.steps.length===0);
+    if(state.menu&&state.menu.lane===lane&&state.menu.index===idx){ closeMenu(null); return; }
+    openMenu(lane,idx,plus.getAttribute("aria-label")||"Add a step",plus,empty);
+    return;
+  }
+  lastPointerOpener=null;
+  var add=q("[data-add]");
+  if(add && state.menu){
+    var m=state.menu, items=m.isTrigger?TRIGGERS:TEMPLATES;
+    var tpl=items[+add.getAttribute("data-add")];
+    state.menu=null; render();
+    if(tpl) insertAt(m.lane,m.index,tpl);
+    return;
+  }
+  if(q("[data-run]")){ run(); return; }
+  if(q("[data-stop]")){ stopRun(); return; }
+  if(q("[data-undo]")){ undo(); return; }
+  var rem=q("[data-remove]");
+  if(rem){ removeStep(rem.getAttribute("data-remove")); return; }
+  var card=q("[data-card]");
+  if(card){
+    var id=card.getAttribute("data-card");
+    state.selected=(state.selected===id?null:id); render();
+    return;
+  }
+});
+/* keyboard */
+rootEl.addEventListener("keydown",function(e){
+  if(e.key==="Escape"){
+    if(state.menu){ e.preventDefault(); e.stopPropagation(); closeMenu(null); return; }
+    if(state.selected&&!isRunning()){ state.selected=null; render(); }
+    return;
+  }
+  if((e.metaKey||e.ctrlKey)&&!e.shiftKey&&e.key.toLowerCase()==="z"&&state.undo.length&&!isRunning()){
+    e.preventDefault(); undo(); return;
+  }
+  var card=e.target&&e.target.closest?e.target.closest("[data-card]"):null;
+  if(card){
+    var id=card.getAttribute("data-card");
+    var cards=[].slice.call(rootEl.querySelectorAll("[data-card]"));
+    var i=cards.indexOf(card);
+    if(e.altKey&&(e.key==="ArrowUp"||e.key==="ArrowDown")){ e.preventDefault(); if(!isRunning()) moveStep(id,e.key==="ArrowUp"?-1:1); return; }
+    if(e.key==="ArrowDown"){ e.preventDefault(); var n=cards[Math.min(cards.length-1,i+1)]; if(n)n.focus(); return; }
+    if(e.key==="ArrowUp"){ e.preventDefault(); var p=cards[Math.max(0,i-1)]; if(p)p.focus(); return; }
+    if(e.key==="Home"){ e.preventDefault(); if(cards[0])cards[0].focus(); return; }
+    if(e.key==="End"){ e.preventDefault(); if(cards[cards.length-1])cards[cards.length-1].focus(); return; }
+    if((e.key==="Delete"||e.key==="Backspace")&&!isRunning()){ e.preventDefault(); removeStep(id); return; }
+  }
+  if(state.menu&&(e.target.closest("[data-menu]")||e.target.closest("[data-plus]"))){
+    var items=[].slice.call(rootEl.querySelectorAll("[data-menu] [role=menuitem]"));
+    var at=items.indexOf(document.activeElement);
+    if(e.key==="ArrowDown"){ e.preventDefault(); (items[(at+1+items.length)%items.length]||items[0]).focus(); }
+    else if(e.key==="ArrowUp"){ e.preventDefault(); (items[(at-1+items.length)%items.length]||items[items.length-1]).focus(); }
+    else if(e.key==="Home"){ e.preventDefault(); if(items[0])items[0].focus(); }
+    else if(e.key==="End"){ e.preventDefault(); if(items[items.length-1])items[items.length-1].focus(); }
+    else if(e.key==="Tab"){ closeMenu(null); }
+  }
+});
+/* canvas pan (drag); plain click on empty canvas deselects */
+(function(){
+  var drag=null;
+  rootEl.addEventListener("pointerdown",function(e){
+    var cv=e.target&&e.target.closest?e.target.closest("[data-canvas]"):null;
+    if(!cv) return;
+    if(e.button!==0||e.pointerType==="touch") return;
+    if(e.target.closest("button")) return;
+    drag={x:e.clientX,y:e.clientY,l:cv.scrollLeft,t:cv.scrollTop,cv:cv,moved:false};
+    try{cv.setPointerCapture(e.pointerId);}catch(err){}
+  });
+  rootEl.addEventListener("pointermove",function(e){
+    if(!drag) return;
+    var dx=e.clientX-drag.x, dy=e.clientY-drag.y;
+    if(Math.abs(dx)+Math.abs(dy)>4) drag.moved=true;
+    drag.cv.scrollLeft=drag.l-dx; drag.cv.scrollTop=drag.t-dy;
+  });
+  function end(e){
+    if(!drag) return;
+    var wasDrag=drag.moved; drag=null;
+    if(!wasDrag && state.selected && !(e.target.closest&&e.target.closest("button"))){ state.selected=null; render(); }
+  }
+  rootEl.addEventListener("pointerup",end);
+  rootEl.addEventListener("pointercancel",function(){drag=null;});
+})();
+/* theme */
+var themeBtn=document.getElementById("themeBtn"), themeLbl=document.getElementById("themeLbl");
+function paintTheme(){
+  var dark=document.documentElement.getAttribute("data-theme")==="dark";
+  themeLbl.textContent=dark?"Light":"Dark";
+  themeBtn.setAttribute("aria-label",dark?"Switch to light mode":"Switch to dark mode");
+}
+themeBtn.addEventListener("click",function(){
+  var cur=document.documentElement.getAttribute("data-theme");
+  var next=cur==="dark"?"light":"dark";
+  try{localStorage.setItem("fb-theme",next);}catch(e){}
+  document.documentElement.setAttribute("data-theme",next);
+  paintTheme();
+});
+(function initTheme(){
+  var saved=null; try{saved=localStorage.getItem("fb-theme");}catch(e){}
+  var theme=saved||((window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches)?"dark":"light");
+  document.documentElement.setAttribute("data-theme",theme);
+  paintTheme();
+})();
+/* expose pure logic for the headless harness */
+window.__fb={DEMO:DEMO,TEMPLATES:TEMPLATES,TRIGGERS:TRIGGERS,stepMs:stepMs,
+  buildSequence:buildSequence,flatAll:flatAll,pixelPattern:pixelPattern,fmtDur:fmtDur,
+  AUTO_DELAY:AUTO_DELAY,START_DELAY:START_DELAY,STEP_GAP:STEP_GAP};
+/* boot */
+render();
+requestAnimationFrame(function(){
+  var cv=rootEl.querySelector("[data-canvas]");
+  if(cv) cv.scrollLeft=(cv.scrollWidth-cv.clientWidth)/2;
+});
+if(reduced){
+  var all=flatAll(state.steps);
+  all.forEach(function(n){ state.status[n.id]="done"; });
+  ["enterprise","ping","deal"].forEach(function(k){ state.status[k]="skipped"; });
+  state.endTimes={}; render();
+} else {
+  timers.push(setTimeout(run,AUTO_DELAY));
+}
+})();
+</script>
+</body>
+</html>
