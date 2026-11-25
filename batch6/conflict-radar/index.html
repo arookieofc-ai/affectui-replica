@@ -93,8 +93,11 @@ html[data-theme="dark"] .cr{
 .cr-merge:disabled{cursor:default}
 .cr-merge[data-ready]{background:var(--chip);border-color:transparent;color:var(--chip-ink)}
 .cr-merge[data-ready]:hover{opacity:.9}
+.cr-merged{display:flex;align-items:center;gap:8px;margin:0 8px 8px;padding:8px 12px;border-radius:var(--radius);background:var(--ok-bg2);border:1px solid var(--ok-edge);color:var(--ok-tag);font-size:13px;font-weight:600}
+.cr-merged[hidden]{display:none}
 .cr-grid{display:grid}
-.cr-row{display:grid;grid-template-columns:minmax(var(--filew),1fr) minmax(0,calc(var(--n,3)*var(--col)));align-items:center;width:100%;min-height:36px;border-top:1px solid var(--line);transition:background 160ms ease}
+#fileRows{display:contents}
+.cr-row{position:relative;display:grid;grid-template-columns:minmax(var(--filew),1fr) minmax(0,var(--col)) minmax(0,var(--col)) minmax(0,var(--col));align-items:center;width:100%;min-height:36px;border-top:1px solid var(--line);transition:background 160ms ease}
 .cr-row[data-head]{min-height:40px;border-top:0;padding-top:8px}
 .cr-row[data-alt]{background:rgba(0,0,0,.015)}
 html[data-theme="dark"] .cr-row[data-alt]{background:rgba(255,255,255,.02)}
@@ -109,8 +112,12 @@ button.cr-row[aria-pressed="true"]{background:var(--hover);box-shadow:inset 2px 
 .cr-dir{flex:0 1000 auto;color:var(--muted);opacity:.75}
 .cr-fname{flex:0 1 auto}
 .cr-row[data-state="clean"] .cr-path{color:var(--text)}
-.cr-cells{position:relative;display:grid;grid-template-columns:repeat(var(--n,3),minmax(0,1fr));align-items:center;height:100%;align-self:stretch}
+.cr-cells{display:contents}
+#agentHeads{display:contents}
 .cr-head,.cr-cell{height:100%;border-left:1px solid var(--line)}
+.cr-file{grid-column:1}
+.cr-head{grid-column:auto}
+.cr-cell{grid-column:auto}
 .cr-head{position:relative;display:flex;align-items:center;justify-content:center;gap:6px;min-width:0;padding:6px 12px;cursor:default}
 .cr-hname{min-width:0;overflow:hidden;font-size:12px;color:var(--muted);white-space:nowrap;text-overflow:ellipsis}
 /* 3x3 pixel-mark: exactly 9 cells */
@@ -161,7 +168,7 @@ html[data-theme="dark"] .cr-bar-s[data-active]::after{background:linear-gradient
 .cr-legend>span{display:inline-flex;align-items:center;gap:5px}
 .cr-legend .cr-bar-s{width:12px;height:6px;animation:none}
 .cr-legend[data-place="foot"]{display:none}
-.cr-link{position:absolute;top:50%;left:calc((var(--a) + .5)*100%/var(--n,3));width:calc((var(--b) - var(--a))*100%/var(--n,3));height:1.5px;margin-top:-.75px;overflow:hidden;background:var(--hit-edge);animation:cr-draw 560ms var(--ease) both;transition:opacity 300ms ease;pointer-events:none}
+.cr-link{position:absolute;top:50%;left:calc(100% - 3 * var(--col) + (var(--a) + 0.5) * var(--col));width:calc((var(--b) - var(--a)) * var(--col));height:1.5px;margin-top:-.75px;overflow:hidden;background:var(--hit-edge);animation:cr-draw 560ms var(--ease) both;transition:opacity 300ms ease;pointer-events:none}
 .cr-link::after{content:"";position:absolute;top:0;bottom:0;left:0;width:32px;background:linear-gradient(90deg,transparent,var(--hit),transparent);animation:cr-run 1.6s ease-in-out infinite alternate}
 .cr-row[data-state="settled"] .cr-link{opacity:0}
 .cr-pick{min-height:168px;display:flex;flex-direction:column;padding-bottom:12px}
@@ -224,6 +231,7 @@ html[data-theme="dark"] .cr-bar-s[data-active]::after{background:linear-gradient
       <span class="cr-title" id="crTitle">Parallel work</span>
       <button class="cr-merge" id="mergeBtn" type="button" disabled><span id="mergeLabel">Waiting for 3 agents</span></button>
     </div>
+    <div class="cr-merged" id="mergedBanner" role="status" hidden>✓ Merged — all branches are now in sync</div>
 
     <div class="cr-card">
       <div class="cr-grid" role="table" aria-label="Files by agent">
@@ -319,6 +327,19 @@ function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").rep
 /* ---- state ---- */
 function now(){ try{ var h=window.__crHarness; if(h&&typeof h.now==="function") return h.now(); }catch(e){} return Date.now(); }
 var t0=now(), nowT=t0, userResolved={}, selected=null, flashTimer=0;
+var merged=false, curReady=false;
+var prevHeads="\0", prevRows="\0", prevPick="\0", prevLegend="\0", prevMerge="\0", prevCtx="";
+function doMerge(){ if(curReady&&!merged){ merged=true; render(); } }
+(function(){
+  var mb=document.getElementById("mergeBtn");
+  if(mb){
+    if(mb.addEventListener){
+      mb.addEventListener("pointerdown",doMerge,true);
+      mb.addEventListener("mousedown",doMerge,true);
+      mb.addEventListener("click",doMerge);
+    } else { mb.onclick=doMerge; }
+  }
+})();
 
 /* ---- derived model ---- */
 function visibleFiles(elapsed){
@@ -366,23 +387,26 @@ function render(){
   var ready=open.length===0&&working===0&&active>0;
   var focus=withC.filter(function(r){return r.file.path===selected;})[0]||open[0]||withC[withC.length-1]||null;
 
-  /* header counts + merge */
+  /* header counts + merge (merged persists until loop reset) */
+  curReady=ready;
   document.getElementById("workCount").textContent=working;
   var mb=document.getElementById("mergeBtn"), ml=document.getElementById("mergeLabel");
-  var txt=open.length?(cnt(open.length,"conflict")+" to settle"):working?("Waiting for "+cnt(working,"agent")):active?("Merge "+cnt(active,"branch","branches")):"Nothing to merge";
-  if(ml.textContent!==txt){ ml.textContent=txt; }
-  if(ready){ mb.setAttribute("data-ready",""); mb.disabled=false; } else { mb.removeAttribute("data-ready"); mb.disabled=true; }
-  mb.onclick=function(){ if(ready){ ml.textContent="Merged ✓"; mb.setAttribute("data-ready",""); } };
+  var banner=document.getElementById("mergedBanner");
+  var txt=merged?"Merged ✓":open.length?(cnt(open.length,"conflict")+" to settle"):working?("Waiting for "+cnt(working,"agent")):active?("Merge "+cnt(active,"branch","branches")):"Nothing to merge";
+  if(txt!==prevMerge){ ml.textContent=txt; prevMerge=txt; }
+  if(merged){ mb.setAttribute("data-ready",""); mb.disabled=true; }
+  else if(ready){ mb.setAttribute("data-ready",""); mb.disabled=false; }
+  else { mb.removeAttribute("data-ready"); mb.disabled=true; }
+  if(banner){ var show=!!merged; if(banner.hidden===show){ banner.hidden=!show; } }
 
   /* legend */
   var lg=[["edit","Changed"],["conflict","Conflict"],["kept","Kept"]].map(function(p){
     return '<span><span class="cr-bar-s" data-role="'+p[0]+'"></span>'+p[1]+"</span>";
   }).join("");
-  document.getElementById("legendHead").innerHTML=lg;
-  document.getElementById("legendFoot").innerHTML=lg;
+  if(lg!==prevLegend){ document.getElementById("legendHead").innerHTML=lg; document.getElementById("legendFoot").innerHTML=lg; prevLegend=lg; }
 
-  /* agent heads */
-  document.getElementById("agentHeads").innerHTML=agents.map(function(a,ix){
+  /* agent heads (only touch DOM when output changes) */
+  var headsHtml=agents.map(function(a,ix){
     var rel=rows.filter(function(r){return r.file.edits.some(function(e){return e.agentId===a.id;});});
     var nc=rel.filter(function(r){return r.state==="conflict"&&r.conflict.agents.indexOf(a.id)>=0;}).length;
     var nk=rel.filter(function(r){return r.pick===a.id;}).length;
@@ -397,10 +421,11 @@ function render(){
       +'<span data-kpi="kept"'+(nk===0?" data-zero":"")+'"><b>'+fmt(nk)+"</b>Kept</span>"
       +"</span></span></span>";
   }).join("");
+  if(headsHtml!==prevHeads){ document.getElementById("agentHeads").innerHTML=headsHtml; prevHeads=headsHtml; }
 
-  /* file rows */
+  /* file rows (only touch DOM when output changes) */
   var box=document.getElementById("fileRows");
-  box.innerHTML=rows.map(function(r,ix){
+  var rowsHtml=rows.map(function(r,ix){
     var sp=splitPath(r.file.path), idxs=[];
     if(r.conflict) idxs=r.conflict.agents.map(function(id){return AGENTS.findIndex(function(a){return a.id===id;});}).filter(function(i){return i>=0;});
     var link=(idxs.length>1)?'<span class="cr-link" style="--a:'+Math.min.apply(null,idxs)+";--b:"+Math.max.apply(null,idxs)+'" aria-hidden="true"></span>':"";
@@ -423,13 +448,19 @@ function render(){
     }
     return '<div role="row" class="cr-row" data-state="'+r.state+'"'+(ix%2===1?" data-alt":"")+">"+inner+"</div>";
   }).join("");
-  Array.prototype.forEach.call(box.querySelectorAll("button.cr-row"),function(b){
-    b.addEventListener("click",function(){ selected=b.getAttribute("data-path"); render(); });
-  });
+  if(rowsHtml!==prevRows){
+    box.innerHTML=rowsHtml; prevRows=rowsHtml;
+    Array.prototype.forEach.call(box.querySelectorAll("button.cr-row"),function(b){
+      b.addEventListener("click",function(){ selected=b.getAttribute("data-path"); render(); });
+    });
+  }
 
-  /* pick panel */
+  /* pick panel (only touch DOM when output changes) */
   var pk=document.getElementById("pickBox");
-  if(focus&&focus.conflict){
+  var pickHtml="";
+  if(merged){
+    pickHtml='<div class="cr-calm">✓ Merged — all branches are now in sync</div>';
+  } else if(focus&&focus.conflict){
     var c=focus.conflict, fname=splitPath(focus.file.path)[1];
     var ways=c.agents.map(function(id){
       var a=byId[id], ed=focus.file.edits.filter(function(e){return e.agentId===id;})[0]||null;
@@ -441,8 +472,14 @@ function render(){
         +"</span>"
         +'<span class="cr-summary" title="'+esc(sum)+'">'+esc(sum)+"</span></button>";
     }).join("");
-    pk.innerHTML='<div class="cr-phead"><span class="cr-ptitle">'+(focus.state==="settled"?"Settled":"Pick a way")+'</span><span class="cr-where" title="'+esc(focus.file.path+" · "+spanLabel([c.from,c.to]))+'">'+esc(fname)+" · "+esc(spanLabel([c.from,c.to]))+"</span></div>"
+    pickHtml='<div class="cr-phead"><span class="cr-ptitle">'+(focus.state==="settled"?"Settled":"Pick a way")+'</span><span class="cr-where" title="'+esc(focus.file.path+" · "+spanLabel([c.from,c.to]))+'">'+esc(fname)+" · "+esc(spanLabel([c.from,c.to]))+"</span></div>"
       +'<div class="cr-ways" role="radiogroup" aria-label="Ways to settle '+esc(focus.file.path)+'">'+ways+"</div>";
+  } else {
+    var calm=working?("Watching "+cnt(working,"agent")+" for overlaps"):active>1?"No overlaps – the branches merge cleanly":active?"No overlaps – the branch merges cleanly":"No changes yet";
+    pickHtml='<div class="cr-calm">'+esc(calm)+"</div>";
+  }
+  if(pickHtml!==prevPick){
+    pk.innerHTML=pickHtml; prevPick=pickHtml;
     Array.prototype.forEach.call(pk.querySelectorAll(".cr-way"),function(w){
       w.addEventListener("click",function(){
         var p=w.getAttribute("data-p"), a=w.getAttribute("data-a");
@@ -457,21 +494,22 @@ function render(){
         if(n){ ev.preventDefault(); n.focus(); }
       });
     });
-  } else {
-    var calm=working?("Watching "+cnt(working,"agent")+" for overlaps"):active>1?"No overlaps – the branches merge cleanly":active?"No overlaps – the branch merges cleanly":"No changes yet";
-    pk.innerHTML='<div class="cr-calm">'+esc(calm)+"</div>";
   }
 }
 
 /* ---- loop: 200ms tick, 26s cycle (matches original) ---- */
 function tick(){
   var el=(now()-t0)/1000;
-  if(el>LOOP){ t0=now(); userResolved={}; selected=null; el=0; }
+  if(el>LOOP){ t0=now(); userResolved={}; selected=null; merged=false; el=0; }
   nowT=now();
   /* token-ish context label drifts with progress (decorative, deterministic) */
   var used=44+Math.round(32*(el/LOOP));
-  document.getElementById("ctxLabel").textContent=used+"k / 200k";
-  document.getElementById("ctxFill").style.width=Math.round(used/200*100)+"%";
+  var ctx=used+"k / 200k";
+  if(ctx!==prevCtx){
+    document.getElementById("ctxLabel").textContent=ctx;
+    document.getElementById("ctxFill").style.width=Math.round(used/200*100)+"%";
+    prevCtx=ctx;
+  }
   render();
 }
 render();

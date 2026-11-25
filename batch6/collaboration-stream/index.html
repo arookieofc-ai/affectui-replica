@@ -302,7 +302,7 @@ function toName(to){return to==="all"?"Everyone":agentById(to).name}
 function tokNum(label){var m=/([\d.]+)k/.exec(label||"");return m?parseFloat(m[1]):0}
 
 /* ===== state (mirrors original: v=4 shown first, +1 per 1.5s, 0.7s typing, loop) ===== */
-var state={t0:0,now:0,epoch:0,paused:false,live:[],filter:"all",to:["orch"],typingReply:null,focusHold:false,seq:0};
+var state={t0:0,now:0,epoch:0,paused:false,live:[],filter:"all",to:["orch"],typingReply:null,focusHold:false,seq:0,open:{},attOpen:{}};
 var byId={};MSGS.forEach(function(m){byId[m.id]=m});
 function allMsgs(){return MSGS.concat(state.live)}
 function elapsed(){return (state.now-state.t0)/1000}
@@ -331,7 +331,8 @@ function kindLabel(k){return k}
 function msgCard(m,opts){
   opts=opts||{};
   var a=agentById(m.from),wk=!!opts.working;
-  var s='<article class="msg'+(opts.hl?' hl':'')+(opts.dim?' dim':'')+'" tabindex="0" data-mid="'+esc(m.id)+'" aria-label="'+esc(a.name+' to '+toName(m.to)+': '+m.text)+'">';
+  var isOpen=!!state.open[m.id];
+  var s='<article class="msg'+(opts.hl?' hl':'')+(opts.dim?' dim':'')+(isOpen?' open':'')+'" tabindex="0" data-mid="'+esc(m.id)+'" aria-label="'+esc(a.name+' to '+toName(m.to)+': '+m.text)+'">';
   s+='<div class="msgrow">'+pxMark(m.from,wk)+'<div class="who"><div class="nm">'+esc(a.name)+'</div>';
   s+='<div class="route">to <b>'+esc(toName(m.to))+'</b></div></div>';
   s+='<span class="kind k-'+esc(m.kind)+'">'+esc(kindLabel(m.kind))+'</span><span class="time">'+esc(m.at)+'</span></div>';
@@ -348,11 +349,12 @@ function iconFor(kind){
 function attsHtml(m){
   var s='<div class="atts">',i,a;
   for(i=0;i<m.attachments.length;i++){a=m.attachments[i];
-    s+='<button class="attn" data-att="'+m.id+':'+i+'">'+iconFor(a.kind)+'<span class="fn">'+esc(a.label)+'</span><span class="fm">'+esc(a.meta||"")+'</span><pre>'+esc(a.preview||"")+'</pre></button>'}
+    var akey=m.id+':'+i, aopen=!!state.attOpen[akey];
+    s+='<button class="attn'+(aopen?' open':'')+'" data-att="'+m.id+':'+i+'">'+iconFor(a.kind)+'<span class="fn">'+esc(a.label)+'</span><span class="fm">'+esc(a.meta||"")+'</span><pre>'+esc(a.preview||"")+'</pre></button>'}
   return s+'</div>';
 }
 function detHtml(m){
-  var d=m.details,s='<button class="detbtn" data-det="'+m.id+'">Details \u25b8</button><div class="det">',i;
+  var d=m.details,open=!!state.open[m.id],s='<button class="detbtn" data-det="'+m.id+'">Details '+(open?'\u25be':'\u25b8')+'</button><div class="det">',i;
   if(d.facts){
     s+='<div class="facts">';
     for(i=0;i<d.facts.length;i++)s+='<div class="fact"><div class="k">'+esc(d.facts[i][0])+'</div><div class="v">'+esc(d.facts[i][1])+'</div></div>';
@@ -370,20 +372,34 @@ function detHtml(m){
 function typingCard(name){
   return '<div class="msg" aria-label="'+esc(name)+' is typing"><div class="msgrow"><div class="who"><div class="nm">'+esc(name)+'</div><div class="route">typing\u2026</div></div></div><div class="typing" aria-hidden="true"><i></i><i></i><i></i></div></div>';
 }
+function matchesFilter(m,f){
+  if(!f||f==="all")return true;
+  return m.from===f;
+}
+function setFilter(id){
+  if(!id)id="all";
+  state.filter=(state.filter===id)?"all":id;
+  renderFilters();render();
+}
 function render(){
   if(!streamEl)return;
-  var msgs=allMsgs(),vi=visibleIdx(),show=MSGS.slice(0,vi+1).concat(state.live),i,s="",f=state.filter;
+  var msgs=allMsgs(),vi=visibleIdx(),timeShow=MSGS.slice(0,vi+1).concat(state.live),i,s="",f=state.filter;
+  var show=(f==="all")?timeShow:timeShow.filter(function(m){return matchesFilter(m,f)});
   var typing=isTypingTick()&&vi>=T.first-1&&vi<MSGS.length;
   for(i=0;i<show.length;i++){
-    var m=show[i],last=!state.typingReply&&typing&&i===show.length-1;
-    var dim=f!=="all"&&m.from!==f&&m.to!==f;
-    s+=msgCard(m,{working:last,dim:dim});
+    var m=show[i];
+    var isLastOverall=timeShow.length&&timeShow[timeShow.length-1]===m;
+    var last=!state.typingReply&&typing&&isLastOverall&&i===show.length-1;
+    s+=msgCard(m,{working:last,dim:false});
   }
-  if(state.typingReply)s+=typingCard(agentById(state.typingReply).name);
-  else if(typing&&(!state.live.length||vi>=MSGS.length-1))s+=typingCard(agentById(show.length?show[show.length-1].from:"orch").name);
+  var showTypingReply=!!(state.typingReply&&(f==="all"||state.typingReply===f));
+  var lastFrom=timeShow.length?timeShow[timeShow.length-1].from:"orch";
+  var showAutoTyping=(!state.typingReply&&typing&&(f==="all"||lastFrom===f)&&(!state.live.length||vi>=MSGS.length-1));
+  if(showTypingReply)s+=typingCard(agentById(state.typingReply).name);
+  else if(showAutoTyping)s+=typingCard(agentById(lastFrom).name);
   streamEl.innerHTML=s;
   streamCount.textContent="· "+show.length+" of "+msgs.length;
-  renderAgents(show);renderCounts(show);
+  renderAgents(timeShow);renderCounts(timeShow,show);
 }
 function agentStatus(id,show){
   var last=show[show.length-1];
@@ -404,8 +420,9 @@ function renderAgents(show){
   agentsEl.innerHTML=s;
   agentCount.textContent="· "+AGENTS.length;
 }
-function renderCounts(show){
-  var w=AGENTS.filter(function(a){return agentStatus(a.id,show)==="working"}).length;
+function renderCounts(timeShow,show){
+  show=show||timeShow;
+  var w=AGENTS.filter(function(a){return agentStatus(a.id,timeShow)==="working"}).length;
   var live=!state.paused&&!state.focusHold&&(visibleIdx()<MSGS.length-1);
   countsEl.innerHTML='<span class="pill '+(live?'live':'')+'"><span class="dot"></span>'+(live?'live':'paused')+'</span>'
     +'<span class="pill work">'+w+' working</span>'
@@ -429,9 +446,12 @@ function renderLegend(){
 /* ===== behaviour ===== */
 function tick(){
   if(state.paused||state.focusHold)return;
+  var prevVi=visibleIdx(),prevTy=isTypingTick();
   state.now+=T.tick;
-  if(elapsed()>=cycleDur()){state.t0=state.now;state.epoch++}
-  render();
+  if(elapsed()>=cycleDur()){state.t0=state.now;state.epoch++;render();return}
+  var vi=visibleIdx(),ty=isTypingTick();
+  /* re-render only when visible state actually changes: never rebuild DOM in a fast loop */
+  if(vi!==prevVi||ty!==prevTy)render();
 }
 function send(text){
   if(!text.trim()||!state.to.length)return null;
@@ -465,7 +485,7 @@ function initTheme(){
 }
 /* test hook: pure-ish surface for the headless harness */
 window.__cs={state:state,MSGS:MSGS,AGENTS:AGENTS,AUTO:AUTO,T:T,
-  visibleIdx:visibleIdx,isTypingTick:isTypingTick,pattern:pattern,pxMark:pxMark,send:send,tick:tick,render:render,cycleDur:cycleDur};
+  visibleIdx:visibleIdx,isTypingTick:isTypingTick,pattern:pattern,pxMark:pxMark,send:send,tick:tick,render:render,cycleDur:cycleDur,setFilter:setFilter,matchesFilter:matchesFilter};
 
 function init(){
   streamEl=document.getElementById("stream");agentsEl=document.getElementById("agents");
@@ -487,9 +507,25 @@ function init(){
     state.t0=state.now;state.epoch++;state.live=[];state.typingReply=null;render();
   });
   filtersEl.addEventListener("click",function(e){
+    if(filtersEl._suppress){filtersEl._suppress=false;return}
     var b=e.target.closest("[data-f]");if(!b)return;
-    state.filter=b.getAttribute("data-f");renderFilters();render();
+    setFilter(b.getAttribute("data-f"));
   });
+  /* open filter on pointerdown/mousedown (capture) for instant real-browser response */
+  filtersEl.addEventListener("pointerdown",function(e){
+    var t=e.target&&e.target.closest?e.target.closest("[data-f]"):null;if(!t)return;
+    filtersEl._suppress=true;
+    setTimeout(function(){filtersEl._suppress=false},0);
+    setFilter(t.getAttribute("data-f"));
+    if(e.preventDefault)e.preventDefault();
+  },true);
+  filtersEl.addEventListener("mousedown",function(e){
+    if(filtersEl._suppress)return;
+    var t=e.target&&e.target.closest?e.target.closest("[data-f]"):null;if(!t)return;
+    filtersEl._suppress=true;
+    setTimeout(function(){filtersEl._suppress=false},0);
+    setFilter(t.getAttribute("data-f"));
+  },true);
   document.getElementById("toRow").addEventListener("click",function(e){
     var b=e.target.closest("[data-to]");if(!b)return;
     var id=b.getAttribute("data-to"),i=state.to.indexOf(id);
@@ -511,22 +547,49 @@ function init(){
     var card=e.target.closest(".msg");if(card)card.classList.add("hl");
   });
   streamEl.addEventListener("focusout",function(){render()});
-  /* click-to-open details + file previews + reply jump */
-  streamEl.addEventListener("click",function(e){
+  /* click-to-open details + file previews + reply jump (state survives re-render) */
+  function toggleAtt(key,el){
+    state.attOpen[key]=!state.attOpen[key];
+    if(el&&el.classList)el.classList.toggle("open",!!state.attOpen[key]);
+  }
+  function toggleOpen(mid,el){
+    state.open[mid]=!state.open[mid];
+    if(el&&el.classList)el.classList.toggle("open",!!state.open[mid]);
+    var btn=el?el.querySelector('[data-det]'):null;
+    if(btn)btn.innerHTML=state.open[mid]?"Details \u25be":"Details \u25b8";
+  }
+  function handleStreamActivate(e){
     var g=e.target.closest("[data-goto]");
     if(g){var t=streamEl.querySelector('[data-mid="'+g.getAttribute("data-goto")+'"]');
-      if(t){t.scrollIntoView({block:"center"});t.classList.add("hl");setTimeout(function(){render()},1600)}return}
+      if(t){t.scrollIntoView({block:"center"});t.classList.add("hl");setTimeout(function(){render()},1600)}return true}
     var a=e.target.closest("[data-att]");
-    if(a){a.classList.toggle("open");return}
+    if(a){toggleAtt(a.getAttribute("data-att"),a);return true}
     var d=e.target.closest("[data-det]");
-    if(d){d.closest(".msg").classList.toggle("open");d.innerHTML=d.closest(".msg").classList.contains("open")?"Details \u25be":"Details \u25b8";return}
+    if(d){var card=d.closest(".msg");if(card&&card.dataset&&card.dataset.mid)toggleOpen(card.dataset.mid,card);return true}
+    return false;
+  }
+  /* open any dialog/details on pointerdown/mousedown (capture) */
+  streamEl.addEventListener("pointerdown",function(e){
+    if(!e.target||!e.target.closest)return;
+    if(handleStreamActivate(e)){streamEl._suppress=true;setTimeout(function(){streamEl._suppress=false},0)}
+  },true);
+  streamEl.addEventListener("mousedown",function(e){
+    if(streamEl._suppress)return;
+    if(!e.target||!e.target.closest)return;
+    if(handleStreamActivate(e)){streamEl._suppress=true;setTimeout(function(){streamEl._suppress=false},0)}
+  },true);
+  streamEl.addEventListener("click",function(e){
+    if(streamEl._suppress){streamEl._suppress=false;return}
+    if(handleStreamActivate(e))return;
     var card=e.target.closest(".msg");
-    if(card&&card.dataset.mid){card.classList.toggle("open")}
+    if(card&&card.dataset.mid){toggleOpen(card.dataset.mid,card)}
   });
   /* keyboard: Enter/Space toggles open card */
   streamEl.addEventListener("keydown",function(e){
     if((e.key==="Enter"||e.key===" ")&&e.target.classList&&e.target.classList.contains("msg")&&e.target===document.activeElement){
-      e.preventDefault();e.target.classList.toggle("open");
+      e.preventDefault();
+      var mid=e.target.dataset?e.target.dataset.mid:null;
+      if(mid)toggleOpen(mid,e.target);else e.target.classList.toggle("open");
     }
   });
   /* composer: focus pauses autoplay (mirrors original), Enter sends */
