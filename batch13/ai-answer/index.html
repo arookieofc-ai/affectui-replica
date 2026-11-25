@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Answer — affectUI replica</title>
+<style>
+/* ---- design tokens ---- */
+:root, [data-theme="light"]{
+  --page:#fafaf9; --surface:#ffffff; --ink:#171717; --text:#3f3f46;
+  --muted:#78716c; --faint:#b8b2ac; --subtle:#f5f5f4; --chip:#f4f4f5;
+  --chip-hover:#e9e9ea; --hover:#e4e4e5; --border:#e7e5e4;
+  --radius-lg:16px; --radius:10px; --radius-sm:6px;
+  --shadow:0 1px 2px rgba(0,0,0,.05), 0 4px 16px rgba(0,0,0,.05);
+  --shadow-card:0 0 0 1px var(--border), 0 1px 2px rgba(0,0,0,.04);
+  --shadow-pop:0 0 0 1px var(--border), 0 12px 32px -10px rgba(0,0,0,.20), 0 2px 6px rgba(0,0,0,.04);
+  --accent:#0190fe; --accent-soft:#e8f4ff;
+  --lit:#171717; --lit-text:#ffffff; --lit-ring:#cfcfd3;
+  --ok:#1e8a4f; --focus:rgba(0,96,226,.7);
+  --amber:#92400e; --amber-bg:#fef3c7; --amber-line:#f59e0b;
+  --shine:rgba(255,255,255,.85);
+  --ease:cubic-bezier(.22,1,.36,1);
+}
+[data-theme="dark"]{
+  --page:#101012; --surface:#1c1c1f; --ink:#ededed; --text:#c9c9ce;
+  --muted:#a1a1aa; --faint:#63636b; --subtle:#26262a; --chip:#232326;
+  --chip-hover:#2c2c31; --hover:#222225; --border:#2e2e33;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.4);
+  --shadow-card:0 0 0 1px var(--border), 0 1px 2px rgba(0,0,0,.4);
+  --shadow-pop:0 0 0 1px var(--border), 0 16px 40px -10px rgba(0,0,0,.6);
+  --accent:#4fb0fe; --accent-soft:#0e2a44;
+  --lit:#ededed; --lit-text:#19191b; --lit-ring:#4a4a50;
+  --ok:#5fc88a; --focus:rgba(77,141,255,.8);
+  --amber:#fde68a; --amber-bg:#451a03; --amber-line:#fbbf24;
+  --shine:rgba(255,255,255,.9);
+}
+*{box-sizing:border-box}
+[hidden]{display:none !important}
+html,body{margin:0;padding:0}
+body{
+  background:var(--page); color:var(--text);
+  font-family:system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size:14px; line-height:1.5; -webkit-font-smoothing:antialiased;
+  transition:background-color 200ms ease, color 200ms ease;
+}
+/* ---- page header: project + working count + source count ---- */
+.page-head{
+  display:flex; align-items:center; gap:12px;
+  max-width:720px; margin:0 auto; padding:18px 20px 6px;
+}
+.brand{display:flex; align-items:center; gap:9px; font-size:15px; font-weight:600; color:var(--ink); letter-spacing:-.01em}
+.brand-mark{width:11px; height:11px; border-radius:3px;
+  background:linear-gradient(135deg, var(--accent), #7dc5fe);
+  box-shadow:0 0 0 3px var(--accent-soft)}
+.head-meta{display:flex; align-items:center; gap:7px; font-size:12.5px; color:var(--muted); min-width:0;
+  overflow:hidden; white-space:nowrap; text-overflow:ellipsis}
+.head-meta .sep{color:var(--faint)}
+.phase-dot{width:8px; height:8px; border-radius:50%; background:var(--amber-line); flex:none}
+.phase-dot[data-state="writing"]{background:var(--accent); animation:pulse 1s ease-in-out infinite}
+.phase-dot[data-state="done"]{background:var(--ok); animation:none}
+@keyframes pulse{50%{transform:scale(.65); opacity:.5}}
+.theme-toggle{
+  margin-left:auto; flex:none; display:grid; place-items:center;
+  width:34px; height:34px; border-radius:999px;
+  border:1px solid var(--border); background:var(--surface); color:var(--ink);
+  cursor:pointer; transition:background-color 160ms ease, transform 160ms ease;
+}
+.theme-toggle:hover{background:var(--chip-hover); transform:translateY(-1px)}
+.theme-toggle:focus-visible{outline:2px solid var(--focus); outline-offset:2px}
+.theme-toggle svg{width:17px; height:17px; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round}
+/* ---- layout ---- */
+.wrap{max-width:720px; margin:0 auto; padding:10px 20px 40px}
+.demo-note{font-size:12.5px; color:var(--muted); margin:2px 0 12px}
+.q-switch{display:flex; flex-wrap:wrap; gap:6px; margin:0 0 14px}
+.q-switch button{
+  border:1px solid var(--border); background:var(--surface); color:var(--muted);
+  border-radius:999px; padding:5px 12px; font:inherit; font-size:12.5px; cursor:pointer;
+  transition:all 160ms ease; max-width:100%; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;
+}
+.q-switch button:hover{color:var(--ink); border-color:var(--faint)}
+.q-switch button[aria-current="true"]{background:var(--ink); border-color:var(--ink); color:var(--page)}
+.q-switch button:focus-visible{outline:2px solid var(--focus); outline-offset:2px}
+/* ---- answer card ---- */
+.ai{position:relative; display:grid; width:100%; max-width:640px; font-size:14px; line-height:1.5; color:var(--text)}
+.ai button{margin:0; padding:0; border:0; background:none; font:inherit; color:inherit; cursor:pointer}
+.ai svg{display:block; flex:none}
+.ai button:focus-visible, .ai a:focus-visible{outline:2px solid var(--focus); outline-offset:2px}
+.ai__tray{padding:4px; border-radius:calc(var(--radius-lg) + 4px); background:var(--subtle); transition:background-color 200ms ease}
+.ai__card{background:var(--surface); border-radius:var(--radius-lg); box-shadow:var(--shadow-card); overflow:hidden}
+.ai__inner{padding:22px 24px 20px}
+.ai__q{margin:0 0 16px; font-size:18px; font-weight:600; line-height:1.35; letter-spacing:-.012em; color:var(--ink); overflow-wrap:anywhere}
+/* sources */
+.ai__sources{display:grid; grid-template-columns:repeat(3, minmax(0,1fr)) auto; gap:8px}
+.ai__src-wrap{display:flex; min-width:0}
+.ai__src{
+  display:flex; flex:1; flex-direction:column; gap:6px; min-width:0;
+  padding:10px 12px 11px; border-radius:calc(var(--radius-lg) - 4px);
+  background:var(--chip); color:inherit; text-decoration:none;
+  transition:background-color 160ms ease, box-shadow 200ms ease, transform 160ms ease;
+  animation:card-in 460ms var(--ease) both;
+}
+a.ai__src:hover{background:var(--chip-hover); transform:translateY(-1px)}
+.ai__src[data-lit]{box-shadow:inset 0 0 0 1.5px var(--lit-ring)}
+.ai__site{display:flex; align-items:center; gap:6px; min-width:0; font-size:12px; color:var(--muted)}
+.ai__fav{
+  display:grid; place-items:center; flex:none; width:16px; height:16px;
+  border-radius:4px; font-size:10px; font-weight:700; color:#fff;
+  box-shadow:0 0 0 1px rgba(0,0,0,.08);
+}
+.ai__site-name{flex:1; min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis}
+.ai__num{flex:none; font-size:11px; font-variant-numeric:tabular-nums; color:var(--faint)}
+.ai__title{
+  overflow-wrap:anywhere; display:-webkit-box; overflow:hidden;
+  -webkit-line-clamp:2; -webkit-box-orient:vertical;
+  font-size:12.5px; line-height:1.4; color:var(--ink);
+}
+.ai__rest{justify-content:space-between; min-width:52px; cursor:default}
+.ai__rest-count{font-size:12.5px; font-weight:600; line-height:1.4; font-variant-numeric:tabular-nums; color:var(--ink); white-space:nowrap}
+.ai__rest-count [data-narrow]{display:none}
+.ai__rest-label{font-size:12px; color:var(--muted)}
+/* label row */
+.ai__label{display:flex; align-items:center; gap:8px; margin:20px 0 10px; font-size:13px; font-weight:500; color:var(--ink)}
+.ai__label-text{position:relative; animation:fade-in 320ms var(--ease) both}
+.ai[data-phase="reading"] .ai__label-text, .ai[data-phase="writing"] .ai__label-text{color:var(--muted)}
+.ai__label-text.shimmer::after{
+  content:attr(data-text); content:attr(data-text) / "";
+  position:absolute; inset:0; white-space:nowrap; color:transparent;
+  background:linear-gradient(90deg, transparent 38%, var(--shine) 50%, transparent 62%) 100% 0 / 300% 100% no-repeat;
+  -webkit-background-clip:text; background-clip:text;
+  animation:sweep 1.6s linear infinite; pointer-events:none;
+}
+/* goo mark */
+.ai__mark{width:27px; height:24px; overflow:visible; flex:none}
+.ai__mark-body{fill:url(#aiBody)}
+.ai__mark-eye{fill:#fff}
+.ai__mark-pupil{fill:#0b3b66}
+[data-theme="dark"] .ai__mark-eye{fill:#eaf4ff}
+.ai__eyes{animation:look 7s ease-in-out infinite}
+.ai[data-phase="reading"] .ai__eyes{animation:scan 1.4s ease-in-out infinite}
+.ai[data-phase="writing"] .ai__eyes{animation:follow 1.9s cubic-bezier(.45,0,.55,1) infinite}
+.ai__lid{transform-box:fill-box; transform-origin:center; animation:blink 7s ease-in-out infinite}
+@keyframes look{0%,26%{transform:none}32%,44%{transform:translate(-2.5px,.5px)}50%,62%{transform:translate(2.5px,-.5px)}68%,100%{transform:none}}
+@keyframes scan{0%,100%{transform:translate(-2.5px,.5px)}50%{transform:translate(2.5px,.5px)}}
+@keyframes follow{0%{transform:translate(-2px,1px)}82%{transform:translate(2px,1px)}100%{transform:translate(-2px,1px)}}
+@keyframes blink{0%,16%,21%,100%{transform:none}18.5%{transform:scaleY(.12)}}
+/* answer */
+.ai__answer{font-size:15px; line-height:1.65; overflow-wrap:anywhere; min-height:24px}
+.ai__answer p{margin:0 0 12px}
+.ai__answer ul{margin:0 0 12px; padding:0 0 0 20px}
+.ai__answer li{margin:0 0 6px; padding-left:2px}
+.ai__answer li::marker{color:var(--faint)}
+.ai__answer > :last-child{margin-bottom:0}
+.ai__empty{color:var(--muted)}
+.ai__w{animation:word-in 420ms var(--ease) both}
+.ai__w[data-bold]{font-weight:600; color:var(--ink)}
+.ai__caret{display:inline-block; width:8px; height:8px; margin-left:4px; border-radius:50%; background:var(--ink); vertical-align:.05em; animation:pulse 1s ease-in-out infinite}
+.ai__cite{
+  display:inline-flex; max-width:100%; align-items:center; gap:3px;
+  height:20px; margin:0 1px 0 3px; padding:0 7px;
+  border-radius:calc(var(--radius-sm) - 1px); background:var(--chip);
+  font-size:11.5px; font-weight:500; line-height:1; color:var(--muted); vertical-align:.12em;
+  transition:background-color 160ms ease, color 160ms ease;
+  animation:chip-in 380ms var(--ease) both;
+}
+.ai__cite:hover{background:var(--chip-hover); color:var(--ink)}
+.ai__cite[data-lit]{background:var(--lit); color:var(--lit-text)}
+.ai__cite-name{min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis}
+.ai__cite-more{flex:none; opacity:.7}
+/* popover */
+.ai__pop{
+  position:absolute; z-index:5; display:grid; gap:2px; padding:6px;
+  border-radius:calc(var(--radius-lg) - 2px); background:var(--surface); box-shadow:var(--shadow-pop);
+  animation:pop-in 200ms var(--ease) both;
+}
+.ai__pop-item{display:grid; gap:4px; padding:8px 10px 10px; border-radius:calc(var(--radius-sm) + 2px); color:inherit; text-decoration:none; transition:background-color 140ms ease}
+a.ai__pop-item:hover{background:var(--chip)}
+.ai__pop-title{font-size:13px; font-weight:500; line-height:1.4; color:var(--ink); overflow-wrap:anywhere}
+.ai__snippet{
+  overflow-wrap:anywhere; display:-webkit-box; overflow:hidden;
+  -webkit-line-clamp:3; -webkit-box-orient:vertical;
+  font-size:12.5px; line-height:1.5; color:var(--muted);
+}
+/* follow-ups */
+.ai__follow{display:grid; margin-top:20px; padding-top:14px; border-top:1px solid var(--border)}
+.ai__follow-label{padding-bottom:4px; font-size:12px; font-weight:500; color:var(--faint); animation:fade-in 320ms var(--ease) both}
+.ai__follow-item{
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+  min-height:40px; padding:8px 0; border-bottom:1px solid var(--border);
+  text-align:left; color:var(--ink); animation:fade-in 380ms var(--ease) both;
+}
+.ai__follow-item:last-child{border-bottom:0; padding-bottom:0}
+.ai__follow-item > span{min-width:0; overflow-wrap:anywhere}
+.ai__follow-item svg{width:17px; height:17px; fill:none; stroke:var(--faint); stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; transition:transform 220ms var(--ease), stroke 160ms ease}
+.ai__follow-item:hover svg{stroke:var(--ink); transform:translateX(3px)}
+/* footer */
+.ai__foot{display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:42px; margin-top:8px}
+.ai__actions{display:flex; flex:none; gap:2px}
+.ai__action{
+  display:grid; place-items:center; width:32px; height:32px;
+  border-radius:calc(var(--radius-sm) + 2px); color:var(--muted);
+  transition:background-color 160ms ease, color 160ms ease;
+  animation:fade-in 320ms var(--ease) both;
+}
+.ai__action:hover{background:var(--hover); color:var(--ink)}
+.ai__action[aria-pressed="true"]{color:var(--ink)}
+.ai__action svg{width:17px; height:17px; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round}
+.ai__action.flip svg{transform:scaleY(-1)}
+.ai__action.ok svg{stroke:var(--ok); stroke-width:2.2; animation:chip-in 260ms var(--ease) both}
+.ai__stop{
+  display:inline-flex; align-items:center; gap:8px; height:30px; padding:0 12px 0 10px;
+  border-radius:calc(var(--radius-sm) + 2px); font-size:13px; color:var(--text);
+  transition:background-color 160ms ease; animation:fade-in 260ms var(--ease) both;
+}
+.ai__stop:hover{background:var(--hover)}
+.ai__stop-icon{width:9px; height:9px; border-radius:2px; background:var(--ink)}
+.ai__status{min-width:0; overflow:hidden; text-overflow:ellipsis; font-size:12.5px; white-space:nowrap; color:var(--muted); animation:fade-in 260ms var(--ease) both}
+.ai__reasons{display:grid; grid-template-columns:minmax(0,1fr); grid-template-rows:0fr; opacity:0; transition:grid-template-rows 320ms var(--ease), opacity 200ms ease}
+.ai__reasons[data-open="true"]{grid-template-rows:1fr; opacity:1}
+.ai__reasons > div{display:flex; flex-wrap:wrap; gap:6px; min-height:0; overflow:hidden; padding:4px 6px 0}
+.ai__reasons[data-open="true"] > div{padding-bottom:10px}
+.ai__reasons button{
+  min-height:30px; max-width:100%; padding:4px 11px; overflow-wrap:anywhere; text-align:start;
+  border-radius:calc(var(--radius-sm) + 2px); background:var(--surface);
+  box-shadow:0 0 0 1px var(--border); font-size:12.5px; color:var(--text);
+  transition:color 140ms ease, box-shadow 140ms ease;
+}
+.ai__reasons button:hover{color:var(--ink); box-shadow:0 0 0 1px var(--faint)}
+/* animations */
+@keyframes card-in{from{opacity:0; transform:translateY(6px) scale(.96)}to{opacity:1; transform:none}}
+@keyframes chip-in{from{opacity:0; transform:scale(.8)}to{opacity:1; transform:none}}
+@keyframes fade-in{from{opacity:0; transform:translateY(3px)}to{opacity:1; transform:none}}
+@keyframes word-in{from{opacity:0; filter:blur(3px)}to{opacity:1; filter:none}}
+@keyframes pop-in{from{opacity:0; transform:translateY(-4px) scale(.98)}to{opacity:1; transform:none}}
+@keyframes sweep{from{background-position:100% 0}to{background-position:0% 0}}
+/* responsive */
+@media (max-width:520px){
+  .ai__inner{padding:18px 18px 16px}
+  .ai__q{font-size:16.5px}
+  .ai__answer{font-size:14.5px}
+  .ai__sources{grid-template-columns:repeat(2, minmax(0,1fr)) auto}
+  .ai__sources > .ai__src-wrap:nth-child(3){display:none}
+  .ai__rest-count [data-wide]{display:none}
+  .ai__rest-count [data-narrow]{display:inline}
+}
+@media (prefers-reduced-motion: reduce){
+  .ai *, .ai *::before, .ai *::after{animation:none !important; transition:none !important}
+}
+</style>
+</head>
+<body>
+<header class="page-head">
+  <div class="brand"><span class="brand-mark" aria-hidden="true"></span><span>offsite-planner&nbsp;·&nbsp;AI Answer</span></div>
+  <div class="head-meta" aria-hidden="true">
+    <span class="phase-dot" id="phaseDot" data-state="reading"></span>
+    <span id="phaseText">Reading 6 sources</span>
+    <span class="sep">·</span><span>6 sources</span>
+    <span class="sep">·</span><span>3 questions</span>
+  </div>
+  <button class="theme-toggle" id="themeToggle" type="button" aria-label="Switch to dark theme">
+    <svg id="iconMoon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 13.5A8 8 0 0 1 10.5 4 8 8 0 1 0 20 13.5Z"/></svg>
+    <svg id="iconSun" viewBox="0 0 24 24" aria-hidden="true" hidden><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.4M12 19.1v2.4M2.5 12h2.4M19.1 12h2.4M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7M19.1 4.9l-1.7 1.7M6.6 17.4l-1.7 1.7"/></svg>
+  </button>
+</header>
+<main class="wrap">
+  <p class="demo-note">Streamed answer with sources, citations, copy, regenerate and follow-ups. Pick a question to replay the full read → write loop.</p>
+  <div class="q-switch" id="qSwitch" role="group" aria-label="Demo questions"></div>
+  <div id="app"></div>
+</main>
+<script>
+(function(){
+'use strict';
+/* ============ demo data (verbatim from original demo) ============ */
+var READING_BASE = 700, READING_PER = 90, SPEED = 38, SHOWN = 3;
+var COPIED_MS = 1800, POP_CLOSE_MS = 140;
+var SOURCES = [
+  {name:'Notion', title:'Offsite plan – shortlist and budget', href:'https://www.notion.so',
+   snippet:'Shortlist: Alfama, Baixa, LX Factory. Budget \u20AC4,500 for three nights, 12 people. Must be walkable to the venue.'},
+  {name:'Slack', title:'#team-offsite \u2013 who can make which dates', href:'https://slack.com',
+   snippet:'14\u201316 May works for everyone. Jonas: "I can only fly in on the 15th, will join for day two and three."'},
+  {name:'Wikipedia', title:'Alfama \u2013 the oldest district of Lisbon', href:'https://en.wikipedia.org/wiki/Alfama',
+   snippet:'Alfama is the oldest district of Lisbon, spreading on the slope between the S\u00E3o Jorge Castle and the Tejo river.'},
+  {name:'Google Flights', title:'BER and MUC \u2192 LIS, Thursday 14 May', href:'https://www.google.com/travel/flights',
+   snippet:'Direct flights from Berlin (07:05 \u2192 09:50) and Munich (07:40 \u2192 10:15). Round trip from \u20AC184.'},
+  {name:'Airbnb', title:'Two linked houses in Alfama, sleeps 14', href:'https://www.airbnb.com',
+   snippet:'\u20AC2,880 for 3 nights \u00B7 7 bedrooms \u00B7 rooftop terrace with river view \u00B7 only 1 weekend left in May.'},
+  {name:'Booking.com', title:'Hotels in Baixa for 12 guests', href:'https://www.booking.com',
+   snippet:'Best match: Hotel Baixa Lisboa, 12 rooms, \u20AC3,640 for 3 nights incl. breakfast and a meeting room.'}
+];
+var FAV_COLORS = ['#000000','#4A154B','#000000','#4285F4','#FF5A5F','#003A9A'];
+var ANSWERS = {
+'Where should we hold the team offsite in Lisbon?':
+'**Alfama** is the best fit for the 12-person offsite: walkable, quiet in the mornings and inside the budget you set [1][3].\n\n- **Dates:** 14\u201316 May works for everyone, Jonas joins on day two [2].\n- **Stay:** two linked houses in Alfama come to \u20AC2,880 for three nights, about 20% less than the hotel [5][6].\n- **Flights:** direct flights from Berlin and Munich land before 10:30, so day one can start after lunch [4].\n\nBook the houses this week \u2013 only one May weekend is still free [5].',
+'Compare the houses with the hotel':
+'The **houses** win on price and space, the **hotel** on convenience [5][6].\n\n- **Price:** \u20AC2,880 for the houses against \u20AC3,640 for the hotel, both for three nights [5][6].\n- **Working space:** the houses have a rooftop terrace and two living rooms; the hotel adds a bookable meeting room [5][6].\n- **Breakfast:** included at the hotel, at the houses you\u2019d plan a caterer for the mornings [6].\n\nFor a team that wants to work together, the houses are the better choice [1].',
+'Draft a three-day agenda':
+'A light agenda that works around Jonas arriving on day two [2]:\n\n- **Thursday:** land before 10:30, lunch in Alfama, afternoon walk and a team dinner [4][3].\n- **Friday:** strategy morning on the rooftop, Jonas joins at noon, workshops in the afternoon [2][5].\n- **Saturday:** planning wrap-up, then a free afternoon before the evening flights [1].\n\nI kept the mornings for focused work and the afternoons for time together.'
+};
+var ORDER = Object.keys(ANSWERS);
+var REASONS = ['Not accurate','Wrong source','Too long','Out of date'];
+var ICONS = {
+  copy:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M5 15V6.5A2.5 2.5 0 0 1 7.5 4H15"/></svg>',
+  check:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 12.5l5 5L19.5 7"/></svg>',
+  redo:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 3.5V8h-4.5"/></svg>',
+  up:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10.5V20M7 10.5l3.2-6.8c.5-1 2-1.2 2.6-.2L14 7h5.2a2 2 0 0 1 2 2.4l-1.3 6.5a2 2 0 0 1-2 1.6H8.5a1.5 1.5 0 0 1-1.5-1.5Z"/></svg>',
+  arrow:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 12h15M13.5 6l6 6-6 6"/></svg>'
+};
+/* ============ pure logic (also exercised by the test harness) ============ */
+function tokenizeInline(s, nSrc){
+  var toks = [], k = 0, parts = s.split(/(\*\*[^*]+\*\*|\[\d+(?:\s*,\s*\d+)*\])/g), p, m, i, ids, bold, body, words, w, prev, j;
+  for (var a = 0; a < parts.length; a++){
+    p = parts[a];
+    if (!p) continue;
+    m = p.match(/^\[([\d,\s]+)\]$/);
+    if (m){
+      ids = [];
+      var bits = m[1].split(',');
+      for (j = 0; j < bits.length; j++){ i = parseInt(bits[j].trim(), 10) - 1; if (i >= 0 && i < nSrc) ids.push(i); }
+      if (!ids.length) continue;
+      prev = toks[toks.length - 1];
+      if (prev && prev.kind === 'cite'){
+        for (j = 0; j < ids.length; j++) if (prev.ids.indexOf(ids[j]) < 0) prev.ids.push(ids[j]);
+      } else toks.push({i:k++, kind:'cite', ids:ids});
+      continue;
+    }
+    bold = p.length > 4 && p.indexOf('**') === 0 && p.lastIndexOf('**') === p.length - 2;
+    body = bold ? p.slice(2, -2) : p;
+    words = body.match(/\S+\s*|\s+/g) || [];
+    for (j = 0; j < words.length; j++){
+      w = words[j];
+      if (!w.trim()){ prev = toks[toks.length - 1]; if (prev && prev.kind === 'word') prev.text += w; continue; }
+      toks.push({i:k++, kind:'word', text:w, bold:!!bold});
+    }
+  }
+  return toks;
+}
+function parseAnswer(text, nSrc){
+  var blocks = [], total = 0, paras = text.split(/\n\s*\n/), b, lines, allBul, items, li, t;
+  for (b = 0; b < paras.length; b++){
+    lines = paras[b].split('\n');
+    allBul = true;
+    for (var q = 0; q < lines.length; q++) if (lines[q].trim() && !/^\s*[-*]\s/.test(lines[q])) allBul = false;
+    if (allBul){
+      items = [];
+      for (q = 0; q < lines.length; q++){
+        if (!lines[q].trim()) continue;
+        t = tokenizeInline(lines[q].replace(/^\s*[-*]\s/, ''), nSrc);
+        total += t.length;
+        items.push(t);
+      }
+      if (items.length) blocks.push({kind:'ul', items:items});
+    } else {
+      t = tokenizeInline(lines.join(' '), nSrc);
+      total += t.length;
+      blocks.push({kind:'p', tokens:t});
+    }
+  }
+  return {blocks:blocks, total:total};
+}
+function formatElapsed(e){
+  if (e < 60) return e + 's';
+  var t = Math.round(e);
+  if (t < 3600){
+    var s = String(t % 60); if (s.length < 2) s = '0' + s;
+    return Math.floor(t / 60) + 'm ' + s + 's';
+  }
+  var mm = String(Math.floor(t % 3600 / 60)); if (mm.length < 2) mm = '0' + mm;
+  return Math.floor(t / 3600) + 'h ' + mm + 'm';
+}
+function readingDelay(n){ return n ? READING_BASE + Math.min(n, 4) * READING_PER : 0; }
+function plainCopy(answer, sources){
+  var t = answer.replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/\s*\[(\d+(?:\s*,\s*\d+)*)\]/g, function(e, g){ return ' [' + g.replace(/\s/g, '') + ']'; }).trim();
+  if (!sources.length) return t;
+  return t + '\n\nSources:\n' + sources.map(function(s, i){ return '[' + (i + 1) + '] ' + s.title + (s.href ? ' \u2013 ' + s.href : ''); }).join('\n');
+}
+function prefersReduced(){
+  try { return typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
+  catch (e){ return false; }
+}
+/* ============ component ============ */
+var hasDoc = typeof document !== 'undefined';
+var rootEl = hasDoc ? document.documentElement : null;
+var store = (function(){
+  try { if (typeof localStorage !== 'undefined') return localStorage; } catch (e){}
+  var m = {};
+  return {getItem:function(k){ return Object.prototype.hasOwnProperty.call(m, k) ? m[k] : null; },
+          setItem:function(k, v){ m[k] = String(v); }};
+})();
+function nowMs(){
+  try { if (typeof performance !== 'undefined' && performance.now) return performance.now(); } catch (e){}
+  return Date.now();
+}
+function raf(fn){
+  try {
+    if (typeof requestAnimationFrame !== 'undefined') return requestAnimationFrame(fn);
+  } catch (e){}
+  return setTimeout(function(){ fn(nowMs()); }, 16);
+}
+function caf(id){
+  try {
+    if (typeof cancelAnimationFrame !== 'undefined') return cancelAnimationFrame(id);
+  } catch (e){}
+  clearTimeout(id);
+}
+function el(tag, cls, text){
+  var n = document.createElement(tag);
+  if (cls) n.setAttribute('class', cls);
+  if (text != null) n.textContent = text;
+  return n;
+}
+function svgIcon(html){ var s = el('span', null); s.innerHTML = html; return s.firstChild; }
+
+var state = {
+  question: ORDER[0], cycle: 0, phase: 'reading',
+  shown: 0, shownFloat: 0, rafId: 0, timers: [],
+  entries: [], caret: null, elapsed: 0, t0: 0,
+  feedback: null, thanked: null, copied: false, popIds: null, popTimer: 0,
+  reduced: false, done: false
+};
+var refs = {};
+function later(ms, fn){
+  var id = setTimeout(function(){ fn(); }, ms);
+  state.timers.push(id);
+  return id;
+}
+function clearTimers(){ state.timers.forEach(clearTimeout); state.timers = []; if (state.popTimer){ clearTimeout(state.popTimer); state.popTimer = 0; } }
+
+function statusText(){
+  if (state.copied) return 'Copied';
+  if (state.feedback === 'up' || state.thanked) return 'Thanks for the feedback';
+  if (state.feedback === 'down') return 'What went wrong?';
+  if (state.phase === 'stopped') return 'Stopped';
+  if (state.phase === 'done') return 'Answered in ' + formatElapsed(state.elapsed);
+  return '';
+}
+function labelText(n){
+  if (state.phase === 'reading') return 'Reading ' + n + (n === 1 ? ' source' : ' sources');
+  if (state.phase === 'writing') return 'Writing';
+  return 'Answer';
+}
+
+function buildShell(){
+  var app = document.getElementById('app');
+  app.innerHTML = '';
+  var root = el('div', 'ai'); root.setAttribute('data-phase', 'reading');
+  var tray = el('div', 'ai__tray'), card = el('div', 'ai__card'), inner = el('div', 'ai__inner');
+  var q = el('h3', 'ai__question'); q.textContent = state.question; q.setAttribute('dir', 'auto');
+  var src = el('div', 'ai__sources'); src.setAttribute('role', 'list'); src.setAttribute('aria-label', 'Sources');
+  if (SOURCES.length > SHOWN) src.setAttribute('data-more', '');
+  refs.srcRow = src; refs.srcCards = [];
+  for (var i = 0; i < Math.min(SOURCES.length, SHOWN); i++) src.appendChild(sourceCard(i));
+  if (SOURCES.length > 2){
+    var rw = el('div', 'ai__src-wrap ai__rest-wrap'); rw.setAttribute('role', 'listitem');
+    var rest = el('div', 'ai__source ai__rest');
+    rest.setAttribute('style', '');
+    rest.style.animationDelay = state.reduced ? '0ms' : '390ms';
+    var cnt = el('span', 'ai__rest-count');
+    var wide = el('span', null, '+' + (SOURCES.length - SHOWN)); wide.setAttribute('data-wide', '');
+    var narrow = el('span', null, '+' + (SOURCES.length - SHOWN + 1)); narrow.setAttribute('data-narrow', '');
+    cnt.appendChild(wide); cnt.appendChild(narrow);
+    rest.appendChild(cnt); rest.appendChild(el('span', 'ai__rest-label', 'more'));
+    rest.addEventListener('mouseenter', (function(n){
+      return function(){ setLit(restIds(n)); };
+    })(SOURCES.length));
+    rest.addEventListener('mouseleave', function(){ setLit(null); });
+    refs.restCard = rest;
+    rw.appendChild(rest); src.appendChild(rw);
+  }
+  var lab = el('div', 'ai__label');
+  lab.appendChild(markSvg());
+  var lt = el('span', 'ai__label-text ai__shimmer'); lt.setAttribute('data-text', labelText(SOURCES.length)); lt.textContent = labelText(SOURCES.length);
+  lab.appendChild(lt); refs.labelText = lt;
+  var ans = el('div', 'ai__answer'); ans.setAttribute('aria-busy', 'true');
+  refs.answer = ans;
+  var fol = el('div', 'ai__follow'); fol.setAttribute('hidden', ''); refs.follow = fol;
+  var foot = el('div', 'ai__foot'); refs.foot = foot;
+  var reasons = el('div', 'ai__reasons'); reasons.setAttribute('data-open', 'false'); refs.reasons = reasons;
+  var rdiv = el('div', null);
+  REASONS.forEach(function(r){
+    var b = el('button', null, r); b.setAttribute('type', 'button'); b.setAttribute('dir', 'auto'); b.setAttribute('tabindex', '-1');
+    b.addEventListener('click', function(){ state.thanked = r; refreshFoot(); });
+    rdiv.appendChild(b);
+  });
+  reasons.appendChild(rdiv);
+  var pop = el('div', 'ai__pop'); pop.setAttribute('role', 'tooltip'); pop.setAttribute('hidden', ''); refs.pop = pop;
+  inner.appendChild(q); inner.appendChild(src); inner.appendChild(lab); inner.appendChild(ans);
+  inner.appendChild(fol); inner.appendChild(foot); inner.appendChild(reasons);
+  card.appendChild(inner); tray.appendChild(card); root.appendChild(tray); root.appendChild(pop);
+  app.appendChild(root);
+  refs.root = root;
+  root.addEventListener('mouseleave', function(){ setLit(null); });
+  renderFoot();
+}
+function restIds(total){
+  var shown = SHOWN, ids = [], i;
+  try {
+    if (typeof getComputedStyle !== 'undefined' && refs.restCard){
+      var v = parseInt(getComputedStyle(refs.restCard).getPropertyValue('--ai-shown'), 10);
+      if (v === 2) shown = 2;
+    }
+  } catch (e){}
+  for (i = shown; i < total; i++) ids.push(i);
+  return ids;
+}
+function sourceCard(i){
+  var s = SOURCES[i];
+  var wrap = el('div', 'ai__src-wrap'); wrap.setAttribute('role', 'listitem');
+  var card = el(s.href ? 'a' : 'div', 'ai__source');
+  if (s.href){ card.setAttribute('href', s.href); card.setAttribute('target', '_blank'); card.setAttribute('rel', 'noreferrer'); }
+  if (!state.reduced) card.style.animationDelay = (120 + i * READING_PER) + 'ms';
+  var site = el('span', 'ai__site');
+  var fav = el('span', 'ai__fav', s.name.charAt(0));
+  fav.style.background = FAV_COLORS[i % FAV_COLORS.length];
+  var nm = el('span', 'ai__site-name', s.name); nm.setAttribute('title', s.name);
+  var num = el('span', 'ai__num', String(i + 1));
+  site.appendChild(fav); site.appendChild(nm); site.appendChild(num);
+  var ti = el('span', 'ai__title', s.title); ti.setAttribute('dir', 'auto'); ti.setAttribute('title', s.title);
+  card.appendChild(site); card.appendChild(ti);
+  card.addEventListener('mouseenter', function(){ setLit([i]); });
+  card.addEventListener('mouseleave', function(){ setLit(null); });
+  wrap.appendChild(card);
+  refs.srcCards[i] = card;
+  return wrap;
+}
+function markSvg(){
+  var s = el('span', null);
+  s.innerHTML = '<svg class="ai__mark" viewBox="30 40 180 160" aria-hidden="true">' +
+    '<defs><linearGradient id="aiBody" x1="0" y1="50" x2="0" y2="192" gradientUnits="userSpaceOnUse">' +
+    '<stop offset="0" stop-color="#7dc5fe"/><stop offset="1" stop-color="#0190fe"/></linearGradient></defs>' +
+    '<ellipse class="ai__mark-body" cx="120" cy="125" rx="52" ry="48"/>' +
+    '<g class="ai__eyes"><g class="ai__lid"><rect class="ai__mark-eye" x="96" y="106" width="19" height="32" rx="9.5"/>' +
+    '<circle class="ai__mark-pupil" cx="105.5" cy="122" r="4.5"/></g>' +
+    '<g class="ai__lid"><rect class="ai__mark-eye" x="127" y="106" width="19" height="32" rx="9.5"/>' +
+    '<circle class="ai__mark-pupil" cx="136.5" cy="122" r="4.5"/></g></g></svg>';
+  return s.firstChild;
+}
+/* token node: created once per token, appended progressively (never rebuilt in the tick loop) */
+function tokenNode(tok){
+  var i, nm, more;
+  if (tok.kind === 'word'){
+    var w = el('span', 'ai__w', tok.text);
+    if (tok.bold) w.setAttribute('data-bold', '');
+    return w;
+  }
+  var first = SOURCES[tok.ids[0]];
+  var titles = tok.ids.map(function(id){ return SOURCES[id].title; }).join(', ');
+  var b = el('button', 'ai__cite');
+  b.setAttribute('type', 'button');
+  b.setAttribute('title', titles);
+  b.setAttribute('aria-label', 'Source: ' + titles);
+  nm = el('span', 'ai__cite-name', first.name);
+  b.appendChild(nm);
+  if (tok.ids.length > 1){ more = el('span', 'ai__cite-more', '+' + (tok.ids.length - 1)); b.appendChild(more); }
+  b.addEventListener('pointerdown', function(e){ openPop(tok.ids, b); }, true);
+  b.addEventListener('mouseenter', function(e){ openPop(tok.ids, b); });
+  b.addEventListener('mouseleave', schedulePopClose);
+  b.addEventListener('focus', function(){ openPop(tok.ids, b); });
+  b.addEventListener('blur', schedulePopClose);
+  b.addEventListener('click', function(e){ togglePop(tok.ids, b); });
+  b.addEventListener('keydown', function(e){ if (e && e.key === 'Escape') closePop(); });
+  b._citeIds = tok.ids;
+  return b;
+}
+function setLit(ids){
+  var i, on, card;
+  var cards = refs.srcCards || [];
+  for (i = 0; i < cards.length; i++){
+    card = cards[i];
+    on = ids && ids.indexOf(i) >= 0;
+    if (on) card.setAttribute('data-lit', ''); else card.removeAttribute('data-lit');
+  }
+  if (refs.restCard){
+    var restOn = ids && ids.some(function(id){ return id >= SHOWN; });
+    if (restOn) refs.restCard.setAttribute('data-lit', ''); else refs.restCard.removeAttribute('data-lit');
+  }
+  var cites = refs.answer ? refs.answer.querySelectorAll ? refs.answer.querySelectorAll('.ai__cite') : [] : [];
+  for (i = 0; i < cites.length; i++){
+    var c = cites[i];
+    var has = ids && c._citeIds && c._citeIds.some(function(id){ return ids.indexOf(id) >= 0; });
+    if (has) c.setAttribute('data-lit', ''); else c.removeAttribute('data-lit');
+  }
+  if (refs.citeList) for (i = 0; i < refs.citeList.length; i++){
+    var cc = refs.citeList[i];
+    var h2 = ids && cc._citeIds.some(function(id){ return ids.indexOf(id) >= 0; });
+    if (h2) cc.setAttribute('data-lit', ''); else cc.removeAttribute('data-lit');
+  }
+}
+function openPop(ids, anchor){
+  if (state.popTimer){ clearTimeout(state.popTimer); state.popTimer = 0; }
+  state.popIds = ids.slice();
+  setLit(ids);
+  var pop = refs.pop;
+  pop.innerHTML = '';
+  ids.forEach(function(id){
+    var s = SOURCES[id];
+    var item = el(s.href ? 'a' : 'div', 'ai__pop-item');
+    if (s.href){ item.setAttribute('href', s.href); item.setAttribute('target', '_blank'); item.setAttribute('rel', 'noreferrer'); item.setAttribute('tabindex', '-1'); }
+    var site = el('span', 'ai__site');
+    var fav = el('span', 'ai__fav', s.name.charAt(0));
+    fav.style.background = FAV_COLORS[id % FAV_COLORS.length];
+    var dom = s.href ? s.href.replace(/^https?:\/\/(www\.)?/, '').split('/')[0] : s.name;
+    site.appendChild(fav); site.appendChild(el('span', 'ai__site-name', dom)); site.appendChild(el('span', 'ai__num', String(id + 1)));
+    item.appendChild(site);
+    var t = el('span', 'ai__pop-title', s.title); t.setAttribute('dir', 'auto');
+    item.appendChild(t);
+    if (s.snippet && ids.length === 1){
+      var sn = el('span', 'ai__snippet', s.snippet); sn.setAttribute('dir', 'auto');
+      item.appendChild(sn);
+    }
+    pop.appendChild(item);
+  });
+  pop.removeAttribute('hidden');
+  try {
+    var rootR = refs.root.getBoundingClientRect(), r = anchor.getBoundingClientRect();
+    var w = Math.min(300, rootR.width - 16), left = Math.max(8, Math.min(rootR.width - w - 8, r.left - rootR.left + r.width / 2 - w / 2));
+    pop.style.left = left + 'px'; pop.style.top = (r.bottom - rootR.top + 6) + 'px'; pop.style.width = w + 'px';
+  } catch (e){}
+}
+function schedulePopClose(){
+  if (state.popTimer) clearTimeout(state.popTimer);
+  state.popTimer = setTimeout(function(){ closePop(); }, POP_CLOSE_MS);
+}
+function togglePop(ids, anchor){
+  var same = state.popIds && state.popIds.length === ids.length && state.popIds.every(function(v, i){ return v === ids[i]; });
+  if (same && !refs.pop.hasAttribute('hidden')) closePop(); else openPop(ids, anchor);
+}
+function closePop(){
+  if (state.popTimer){ clearTimeout(state.popTimer); state.popTimer = 0; }
+  state.popIds = null;
+  if (refs.pop) refs.pop.setAttribute('hidden', '');
+  setLit(null);
+}
+/* ---- cycle: reading -> writing -> done ---- */
+function startCycle(){
+  clearTimers();
+  if (state.rafId){ caf(state.rafId); state.rafId = 0; }
+  closePop();
+  state.phase = 'reading'; state.shown = 0; state.shownFloat = 0;
+  state.entries = []; state.caret = null; state.elapsed = 0;
+  state.feedback = null; state.thanked = null; state.copied = false;
+  refs.caretPh = null; refs.citeList = [];
+  state.t0 = nowMs(); state.done = false;
+  buildShell();
+  updateHead();
+  if (state.reduced){
+    later(readingDelay(SOURCES.length), function(){ beginWriting(true); });
+  } else {
+    later(readingDelay(SOURCES.length), function(){ beginWriting(false); });
+  }
+}
+function beginWriting(instant){
+  if (state.phase !== 'reading') return;
+  state.phase = 'writing';
+  refs.root.setAttribute('data-phase', 'writing');
+  var parsed = parseAnswer(ANSWERS[state.question], SOURCES.length);
+  refs.citeList = [];
+  parsed.blocks.forEach(function(b){
+    var box, li;
+    if (b.kind === 'p'){
+      box = el('p', null); box.setAttribute('dir', 'auto');
+      refs.answer.appendChild(box);
+      b.tokens.forEach(function(t){ state.entries.push({box:box, node:tokenNode(t), cite:t.kind === 'cite'}); if (t.kind === 'cite') refs.citeList.push(state.entries[state.entries.length - 1].node); });
+    } else {
+      box = el('ul', null);
+      refs.answer.appendChild(box);
+      b.items.forEach(function(tokens){
+        li = el('li', null); li.setAttribute('dir', 'auto');
+        box.appendChild(li);
+        tokens.forEach(function(t){ state.entries.push({box:li, node:tokenNode(t), cite:t.kind === 'cite'}); if (t.kind === 'cite') refs.citeList.push(state.entries[state.entries.length - 1].node); });
+      });
+    }
+  });
+  state.total = parsed.total;
+  state.caret = el('span', 'ai__caret'); state.caret.setAttribute('aria-hidden', 'true');
+  refs.labelText.textContent = 'Writing'; refs.labelText.setAttribute('data-text', 'Writing');
+  updateHead();
+  if (instant || state.entries.length === 0){
+    while (state.shown < state.entries.length){ state.entries[state.shown].box.appendChild(state.entries[state.shown].node); state.shown++; }
+    finishCycle();
+    return;
+  }
+  if (state.entries.length && state.shown === 0){
+    var ph = el('p', null); ph.appendChild(state.caret); refs.answer.appendChild(ph); refs.caretPh = ph;
+  }
+  state.lastT = nowMs();
+  var step = function(t){
+    if (state.phase !== 'writing') return;
+    var dt = Math.max(0, (t - state.lastT) / 1000); state.lastT = t;
+    state.shownFloat = Math.min(state.entries.length, state.shownFloat + dt * SPEED);
+    var n = Math.floor(state.shownFloat), moved = false;
+    while (state.shown < n && state.shown < state.entries.length){
+      var e = state.entries[state.shown];
+      if (refs.caretPh && refs.caretPh.parentNode){ refs.caretPh.parentNode.removeChild(refs.caretPh); refs.caretPh = null; }
+      e.box.appendChild(e.node); moved = true;
+      state.shown++;
+    }
+    if (moved && state.shown < state.entries.length){
+      var lastBox = state.entries[state.shown - 1].box;
+      lastBox.appendChild(state.caret);
+    }
+    if (state.shown >= state.entries.length){ finishCycle(); return; }
+    state.rafId = raf(step);
+  };
+  state.rafId = raf(step);
+}
+function finishCycle(){
+  if (state.rafId){ caf(state.rafId); state.rafId = 0; }
+  if (state.phase !== 'writing') return;
+  state.phase = 'done'; state.done = true;
+  state.elapsed = Math.max(.1, Math.round((nowMs() - state.t0) / 100) / 10);
+  if (state.caret && state.caret.parentNode) state.caret.parentNode.removeChild(state.caret);
+  if (refs.caretPh && refs.caretPh.parentNode && !refs.caretPh.textContent) refs.caretPh.parentNode.removeChild(refs.caretPh);
+  refs.root.setAttribute('data-phase', 'done');
+  refs.answer.setAttribute('aria-busy', 'false');
+  refs.labelText.textContent = 'Answer'; refs.labelText.setAttribute('data-text', 'Answer');
+  refs.labelText.classList.remove('shimmer');
+  renderFollow();
+  renderFoot();
+  updateHead();
+}
+function stopCycle(){
+  if (state.rafId){ caf(state.rafId); state.rafId = 0; }
+  clearTimers();
+  state.elapsed = Math.max(.1, Math.round((nowMs() - state.t0) / 100) / 10);
+  state.phase = 'stopped';
+  if (state.caret && state.caret.parentNode) state.caret.parentNode.removeChild(state.caret);
+  if (refs.caretPh && refs.caretPh.parentNode) refs.caretPh.parentNode.removeChild(refs.caretPh);
+  if (state.shown === 0) refs.answer.appendChild(Object.assign(el('p', 'ai__empty'), {textContent:'Stopped before answering.'}));
+  refs.root.setAttribute('data-phase', 'stopped');
+  refs.answer.setAttribute('aria-busy', 'false');
+  refs.labelText.textContent = 'Answer'; refs.labelText.setAttribute('data-text', 'Answer');
+  refs.labelText.classList.remove('shimmer');
+  renderFoot();
+  updateHead();
+}
+function renderFollow(){
+  var fol = refs.follow;
+  fol.innerHTML = '';
+  var others = ORDER.filter(function(k){ return k !== state.question; });
+  if (!others.length){ fol.setAttribute('hidden', ''); return; }
+  fol.removeAttribute('hidden');
+  fol.appendChild(el('span', 'ai__follow-label', 'Related'));
+  others.forEach(function(k, idx){
+    var b = el('button', 'ai__follow-item');
+    b.setAttribute('type', 'button');
+    if (!state.reduced) b.style.animationDelay = (80 + idx * 60) + 'ms';
+    var s = el('span', null, k); s.setAttribute('dir', 'auto');
+    b.appendChild(s);
+    var ar = svgIcon(ICONS.arrow); ar.setAttribute('class', 'ai__glyph');
+    b.appendChild(ar);
+    b.addEventListener('click', function(){ state.question = k; syncQSwitch(); startCycle(); });
+    fol.appendChild(b);
+  });
+}
+function renderFoot(){
+  var foot = refs.foot;
+  foot.innerHTML = '';
+  var doneish = state.phase === 'done' || state.phase === 'stopped';
+  if (!doneish){
+    var stop = el('button', 'ai__stop'); stop.setAttribute('type', 'button');
+    var ic = el('span', 'ai__stop-icon'); ic.setAttribute('aria-hidden', 'true');
+    stop.appendChild(ic); stop.appendChild(document.createTextNode('Stop'));
+    stop.addEventListener('click', stopCycle);
+    foot.appendChild(stop);
+  } else {
+    var acts = el('div', 'ai__actions');
+    var cp = el('button', 'ai__action'); cp.setAttribute('type', 'button');
+    cp.setAttribute('aria-label', state.copied ? 'Copied' : 'Copy answer');
+    var ci = svgIcon(state.copied ? ICONS.check : ICONS.copy);
+    ci.setAttribute('class', state.copied ? 'ai__glyph ai__ok' : 'ai__glyph');
+    cp.appendChild(ci);
+    cp.addEventListener('click', function(){
+      var txt = plainCopy(ANSWERS[state.question], SOURCES);
+      try { if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).catch(function(){}); } catch (e){}
+      state.copied = true; renderFoot();
+      later(COPIED_MS, function(){ state.copied = false; if (state.phase === 'done' || state.phase === 'stopped') renderFoot(); });
+    });
+    var re = el('button', 'ai__action ai__redo'); re.setAttribute('type', 'button'); re.setAttribute('aria-label', 'Regenerate');
+    var ri = svgIcon(ICONS.redo); ri.setAttribute('class', 'ai__glyph'); re.appendChild(ri);
+    re.addEventListener('click', function(){ startCycle(); });
+    var up = el('button', 'ai__action'); up.setAttribute('type', 'button'); up.setAttribute('aria-label', 'Good answer');
+    up.setAttribute('aria-pressed', state.feedback === 'up' ? 'true' : 'false');
+    var ui = svgIcon(ICONS.up); ui.setAttribute('class', 'ai__glyph'); up.appendChild(ui);
+    up.addEventListener('click', function(){ state.feedback = state.feedback === 'up' ? null : 'up'; if (state.feedback === 'up') state.thanked = null; renderFoot(); });
+    var dn = el('button', 'ai__action flip'); dn.setAttribute('type', 'button'); dn.setAttribute('aria-label', 'Bad answer');
+    dn.setAttribute('aria-pressed', state.feedback === 'down' ? 'true' : 'false');
+    var di = svgIcon(ICONS.up); di.setAttribute('class', 'ai__glyph'); dn.appendChild(di);
+    dn.addEventListener('click', function(){ state.feedback = state.feedback === 'down' ? null : 'down'; state.thanked = null; renderFoot(); });
+    acts.appendChild(cp); acts.appendChild(re); acts.appendChild(up); acts.appendChild(dn);
+    foot.appendChild(acts);
+  }
+  var st = el('span', 'ai__status', statusText());
+  st.setAttribute('aria-live', 'polite'); st.setAttribute('title', statusText());
+  foot.appendChild(st);
+  refs.status = st;
+  refreshFoot();
+}
+function refreshFoot(){
+  var open = state.feedback === 'down' && !state.thanked;
+  refs.reasons.setAttribute('data-open', open ? 'true' : 'false');
+  var btns = refs.reasons.firstChild ? refs.reasons.firstChild.childNodes : [];
+  for (var i = 0; i < btns.length; i++){
+    if (btns[i].setAttribute) btns[i].setAttribute('tabindex', open ? '0' : '-1');
+  }
+  if (refs.status){ refs.status.textContent = statusText(); refs.status.setAttribute('title', statusText()); }
+  var ups = refs.foot.querySelectorAll ? [] : [];
+  void ups;
+}
+function updateHead(){
+  var pt = document.getElementById('phaseText'), pd = document.getElementById('phaseDot');
+  var label = labelText(SOURCES.length);
+  if (pt) pt.textContent = state.phase === 'done' ? 'Answer complete' : (state.phase === 'stopped' ? 'Stopped' : label);
+  if (pd) pd.setAttribute('data-state', state.phase === 'reading' ? 'reading' : (state.phase === 'writing' ? 'writing' : 'done'));
+}
+/* ---- question switcher ---- */
+function syncQSwitch(){
+  var box = document.getElementById('qSwitch');
+  if (!box) return;
+  box.innerHTML = '';
+  ORDER.forEach(function(k){
+    var b = el('button', null, k.length > 42 ? k.slice(0, 42) + '\u2026' : k);
+    b.setAttribute('type', 'button'); b.setAttribute('title', k);
+    if (k === state.question) b.setAttribute('aria-current', 'true');
+    b.addEventListener('click', function(){ if (state.question !== k){ state.question = k; syncQSwitch(); startCycle(); } });
+    box.appendChild(b);
+  });
+}
+/* ---- theme ---- */
+function applyTheme(t){
+  if (rootEl) rootEl.setAttribute('data-theme', t);
+  try { store.setItem('ai-answer-theme', t); } catch (e){}
+  var moon = document.getElementById('iconMoon'), sun = document.getElementById('iconSun'), tg = document.getElementById('themeToggle');
+  if (moon) moon.hidden = (t === 'dark');
+  if (sun) sun.hidden = (t !== 'dark');
+  if (tg) tg.setAttribute('aria-label', t === 'dark' ? 'Switch to light theme' : 'Switch to dark theme');
+}
+function initTheme(){
+  var t = null;
+  try { t = store.getItem('ai-answer-theme'); } catch (e){}
+  if (!t){
+    try { if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) t = 'dark'; } catch (e){}
+  }
+  applyTheme(t === 'dark' ? 'dark' : 'light');
+}
+/* ---- boot ---- */
+function boot(){
+  state.reduced = prefersReduced();
+  initTheme();
+  var tg = document.getElementById('themeToggle');
+  if (tg) tg.addEventListener('click', function(){
+    var cur = rootEl ? rootEl.getAttribute('data-theme') : 'light';
+    applyTheme(cur === 'dark' ? 'light' : 'dark');
+  });
+  syncQSwitch();
+  startCycle();
+}
+if (hasDoc) boot();
+/* test hooks (used by the in-dir verification harness) */
+try {
+  if (typeof window !== 'undefined'){
+    window.__ans = {
+      state:state, refs:refs, SOURCES:SOURCES, ANSWERS:ANSWERS, ORDER:ORDER, REASONS:REASONS,
+      parseAnswer:parseAnswer, formatElapsed:formatElapsed, readingDelay:readingDelay, plainCopy:plainCopy,
+      startCycle:startCycle, stopCycle:stopCycle,
+      answerText:function(){ return refs.answer ? refs.answer.textContent : ''; },
+      phase:function(){ return state.phase; }
+    };
+  }
+} catch (e){}
+})();
+</script>
+</body>
+</html>

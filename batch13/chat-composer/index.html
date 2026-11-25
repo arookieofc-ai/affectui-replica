@@ -1,0 +1,1027 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chat Composer — affectUI replica</title>
+<style>
+/* ---- design tokens (required) ---- */
+:root, [data-theme="light"]{
+  --surface:#ffffff;
+  --page:#fafaf9;
+  --ink:#171717;
+  --ink-2:#1c1917;
+  --muted:#78716c;
+  --subtle:#f5f5f4;
+  --border:#e7e5e4;
+  --tray:#f0f0f0;
+  --radius-lg:16px;
+  --radius:10px;
+  --radius-sm:6px;
+  --pill:999px;
+  --shadow:0 1px 2px rgba(0,0,0,.05),0 4px 16px rgba(0,0,0,.05);
+  --alert:#e6730e;
+  --alert-bg:#fef3c7;
+  --alert-ink:#92400e;
+  --waiting:#f59e0b;
+  --waiting-bg:#fef3c7;
+  --waiting-ink:#92400e;
+  --failed:#dc2626;
+  --idle-grey:#a8a29e;
+  --focus:rgba(0,96,226,.7);
+  --on-ink:#ffffff;
+  --menu-fill:#f5f5f4;
+  --hover-filter:brightness(.6);
+  --shine:rgba(255,255,255,.85);
+  --font:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+[data-theme="dark"]{
+  --surface:#1c1c1f;
+  --page:#101012;
+  --ink:#ededed;
+  --ink-2:#ededed;
+  --muted:#a1a1aa;
+  --subtle:#26262a;
+  --border:#2e2e33;
+  --tray:#161618;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 4px 16px rgba(0,0,0,.4);
+  --alert:#f2a15c;
+  --alert-bg:#451a03;
+  --alert-ink:#fde68a;
+  --waiting:#fbbf24;
+  --waiting-bg:#451a03;
+  --waiting-ink:#fde68a;
+  --failed:#f87171;
+  --idle-grey:#52525b;
+  --focus:rgba(77,141,255,.8);
+  --on-ink:#121213;
+  --menu-fill:#313135;
+  --hover-filter:brightness(1.5);
+  --shine:rgba(255,255,255,.95);
+}
+/* hard rule: author-styled [hidden] still hides */
+[hidden]{display:none !important;}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--page);
+  color:var(--muted);
+  font-family:var(--font);
+  font-size:14px;
+  line-height:1.45;
+  -webkit-font-smoothing:antialiased;
+  min-height:100vh;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  padding:28px 16px 64px;
+}
+/* ---- page header: project name + working count + counts ---- */
+.page-head{
+  width:100%;
+  max-width:680px;
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:18px;
+}
+.brand h1{
+  margin:0;
+  font-size:16px;
+  font-weight:600;
+  color:var(--ink);
+  letter-spacing:-.01em;
+}
+.brand p{
+  margin:4px 0 0;
+  font-size:12.5px;
+  color:var(--muted);
+}
+.brand p strong{color:var(--ink-2);font-weight:600;}
+.theme-toggle{
+  flex:none;
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  border:1px solid var(--border);
+  background:var(--surface);
+  color:var(--ink);
+  border-radius:var(--pill);
+  padding:7px 12px;
+  font:inherit;
+  font-size:12.5px;
+  cursor:pointer;
+  box-shadow:var(--shadow);
+  transition:transform 150ms ease,background 150ms ease,border-color 150ms ease;
+}
+.theme-toggle:hover{background:var(--subtle);transform:translateY(-1px);}
+.theme-toggle:active{transform:scale(.96);}
+.theme-toggle:focus-visible{outline:2px solid var(--focus);outline-offset:2px;}
+.theme-toggle svg{width:16px;height:16px;display:block;}
+/* ---- composer frame ---- */
+.stage{width:100%;max-width:680px;}
+.composer{
+  position:relative;
+  font-family:var(--font);
+  color:var(--muted);
+}
+.tray{
+  position:relative;
+  background:var(--tray);
+  border-radius:24px;
+  padding:14px 14px 0;
+  transition:background 200ms ease;
+}
+.card{
+  position:relative;
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius-lg);
+  box-shadow:var(--shadow);
+  padding:14px 14px 12px;
+  cursor:text;
+  transition:border-color 150ms ease,box-shadow 150ms ease,transform 150ms ease;
+}
+.card:hover{box-shadow:0 2px 4px rgba(0,0,0,.06),0 8px 24px rgba(0,0,0,.07);}
+.msg-wrap{position:relative;min-height:52px;}
+#msg{
+  width:100%;
+  border:0;
+  outline:0;
+  resize:none;
+  background:transparent;
+  font:inherit;
+  font-size:14px;
+  line-height:26px;
+  letter-spacing:-.01em;
+  color:var(--ink);
+  caret-color:var(--ink);
+  padding:0;
+  margin:0;
+  display:block;
+  min-height:26px;
+}
+#msg::placeholder{color:var(--muted);opacity:.55;}
+#msg.recording{color:transparent;caret-color:transparent;}
+#msg.recording::placeholder{color:transparent;}
+.draft{
+  position:absolute;
+  inset:0;
+  font-size:14px;
+  line-height:26px;
+  letter-spacing:-.01em;
+  color:var(--ink);
+  white-space:pre-wrap;
+  overflow-wrap:break-word;
+  pointer-events:none;
+  visibility:hidden;
+  margin:0;
+}
+.composer[data-recording="true"] .draft{visibility:visible;}
+.draft .heard{color:var(--muted);opacity:.75;}
+/* ---- toolbars ---- */
+.toolbar{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin-top:10px;
+  min-height:40px;
+}
+.toolbar.end{justify-content:flex-end;}
+.icon-btn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:34px;height:34px;
+  border:0;
+  border-radius:var(--radius);
+  background:transparent;
+  color:var(--muted);
+  cursor:pointer;
+  transition:transform 160ms ease,background 160ms ease,color 160ms ease;
+}
+.icon-btn:hover{background:var(--subtle);color:var(--ink);}
+.icon-btn:active{transform:scale(.94);}
+.icon-btn svg{width:20px;height:20px;display:block;}
+button:focus-visible{outline:2px solid var(--focus);outline-offset:2px;}
+/* approval pill */
+.approval{
+  position:relative;
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  border:0;
+  background:transparent;
+  color:var(--muted);
+  font:inherit;
+  font-size:13px;
+  padding:6px 10px 6px 6px;
+  border-radius:var(--radius);
+  cursor:pointer;
+  white-space:nowrap;
+  transition:transform 160ms ease,background 160ms ease,color 160ms ease;
+}
+.composer[data-approval="idle"] .approval:hover{color:var(--ink);}
+.composer[data-approval="idle"] .approval:active{transform:scale(.96);}
+.approval .wash{
+  position:absolute;inset:0;border-radius:inherit;
+  background:var(--alert-bg);
+  opacity:0;transition:opacity 200ms ease;
+}
+.approval .aicon{position:relative;flex:none;width:22px;height:22px;}
+.approval .aicon svg{position:absolute;inset:0;width:100%;height:100%;}
+.approval .hand{transform-origin:50% 90%;transition:opacity 200ms ease,transform 360ms ease;}
+.approval .shield{opacity:0;transform:scale(.4);color:var(--alert);transition:opacity 220ms ease 90ms,transform 520ms cubic-bezier(.34,1.5,.64,1) 90ms;}
+.approval-text{position:relative;display:grid;text-align:left;}
+.approval-text > span{grid-area:1/1;line-height:1.2;}
+.req-label{transition:color 160ms ease,opacity 200ms ease,filter 200ms ease;}
+.grant-label{color:var(--alert);opacity:0;filter:blur(8px);transition:opacity 320ms ease 90ms,filter 320ms ease 90ms;}
+/* shimmer sweep while requesting approval */
+.composer[data-approval="loading"] .req-label{position:relative;}
+.composer[data-approval="loading"] .req-label::after{
+  content:attr(data-text);
+  position:absolute;inset:0;white-space:nowrap;
+  color:transparent;
+  background:linear-gradient(90deg,transparent 38%,var(--shine) 50%,transparent 62%) 100% 0/300% 100% no-repeat;
+  -webkit-background-clip:text;background-clip:text;
+  animation:sweep 650ms linear 2 both;
+  pointer-events:none;
+}
+@keyframes sweep{from{background-position:100% 0;}to{background-position:0 0;}}
+.composer[data-approval="loading"] .hand{animation:wave 650ms ease-in-out 2;}
+@keyframes wave{0%,76%,100%{transform:rotate(0);}18%{transform:rotate(16deg);}38%{transform:rotate(-10deg);}58%{transform:rotate(7deg);}}
+.composer[data-approval="done"] .approval{cursor:default;background:transparent;}
+.composer[data-approval="done"] .wash{opacity:1;}
+.composer[data-approval="done"] .hand{opacity:0;transform:scale(.4) rotate(-14deg);}
+.composer[data-approval="done"] .shield{opacity:1;transform:none;}
+.composer[data-approval="done"] .req-label{opacity:0;filter:blur(8px);}
+.composer[data-approval="done"] .grant-label{opacity:1;filter:blur(0);}
+/* model picker button */
+.model-btn{
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  border:0;
+  background:transparent;
+  color:var(--muted);
+  font:inherit;
+  font-size:13px;
+  padding:6px 8px;
+  border-radius:var(--radius);
+  cursor:pointer;
+  white-space:nowrap;
+  max-width:220px;
+  transition:transform 160ms ease,color 160ms ease,background 160ms ease;
+}
+.model-btn:hover{color:var(--ink);background:var(--subtle);}
+.model-btn:active{transform:scale(.96);}
+.model-btn[aria-expanded="true"]{color:var(--ink);}
+.model-face{display:inline-flex;align-items:center;min-width:0;}
+.model-face.morph{animation:model-in 460ms cubic-bezier(.25,1,.5,1) both;}
+.model-face.morph .model-logo{animation:logo-in 520ms cubic-bezier(.25,1,.5,1) both;}
+@keyframes model-in{from{opacity:0;filter:blur(3px);transform:translateY(30%);}}
+@keyframes logo-in{from{opacity:0;transform:scale(.6) rotate(-12deg);}}
+.model-logo{display:inline-grid;place-items:center;flex:none;width:18px;height:18px;margin-right:3px;color:var(--ink);}
+.model-logo svg{width:100%;height:100%;display:block;}
+.model-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.chev{flex:none;width:16px;height:16px;display:inline-grid;place-items:center;}
+.chev svg{width:100%;height:100%;transition:transform 220ms ease;}
+.model-btn[aria-expanded="true"] .chev svg{transform:rotate(180deg);}
+/* send */
+.send{
+  flex:none;
+  display:grid;place-items:center;
+  width:36px;height:36px;
+  border:0;border-radius:11px;
+  background:var(--ink);
+  color:var(--on-ink);
+  cursor:pointer;
+  transition:opacity 200ms ease,transform 200ms ease;
+}
+.send svg{width:19px;height:19px;display:block;}
+.send:disabled{opacity:.18;cursor:default;}
+.send:not(:disabled):hover{transform:translateY(-1px);}
+.send:not(:disabled):active{transform:scale(.94);}
+/* voice-mode toolbar */
+.voice-bar{gap:8px;}
+.composer[data-recording="false"] .voice-bar{display:none;}
+.composer[data-recording="true"] .main-bar{display:none;}
+.trace{display:flex;align-items:center;gap:4px;height:24px;margin-right:4px;}
+.trace > span{flex:none;width:3px;border-radius:999px;background:var(--muted);height:4px;transition:height 110ms ease-out;}
+.square{
+  flex:none;
+  display:grid;place-items:center;
+  width:36px;height:36px;
+  border:1px solid var(--border);
+  border-radius:11px;
+  background:var(--surface);
+  color:var(--ink);
+  box-shadow:var(--shadow);
+  cursor:pointer;
+  transition:background 160ms ease,transform 160ms ease;
+}
+.square:hover{background:var(--subtle);}
+.square:active{transform:scale(.95);}
+.square svg{width:17px;height:17px;display:block;}
+/* ---- tray foot ---- */
+.foot{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:10px 6px 12px;
+  min-height:52px;
+}
+.row-btn{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  border:0;
+  background:transparent;
+  color:var(--muted);
+  font:inherit;
+  font-size:13px;
+  padding:7px 10px;
+  margin-left:-10px;
+  border-radius:var(--radius);
+  cursor:pointer;
+  white-space:nowrap;
+  min-width:0;
+  transition:transform 160ms ease,color 160ms ease,background 160ms ease;
+}
+.row-btn:hover{color:var(--ink);background:rgba(127,127,127,.08);}
+.row-btn:active{transform:scale(.96);}
+.row-btn .folder-ic{flex:none;width:21px;height:21px;display:inline-grid;place-items:center;}
+.row-btn .folder-ic svg{width:100%;height:100%;}
+.folder-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.apps-btn{margin-left:auto;margin-right:-10px;}
+.logos{display:inline-flex;align-items:center;gap:7px;}
+.logo{flex:none;width:17px;height:17px;display:inline-grid;place-items:center;}
+.logo svg{width:100%;height:100%;display:block;}
+/* ---- popover menus ---- */
+.menu{
+  position:absolute;
+  z-index:30;
+  width:280px;
+  max-width:calc(100% - 28px);
+  filter:drop-shadow(0 8px 16px rgba(0,0,0,.10)) drop-shadow(0 1px 3px rgba(0,0,0,.06));
+}
+[data-theme="dark"] .menu{filter:drop-shadow(0 8px 16px rgba(0,0,0,.45)) drop-shadow(0 1px 3px rgba(0,0,0,.35));}
+.menu-panel{
+  position:relative;
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius-lg);
+  padding:6px;
+  outline:none;
+  max-height:320px;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+}
+.menu-title{padding:8px 12px 4px;font-size:12px;color:var(--muted);}
+.opt{
+  position:relative;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:9px 12px;
+  border-radius:var(--radius);
+  cursor:pointer;
+}
+.opt.active{background:var(--menu-fill);}
+.opt-logo{flex:none;width:22px;height:22px;display:grid;place-items:center;color:var(--ink);}
+.opt-logo svg{width:100%;height:100%;display:block;}
+.opt-text{display:flex;flex-direction:column;gap:1px;min-width:0;flex:1;}
+.opt-name{font-size:13.5px;font-weight:500;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.opt-desc{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.opt-check{flex:none;width:17px;height:17px;color:var(--ink);opacity:0;transform:scale(.6);transition:opacity 160ms ease,transform 260ms cubic-bezier(.34,1.5,.64,1);}
+.opt-check svg{width:100%;height:100%;display:block;}
+.opt[data-checked] .opt-check{opacity:1;transform:none;}
+/* default placements (JS refines with real rects when available) */
+#menuModel{right:14px;bottom:118px;}
+#menuFolder{left:14px;bottom:60px;}
+#menuApps{right:14px;bottom:60px;}
+/* live region */
+.sr-only{
+  position:absolute;width:1px;height:1px;margin:-1px;padding:0;
+  overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;
+}
+.hint{width:100%;max-width:680px;margin-top:14px;font-size:12.5px;color:var(--muted);}
+.hint kbd{
+  font:inherit;font-size:11.5px;
+  border:1px solid var(--border);border-bottom-width:2px;border-radius:var(--radius-sm);
+  background:var(--surface);color:var(--ink);padding:0 5px;
+}
+@media (max-width:520px){
+  body{padding:18px 10px 48px;}
+  .foot{flex-direction:column;align-items:stretch;gap:2px;}
+  .apps-btn{margin-left:-10px;margin-right:0;}
+  .toolbar{flex-wrap:wrap;}
+  .menu{width:min(280px,calc(100vw - 40px));}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::after{transition-duration:1ms !important;animation:none !important;}
+}
+</style>
+</head>
+<body>
+<header class="page-head">
+  <div class="brand">
+    <h1>Chat Composer</h1>
+    <p><strong id="hdrState">idle</strong><span> · 3 models · 4 folders · 3 apps</span></p>
+  </div>
+  <button type="button" class="theme-toggle" id="themeToggle" aria-label="Switch to dark theme">
+    <svg id="themeMoon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+    <svg id="themeSun" viewBox="0 0 24 24" fill="none" aria-hidden="true" hidden><circle cx="12" cy="12" r="4.2" stroke="currentColor" stroke-width="1.7"></circle><path d="M12 2.5v2.4M12 19.1v2.4M2.5 12h2.4M19.1 12h2.4M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7M19.1 4.9l-1.7 1.7M6.6 17.4l-1.7 1.7" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"></path></svg>
+    <span id="themeLabel">Dark</span>
+  </button>
+</header>
+
+<main class="stage">
+  <section class="composer" id="composer" data-approval="idle" data-recording="false" aria-label="Message composer">
+    <div class="tray" id="tray">
+      <div class="card" id="card">
+        <div class="msg-wrap">
+          <textarea id="msg" rows="1" placeholder="Start by typing..." aria-label="Message" spellcheck="false" dir="auto"></textarea>
+          <p class="draft" id="draft" aria-hidden="true"><span id="draftTyped"></span><span id="draftHeard" class="heard"></span></p>
+        </div>
+        <div class="toolbar main-bar" id="mainBar">
+          <button type="button" class="icon-btn" id="attachBtn" aria-label="Add attachment">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"></path></svg>
+          </button>
+          <button type="button" class="approval" id="approvalBtn" aria-busy="false">
+            <span class="wash" aria-hidden="true"></span>
+            <span class="aicon" aria-hidden="true">
+              <svg class="hand" viewBox="0 0 24 24" fill="none"><path d="M8 12.5V6.8a1.2 1.2 0 0 1 2.4 0v4.4V5.6a1.2 1.2 0 0 1 2.4 0v5.6V6.4a1.2 1.2 0 0 1 2.4 0v7.2c0 3.4-2.4 6-5.6 6-1.9 0-3.2-.8-4.4-2.4L3 14.6a1.25 1.25 0 0 1 1.9-1.6l1.7 1.9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+              <svg class="shield" viewBox="0 0 24 24" fill="none"><path d="M12 3.2 5.4 5.6v5.2c0 4.4 2.8 7 6.6 8.6 3.8-1.6 6.6-4.2 6.6-8.6V5.6L12 3.2Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"></path><path d="M12 8.4v3.4" stroke="#e6730e" stroke-width="1.6" stroke-linecap="round"></path><circle cx="12" cy="14.6" r="1" fill="#e6730e"></circle></svg>
+            </span>
+            <span class="approval-text">
+              <span class="req-label" id="reqLabel" data-text="Request approval">Request approval</span>
+              <span class="grant-label" id="grantLabel">Unrestricted access</span>
+            </span>
+          </button>
+          <span style="flex:1"></span>
+          <button type="button" class="model-btn" id="modelBtn" aria-haspopup="listbox" aria-expanded="false">
+            <span class="model-face" id="modelFace">
+              <span class="model-logo" id="modelLogo" aria-hidden="true"></span>
+              <span class="model-name" id="modelName" dir="auto">Auto</span>
+            </span>
+            <span class="chev" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M18 9s-4.4 6-6 6-6-6-6-6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+          </button>
+          <button type="button" class="icon-btn" id="voiceBtn" aria-label="Voice input">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 4.5v7a3 3 0 0 0 6 0v-7a3 3 0 0 0-6 0Z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path><path d="M6.5 11.5a5.5 5.5 0 0 0 11 0M12 17.5V21M8.8 21h6.4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+          </button>
+          <button type="button" class="send" id="sendBtn" aria-label="Send message" disabled>
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 19V5.5" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"></path><path d="M6 11s4.4-6 6-6 6 6 6 6" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+          </button>
+        </div>
+        <div class="toolbar end voice-bar" id="voiceBar">
+          <span class="trace" id="trace" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span>
+          <button type="button" class="square" id="discardBtn" aria-label="Discard recording">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7 7l10 10M17 7 7 17" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"></path></svg>
+          </button>
+          <button type="button" class="square" id="useBtn" aria-label="Use recording">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 13.5 9.5 18 19 7" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+          </button>
+        </div>
+      </div>
+      <div class="foot">
+        <button type="button" class="row-btn" id="folderBtn" aria-haspopup="listbox" aria-expanded="false">
+          <span class="folder-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M3.5 6.5h6l1.5 2h9.5v8.5a1.5 1.5 0 0 1-1.5 1.5H5a1.5 1.5 0 0 1-1.5-1.5V6.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"></path><path d="M3.5 10h17" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path></svg></span>
+          <span class="folder-name" id="folderName" dir="auto">Work in a folder</span>
+        </button>
+        <button type="button" class="row-btn apps-btn" id="appsBtn" aria-haspopup="menu" aria-expanded="false">
+          <span id="appsLabel">Connect apps</span>
+          <span class="logos" id="appsLogos" aria-hidden="true"></span>
+        </button>
+      </div>
+    </div>
+
+    <div class="menu" id="menuModel" hidden>
+      <div class="menu-panel" id="panelModel" role="listbox" tabindex="-1" aria-label="Select a model"></div>
+    </div>
+    <div class="menu" id="menuFolder" hidden>
+      <div class="menu-panel" id="panelFolder" role="listbox" tabindex="-1" aria-label="Work in a folder"></div>
+    </div>
+    <div class="menu" id="menuApps" hidden>
+      <div class="menu-panel" id="panelApps" role="menu" tabindex="-1" aria-label="Apps"></div>
+    </div>
+
+    <p class="sr-only" id="live" aria-live="polite"></p>
+  </section>
+  <p class="hint">Press <kbd>Enter</kbd> to send, <kbd>Shift</kbd>+<kbd>Enter</kbd> for a new line. While recording, press <kbd>Esc</kbd> to discard.</p>
+</main>
+
+<script>
+(function(){
+"use strict";
+/* ---- exact demo data (verbatim strings) ---- */
+var PLACEHOLDER_TEXT = "Start by typing...";
+var DICTATION = "Draft a short update for the team about this week's progress";
+var LOAD_MS = 1300, WORD_MS = 320, TRACE_MS = 120, BAR_COUNT = 16;
+var MODELS = [
+  {id:"auto", name:"Auto", description:"Picks the best model for each task"},
+  {id:"claude", name:"Claude", description:"Thoughtful writing and code"},
+  {id:"chatgpt", name:"ChatGPT", description:"Quick answers for everyday tasks"}
+];
+var FOLDERS = ["Q3 Campaign", "Brand assets", "Hiring", "Research"];
+var APPS = [
+  {id:"gmail", name:"Gmail"},
+  {id:"slack", name:"Slack"},
+  {id:"clickup", name:"ClickUp"}
+];
+var DEFAULT_CONNECTED = ["gmail"];
+
+/* ---- tiny brand glyphs (clean-room, hand-drawn) ---- */
+var GLYPHS = {
+  auto:'<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3l1.8 4.6L18.5 9.4l-4.7 1.8L12 15.8l-1.8-4.6L5.5 9.4l4.7-1.8L12 3Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M18.5 14.5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9.9-2.1Z" fill="currentColor"/></svg>',
+  claude:'<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3.5c-1.2 3.2-4.1 4.3-4.4 7.6-.2 2.5 1.6 4.3 4 4.5 2.9.3 5.3-1.9 5.1-4.7-.1-2.3-2.3-3.2-3-5.3-.4-1.3.1-2.4.6-3.4-1.6.5-2 1-2.3 1.3Z" fill="currentColor"/></svg>',
+  chatgpt:'<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="8.2" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="2.6" fill="currentColor"/><path d="M12 3.8v3M12 17.2v3M3.8 12h3M17.2 12h3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+  gmail:'<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="5.5" width="18" height="13" rx="2.5" stroke="currentColor" stroke-width="1.7"/><path d="M4.5 7.5 12 13l7.5-5.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  slack:'<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9.5 4.5a2 2 0 1 0 0 .01M9.5 4.5v5M4.5 9.5a2 2 0 1 0 .01 0M4.5 9.5h5M14.5 19.5a2 2 0 1 0 0-.01M14.5 19.5v-5M19.5 14.5a2 2 0 1 0-.01 0M19.5 14.5h-5" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/><rect x="9" y="9" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.9"/></svg>',
+  clickup:'<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 5.5 9.5 12 4 18.5M9.5 5.5 15 12l-5.5 6.5M15 5.5 20.5 12 15 18.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  folder:'<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3.5 6.5h6l1.5 2h9.5v8.5a1.5 1.5 0 0 1-1.5 1.5H5a1.5 1.5 0 0 1-1.5-1.5V6.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>',
+  check:'<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 13.5 9.5 18 19 7" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+};
+function glyphFor(id){ return GLYPHS[id] || GLYPHS.folder; }
+
+/* ---- element refs (DOM built once; never rebuilt in tick loops) ---- */
+function $(id){ return document.getElementById(id); }
+var composer=$("composer"), msg=$("msg"), draft=$("draft"), draftTyped=$("draftTyped"), draftHeard=$("draftHeard"),
+    attachBtn=$("attachBtn"), approvalBtn=$("approvalBtn"), reqLabel=$("reqLabel"),
+    modelBtn=$("modelBtn"), modelFace=$("modelFace"), modelLogo=$("modelLogo"), modelName=$("modelName"),
+    voiceBtn=$("voiceBtn"), sendBtn=$("sendBtn"), voiceBar=$("voiceBar"),
+    trace=$("trace"), bars=trace ? Array.prototype.slice.call(trace.children) : [],
+    discardBtn=$("discardBtn"), useBtn=$("useBtn"),
+    folderBtn=$("folderBtn"), folderName=$("folderName"),
+    appsBtn=$("appsBtn"), appsLogos=$("appsLogos"),
+    menuModel=$("menuModel"), panelModel=$("panelModel"),
+    menuFolder=$("menuFolder"), panelFolder=$("panelFolder"),
+    menuApps=$("menuApps"), panelApps=$("panelApps"),
+    live=$("live"), hdrState=$("hdrState"),
+    themeToggle=$("themeToggle"), themeLabel=$("themeLabel"), themeMoon=$("themeMoon"), themeSun=$("themeSun");
+
+/* ---- state ---- */
+var state = {
+  approval:"idle",       // idle | loading | done
+  recording:false,
+  heard:"",
+  model:MODELS[0],
+  folder:null,           // string | null
+  connected:DEFAULT_CONNECTED.slice(),
+  openMenu:null,         // model | folder | apps | null
+  activeRow:0,
+  morph:false
+};
+var timers = { approval:null, words:null, trace:null };
+var wordList = DICTATION.split(/\s+/);
+var wordIdx = 0;
+
+/* ---- helpers ---- */
+function announce(text){ if(live) live.textContent = text; }
+function setHeader(){
+  if(!hdrState) return;
+  var s = state.recording ? "recording" :
+          state.approval === "loading" ? "requesting approval\u2026" :
+          state.approval === "done" ? "unrestricted access" : "idle";
+  hdrState.textContent = s;
+}
+function appName(id){
+  for(var i=0;i<APPS.length;i++) if(APPS[i].id===id) return APPS[i].name;
+  return id;
+}
+function modelById(id){
+  for(var i=0;i<MODELS.length;i++) if(MODELS[i].id===id) return MODELS[i];
+  return MODELS[0];
+}
+function setSvgClass(el, cls){ if(el) el.setAttribute("class", cls); } // SVG-safe (no .className)
+
+/* ---- targeted renderers (no full re-render) ---- */
+function renderApproval(){
+  composer.setAttribute("data-approval", state.approval);
+  approvalBtn.setAttribute("aria-busy", state.approval === "loading" ? "true" : "false");
+  approvalBtn.setAttribute("aria-disabled", state.approval !== "idle" ? "true" : "false");
+  setHeader();
+}
+function renderModel(morph){
+  modelName.textContent = state.model.name;
+  modelName.setAttribute("title", state.model.name);
+  modelLogo.innerHTML = (state.model.id !== "auto") ? glyphFor(state.model.id) : "";
+  if(morph){
+    state.morph = true;
+    setSvgClass(modelFace, "model-face morph");
+    if(timers.morph) clearTimeout(timers.morph);
+    timers.morph = setTimeout(function(){
+      modelFace.removeAttribute("class");
+      modelFace.setAttribute("class", "model-face");
+      state.morph = false;
+    }, 560);
+  }
+}
+function renderFolder(){
+  var label = state.folder ? state.folder : "Work in a folder";
+  folderName.textContent = label;
+  if(state.folder) folderName.setAttribute("title", state.folder);
+  else folderName.removeAttribute("title");
+}
+function renderApps(){
+  appsLogos.innerHTML = "";
+  var show = APPS.slice(0,3);
+  for(var i=0;i<show.length;i++){
+    var s = document.createElement("span");
+    s.setAttribute("class", "logo");
+    s.innerHTML = glyphFor(show[i].id);
+    appsLogos.appendChild(s);
+  }
+}
+function renderSend(){
+  var has = msg.value.trim().length > 0;
+  if(has) sendBtn.removeAttribute("disabled");
+  else sendBtn.setAttribute("disabled", "");
+}
+function renderDraft(){
+  draftTyped.textContent = msg.value;
+  var sep = (msg.value && state.heard && !/\s$/.test(msg.value)) ? " " : "";
+  draftHeard.textContent = sep + state.heard;
+}
+function autoGrow(){
+  try{
+    var lines = msg.value.split("\n");
+    var visual = 0, per = 48;
+    for(var i=0;i<lines.length;i++) visual += Math.max(1, Math.ceil(lines[i].length / per));
+    var rows = Math.min(2, Math.max(1, visual));
+    msg.setAttribute("rows", String(rows));
+  }catch(e){/* layout unavailable (stub) */}
+}
+
+/* ---- approval flow ---- */
+function requestApproval(){
+  if(state.approval !== "idle") return;
+  state.approval = "loading";
+  renderApproval();
+  announce("Requesting approval\u2026");
+  if(timers.approval) clearTimeout(timers.approval);
+  timers.approval = setTimeout(function(){
+    state.approval = "done";
+    renderApproval();
+    announce("Unrestricted access granted.");
+  }, LOAD_MS);
+}
+
+/* ---- recording flow (tick loops touch only bars + heard text) ---- */
+function resetTrace(){
+  for(var i=0;i<bars.length;i++) bars[i].style.height = "4px";
+}
+function startRecording(){
+  if(state.recording) return;
+  closeMenu();
+  state.recording = true;
+  state.heard = "";
+  wordIdx = 0;
+  resetTrace();
+  composer.setAttribute("data-recording", "true");
+  msg.setAttribute("readonly", "");
+  msg.classList.add("recording");
+  renderDraft();
+  announce("Recording. Press Escape to discard.");
+  setHeader();
+  if(timers.words) clearInterval(timers.words);
+  if(timers.trace) clearInterval(timers.trace);
+  timers.words = setInterval(function(){
+    if(wordIdx >= wordList.length) return;
+    wordIdx++;
+    state.heard = wordList.slice(0, wordIdx).join(" ");
+    draftHeard.textContent = ((msg.value && !/\s$/.test(msg.value)) ? " " : "") + state.heard;
+  }, WORD_MS);
+  timers.trace = setInterval(function(){
+    var level = (wordIdx < wordList.length && Math.random() > 0.3) ? 0.3 + Math.random() * 0.7 : 0;
+    for(var i=0;i<bars.length-1;i++){
+      bars[i].style.height = bars[i+1].style.height || "4px";
+    }
+    if(bars.length) bars[bars.length-1].style.height = "calc(" + Math.max(0.06, level) + " * 24px)";
+  }, TRACE_MS);
+}
+function stopRecording(use){
+  if(!state.recording) return;
+  if(timers.words) clearInterval(timers.words);
+  if(timers.trace) clearInterval(timers.trace);
+  timers.words = timers.trace = null;
+  state.recording = false;
+  composer.setAttribute("data-recording", "false");
+  msg.removeAttribute("readonly");
+  msg.classList.remove("recording");
+  if(use && state.heard){
+    msg.value = msg.value.trim() ? (msg.value.replace(/\s+$/, "") + " " + state.heard) : state.heard;
+    announce("Recording added to your message.");
+  }else{
+    announce("Recording discarded.");
+  }
+  state.heard = "";
+  resetTrace();
+  renderDraft();
+  autoGrow();
+  renderSend();
+  setHeader();
+  try{ msg.focus(); }catch(e){}
+}
+
+/* ---- send ---- */
+function sendMessage(){
+  var text = msg.value.trim();
+  if(!text || state.recording) return;
+  msg.value = "";
+  renderDraft();
+  autoGrow();
+  renderSend();
+  announce("Message sent.");
+  try{ msg.focus(); }catch(e){}
+}
+
+/* ---- menus (built on open; hover/focus only flips classes) ---- */
+var MENU_DEFS = {
+  model: { menu:function(){return menuModel;}, panel:function(){return panelModel;}, anchor:function(){return modelBtn;} },
+  folder:{ menu:function(){return menuFolder;}, panel:function(){return panelFolder;}, anchor:function(){return folderBtn;} },
+  apps:  { menu:function(){return menuApps;}, panel:function(){return panelApps;}, anchor:function(){return appsBtn;} }
+};
+var rowRefs = { model:[], folder:[], apps:[] };
+var justOpenedViaPointer = false;
+
+function menuRows(kind){
+  var rows = [], i;
+  if(kind === "model"){
+    for(i=0;i<MODELS.length;i++){
+      rows.push({id:MODELS[i].id, title:MODELS[i].name, desc:MODELS[i].description,
+        icon:glyphFor(MODELS[i].id), checked:MODELS[i].id===state.model.id});
+    }
+  }else if(kind === "folder"){
+    for(i=0;i<FOLDERS.length;i++){
+      rows.push({id:FOLDERS[i], title:FOLDERS[i], desc:null,
+        icon:glyphFor("folder"), checked:FOLDERS[i]===state.folder});
+    }
+  }else{
+    for(i=0;i<APPS.length;i++){
+      rows.push({id:APPS[i].id, title:APPS[i].name, desc:null,
+        icon:glyphFor(APPS[i].id), checked:state.connected.indexOf(APPS[i].id)!==-1});
+    }
+  }
+  return rows;
+}
+function buildMenu(kind){
+  var def = MENU_DEFS[kind], panel = def.panel(), rows = menuRows(kind);
+  panel.innerHTML = "";
+  rowRefs[kind] = [];
+  var role = (kind === "apps") ? "menu" : "listbox";
+  if(kind !== "model"){
+    var t = document.createElement("div");
+    t.setAttribute("class", "menu-title");
+    t.setAttribute("aria-hidden", "true");
+    t.textContent = (kind === "folder") ? "Work in a folder" : "Apps";
+    panel.appendChild(t);
+  }
+  for(var i=0;i<rows.length;i++){
+    (function(row, idx){
+      var el = document.createElement("div");
+      el.setAttribute("class", "opt");
+      el.setAttribute("id", "opt-" + kind + "-" + idx);
+      if(role === "listbox") el.setAttribute("role", "option");
+      else el.setAttribute("role", row.checked === undefined ? "menuitem" : "menuitemcheckbox");
+      if(role === "listbox" && row.checked) el.setAttribute("aria-selected", "true");
+      if(role === "menu" && row.checked !== undefined) el.setAttribute("aria-checked", row.checked ? "true" : "false");
+      if(row.checked) el.setAttribute("data-checked", "");
+      var logo = document.createElement("span");
+      logo.setAttribute("class", "opt-logo");
+      logo.setAttribute("aria-hidden", "true");
+      logo.innerHTML = row.icon;
+      var txt = document.createElement("span");
+      txt.setAttribute("class", "opt-text");
+      var nm = document.createElement("span");
+      nm.setAttribute("class", "opt-name");
+      nm.setAttribute("dir", "auto");
+      nm.textContent = row.title;
+      txt.appendChild(nm);
+      if(row.desc){
+        var ds = document.createElement("span");
+        ds.setAttribute("class", "opt-desc");
+        ds.setAttribute("dir", "auto");
+        ds.textContent = row.desc;
+        txt.appendChild(ds);
+      }
+      var ck = document.createElement("span");
+      ck.setAttribute("class", "opt-check");
+      ck.setAttribute("aria-hidden", "true");
+      ck.innerHTML = GLYPHS.check;
+      el.appendChild(logo); el.appendChild(txt); el.appendChild(ck);
+      el.addEventListener("pointerenter", function(){ setActiveRow(kind, idx); });
+      el.addEventListener("click", function(){ pickRow(kind, row.id); });
+      panel.appendChild(el);
+      rowRefs[kind].push(el);
+    })(rows[i], i);
+  }
+  panel.setAttribute("aria-activedescendant", "opt-" + kind + "-" + state.activeRow);
+}
+function setActiveRow(kind, idx){
+  state.activeRow = idx;
+  var refs = rowRefs[kind];
+  for(var i=0;i<refs.length;i++){
+    if(i === idx) refs[i].classList.add("active");
+    else refs[i].classList.remove("active");
+  }
+  var def = MENU_DEFS[kind];
+  def.panel().setAttribute("aria-activedescendant", "opt-" + kind + "-" + idx);
+}
+function placeMenu(kind){
+  try{
+    var def = MENU_DEFS[kind], menu = def.menu(), anchor = def.anchor();
+    if(!composer.getBoundingClientRect || !anchor.getBoundingClientRect) return;
+    var cr = composer.getBoundingClientRect(), ar = anchor.getBoundingClientRect();
+    if(!cr.width || !ar.width) return; // keep CSS fallback placement
+    var ph = menu.firstElementChild && menu.firstElementChild.offsetHeight ? menu.firstElementChild.offsetHeight : 220;
+    var above = (ar.top - cr.top) - ph - 10;
+    var top = above >= 0 ? (ar.top - cr.top - ph - 8) : (ar.bottom - cr.top + 8);
+    menu.style.top = Math.max(0, top) + "px";
+    menu.style.bottom = "auto";
+    var alignStart = (kind === "folder");
+    var left = alignStart ? (ar.left - cr.left) : (ar.right - cr.left - menu.offsetWidth);
+    if(!menu.offsetWidth) return;
+    left = Math.max(8, Math.min(left, cr.width - menu.offsetWidth - 8));
+    menu.style.left = left + "px";
+    menu.style.right = "auto";
+  }catch(e){/* keep CSS fallback */}
+}
+function openMenu(kind){
+  if(state.openMenu === kind) return;
+  closeMenu(true);
+  state.openMenu = kind;
+  state.activeRow = 0;
+  var def = MENU_DEFS[kind];
+  buildMenu(kind);
+  def.menu().hidden = false;
+  def.anchor().setAttribute("aria-expanded", "true");
+  placeMenu(kind);
+  setActiveRow(kind, Math.max(0, currentCheckedIndex(kind)));
+  try{ def.panel().focus({preventScroll:true}); }catch(e){ try{ def.panel().focus(); }catch(_){} }
+}
+function currentCheckedIndex(kind){
+  var rows = menuRows(kind);
+  for(var i=0;i<rows.length;i++) if(rows[i].checked) return i;
+  return 0;
+}
+function closeMenu(silent){
+  if(!state.openMenu) return;
+  var def = MENU_DEFS[state.openMenu];
+  def.menu().hidden = true;
+  def.anchor().setAttribute("aria-expanded", "false");
+  state.openMenu = null;
+  if(!silent){/* focus returns via pick/escape handlers */}
+}
+function toggleMenu(kind){
+  if(state.openMenu === kind) closeMenu();
+  else openMenu(kind);
+}
+function pickRow(kind, id){
+  if(kind === "model"){
+    var m = modelById(id);
+    var changed = (m.id !== state.model.id);
+    state.model = m;
+    renderModel(changed);
+    announce(m.name + " selected.");
+    closeMenu();
+    try{ modelBtn.focus(); }catch(e){}
+  }else if(kind === "folder"){
+    state.folder = (state.folder === id) ? null : id;
+    renderFolder();
+    announce(state.folder ? ("Working in " + state.folder + ".") : "No folder selected.");
+    closeMenu();
+    try{ folderBtn.focus(); }catch(e){}
+  }else{
+    var at = state.connected.indexOf(id);
+    var on = at === -1;
+    if(on) state.connected.push(id);
+    else state.connected.splice(at, 1);
+    announce(appName(id) + " " + (on ? "connected." : "disconnected."));
+    closeMenu();
+    try{ appsBtn.focus(); }catch(e){}
+  }
+}
+
+/* ---- wiring ---- */
+approvalBtn.addEventListener("click", function(){ requestApproval(); });
+
+msg.addEventListener("input", function(){
+  renderSend();
+  renderDraft();
+  autoGrow();
+});
+msg.addEventListener("keydown", function(e){
+  if(e.key === "Enter" && !e.shiftKey && !e.nativeIsComposing){
+    e.preventDefault();
+    sendMessage();
+  }
+});
+sendBtn.addEventListener("click", function(){ sendMessage(); });
+attachBtn.addEventListener("click", function(){ try{ msg.focus(); }catch(e){} });
+voiceBtn.addEventListener("click", function(){ startRecording(); });
+discardBtn.addEventListener("click", function(){ stopRecording(false); });
+useBtn.addEventListener("click", function(){ stopRecording(true); });
+
+composer.addEventListener("keydown", function(e){
+  if(e.key === "Escape" && state.recording){ e.preventDefault(); stopRecording(false); return; }
+});
+document.addEventListener("keydown", function(e){
+  if(!state.openMenu) return;
+  var kind = state.openMenu, count = rowRefs[kind].length;
+  if(e.key === "ArrowDown"){ e.preventDefault(); setActiveRow(kind, Math.min(count-1, state.activeRow+1)); }
+  else if(e.key === "ArrowUp"){ e.preventDefault(); setActiveRow(kind, Math.max(0, state.activeRow-1)); }
+  else if(e.key === "Home"){ e.preventDefault(); setActiveRow(kind, 0); }
+  else if(e.key === "End"){ e.preventDefault(); setActiveRow(kind, count-1); }
+  else if(e.key === "Enter" || e.key === " "){
+    e.preventDefault();
+    var rows = menuRows(kind);
+    if(rows[state.activeRow]) pickRow(kind, rows[state.activeRow].id);
+  }
+  else if(e.key === "Escape"){
+    e.preventDefault();
+    if(typeof e.stopPropagation === "function") e.stopPropagation();
+    var anchor = MENU_DEFS[kind].anchor();
+    closeMenu();
+    try{ anchor.focus(); }catch(err){}
+  }
+  else if(e.key === "Tab"){ closeMenu(); }
+});
+
+/* open on pointerdown capture so the follow-up click survives; click toggles for keyboard */
+function bindToggle(btn, kind){
+  btn.addEventListener("pointerdown", function(){
+    if(state.openMenu !== kind){ openMenu(kind); justOpenedViaPointer = true; }
+  }, true);
+  btn.addEventListener("click", function(){
+    if(justOpenedViaPointer){ justOpenedViaPointer = false; return; }
+    toggleMenu(kind);
+  });
+  btn.addEventListener("keydown", function(e){
+    if(e.key === "ArrowDown" || e.key === "ArrowUp"){ e.preventDefault(); openMenu(kind); }
+  });
+}
+bindToggle(modelBtn, "model");
+bindToggle(folderBtn, "folder");
+bindToggle(appsBtn, "apps");
+
+/* outside dismiss on pointerdown capture (anchor/menu clicks survive via contains guard) */
+document.addEventListener("pointerdown", function(e){
+  if(!state.openMenu) return;
+  var def = MENU_DEFS[state.openMenu];
+  var t = e.target;
+  try{
+    if(def.menu().contains(t) || def.anchor().contains(t)) return;
+  }catch(err){ return; }
+  closeMenu();
+}, true);
+
+/* card focuses textarea unless interacting with a control */
+var card = $("card");
+card.addEventListener("pointerdown", function(e){
+  var t = e.target;
+  try{
+    if(t && t.closest && t.closest("button, textarea, input")) return;
+  }catch(err){}
+  e.preventDefault();
+  try{ msg.focus(); }catch(err2){}
+});
+
+/* ---- theme toggle ---- */
+function setTheme(theme){
+  document.documentElement.setAttribute("data-theme", theme);
+  var dark = (theme === "dark");
+  themeMoon.hidden = dark;
+  themeSun.hidden = !dark;
+  themeLabel.textContent = dark ? "Light" : "Dark";
+  themeToggle.setAttribute("aria-label", dark ? "Switch to light theme" : "Switch to dark theme");
+  try{ localStorage.setItem("cc-theme", theme); }catch(e){}
+}
+themeToggle.addEventListener("click", function(){
+  var cur = document.documentElement.getAttribute("data-theme") || "light";
+  setTheme(cur === "dark" ? "light" : "dark");
+});
+(function initTheme(){
+  var saved = null;
+  try{ saved = localStorage.getItem("cc-theme"); }catch(e){}
+  setTheme(saved === "dark" || saved === "light" ? saved : "light"); // default = original demo appearance
+})();
+
+/* ---- init ---- */
+msg.setAttribute("placeholder", PLACEHOLDER_TEXT);
+renderApproval();
+renderModel(false);
+renderFolder();
+renderApps();
+renderSend();
+renderDraft();
+resetTrace();
+
+/* test hook (not user-visible) */
+window.__cc = { state:state, timers:timers, consts:{LOAD_MS:LOAD_MS, WORD_MS:WORD_MS, TRACE_MS:TRACE_MS, DICTATION:DICTATION} };
+})();
+</script>
+</body>
+</html>

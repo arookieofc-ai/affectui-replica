@@ -1,0 +1,1271 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Tool Call Card &middot; affectUI replica</title>
+<style>
+/* ============ design tokens ============ */
+:root, html[data-theme="light"] {
+  --surface: #ffffff;
+  --page: #fafaf9;
+  --ink: #171717;
+  --text: #57534e;
+  --muted: #78716c;
+  --subtle: #f5f5f4;
+  --border: #e7e5e4;
+  --tile: #f5f5f4;
+  --code: #fafafa;
+  --radius-lg: 16px;
+  --radius: 10px;
+  --radius-sm: 6px;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .05), 0 4px 16px rgba(0, 0, 0, .05);
+  --key: #171717;
+  --str: #0b8576;
+  --num: #b25e00;
+  --lit: #8a35d6;
+  --red: #c4320a;
+  --red-bg: rgba(240, 68, 56, .06);
+  --red-line: rgba(240, 68, 56, .18);
+  --focus: rgba(0, 96, 226, .7);
+  --shine: rgba(255, 255, 255, .82);
+  --ring: #ffffff;
+  --waiting-bg: #fef3c7;
+  --waiting-text: #92400e;
+  --waiting-dot: #f59e0b;
+}
+html[data-theme="dark"] {
+  --surface: #1c1c1f;
+  --page: #101012;
+  --ink: #ededed;
+  --text: #a1a1aa;
+  --muted: #8f8f96;
+  --subtle: #26262a;
+  --border: #2e2e33;
+  --tile: #1d1d20;
+  --code: #1d1d20;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .45);
+  --key: #ededed;
+  --str: #4fc3b4;
+  --num: #f2a15c;
+  --lit: #cfaef5;
+  --red: #ff8a7a;
+  --red-bg: rgba(255, 107, 95, .08);
+  --red-line: rgba(255, 107, 95, .22);
+  --focus: rgba(77, 141, 255, .8);
+  --shine: rgba(255, 255, 255, .95);
+  --ring: #161618;
+  --waiting-bg: #451a03;
+  --waiting-text: #fde68a;
+  --waiting-dot: #fbbf24;
+}
+/* ============ base ============ */
+[hidden] { display: none !important; }
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--ink);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+.page { max-width: 640px; margin: 0 auto; padding: 28px 20px 72px; }
+/* ============ page header: project + working count + tool count ============ */
+.page-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.page-head__meta {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  min-width: 0;
+  font-size: 12.5px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+}
+.page-head__project {
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.page-head__sep { color: var(--muted); }
+.page-head__working {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 500;
+  color: var(--waiting-text);
+  background: var(--waiting-bg);
+  border-radius: 999px;
+  padding: 1px 9px;
+  font-variant-numeric: tabular-nums;
+}
+.page-head__working::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--waiting-dot);
+}
+.page-head__working[data-state="idle"] { color: var(--muted); background: var(--subtle); }
+.page-head__working[data-state="idle"]::before { background: var(--muted); }
+.theme-toggle {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease;
+}
+.theme-toggle:hover { color: var(--ink); background: var(--subtle); }
+.theme-toggle:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.theme-toggle svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+/* ============ token-count context: thin 3px bar, right-aligned label ============ */
+.context { margin: 2px 0 18px; }
+.context__label {
+  display: block;
+  text-align: right;
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 5px;
+}
+.context__bar { height: 3px; border-radius: 999px; background: var(--subtle); box-shadow: inset 0 0 0 1px var(--border); overflow: hidden; }
+.context__fill { height: 100%; width: 22%; border-radius: 999px; background: var(--waiting-dot); }
+/* ============ chat ============ */
+.chat-you {
+  margin: 0 0 14px;
+  padding: 12px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  font-size: 14px;
+}
+.hint { margin: 18px 2px 0; font-size: 12.5px; color: var(--muted); }
+/* ============ tool-call group ============ */
+.tc-group { display: grid; }
+.tc-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.tc-group__head {
+  all: unset;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  justify-self: start;
+  max-width: 100%;
+  min-height: 36px;
+  padding: 4px 10px 4px 5px;
+  border-radius: var(--radius);
+  color: var(--text);
+  cursor: pointer;
+  transition: background-color 160ms ease, color 160ms ease;
+}
+.tc-group__head:hover { background: var(--subtle); color: var(--ink); }
+.tc-group__head:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.tc-group__stack { display: flex; flex: none; }
+.tc-group__stack .tc-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  box-shadow: inset 0 0 0 1px var(--border), 0 0 0 2px var(--ring);
+  animation: tc-pop 420ms cubic-bezier(.22, 1, .36, 1) both;
+}
+.tc-group__stack .tc-icon + .tc-icon { margin-left: -5px; }
+.tc-group__stack .tc-icon > svg { width: 13px; height: 13px; }
+.tc-group__title {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  min-width: 0;
+  white-space: nowrap;
+  animation: tc-in 360ms cubic-bezier(.22, 1, .36, 1) both;
+}
+.tc-group__label { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: inherit; font-weight: 500; }
+.tc-group__failed { flex: none; color: var(--red); }
+.tc-group__time { flex: none; color: var(--muted); font-variant-numeric: tabular-nums; }
+.tc-group__list { display: grid; gap: 8px; padding-top: 8px; }
+/* ============ tool-call card ============ */
+.tc-card {
+  position: relative;
+  border-radius: calc(var(--radius-lg) - 4px);
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--border), 0 1px 2px rgba(0, 0, 0, .04);
+  color: var(--text);
+  font-size: 13.5px;
+  line-height: 1.4;
+  letter-spacing: -.006em;
+}
+.tc-head {
+  all: unset;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 10px 8px 9px;
+  border-radius: calc(var(--radius-lg) - 4px);
+  cursor: pointer;
+  transition: background-color 160ms ease;
+}
+.tc-card[data-open] .tc-head { border-radius: calc(var(--radius-lg) - 4px) calc(var(--radius-lg) - 4px) 0 0; }
+.tc-head:hover { background: var(--subtle); }
+.tc-head:focus-visible, .tc-copy:focus-visible, .tc-more:focus-visible, .tc-retry:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.tc-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  background: var(--tile);
+  box-shadow: inset 0 0 0 1px var(--border);
+  color: var(--ink);
+}
+.tc-icon > svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
+.tc-main { display: flex; align-items: baseline; gap: 8px; flex: 1; min-width: 0; }
+.tc-name {
+  flex: 0 1 auto;
+  max-width: 55%;
+  overflow: hidden;
+  color: var(--ink);
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tc-summary { flex: 1 1 0; min-width: 0; overflow: hidden; color: var(--text); text-overflow: ellipsis; white-space: nowrap; }
+.tc-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  color: var(--muted);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  animation: tc-in 360ms cubic-bezier(.22, 1, .36, 1) both;
+}
+.tc-card[data-status="error"] .tc-status { color: var(--red); }
+.tc-status > svg { width: 14px; height: 14px; flex: none; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.tc-spinner { animation: tc-spin 800ms linear infinite; }
+.tc-spinner circle { stroke: currentColor; stroke-width: 1.6; opacity: .22; }
+.tc-spinner path { stroke: var(--ink); stroke-width: 1.6; }
+.tc-ok { stroke: var(--ink); stroke-width: 1.8; }
+.tc-ok path { stroke-dasharray: 1; stroke-dashoffset: 1; animation: tc-draw 360ms cubic-bezier(.22, 1, .36, 1) 80ms forwards; }
+.tc-err { stroke: var(--red); stroke-width: 1.5; }
+.tc-chevron {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 360ms cubic-bezier(.22, 1, .36, 1);
+}
+.tc-card[data-open] .tc-chevron { transform: rotate(180deg); }
+/* body: grid 0fr -> 1fr animation */
+.tc-body { display: grid; grid-template-rows: 0fr; opacity: 0; transition: grid-template-rows 380ms cubic-bezier(.22, 1, .36, 1), opacity 240ms ease; }
+.tc-card[data-open] > .tc-body, .tc-group[data-open] > .tc-body { grid-template-rows: 1fr; opacity: 1; }
+.tc-clip { min-height: 0; overflow: hidden; }
+.tc-sections { display: grid; gap: 12px; padding: 12px 12px 14px; border-top: 1px solid var(--border); }
+.tc-section { display: grid; gap: 6px; min-width: 0; }
+.tc-section__head { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 24px; }
+.tc-label { color: var(--muted); font-size: 12px; font-weight: 500; }
+.tc-pending { margin: 0; color: var(--muted); font-size: 12.5px; }
+.tc-copy {
+  all: unset;
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: calc(var(--radius-sm) - 1px);
+  color: var(--muted);
+  cursor: pointer;
+  transition: background-color 160ms ease, color 160ms ease;
+}
+.tc-copy:hover { background: var(--subtle); color: var(--ink); }
+.tc-copy svg {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: opacity 200ms ease, transform 320ms cubic-bezier(.22, 1, .36, 1), filter 200ms ease;
+}
+.tc-copy__done { opacity: 0; transform: scale(.6); filter: blur(2px); stroke-width: 1.7; }
+.tc-copy[data-copied] { color: var(--ink); }
+.tc-copy[data-copied] .tc-copy__icon { opacity: 0; transform: scale(.6); filter: blur(2px); }
+.tc-copy[data-copied] .tc-copy__done { opacity: 1; transform: none; filter: none; }
+.tc-code {
+  position: relative;
+  margin: 0;
+  padding: 10px 12px;
+  overflow: hidden;
+  border-radius: calc(var(--radius-sm) + 1px);
+  background: var(--code);
+  box-shadow: inset 0 0 0 1px var(--border);
+  color: var(--muted);
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  tab-size: 2;
+  transition: max-height 420ms cubic-bezier(.22, 1, .36, 1);
+}
+.tc-code code { display: block; font: inherit; }
+.tc-code::after {
+  content: "";
+  position: absolute;
+  left: 1px;
+  right: 1px;
+  bottom: 1px;
+  height: 56px;
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  background: linear-gradient(to bottom, transparent, var(--code));
+  opacity: 0;
+  transition: opacity 240ms ease;
+  pointer-events: none;
+}
+.tc-code[data-capped]::after { opacity: 1; }
+.tc-code[data-scroll] { overflow-y: auto; overscroll-behavior: contain; }
+.tc-t-key { color: var(--key); }
+.tc-t-str { color: var(--str); }
+.tc-t-num { color: var(--num); }
+.tc-t-lit { color: var(--lit); }
+.tc-more {
+  all: unset;
+  justify-self: start;
+  padding: 2px 4px;
+  margin-left: -4px;
+  border-radius: 5px;
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 160ms ease;
+}
+.tc-more:hover { color: var(--ink); }
+.tc-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 9px 10px 9px 11px;
+  border-radius: calc(var(--radius-sm) + 1px);
+  background: var(--red-bg);
+  box-shadow: inset 0 0 0 1px var(--red-line);
+}
+.tc-error > .tc-err { flex: none; width: 14px; height: 14px; margin-top: 2px; fill: none; stroke-linecap: round; }
+.tc-error__text {
+  flex: 1;
+  min-width: 0;
+  max-height: 200px;
+  margin: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  white-space: pre-line;
+  color: var(--red);
+  font-size: 13px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.tc-retry {
+  all: unset;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: none;
+  height: 26px;
+  margin: -3px 0;
+  padding: 0 10px 0 8px;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--border), 0 1px 2px rgba(0, 0, 0, .04);
+  color: var(--ink);
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 160ms ease;
+}
+.tc-retry:hover { background: var(--subtle); }
+.tc-retry svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.tc-retry:active svg { transform: rotate(-60deg); transition: transform 200ms cubic-bezier(.22, 1, .36, 1); }
+/* shine sweep over "Using tools…" */
+.tc-shine { position: relative; }
+.tc-shine::after {
+  content: attr(data-text);
+  position: absolute;
+  inset: 0;
+  white-space: nowrap;
+  color: transparent;
+  background: linear-gradient(90deg, transparent 38%, var(--shine) 50%, transparent 62%) 100% 0 / 300% 100% no-repeat;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: tc-sweep 1.8s linear infinite;
+  pointer-events: none;
+}
+@keyframes tc-in { from { opacity: 0; transform: translateY(3px); filter: blur(2px); } to { opacity: 1; transform: none; filter: none; } }
+@keyframes tc-pop { from { opacity: 0; transform: scale(.6); } to { opacity: 1; transform: none; } }
+@keyframes tc-spin { to { transform: rotate(360deg); } }
+@keyframes tc-draw { to { stroke-dashoffset: 0; } }
+@keyframes tc-sweep { from { background-position: 100% 0; } to { background-position: 0% 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .tc-card *, .tc-group *, .tc-card *::after, .tc-group *::after {
+    animation-duration: 1ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
+  .tc-shine::after { display: none; }
+  .tc-ok path { stroke-dashoffset: 0; }
+}
+@media (max-width: 480px) {
+  .page { padding: 18px 12px 56px; }
+  .tc-head { gap: 8px; }
+}
+@media (max-width: 440px) {
+  .tc-summary { display: none; }
+  .tc-name { max-width: none; }
+}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<noscript><p style="padding:24px;font-family:system-ui,sans-serif">This demo needs JavaScript.</p></noscript>
+<script>
+(function () {
+  'use strict';
+
+  /* ================= demo data (verbatim behaviour of the original demo) ================= */
+  var USER_MSG = 'Compare CRM pricing for our 10-person team and check open deals.';
+  var PROJECT = 'CRM pricing research';
+  var CONTEXT_LABEL = '44k / 200k';
+
+  var SEARCH_NAME = 'search_web';
+  var SEARCH_RUN = "Searching the web for 'CRM pricing 2026'";
+  var SEARCH_DONE = "Searched the web for 'CRM pricing 2026'";
+  var SEARCH_ARGS = { query: 'CRM pricing 2026 small sales team', max_results: 5 };
+  var SEARCH_RESULT = { results: [
+    { title: 'HubSpot Sales Hub pricing', url: 'https://www.hubspot.com/pricing/sales', price_per_seat: 90 },
+    { title: 'Pipedrive plans and pricing', url: 'https://www.pipedrive.com/en/pricing', price_per_seat: 49 },
+    { title: 'Attio pricing', url: 'https://attio.com/pricing', price_per_seat: 59 },
+    { title: 'Salesforce Starter Suite', url: 'https://www.salesforce.com/sales/pricing', price_per_seat: 25 },
+    { title: 'Close CRM pricing', url: 'https://www.close.com/pricing', price_per_seat: 49 }
+  ], total: 5, cached: false };
+
+  var FETCH_NAME = 'fetch_page';
+  var FETCH_RUN = 'Reading hubspot.com/pricing';
+  var FETCH_DONE = 'Read hubspot.com/pricing';
+  var FETCH_ARGS = { url: 'https://www.hubspot.com/pricing/sales', timeout_ms: 8000 };
+  var FETCH_RESULT = { status: 200, title: 'Sales Hub Pricing', words: 2140 };
+  var FETCH_ERROR = 'Request timed out after 8s \u2013 hubspot.com didn\u2019t respond.';
+
+  var DEALS_NAME = 'crm.list_deals';
+  var DEALS_RUN = 'Looking up open deals';
+  var DEALS_DONE = 'Found 4 open deals in negotiation';
+  var DEALS_ARGS = { stage: 'negotiation', owner: 'me', limit: 10 };
+  var DEALS_RESULT = { count: 4, deals: [ { name: 'Northwind', value: 18400 }, { name: 'Globex', value: 9600 } ] };
+
+  var GROUP_RUN_LABEL = 'Using tools\u2026';
+  var WAIT_RESULT = 'Waiting for result\u2026';
+  var NO_DATA = 'No arguments or result.';
+
+  /* original demo timings: steps then loop restart */
+  var STEP_AT = [1500, 2700, 4300, 5400, 6700, 8000];
+  var LOOP_MS = 11500;
+  var CODE_CAP = 220;
+  var CODE_MAX = 640;
+
+  /* ================= helpers ================= */
+  function fmtTime(ms, running) {
+    if (!running && ms < 1000) return Math.max(1, Math.round(ms)) + 'ms';
+    if (ms < 60000) return (Math.floor(ms / 100) / 10).toFixed(1) + 's';
+    var total = Math.floor(ms / 1000);
+    if (total < 3600) {
+      var s = total % 60;
+      return Math.floor(total / 60) + 'm ' + (s < 10 ? '0' + s : '' + s) + 's';
+    }
+    var h = Math.floor(total / 3600);
+    if (h < 24) {
+      var m = Math.floor(total / 60) % 60;
+      return h + 'h ' + (m < 10 ? '0' + m : '' + m) + 'm';
+    }
+    return Math.floor(h / 24) + 'd ' + (h % 24) + 'h';
+  }
+
+  function pretty(value) {
+    if (typeof value === 'string') {
+      var t = value.replace(/^\s+|\s+$/g, '');
+      if (t.charAt(0) === '{' || t.charAt(0) === '[') {
+        try { return { text: JSON.stringify(JSON.parse(t), null, 2), json: true }; } catch (e) { /* fall through */ }
+      }
+      return { text: value, json: false };
+    }
+    try {
+      var j = JSON.stringify(value, null, 2);
+      return (j === undefined) ? { text: String(value), json: false } : { text: j, json: true };
+    } catch (e) {
+      return { text: String(value), json: false };
+    }
+  }
+
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.setAttribute('class', cls);
+    if (text !== undefined && text !== null) e.textContent = text;
+    return e;
+  }
+
+  var SVG_NS = 'http://www.w3.org/2000/svg';
+  function svgEl(tag, attrs) {
+    var n = document.createElementNS(SVG_NS, tag);
+    if (attrs) {
+      for (var k in attrs) {
+        if (Object.prototype.hasOwnProperty.call(attrs, k)) n.setAttribute(k, attrs[k]);
+      }
+    }
+    return n;
+  }
+  function svgIcon(children, cls) {
+    var s = svgEl('svg', { viewBox: '0 0 16 16', 'aria-hidden': 'true' });
+    if (cls) s.setAttribute('class', cls);
+    for (var i = 0; i < children.length; i++) s.appendChild(children[i]);
+    return s;
+  }
+
+  /* tool icons (same glyphs as the original demo) */
+  function iconSearch() {
+    return svgIcon([svgEl('circle', { cx: '7', cy: '7', r: '4.25' }), svgEl('path', { d: 'm10.25 10.25 3 3' })]);
+  }
+  function iconDoc() {
+    return svgIcon([svgEl('path', { d: 'M4 2.75h5l3 3v7.5H4z' }), svgEl('path', { d: 'M9 2.75v3h3M6 9h4M6 11h3' })]);
+  }
+  function iconDb() {
+    return svgIcon([
+      svgEl('ellipse', { cx: '8', cy: '4', rx: '4.75', ry: '1.75' }),
+      svgEl('path', { d: 'M3.25 4v8c0 .97 2.13 1.75 4.75 1.75s4.75-.78 4.75-1.75V4M3.25 8c0 .97 2.13 1.75 4.75 1.75S12.75 8.97 12.75 8' })
+    ]);
+  }
+  function iconSpinner() {
+    return svgIcon([
+      svgEl('circle', { cx: '8', cy: '8', r: '5.75' }),
+      svgEl('path', { d: 'M8 2.25a5.75 5.75 0 0 1 5.75 5.75' })
+    ], 'tc-spinner');
+  }
+  function iconCheck() {
+    var p = svgEl('path', { d: 'M3.5 8.4 6.6 11.3 12.5 4.9' });
+    p.setAttribute('pathLength', '1');
+    return svgIcon([p], 'tc-ok');
+  }
+  function iconErr() {
+    return svgIcon([
+      svgEl('circle', { cx: '8', cy: '8', r: '6' }),
+      svgEl('path', { d: 'M8 5v3.4M8 10.9v.1' })
+    ], 'tc-err');
+  }
+  function iconChevron() {
+    return svgIcon([svgEl('path', { d: 'M4.5 6.25 8 9.75l3.5-3.5' })], 'tc-chevron');
+  }
+  function iconRetry() {
+    return svgIcon([
+      svgEl('path', { d: 'M2.75 8a5.25 5.25 0 1 0 1.6-3.77' }),
+      svgEl('path', { d: 'M2.5 2.5v2.75h2.75' })
+    ]);
+  }
+  function copyIcons() {
+    var r = svgEl('rect', { x: '5.25', y: '5.25', width: '8', height: '8', rx: '2' });
+    var p = svgEl('path', { d: 'M10.75 5.25v-1a1.5 1.5 0 0 0-1.5-1.5h-4.5a2 2 0 0 0-2 2v4.5a1.5 1.5 0 0 0 1.5 1.5h1' });
+    var a = svgIcon([r, p], 'tc-copy__icon');
+    var done = svgIcon([svgEl('path', { d: 'M3.5 8.4 6.6 11.3 12.5 4.9' })], 'tc-copy__done');
+    var fl = svgEl('path', { d: 'M3.5 8.4 6.6 11.3 12.5 4.9' });
+    fl.setAttribute('pathLength', '1');
+    done.replaceChild(fl, done.firstElementChild);
+    return [a, done];
+  }
+  function iconSun() {
+    return svgIcon([
+      svgEl('circle', { cx: '8', cy: '8', r: '3.2' }),
+      svgEl('path', { d: 'M8 1.8v1.6M8 12.6v1.6M1.8 8h1.6M12.6 8h1.6M3.6 3.6l1.1 1.1M11.3 11.3l1.1 1.1M12.4 3.6l-1.1 1.1M4.7 11.3l-1.1 1.1' })
+    ]);
+  }
+  function iconMoon() {
+    return svgIcon([svgEl('path', { d: 'M13.2 9.8A4.8 4.8 0 0 1 6.2 2.8a4.8 4.8 0 1 0 7 7Z' })]);
+  }
+
+  /* syntax highlight: keys / strings / numbers / literals */
+  var TOK = /("(?:[^"\\]|\\.)*")(\s*:)?|\b(?:true|false|null)\b|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/g;
+  function highlight(text) {
+    var out = [];
+    var re = new RegExp(TOK.source, 'g');
+    var last = 0, m;
+    while ((m = re.exec(text)) !== null) {
+      if (m.index > last) out.push(document.createTextNode(text.slice(last, m.index)));
+      var cls = null;
+      if (m[1] && m[2]) cls = 'tc-t-key';
+      else if (m[1]) cls = 'tc-t-str';
+      else if (/^[tfn]/.test(m[0])) cls = 'tc-t-lit';
+      else cls = 'tc-t-num';
+      var s = el('span', cls, m[0]);
+      out.push(s);
+      last = m.index + m[0].length;
+      void m[2];
+    }
+    if (last < text.length) out.push(document.createTextNode(text.slice(last)));
+    return out;
+  }
+
+  function estimateHeight(text) {
+    var lines = String(text).split('\n');
+    var rows = 0;
+    for (var i = 0; i < lines.length; i++) rows += Math.max(1, Math.ceil(lines[i].length / 72));
+    return rows * 19 + 22;
+  }
+  function measureHeight(pre, text) {
+    try {
+      var h = pre.scrollHeight;
+      if (h && h > 0) return h;
+    } catch (e) { /* fall through to estimate */ }
+    return estimateHeight(text);
+  }
+
+  function copyText(text) {
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
+        var done = false;
+        var r = navigator.clipboard.writeText(text);
+        if (r && typeof r.then === 'function') {
+          r.then(function () { done = true; }, function () { done = false; });
+          return true;
+        }
+        return true;
+      }
+    } catch (e) { /* fall through */ }
+    try {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      try { ta.style.cssText = 'position:fixed;opacity:0'; } catch (e2) { /* noop */ }
+      document.body.appendChild(ta);
+      if (typeof ta.select === 'function') ta.select();
+      var ok = false;
+      try { ok = document.execCommand ? document.execCommand('copy') : false; } catch (e3) { ok = false; }
+      ta.remove();
+      return !!ok;
+    } catch (e4) { return false; }
+  }
+
+  /* ================= state ================= */
+  var uid = 0;
+  var step = 0;               /* 0..6 demo step */
+  var groupOpen = true;
+  var userTouchedGroup = false;
+  var timers = [];
+  var cards = [];             /* live card objects in order */
+  var group = null;
+  var header = null;
+
+  function cardState(key) {
+    if (key === 'search') {
+      var done = step >= 1;
+      return { present: true, status: done ? 'success' : 'running',
+        summary: done ? SEARCH_DONE : SEARCH_RUN,
+        args: SEARCH_ARGS, result: done ? SEARCH_RESULT : undefined, error: undefined, retry: false };
+    }
+    if (key === 'fetch') {
+      if (step < 1) return { present: false };
+      var st = (step === 2) ? 'error' : (step >= 4 ? 'success' : 'running');
+      return { present: true, status: st,
+        summary: st === 'success' ? FETCH_DONE : FETCH_RUN,
+        args: FETCH_ARGS, result: st === 'success' ? FETCH_RESULT : undefined,
+        error: st === 'error' ? FETCH_ERROR : undefined, retry: st === 'error' };
+    }
+    if (key === 'deals') {
+      if (step < 4) return { present: false };
+      var ok = step >= 5;
+      return { present: true, status: ok ? 'success' : 'running',
+        summary: ok ? DEALS_DONE : DEALS_RUN,
+        args: DEALS_ARGS, result: ok ? DEALS_RESULT : undefined, error: undefined, retry: false };
+    }
+    return { present: false };
+  }
+
+  /* ================= builders ================= */
+  function makeCodeSection(label, value) {
+    var info = pretty(value);
+    var sec = el('section', 'tc-section');
+    var head = el('div', 'tc-section__head');
+    head.appendChild(el('span', 'tc-label', label));
+    var copy = el('button', 'tc-copy');
+    copy.setAttribute('type', 'button');
+    var icons = copyIcons();
+    copy.appendChild(icons[0]);
+    copy.appendChild(icons[1]);
+    function setCopyLabel(copied) {
+      var t = copied ? 'Copied' : 'Copy ' + label.toLowerCase();
+      copy.setAttribute('aria-label', t);
+      copy.setAttribute('title', t);
+    }
+    setCopyLabel(false);
+    var copyTimer = null;
+    copy.addEventListener('click', function () {
+      var ok = copyText(info.text);
+      if (copyTimer) { clearTimeout(copyTimer); copyTimer = null; }
+      if (ok) {
+        copy.setAttribute('data-copied', '');
+        setCopyLabel(true);
+        copyTimer = setTimeout(function () {
+          copy.removeAttribute('data-copied');
+          setCopyLabel(false);
+        }, 1400);
+      }
+    });
+    head.appendChild(copy);
+    sec.appendChild(head);
+
+    var pre = el('pre', 'tc-code');
+    var code = el('code', null);
+    if (info.json) {
+      var parts = highlight(info.text);
+      for (var i = 0; i < parts.length; i++) code.appendChild(parts[i]);
+    } else {
+      code.textContent = info.text;
+    }
+    pre.appendChild(code);
+    sec.appendChild(pre);
+
+    var capped = false, expanded = false, fullH = 0;
+    var more = null;
+    function refreshCap() {
+      fullH = measureHeight(pre, info.text);
+      capped = fullH > CODE_CAP + 24;
+      if (capped) {
+        pre.style.maxHeight = (expanded ? Math.min(fullH, CODE_MAX) : CODE_CAP) + 'px';
+        if (!expanded) pre.setAttribute('data-capped', '');
+        else pre.removeAttribute('data-capped');
+        if (expanded && fullH > CODE_MAX) pre.setAttribute('data-scroll', '');
+        else pre.removeAttribute('data-scroll');
+      } else {
+        pre.style.maxHeight = '';
+        pre.removeAttribute('data-capped');
+        pre.removeAttribute('data-scroll');
+      }
+      return capped;
+    }
+    refreshCap();
+    if (capped) {
+      more = el('button', 'tc-more', 'Show all');
+      more.setAttribute('type', 'button');
+      more.setAttribute('aria-expanded', 'false');
+      more.addEventListener('click', function () {
+        expanded = !expanded;
+        refreshCap();
+        more.textContent = expanded ? 'Show less' : 'Show all';
+        more.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+      });
+      sec.appendChild(more);
+    }
+    sec._refreshCap = refreshCap;
+    return sec;
+  }
+
+  function statusIcon(status) {
+    if (status === 'running') return iconSpinner();
+    if (status === 'success') return iconCheck();
+    return iconErr();
+  }
+
+  function makeCard(key, name, iconFn) {
+    var root = el('div', 'tc-card');
+    var sr = el('span', 'tc-sr');
+    sr.setAttribute('role', 'status');
+    sr.setAttribute('aria-live', 'polite');
+    root.appendChild(sr);
+
+    var head = el('button', 'tc-head');
+    head.setAttribute('type', 'button');
+    var bodyId = 'tc-body-' + (++uid);
+    head.setAttribute('aria-controls', bodyId);
+
+    var iconSlot = el('span', 'tc-icon');
+    iconSlot.setAttribute('aria-hidden', 'true');
+    iconSlot.appendChild(iconFn());
+    head.appendChild(iconSlot);
+
+    var main = el('span', 'tc-main');
+    var nameEl = el('code', 'tc-name', name);
+    nameEl.setAttribute('title', name);
+    main.appendChild(nameEl);
+    var summaryEl = el('span', 'tc-summary', '');
+    summaryEl.setAttribute('dir', 'auto');
+    main.appendChild(summaryEl);
+    head.appendChild(main);
+
+    var statusWrap = el('span', 'tc-status');
+    var timeEl = el('span', 'tc-time', '');
+    statusWrap.appendChild(timeEl);
+    head.appendChild(statusWrap);
+    head.appendChild(iconChevron());
+    root.appendChild(head);
+
+    var body = el('div', 'tc-body');
+    body.setAttribute('id', bodyId);
+    var clip = el('div', 'tc-clip');
+    var list = el('div', 'tc-sections');
+    clip.appendChild(list);
+    body.appendChild(clip);
+    root.appendChild(body);
+
+    var card = {
+      key: key, name: name, root: root, sr: sr, head: head,
+      summaryEl: summaryEl, statusWrap: statusWrap, timeEl: timeEl,
+      body: body, list: list,
+      clock: { base: 0, start: null },
+      open: false, auto: false,
+      lastStatus: null, lastTime: null, sig: null,
+      setOpen: function (v, manual) {
+        if (this.open === v) return;
+        this.open = v;
+        if (manual) this.auto = false;
+        this.applyOpen();
+      }
+    };
+    card.applyOpen = function () {
+      if (card.open) card.root.setAttribute('data-open', '');
+      else card.root.removeAttribute('data-open');
+      card.head.setAttribute('aria-expanded', card.open ? 'true' : 'false');
+      if (card.open) card.body.removeAttribute('inert');
+      else card.body.setAttribute('inert', '');
+    };
+    head.addEventListener('click', function () {
+      if (card.auto) card.auto = false;
+      card.setOpen(!card.open, true);
+      render();
+    });
+    card.applyOpen();
+    return card;
+  }
+
+  function currentElapsed(card) {
+    var c = card.clock;
+    return (c.start !== null && c.start !== undefined) ? c.base + Date.now() - c.start : c.base;
+  }
+
+  function updateCard(card, st) {
+    var now = Date.now();
+    var running = st.status === 'running';
+    /* clock transitions (accumulate=false: fresh base on each running phase) */
+    if (running && (card.clock.start === null || card.clock.start === undefined)) {
+      card.clock.base = 0;
+      card.clock.start = now;
+    } else if (!running && card.clock.start !== null && card.clock.start !== undefined) {
+      card.clock.base += now - card.clock.start;
+      card.clock.start = null;
+    }
+    /* open-on-error behaviour */
+    if (st.status === 'error' && !card.open) { card.open = true; card.auto = true; }
+    if (st.status !== 'error' && card.auto) { card.open = false; card.auto = false; }
+
+    if (card.lastStatus !== st.status) {
+      card.root.setAttribute('data-status', st.status);
+      while (card.statusWrap.firstElementChild) card.statusWrap.removeChild(card.statusWrap.firstElementChild);
+      card.statusWrap.appendChild(statusIcon(st.status));
+      card.statusWrap.appendChild(card.timeEl);
+      card.lastStatus = st.status;
+      card.lastTime = null;
+    }
+    if (card.summaryEl.textContent !== st.summary) {
+      card.summaryEl.textContent = st.summary;
+      card.summaryEl.setAttribute('title', st.summary);
+    }
+    var srText = st.status === 'running' ? card.name + ' running'
+      : st.status === 'success' ? card.name + ' finished'
+      : card.name + ' failed' + (st.error ? ': ' + st.error : '');
+    if (card.sr.textContent !== srText) card.sr.textContent = srText;
+
+    /* time text: updated here on state change; the 100ms tick keeps it live */
+    paintTime(card, st);
+
+    var argsText = (st.args === undefined) ? '-' : pretty(st.args).text;
+    var resText = (st.result === undefined) ? '-' : pretty(st.result).text;
+    var sig = st.status + '|' + (card.open ? '1' : '0') + '|' + argsText + '|' + resText + '|' + (st.error || '');
+    if (sig !== card.sig) {
+      card.sig = sig;
+      while (card.list.firstElementChild) card.list.removeChild(card.list.firstElementChild);
+      if (st.error) {
+        var box = el('div', 'tc-error');
+        box.appendChild(iconErr());
+        var p = el('p', 'tc-error__text', st.error);
+        p.setAttribute('dir', 'auto');
+        box.appendChild(p);
+        if (st.retry) {
+          var rb = el('button', 'tc-retry');
+          rb.setAttribute('type', 'button');
+          rb.appendChild(iconRetry());
+          rb.appendChild(document.createTextNode('Retry'));
+          rb.addEventListener('click', function () {
+            step = Math.max(step, 3);
+            render();
+          });
+          box.appendChild(rb);
+        }
+        card.list.appendChild(box);
+      }
+      if (st.args !== undefined) card.list.appendChild(makeCodeSection('Arguments', st.args));
+      if (st.result === undefined) {
+        if (st.status === 'running') {
+          var pend = el('div', 'tc-section');
+          var ph = el('div', 'tc-section__head');
+          ph.appendChild(el('span', 'tc-label', 'Result'));
+          pend.appendChild(ph);
+          pend.appendChild(el('p', 'tc-pending', WAIT_RESULT));
+          card.list.appendChild(pend);
+        }
+      } else {
+        card.list.appendChild(makeCodeSection('Result', st.result));
+      }
+      if (st.args === undefined && st.result === undefined && st.status === 'success') {
+        card.list.appendChild(el('p', 'tc-pending', NO_DATA));
+      }
+      var secs = card.list.childNodes.slice ? card.list.childNodes.slice() : Array.prototype.slice.call(card.list.childNodes);
+      for (var i = 0; i < secs.length; i++) {
+        if (secs[i]._refreshCap) secs[i]._refreshCap();
+      }
+    }
+    card.applyOpen();
+  }
+
+  function paintTime(card, st) {
+    var t = (st.status === 'error') ? 'Failed' : fmtTime(currentElapsed(card), st.status === 'running');
+    if (card.lastTime !== t) {
+      card.timeEl.textContent = t;
+      card.lastTime = t;
+    }
+  }
+
+  /* ================= group + page chrome ================= */
+  function buildPage() {
+    var app = document.getElementById('app');
+    var page = el('div', 'page');
+
+    header = {};
+    var head = el('header', 'page-head');
+    var meta = el('div', 'page-head__meta');
+    meta.appendChild(el('span', 'page-head__project', PROJECT));
+    meta.appendChild(el('span', 'page-head__sep', '\u00B7'));
+    header.working = el('span', 'page-head__working', '1 working');
+    header.working.setAttribute('data-state', 'working');
+    meta.appendChild(header.working);
+    meta.appendChild(el('span', 'page-head__sep', '\u00B7'));
+    header.tools = el('span', 'page-head__tools', '1 tool');
+    meta.appendChild(header.tools);
+    head.appendChild(meta);
+
+    var toggle = el('button', 'theme-toggle');
+    toggle.setAttribute('type', 'button');
+    toggle.setAttribute('id', 'themeToggle');
+    toggle.setAttribute('aria-label', 'Switch to dark theme');
+    toggle.setAttribute('aria-pressed', 'false');
+    toggle.appendChild(iconSun());
+    var moon = iconMoon();
+    moon.setAttribute('hidden', '');
+    toggle.appendChild(moon);
+    toggle.addEventListener('click', function () {
+      var htmlEl = document.documentElement;
+      var dark = htmlEl.getAttribute('data-theme') === 'dark';
+      htmlEl.setAttribute('data-theme', dark ? 'light' : 'dark');
+      toggle.setAttribute('aria-pressed', dark ? 'false' : 'true');
+      toggle.setAttribute('aria-label', dark ? 'Switch to dark theme' : 'Switch to light theme');
+      var svgs = toggle.childNodes.slice ? toggle.childNodes.slice() : Array.prototype.slice.call(toggle.childNodes);
+      for (var i = 0; i < svgs.length; i++) {
+        if (svgs[i].tagName && svgs[i].tagName.toLowerCase() === 'svg') {
+          if (dark) {
+            if (i === 0) svgs[i].removeAttribute('hidden');
+            else svgs[i].setAttribute('hidden', '');
+          } else {
+            if (i === 0) svgs[i].setAttribute('hidden', '');
+            else svgs[i].removeAttribute('hidden');
+          }
+        }
+      }
+      try {
+        if (typeof localStorage !== 'undefined') localStorage.setItem('tc-theme', dark ? 'light' : 'dark');
+      } catch (e) { /* storage unavailable */ }
+    });
+    head.appendChild(toggle);
+    page.appendChild(head);
+
+    var ctx = el('div', 'context');
+    var clabel = el('span', 'context__label', CONTEXT_LABEL);
+    clabel.setAttribute('title', 'Context used');
+    ctx.appendChild(clabel);
+    var bar = el('div', 'context__bar');
+    bar.appendChild(el('div', 'context__fill'));
+    ctx.appendChild(bar);
+    page.appendChild(ctx);
+
+    var main = el('main', null);
+    main.appendChild(el('p', 'chat-you', USER_MSG));
+
+    group = {
+      root: el('section', 'tc-group'),
+      clock: { base: 0, start: null },
+      labelEl: null, failedEl: null, timeEl: null, stackEl: null, sr: null, list: null, body: null, head: null,
+      lastTime: null, lastLabel: null, lastFailed: -1, lastTotal: -1, lastRunning: null
+    };
+    var sr = el('span', 'tc-sr');
+    sr.setAttribute('role', 'status');
+    sr.setAttribute('aria-live', 'polite');
+    group.root.appendChild(sr);
+    group.sr = sr;
+
+    var ghead = el('button', 'tc-group__head');
+    ghead.setAttribute('type', 'button');
+    var gid = 'tc-group-body-' + (++uid);
+    ghead.setAttribute('aria-controls', gid);
+    var stack = el('span', 'tc-group__stack');
+    stack.setAttribute('aria-hidden', 'true');
+    ghead.appendChild(stack);
+    group.stackEl = stack;
+    var title = el('span', 'tc-group__title');
+    var lab = el('span', 'tc-group__label', GROUP_RUN_LABEL);
+    lab.setAttribute('data-text', GROUP_RUN_LABEL);
+    title.appendChild(lab);
+    group.labelEl = lab;
+    var fail = el('span', 'tc-group__failed', '');
+    title.appendChild(fail);
+    group.failedEl = fail;
+    var gtime = el('span', 'tc-group__time', '');
+    title.appendChild(gtime);
+    group.timeEl = gtime;
+    ghead.appendChild(title);
+    ghead.appendChild(iconChevron());
+    group.root.appendChild(ghead);
+    group.head = ghead;
+
+    var gbody = el('div', 'tc-body');
+    gbody.setAttribute('id', gid);
+    var gclip = el('div', 'tc-clip');
+    var glist = el('div', 'tc-group__list');
+    gclip.appendChild(glist);
+    gbody.appendChild(gclip);
+    group.root.appendChild(gbody);
+    group.body = gbody;
+    group.list = glist;
+
+    ghead.addEventListener('click', function () {
+      groupOpen = !groupOpen;
+      userTouchedGroup = true;
+      renderGroup();
+    });
+
+    main.appendChild(group.root);
+    page.appendChild(main);
+    page.appendChild(el('p', 'hint', 'Live demo \u2014 the loop repeats every 11.5s. Select any card to expand its arguments and result.'));
+    app.appendChild(page);
+
+    try {
+      if (typeof localStorage !== 'undefined') {
+        var saved = localStorage.getItem('tc-theme');
+        if (saved === 'dark' || saved === 'light') document.documentElement.setAttribute('data-theme', saved);
+      }
+    } catch (e) { /* storage unavailable */ }
+  }
+
+  function groupElapsed() {
+    var c = group.clock;
+    return (c.start !== null && c.start !== undefined) ? c.base + Date.now() - c.start : c.base;
+  }
+
+  function renderGroup() {
+    var now = Date.now();
+    var present = [];
+    for (var i = 0; i < cards.length; i++) present.push(cards[i]);
+    var running = false, failed = 0;
+    for (var j = 0; j < present.length; j++) {
+      var st = present[j].lastStatus;
+      if (st === 'running') running = true;
+      if (st === 'error') failed++;
+    }
+    /* accumulate=true: keep base across phases, freeze while idle */
+    if (running && (group.clock.start === null || group.clock.start === undefined)) {
+      group.clock.start = now;
+    } else if (!running && group.clock.start !== null && group.clock.start !== undefined) {
+      group.clock.base += now - group.clock.start;
+      group.clock.start = null;
+    }
+    var total = present.length;
+    var label = running ? GROUP_RUN_LABEL
+      : 'Used ' + total.toLocaleString('en-US') + ' ' + (total === 1 ? 'tool' : 'tools');
+    if (group.lastLabel !== label || group.lastRunning !== running) {
+      group.labelEl.textContent = label;
+      group.labelEl.setAttribute('data-text', label);
+      group.labelEl.setAttribute('class', running ? 'tc-group__label tc-shine' : 'tc-group__label');
+      group.lastLabel = label;
+      group.lastRunning = running;
+    }
+    if (group.lastFailed !== failed || group.lastRunning !== running) {
+      group.failedEl.textContent = (!running && failed > 0) ? ('\u00B7 ' + failed + ' failed') : '';
+      group.lastFailed = failed;
+    }
+    var t = '\u00B7 ' + fmtTime(groupElapsed(), running);
+    if (group.lastTime !== t) {
+      group.timeEl.textContent = t;
+      group.lastTime = t;
+    }
+    var srText = running ? GROUP_RUN_LABEL
+      : label + (failed > 0 ? ', ' + failed + ' failed' : '');
+    if (group.sr.textContent !== srText) group.sr.textContent = srText;
+
+    if (group.lastTotal !== total) {
+      while (group.stackEl.firstElementChild) group.stackEl.removeChild(group.stackEl.firstElementChild);
+      var from = Math.max(0, present.length - 3);
+      for (var k = from; k < present.length; k++) {
+        var tile = el('span', 'tc-icon');
+        tile.appendChild(present[k].iconFn());
+        group.stackEl.appendChild(tile);
+      }
+      group.lastTotal = total;
+    }
+    if (groupOpen) group.root.setAttribute('data-open', '');
+    else group.root.removeAttribute('data-open');
+    group.head.setAttribute('aria-expanded', groupOpen ? 'true' : 'false');
+    if (groupOpen) group.body.removeAttribute('inert');
+    else group.body.setAttribute('inert', '');
+    var titleEl = group.head.querySelector ? group.head.querySelector('.tc-group__title') : null;
+    if (titleEl) titleEl.setAttribute('data-state', running ? 'busy' : 'done');
+
+    /* page header counts */
+    var n = 0;
+    for (var m = 0; m < present.length; m++) if (present[m].lastStatus === 'running') n++;
+    header.working.textContent = n > 0 ? (n + ' working') : 'Idle';
+    header.working.setAttribute('data-state', n > 0 ? 'working' : 'idle');
+    header.tools.textContent = total === 1 ? '1 tool' : total + ' tools';
+  }
+
+  var DEFS = [
+    { key: 'search', name: SEARCH_NAME, icon: iconSearch },
+    { key: 'fetch', name: FETCH_NAME, icon: iconDoc },
+    { key: 'deals', name: DEALS_NAME, icon: iconDb }
+  ];
+
+  function render() {
+    /* add / remove / update cards in fixed order */
+    for (var i = 0; i < DEFS.length; i++) {
+      var def = DEFS[i];
+      var st = cardState(def.key);
+      var idx = -1;
+      for (var j = 0; j < cards.length; j++) {
+        if (cards[j].key === def.key) { idx = j; break; }
+      }
+      if (!st.present) {
+        if (idx >= 0) {
+          var gone = cards[idx];
+          if (gone.root.parentNode) gone.root.parentNode.removeChild(gone.root);
+          cards.splice(idx, 1);
+        }
+        continue;
+      }
+      var card = idx >= 0 ? cards[idx] : null;
+      if (!card) {
+        card = makeCard(def.key, def.name, def.icon);
+        card.iconFn = def.icon;
+        cards.push(card);
+        cards.sort(function (a, b) {
+          var order = { search: 0, fetch: 1, deals: 2 };
+          return order[a.key] - order[b.key];
+        });
+      }
+      card.iconFn = def.icon;
+      updateCard(card, st);
+    }
+    /* attach in order */
+    for (var k = 0; k < cards.length; k++) {
+      if (cards[k].root.parentNode !== group.list) group.list.appendChild(cards[k].root);
+    }
+    renderGroup();
+  }
+
+  /* fast tick: only rewrites time text nodes, never rebuilds DOM */
+  function tick() {
+    for (var i = 0; i < cards.length; i++) {
+      var card = cards[i];
+      if (card.lastStatus === 'running') {
+        paintTime(card, { status: 'running' });
+      }
+    }
+    if (group && group.lastRunning) {
+      var t = '\u00B7 ' + fmtTime(groupElapsed(), true);
+      if (group.lastTime !== t) {
+        group.timeEl.textContent = t;
+        group.lastTime = t;
+      }
+    }
+  }
+
+  function clearTimers() {
+    for (var i = 0; i < timers.length; i++) clearTimeout(timers[i]);
+    timers = [];
+  }
+  function schedule() {
+    clearTimers();
+    for (var i = 0; i < STEP_AT.length; i++) {
+      (function (n) {
+        timers.push(setTimeout(function () {
+          if (n + 1 > step) { step = n + 1; render(); }
+        }, STEP_AT[n]));
+      })(i);
+    }
+    timers.push(setTimeout(function () {
+      if (!userTouchedGroup) { groupOpen = false; renderGroup(); }
+    }, STEP_AT[STEP_AT.length - 1]));
+    timers.push(setTimeout(function () {
+      step = 0;
+      userTouchedGroup = false;
+      groupOpen = true;
+      render();
+      schedule();
+    }, LOOP_MS));
+  }
+
+  buildPage();
+  render();
+  schedule();
+  setInterval(tick, 100);
+})();
+</script>
+</body>
+</html>

@@ -131,8 +131,8 @@ body{
 }
 @keyframes rpm-sheen{from{background-position:-200% 0}to{background-position:300% 0}}
 /* labels: hidden ENTIRELY unless the tile fits — never half-cut */
-.rpm-label{position:absolute;top:6px;right:0;left:8px;display:grid;min-width:0;pointer-events:none}
-.rpm-name,.rpm-lines{display:none;overflow:hidden;white-space:nowrap}
+.rpm-label{position:absolute;top:6px;right:8px;left:8px;display:grid;min-width:0;pointer-events:none}
+.rpm-name,.rpm-lines{display:none;overflow:hidden;white-space:nowrap;text-overflow:clip}
 .rpm-name[data-show],.rpm-lines[data-show]{display:block}
 .rpm-name{font-size:12.5px;font-weight:600;line-height:16px;color:var(--ink)}
 .rpm-lines{font-size:12px;line-height:16px;color:var(--muted);font-variant-numeric:tabular-nums}
@@ -358,7 +358,8 @@ tip.hidden=true;area.appendChild(tip);
 var sr=document.createElement("div");sr.setAttribute("class","rpm-sr");
 sr.setAttribute("aria-live","polite");root.appendChild(sr);
 /* expose for tests */
-window.__repoMap={hover:hoverFile,select:selectAgent,stepTo:goStep,getState:function(){return{step:step,selected:selected};}};
+window.__repoMap={hover:hoverFile,select:selectAgent,stepTo:goStep,getState:function(){return{step:step,selected:selected};},
+  _derive:derive,_computeLayout:computeLayout,_labelFits:labelFits,_textW:textW,_base:base,_fmt:fmt};
 
 /* ---------- derived data for a step ---------- */
 function derive(st){
@@ -383,6 +384,34 @@ function readsOn(d,path){return onFile(d,path).filter(function(p){return p.actio
 function involves(d,file,aid){return file.edits.some(function(e){return e.agent===aid;})||onFile(d,file.path).some(function(p){return p.id===aid;});}
 
 /* ---------- layout ---------- */
+function clampRect(r,W,H){
+  if(!r)return r;
+  var x=Math.max(2,Math.min(r.x,W-2)),y=Math.max(2,Math.min(r.y,H-2));
+  var w=Math.max(0,Math.min(r.w,W-2-x)),h=Math.max(0,Math.min(r.h,H-2-y));
+  r.x=x;r.y=y;r.w=w;r.h=h;return r;
+}
+/* conservative text-width estimate at the real CSS font sizes.
+   Overestimates slightly so a "fits" verdict never clips in a real browser.
+   name: 12.5px semibold; lines: 12px regular. Label insets: 8px left + 8px right. */
+function textW(s,size,bold){
+  var w=0,i,ch;
+  for(i=0;i<s.length;i++){
+    ch=s[i];
+    if(ch===" "||ch==="."||ch===","||ch===":"||ch===";"||ch==="|"||ch==="!"||ch==="'"||ch==="`"||ch==="/"||ch==="-"||ch==='"')w+=size*0.34;
+    else if(ch==="i"||ch==="l"||ch==="I"||ch==="j"||ch==="t"||ch==="f"||ch==="r"||ch==="("||ch===")"||ch==="["||ch==="]")w+=size*0.38;
+    else if(ch==="m"||ch==="w"||ch==="M"||ch==="W"||ch==="@"||ch==="%")w+=size*0.85;
+    else w+=size*(bold?0.60:0.55);
+  }
+  return w+2;
+}
+function labelFits(r,nameText,linesText,withLines){
+  var tileW=r.w-3; /* matches .rpm-tile width: calc(var(--w) - 3px) */
+  var avail=tileW-8-8; /* .rpm-label left:8px right:8px */
+  if(avail<=0)return false;
+  if(textW(nameText,12.5,true)>avail)return false;
+  if(withLines&&textW(linesText,12,false)>avail)return false;
+  return true;
+}
 function computeLayout(d,W,H){
   var groups={};
   d.files.forEach(function(f){var g=folderOf(f.path);(groups[g]=groups[g]||[]).push(f);});
@@ -392,6 +421,7 @@ function computeLayout(d,W,H){
   var fRect=new Map(),tRect=new Map(),showFolder=new Map();
   if(W>0&&H>0){
     treemap(folders.map(function(f){return{id:f.id,value:f.total};}),{x:2,y:2,w:W-4,h:H-4},fRect);
+    fRect.forEach(function(r){clampRect(r,W,H);});
     folders.forEach(function(f){
       var r=fRect.get(f.id);if(!r)return;
       var label=r.w>=72&&r.h>=56&&folders.length>1;
@@ -399,6 +429,7 @@ function computeLayout(d,W,H){
       var pad=folders.length>1?3:0,top=label?22:pad;
       treemap(f.files.map(function(x){return{id:x.path,value:Math.max(1,x.lines)};}),
         {x:r.x+pad,y:r.y+top,w:Math.max(0,r.w-pad*2),h:Math.max(0,r.h-top-pad)},tRect);
+      tRect.forEach(function(tr){clampRect(tr,W,H);});
     });
   }
   return {folders:folders,fRect:fRect,tRect:tRect,showFolder:showFolder};
@@ -498,12 +529,21 @@ function render(){
       var sh=document.createElement("span");sh.setAttribute("class","rpm-sheen");
       sh.setAttribute("aria-hidden","true");t.appendChild(sh);
     }
-    /* labels only when they fit entirely */
+    /* labels only when the FULL block fits entirely (name AND sub-line) */
     var lb=document.createElement("span");lb.setAttribute("class","rpm-label");lb.setAttribute("aria-hidden","true");
     var nm=document.createElement("span");nm.setAttribute("class","rpm-name");nm.textContent=base(f.path);
     var ln=document.createElement("span");ln.setAttribute("class","rpm-lines");
-    var showName=r.w>=56&&r.h>=(now.length?50:28);
-    var showLines=r.h>=(now.length?66:44);
+    var nameText=base(f.path);
+    var linesText;
+    if(eds.length>1){linesText="Conflict";}
+    else if(f.edits.length){linesText="+"+fmt(add)+" −"+fmt(del);}
+    else{linesText=fmt(f.lines)+" lines";}
+    var heightName=r.w>=56&&r.h>=(now.length?50:28);
+    var heightLines=r.h>=(now.length?66:44);
+    var fitsBoth=labelFits(r,nameText,linesText,true);
+    var fitsNameOnly=labelFits(r,nameText,linesText,false);
+    var showLines=heightLines&&fitsBoth;
+    var showName=heightName&&(heightLines?fitsBoth:fitsNameOnly);
     if(showName)nm.setAttribute("data-show","");
     if(showLines){
       ln.setAttribute("data-show","");
