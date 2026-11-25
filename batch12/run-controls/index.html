@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Run Controls — Trip planner</title>
+<style>
+/* ---- design tokens ---- */
+:root, :root[data-theme="light"]{
+  --surface:#ffffff;
+  --page:#fafaf9;
+  --ink:#171717;
+  --muted:#78716c;
+  --subtle:#f5f5f4;
+  --border:#e7e5e4;
+  --border-strong:#d6d3d1;
+  --radius-lg:16px;
+  --radius:10px;
+  --radius-sm:6px;
+  --shadow:0 1px 2px rgba(0,0,0,.05), 0 4px 16px rgba(0,0,0,.05);
+  --shadow-pop:0 0 0 1px rgba(0,0,0,.06), 0 18px 40px -12px rgba(0,0,0,.18), 0 4px 12px -4px rgba(0,0,0,.06);
+  --accent:#0284c7;
+  --accent-soft:rgba(2,132,199,.12);
+  --warn:#f59e0b; --warn-bg:#fef3c7; --warn-ink:#92400e;
+  --fail:#dc2626; --fail-soft:rgba(220,38,38,.10);
+  --ok:#16a34a;
+  --mark:rgba(2,132,199,.78);
+  --focus:rgba(2,132,199,.7);
+  --wash:rgba(23,23,23,.06);
+  --ease:cubic-bezier(.22,1,.36,1);
+}
+:root[data-theme="dark"]{
+  --surface:#1c1c1f;
+  --page:#101012;
+  --ink:#ededed;
+  --muted:#a1a1aa;
+  --subtle:#26262a;
+  --border:#2e2e33;
+  --border-strong:#3f3f46;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 4px 16px rgba(0,0,0,.4);
+  --shadow-pop:0 0 0 1px rgba(255,255,255,.07), 0 18px 40px -12px rgba(0,0,0,.7);
+  --accent:#38bdf8;
+  --accent-soft:rgba(56,189,248,.16);
+  --warn:#fbbf24; --warn-bg:#451a03; --warn-ink:#fde68a;
+  --fail:#f87171; --fail-soft:rgba(248,113,113,.14);
+  --ok:#4ade80;
+  --mark:rgba(56,189,248,.85);
+  --focus:rgba(56,189,248,.8);
+  --wash:rgba(255,255,255,.07);
+}
+[hidden]{display:none !important}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--page);
+  color:var(--ink);
+  font-family:system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size:14px; line-height:20px;
+  -webkit-font-smoothing:antialiased;
+  min-height:100vh;
+  display:flex; flex-direction:column; align-items:center;
+  padding:28px 16px 48px;
+}
+/* ---- page header: project + working count + agent count + toggle ---- */
+.page{width:100%; max-width:640px}
+.page-head{
+  display:flex; align-items:center; gap:10px;
+  margin:0 2px 14px;
+}
+.page-head h1{
+  margin:0; font-size:15px; font-weight:600; letter-spacing:-.01em;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.count{
+  flex:none; font-size:12px; line-height:20px; color:var(--muted);
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:999px; padding:1px 10px; white-space:nowrap;
+}
+.count[data-live="true"]{color:var(--accent); border-color:var(--accent)}
+.spacer{flex:1}
+.theme-btn{
+  flex:none; display:inline-grid; place-items:center;
+  width:32px; height:32px; border-radius:50%;
+  border:1px solid var(--border); background:var(--surface); color:var(--ink);
+  cursor:pointer; transition:background-color 150ms ease, transform 150ms ease;
+}
+.theme-btn:hover{background:var(--wash)}
+.theme-btn:focus-visible{outline:2px solid var(--focus); outline-offset:2px}
+.theme-btn svg{display:block}
+/* ---- run-controls card ---- */
+.rcl{
+  display:flex; flex-direction:column; gap:4px;
+  background:var(--subtle);
+  border:1px solid var(--border);
+  border-radius:calc(var(--radius-lg) + 4px);
+  padding:4px; width:100%; min-width:0;
+  box-shadow:var(--shadow);
+}
+.rcl p, .rcl ul{margin:0; padding:0; list-style:none}
+.rcl button{margin:0; padding:0; border:0; background:none; font:inherit; color:inherit; cursor:pointer}
+.rcl button:focus-visible{outline:2px solid var(--focus); outline-offset:2px}
+.rcl .menu button:focus-visible{outline-offset:-2px}
+/* log */
+.log{
+  position:relative; height:252px; overflow-y:auto; overscroll-behavior:contain;
+  scrollbar-width:none; padding:16px 16px 8px;
+  border-radius:var(--radius-lg); background:var(--surface);
+  box-shadow:var(--shadow); outline:none;
+}
+.log::-webkit-scrollbar{display:none}
+.log:focus-visible{outline:2px solid var(--focus); outline-offset:2px}
+.turn{display:flex; flex-direction:column; min-height:100%; animation:rise 420ms var(--ease) both}
+.you{
+  align-self:flex-end; max-width:82%; padding:8px 13px;
+  border-radius:16px; border-end-end-radius:5px; background:var(--subtle);
+  overflow-wrap:anywhere; white-space:pre-wrap;
+}
+.agent-row{display:flex; align-items:center; gap:8px; height:20px; margin-top:14px; font-size:12.5px; line-height:16px}
+.agent-name{min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-weight:600; color:var(--ink)}
+.state-label{flex:none; color:var(--muted)}
+.state-label[data-tone="alert"]{color:var(--fail)}
+.answer{flex:1; margin-top:6px; padding-inline-start:24px; overflow-wrap:anywhere; white-space:pre-wrap; color:var(--ink)}
+.steer-pill{
+  display:inline-flex; align-items:center; gap:4px; max-width:100%;
+  margin:0 4px; padding:0 8px 0 6px; border-radius:999px;
+  background:var(--accent-soft); font-size:12.5px; line-height:20px; color:var(--accent);
+  vertical-align:1px; white-space:nowrap; animation:drop 560ms var(--ease) both;
+}
+.steer-pill > span{overflow:hidden; text-overflow:ellipsis}
+.caret{display:inline-block; width:7px; height:14px; margin-left:2px; border-radius:2px; background:var(--ink); vertical-align:-2px; animation:blink 1s ease-in-out infinite}
+.cut{display:inline-block; width:2px; height:14px; margin-left:3px; border-radius:1px; background:var(--border-strong); vertical-align:-2px}
+.cut[data-tone="alert"]{background:var(--fail)}
+.dots{display:inline-flex; gap:4px; padding-top:6px}
+.dots > i{width:5px; height:5px; border-radius:50%; background:var(--border-strong); animation:dot 1.2s ease-in-out infinite}
+.dots > i:nth-child(2){animation-delay:.15s}
+.dots > i:nth-child(3){animation-delay:.3s}
+.after{
+  display:flex; align-items:center; justify-content:space-between; gap:8px;
+  min-height:28px; margin-top:10px; padding-inline-start:24px; padding-bottom:4px;
+}
+.note{
+  min-width:0; overflow:hidden; font-size:12px; line-height:16px; color:var(--muted);
+  white-space:nowrap; text-overflow:ellipsis; animation:fade 240ms ease both;
+}
+.note kbd{
+  display:inline-block; min-width:20px; margin-inline-end:2px; padding:0 4px;
+  border-radius:4px; background:var(--subtle); box-shadow:inset 0 0 0 .5px var(--border-strong);
+  font:inherit; font-size:11px; text-align:center;
+}
+.acts{display:flex; flex:none; gap:2px; animation:fade 240ms ease both}
+.act{
+  display:inline-flex; align-items:center; gap:5px; height:30px; padding:0 11px 0 9px;
+  border-radius:999px; font-size:13px; font-weight:500; color:var(--muted);
+  transition:background-color 160ms ease, color 160ms ease;
+}
+.act:hover{background:var(--wash); color:var(--ink)}
+.act[data-main]{background:var(--ink); color:var(--surface)}
+.act[data-main]:hover{opacity:.88; color:var(--surface)}
+.empty{ display:grid; place-items:center; align-content:center; gap:10px; height:100%; padding:0 24px; text-align:center; color:var(--muted)}
+/* composer */
+.composer{padding:0}
+.queue{display:grid; grid-template-columns:minmax(0,1fr); max-height:128px; overflow-y:auto; overscroll-behavior:contain; scrollbar-width:none; padding:2px 6px 4px}
+.queue::-webkit-scrollbar{display:none}
+.queue[data-more]{-webkit-mask:linear-gradient(#000 calc(100% - 16px), transparent); mask:linear-gradient(#000 calc(100% - 16px), transparent)}
+.queued{display:flex; align-items:center; gap:8px; height:30px; padding:0 2px 0 8px; font-size:12.5px; color:var(--muted); animation:rise 360ms var(--ease) both}
+.queued-text{flex:1; min-width:0; overflow:hidden; color:var(--ink); white-space:nowrap; text-overflow:ellipsis}
+.queued-n{flex:none; font-size:11.5px; color:var(--muted); font-variant-numeric:tabular-nums}
+.icon-btn{display:grid; flex:none; place-items:center; width:24px; height:24px; border-radius:6px; color:var(--muted); transition:background-color 160ms ease, color 160ms ease}
+.icon-btn:hover{background:var(--wash); color:var(--ink)}
+.write{padding:12px 10px 10px; border-radius:var(--radius-lg); background:var(--surface); box-shadow:var(--shadow); cursor:text; transition:box-shadow 160ms ease}
+.write:focus-within{box-shadow:0 0 0 1px var(--border-strong), 0 1px 2px rgba(0,0,0,.04)}
+.field{display:block; width:100%; height:40px; margin:0; padding:0 4px; border:0; outline:0; background:transparent; font:inherit; color:var(--ink); resize:none; scrollbar-width:none; caret-color:var(--accent)}
+.field::placeholder{color:var(--muted); opacity:.75}
+.tools{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:8px}
+.tool-left, .tool-right{display:flex; align-items:center; gap:6px; min-width:0}
+.tool-right{flex:none}
+.mode{display:flex; flex:none; padding:2px; border-radius:var(--radius-sm); background:var(--subtle); box-shadow:inset 0 0 0 1px var(--border)}
+.mode > button{height:24px; padding:0 10px; border-radius:calc(var(--radius-sm) - 2px); font-size:13px; font-weight:500; color:var(--muted); transition:background-color 180ms ease, color 180ms ease, box-shadow 180ms ease}
+.mode > button[aria-checked="true"]{background:var(--surface); color:var(--ink); box-shadow:var(--shadow)}
+.perm-wrap{position:relative; min-width:0}
+.perm{
+  display:inline-flex; align-items:center; gap:6px; max-width:100%; height:28px; padding:0 8px;
+  border-radius:var(--radius-sm); font-size:12.5px; color:var(--muted); white-space:nowrap;
+  transition:background-color 160ms ease, color 160ms ease, opacity 160ms ease;
+}
+.perm-label{overflow:hidden; text-overflow:ellipsis}
+.perm:hover:not(:disabled), .perm[aria-expanded="true"]{background:var(--wash); color:var(--ink)}
+.perm[data-tone="alert"]{color:var(--fail)}
+.perm[data-tone="alert"]:hover:not(:disabled){background:var(--fail-soft)}
+.perm:disabled{opacity:.45; cursor:default}
+.menu{
+  position:absolute; bottom:calc(100% + 6px); inset-inline-start:0; z-index:5;
+  display:grid; width:272px; padding:5px; border-radius:var(--radius-lg);
+  background:var(--surface); box-shadow:var(--shadow-pop);
+  transform-origin:bottom left; animation:menupop 180ms var(--ease) both;
+}
+.item{display:flex; align-items:center; gap:10px; padding:7px 9px; border-radius:calc(var(--radius-lg) - 5px); text-align:start; transition:background-color 120ms ease}
+.item:hover, .item:focus-visible{background:var(--wash)}
+.item-icon{display:grid; place-items:center; width:16px; color:var(--muted)}
+.item[data-tone="alert"] .item-icon{color:var(--fail)}
+.item-text{display:grid; flex:1; min-width:0}
+.item-text > span:first-child{font-size:13px; color:var(--ink)}
+.item-text > span:last-child{font-size:12px; line-height:16px; color:var(--muted)}
+.item-check{display:grid; place-items:center; width:16px; color:var(--ink)}
+.ctx{display:inline-flex; align-items:center; gap:5px; height:28px; padding:0 6px; font-size:12px; color:var(--muted); font-variant-numeric:tabular-nums}
+.ctx-track{fill:none; stroke:var(--border); stroke-width:2}
+.ctx-fill{fill:none; stroke:var(--muted); stroke-width:2; stroke-linecap:round; transition:stroke-dasharray 400ms var(--ease), stroke 200ms ease}
+.ctx[data-high]{color:var(--warn)}
+.ctx[data-high] .ctx-fill{stroke:var(--warn)}
+.round{
+  display:grid; flex:none; place-items:center; width:30px; height:30px; border-radius:50%;
+  background:var(--ink); color:var(--surface);
+  transition:opacity 160ms ease, transform 160ms var(--ease); animation:pop 260ms var(--ease) both;
+}
+.round:active:not(:disabled){transform:scale(.92)}
+.round:disabled{background:var(--wash); color:var(--muted); cursor:default}
+.btn{
+  display:inline-flex; flex:none; align-items:center; gap:5px; height:30px; padding:0 12px 0 10px;
+  border-radius:999px; font-size:13px; font-weight:500; color:var(--muted);
+  transition:background-color 160ms ease, color 160ms ease; animation:pop 260ms var(--ease) both;
+}
+.btn:hover{background:var(--wash); color:var(--ink)}
+.btn[data-solid]{background:var(--ink); color:var(--surface)}
+.btn[data-solid]:hover{opacity:.88; color:var(--surface)}
+/* 3x3 pixel-mark: EXACTLY 9 cells */
+.pmark{display:grid; flex:none; grid-template-columns:repeat(3,3px); grid-auto-rows:3px; gap:1.5px; place-content:center; width:16px; height:16px}
+.pmark > i{border-radius:.75px; background:var(--mark); opacity:0; transition:opacity 240ms ease}
+.pmark > i[data-on]{opacity:1}
+.pmark[data-busy] > i{animation:pixel 1.2s ease-in-out infinite both}
+.pmark[data-busy] > i:not([data-on]){opacity:.16}
+.sr{position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap}
+.page-foot{margin:14px 2px 0; font-size:12px; color:var(--muted)}
+@keyframes pixel{0%,100%{opacity:1}50%{opacity:.2}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+@keyframes dot{0%,100%{opacity:.3; transform:translateY(0)}50%{opacity:1; transform:translateY(-2px)}}
+@keyframes drop{from{opacity:0; transform:translateY(-10px) scale(.92)}}
+@keyframes rise{from{opacity:0; transform:translateY(6px)}}
+@keyframes fade{from{opacity:0}}
+@keyframes pop{from{opacity:0; transform:scale(.9)}}
+@keyframes menupop{from{opacity:0; transform:translateY(4px) scale(.97)}}
+@media (max-width:480px){
+  .perm-label{display:none}
+  .log{height:280px; padding:14px 12px 8px}
+  .answer, .after{padding-inline-start:0}
+  .after{flex-wrap:wrap}
+}
+@media (prefers-reduced-motion:reduce){
+  .rcl *, .rcl *::before, .rcl *::after{animation:none !important; transition:none !important}
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="page-head">
+    <h1>Trip planner</h1>
+    <span class="count" id="workingCount" data-live="true">1 working</span>
+    <span class="count">1 agent</span>
+    <span class="spacer"></span>
+    <button class="theme-btn" id="themeBtn" type="button" aria-label="Switch to dark theme" title="Toggle theme"></button>
+  </header>
+
+  <main>
+    <section class="rcl" id="rcl" data-status="running" aria-label="Trip planner run">
+      <div class="log" id="log" tabindex="0" role="region" aria-label="Conversation"></div>
+      <div class="composer">
+        <ul class="queue" id="queue" aria-label="Queued messages" hidden></ul>
+        <div class="write" id="write">
+          <textarea class="field" id="field" rows="2" aria-label="Message" aria-describedby="keysHint"></textarea>
+          <span class="sr" id="keysHint"></span>
+          <div class="tools">
+            <div class="tool-left">
+              <div class="mode" id="mode" role="radiogroup" aria-label="Mode"></div>
+              <div class="perm-wrap">
+                <button class="perm" id="permBtn" type="button" aria-haspopup="menu" aria-expanded="false"></button>
+                <div class="menu" id="menu" role="menu" aria-label="What the agent may do" hidden></div>
+              </div>
+            </div>
+            <div class="tool-right">
+              <span class="ctx" id="ctx"></span>
+              <span id="actions" style="display:inline-flex;align-items:center;gap:2px"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="sr" role="status" aria-live="polite" id="live"></p>
+    </section>
+  </main>
+  <p class="page-foot">Enter sends · Shift+Enter adds a line · while running, Enter steers and ⌥ Enter queues · Esc stops.</p>
+</div>
+
+<script>
+"use strict";
+/* ============ exact demo data (verbatim) ============ */
+var PROMPT_X = "Plan four days in Lisbon in March \u2013 good food, one day trip, nothing too touristy.";
+var ANSWER_S = "Day 1 \u2013 Alfama and Gra\u00e7a. Start at the Miradouro da Senhora do Monte before the crowds, then walk down through Gra\u00e7a to a late lunch at a tasca near the Feira da Ladra.\n\nDay 2 \u2013 Campo de Ourique and the market. Coffee and a pastel at the old bakery on Rua Saraiva de Carvalho, then lunch at the market stalls and a slow afternoon in Estrela park.\n\nDay 3 \u2013 Day trip to Set\u00fabal. Grilled cuttlefish by the harbour, a boat out to see the dolphins in the Sado estuary, back by train for dinner.\n\nDay 4 \u2013 Marvila and the river. Small breweries in old warehouses, the tile museum on the way, and sunset along the river at Cais do Sodr\u00e9.";
+var STEER_C = "Keep it to three days";
+var ANSWER_W = "Three days it is \u2013 the market moves to Day 1\u2019s afternoon.\n\nDay 2 \u2013 Day trip to Set\u00fabal. Grilled cuttlefish by the harbour, a boat out to the dolphins in the Sado estuary, the train back in time for dinner.\n\nDay 3 \u2013 Marvila and the river. Breweries in old warehouses, the tile museum on the way, and sunset at Cais do Sodr\u00e9.";
+var QUEUE_T = "Add a packing list for March weather";
+var ANSWER_E = "March in Lisbon is mild but changeable \u2013 around 17 \u00b0C by day, cooler and windy by the river at night.\n\n\u00b7 A light rain jacket and a warm layer for the evenings\n\u00b7 Shoes with grip \u2013 the cal\u00e7ada gets slippery when it\u2019s wet\n\u00b7 A small day bag for the Set\u00fabal trip, sunglasses and sunscreen";
+var AGENT = { id: "travel", name: "Trip planner" };
+var PERMS = [
+  { id: "ask",  label: "Ask first",   hint: "Asks before every change" },
+  { id: "edits", label: "Auto-edit",  hint: "Edits files, asks for the rest" },
+  { id: "full", label: "Full access", hint: "Runs commands without asking" }
+];
+var PIXEL_DELAYS = [0, 120, 240, 120, 240, 360, 240, 360, 480];
+var CIRC = 2 * Math.PI * 6;
+
+function fallbackFor(text) {
+  var short = text.length > 60 ? text.slice(0, 57) + "\u2026" : text;
+  return "Here\u2019s a first pass at \u201c" + short + "\u201d. I\u2019ll keep it short and to the point, then you can steer me if it should go a different way \u2013 or stop me and pick it up later from where I left off.";
+}
+function tokenize(s) { return s.match(/\S+\s*|\s+/g) || []; }
+function wordCount(s) {
+  if (!s.trim()) return 0;
+  try {
+    if (typeof Intl !== "undefined" && "Segmenter" in Intl) {
+      var n = 0, seg = new Intl.Segmenter(undefined, { granularity: "word" });
+      var it = seg.segment(s)[Symbol.iterator](), r;
+      while (!(r = it.next()).done) if (r.value.isWordLike) n++;
+      return n;
+    }
+  } catch (e) {}
+  return s.trim().split(/\s+/).length;
+}
+function fmtTime(sec) {
+  var t = Math.max(0, Math.round(sec));
+  function p(n) { return String(n).padStart(2, "0"); }
+  var h = Math.floor(t / 3600), m = Math.floor(t % 3600 / 60);
+  return h ? h + ":" + p(m) + ":" + p(t % 60) : m + ":" + p(t % 60);
+}
+/* deterministic 3x3 pixel-mark: exactly 9 cells, >=5 on */
+function pixelBits(id) {
+  var h = 0, i, e;
+  for (i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  for (e = 0; e < 64; e++) {
+    var n = (h >>> (e % 26)) & 63, cells = [], k;
+    for (k = 0; k < 3; k++) {
+      var b = (n >>> (k * 2)) & 3;
+      cells.push((b >>> 1) & 1, b & 1, (b >>> 1) & 1);
+    }
+    var on = 0, j;
+    for (j = 0; j < 9; j++) on += cells[j];
+    if (on >= 5) return cells;
+    h = (h * 1103515245 + 12345) >>> 0;
+  }
+  return [1, 0, 1, 0, 1, 0, 1, 0, 1];
+}
+
+/* ============ icons (own strokes) ============ */
+function svgIcon(inner, size) {
+  var s = size || 14;
+  return '<svg width="' + s + '" height="' + s + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + inner + "</svg>";
+}
+var IC = {
+  send: function () { return svgIcon('<path d="M12 5.5V19"/><path d="M18 11C18 11 13.5811 5.00001 12 5C10.4188 4.99999 6 11 6 11"/>', 16); },
+  stop: function () { return '<svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="3" fill="currentColor"/></svg>'; },
+  play: function () { return svgIcon('<path d="M18.8906 12.846C18.5371 14.189 16.8667 15.138 13.5257 17.0361C10.296 18.8709 8.6812 19.7884 7.37983 19.4196C6.8418 19.2671 6.35159 18.9776 5.95624 18.5787C5 17.6139 5 15.7426 5 12C5 8.2574 5 6.3861 5.95624 5.42132C6.35159 5.02245 6.8418 4.73288 7.37983 4.58042C8.6812 4.21165 10.296 5.12907 13.5257 6.96393C16.8667 8.86197 18.5371 9.811 18.8906 11.154C19.0365 11.7084 19.0365 12.2916 18.8906 12.846Z"/>', 14); },
+  retry: function () { return svgIcon('<path d="M20.0092 2V5.13219C20.0092 5.42605 19.6418 5.55908 19.4537 5.33333C17.6226 3.2875 14.9617 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22C17.5228 22 22 17.5228 22 12"/>', 14); },
+  x: function () { return svgIcon('<path d="M18 6L6.00081 17.9992M17.9992 18L6 6.00085"/>', 14); },
+  steer: function () { return svgIcon('<path d="M4 3V5.07692C4 7.07786 4 8.07833 4.14533 8.91545C4.94529 13.5235 8.90656 17.1376 13.9574 17.8674C14.8749 18 16.8068 18 19 18"/><path d="M17 21C17.6068 20.4102 20 18.8403 20 18C20 17.1597 17.6068 15.5898 17 15"/>', 14); },
+  queue: function () { return svgIcon('<path d="M18 18H6C5.05719 18 4.58579 18 4.29289 17.7071C4 17.4142 4 16.9428 4 16C4 15.0572 4 14.5858 4.29289 14.2929C4.58579 14 5.05719 14 6 14H18C18.9428 14 19.4142 14 19.7071 14.2929C20 14.5858 20 15.0572 20 16C20 16.9428 20 17.4142 20 17.7071C19.4142 18 18.9428 18 18 18Z"/><path d="M4 10H20"/><path d="M4 6H20"/>', 14); },
+  chev: function () { return svgIcon('<path d="M18 9.00005C18 9.00005 13.5811 15 12 15C10.4188 15 6 9 6 9"/>', 12); },
+  check: function () { return svgIcon('<path d="M5 14L8.5 17.5L19 6.5"/>', 14); },
+  shield: function () { return svgIcon('<path d="M12 3l7 3v5c0 5-3.5 8.5-7 10-3.5-1.5-7-5-7-10V6z"/>'); },
+  pencil: function () { return svgIcon('<path d="M4 20l1-4L16.5 4.5a2.1 2.1 0 013 3L8 19z"/>'); },
+  bolt: function () { return svgIcon('<path d="M13 2L4 14h6l-1 8 9-12h-6z"/>'); },
+  sun: function () { return svgIcon('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>', 16); },
+  moon: function () { return svgIcon('<path d="M21 12.8A9 9 0 1111.2 3 7 7 0 0021 12.8Z"/>', 16); }
+};
+function permIcon(id) { return id === "ask" ? IC.shield() : id === "edits" ? IC.pencil() : IC.bolt(); }
+
+/* ============ state ============ */
+var state = {
+  prompt: PROMPT_X, answer: "", status: "running",
+  steers: [], queue: [{ id: "q1", text: QUEUE_T }],
+  took: 0, mode: "act", perm: "ask", menu: false, input: ""
+};
+var tokensLeft = tokenize(ANSWER_S);
+var sourceKind = "S";       // "S" | "E" | "custom" | "" (spent / manual)
+var accumulated = "";
+var autoSteerArmed = true;  // cleared on first trusted user gesture
+var runStart = (typeof performance !== "undefined" ? performance.now() : Date.now());
+var tickTimer = null, queueTimer = null;
+
+var $ = function (id) { return document.getElementById(id); };
+var rcl = $("rcl"), logEl = $("log"), queueEl = $("queue"), field = $("field"),
+    modeEl = $("mode"), permBtn = $("permBtn"), menuEl = $("menu"),
+    ctxEl = $("ctx"), actionsEl = $("actions"), liveEl = $("live"),
+    keysHint = $("keysHint"), writeEl = $("write"), workingCount = $("workingCount");
+
+function statusText() {
+  var s = state.status;
+  if (s === "running") {
+    if (!state.answer) return "Thinking";
+    return state.steers.length ? "Writing \u00b7 steered" : "Writing";
+  }
+  if (s === "stopped") return "Stopped";
+  if (s === "error") return "Connection lost";
+  if (s === "done") return "Done";
+  return "";
+}
+function ctxFrac() { return Math.min(0.96, 0.34 + wordCount(state.answer) * 0.0021); }
+function esc(s) { return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+
+/* ============ pixel-mark (exactly 9 cells) ============ */
+function pixelMark(busy) {
+  var cells = pixelBits(AGENT.id), h = "";
+  for (var i = 0; i < 9; i++)
+    h += '<i' + (cells[i] ? " data-on" : "") + ' style="animation-delay:' + PIXEL_DELAYS[i] + 'ms"></i>';
+  return '<span class="pmark"' + (busy ? " data-busy" : "") + ' aria-hidden="true">' + h + "</span>";
+}
+
+/* ============ structural renders (only on state change) ============ */
+function renderLog() {
+  logEl.innerHTML = "";
+  if (!state.prompt) {
+    var e = document.createElement("div");
+    e.setAttribute("class", "empty");
+    e.innerHTML = pixelMark(false) + "<p>Ask " + esc(AGENT.name) + " anything \u2013 steer it or stop it while it works.</p>";
+    logEl.appendChild(e);
+    return;
+  }
+  var turn = document.createElement("div");
+  turn.setAttribute("class", "turn");
+  var st = statusText();
+  var tone = state.status === "error" ? ' data-tone="alert"' : "";
+  var h = '<p class="you">' + esc(state.prompt) + "</p>";
+  h += '<div class="agent-row">' + pixelMark(state.status === "running") +
+    '<span class="agent-name" title="' + esc(AGENT.name) + '">' + esc(AGENT.name) + "</span>" +
+    '<span class="state-label"' + tone + ">" + esc(st) + "</span></div>";
+  h += '<div class="answer" id="answer"></div>';
+  h += '<div class="after" id="after"></div>';
+  turn.innerHTML = h;
+  logEl.appendChild(turn);
+  renderAnswerBody();
+  renderAfter();
+  logEl.scrollTop = logEl.scrollHeight;
+}
+function answerSegments() {
+  var vis = state.steers.filter(function (s) { return s.at <= state.answer.length; })
+    .sort(function (a, b) { return a.at - b.at; });
+  var parts = [], pos = 0, i;
+  for (i = 0; i < vis.length; i++) {
+    parts.push({ t: "text", v: state.answer.slice(pos, vis[i].at) });
+    parts.push({ t: "steer", v: vis[i].text });
+    pos = vis[i].at;
+  }
+  parts.push({ t: "text", v: state.answer.slice(pos) });
+  return parts;
+}
+function renderAnswerBody() {
+  var box = document.getElementById("answer");
+  if (!box) return;
+  var running = state.status === "running";
+  var stopped = state.status === "stopped" || state.status === "error";
+  var h = "";
+  if (state.answer) {
+    var segs = answerSegments();
+    for (var i = 0; i < segs.length; i++) {
+      if (segs[i].t === "steer")
+        h += '<span class="steer-pill" title="You steered: ' + esc(segs[i].v) + '">' + IC.steer() + "<span>" + esc(segs[i].v) + "</span></span>";
+      else h += esc(segs[i].v);
+    }
+    if (running) h += '<span class="caret" aria-hidden="true"></span>';
+    if (stopped) h += '<span class="cut"' + (state.status === "error" ? ' data-tone="alert"' : "") + ' aria-hidden="true"></span>';
+  } else if (running) {
+    h = '<span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>';
+  }
+  box.innerHTML = h;
+}
+/* fast path: append one token to the tail text node, no rebuild */
+function appendTokenFast(tok) {
+  var box = document.getElementById("answer");
+  if (!box) return false;
+  if (box.querySelector(".dots")) { renderAnswerBody(); syncLogHead(); return true; }
+  var node = box.lastChild;
+  if (!node || node.nodeType !== 3) {
+    // tail is caret/cut element: insert before it
+    var t = document.createTextNode(tok);
+    var caret = box.querySelector(".caret");
+    if (caret) box.insertBefore(t, caret);
+    else box.appendChild(t);
+    return true;
+  }
+  node.nodeValue += tok;
+  return true;
+}
+function syncLogHead() {
+  var rows = logEl.querySelectorAll(".agent-row");
+  if (!rows.length) return;
+  var row = rows[rows.length - 1];
+  var label = row.querySelector(".state-label");
+  var st = statusText();
+  if (label && label.textContent !== st) label.textContent = st;
+  var pm = row.querySelector(".pmark");
+  var busy = state.status === "running";
+  if (pm && busy && !pm.hasAttribute("data-busy")) pm.setAttribute("data-busy", "");
+  if (pm && !busy && pm.hasAttribute("data-busy")) pm.removeAttribute("data-busy");
+}
+function renderAfter() {
+  var box = document.getElementById("after");
+  if (!box) return;
+  var s = state.status, h = "";
+  if (s === "running") {
+    h = '<span class="note" data-keys><kbd>Esc</kbd> to stop</span>';
+  } else if (s === "stopped" || s === "error") {
+    var n = wordCount(state.answer);
+    var note = n === 0 ? "Stopped before it answered"
+      : s === "error" ? "Stopped mid-answer"
+      : "Stopped at " + n + " " + (n === 1 ? "word" : "words");
+    h = '<span class="note">' + esc(note) + "</span>" +
+      '<span class="acts">' +
+      '<button type="button" class="act" data-main data-act="resume">' + IC.play() + "Resume</button>" +
+      '<button type="button" class="act" data-act="retry">' + IC.retry() + "Retry</button>" +
+      '<button type="button" class="act" data-act="dismiss">' + IC.x() + "Dismiss</button></span>";
+  } else if (s === "done") {
+    var doneNote = (state.took === undefined || state.took === null) ? "Done" : "Done in " + fmtTime(state.took);
+    h = '<span class="note">' + esc(doneNote) + "</span>" +
+      '<span class="acts"><button type="button" class="act" data-act="retry">' + IC.retry() + "Retry</button></span>";
+  }
+  box.innerHTML = h;
+}
+function renderQueue() {
+  queueEl.innerHTML = "";
+  if (!state.queue.length) { queueEl.setAttribute("hidden", ""); queueEl.removeAttribute("data-more"); return; }
+  queueEl.removeAttribute("hidden");
+  if (state.queue.length > 4) queueEl.setAttribute("data-more", "");
+  else queueEl.removeAttribute("data-more");
+  state.queue.forEach(function (q, i) {
+    var li = document.createElement("li");
+    li.setAttribute("class", "queued");
+    li.innerHTML = IC.queue() +
+      '<span class="queued-text" title="' + esc(q.text) + '">' + esc(q.text) + "</span>" +
+      '<span class="queued-n">' + (i === 0 ? "Next" : "#" + (i + 1)) + "</span>";
+    var rm = document.createElement("button");
+    rm.setAttribute("type", "button");
+    rm.setAttribute("class", "icon-btn");
+    rm.setAttribute("aria-label", "Remove \u201c" + q.text + "\u201d from the queue");
+    rm.innerHTML = IC.x();
+    rm.addEventListener("click", function (ev) { ev.stopPropagation(); unqueue(q.id); });
+    li.appendChild(rm);
+    queueEl.appendChild(li);
+  });
+}
+function permDef() {
+  for (var i = 0; i < PERMS.length; i++) if (PERMS[i].id === state.perm) return PERMS[i];
+  return PERMS[0];
+}
+function renderMode() {
+  modeEl.innerHTML = "";
+  ["chat", "act"].forEach(function (m) {
+    var b = document.createElement("button");
+    b.setAttribute("type", "button");
+    b.setAttribute("role", "radio");
+    b.setAttribute("data-mode", m);
+    b.setAttribute("aria-checked", state.mode === m ? "true" : "false");
+    b.tabIndex = state.mode === m ? 0 : -1;
+    b.textContent = m === "chat" ? "Chat" : "Act";
+    b.addEventListener("click", function (ev) { ev.stopPropagation(); setMode(m); });
+    modeEl.appendChild(b);
+  });
+}
+function renderPerm() {
+  var d = permDef(), chat = state.mode === "chat";
+  permBtn.innerHTML = permIcon(state.perm) +
+    '<span class="perm-label">' + esc(d.label) + "</span>" + IC.chev();
+  permBtn.setAttribute("aria-label", "Permissions: " + d.label);
+  permBtn.setAttribute("aria-expanded", state.menu ? "true" : "false");
+  permBtn.setAttribute("aria-controls", "menu");
+  if (state.perm === "full") permBtn.setAttribute("data-tone", "alert");
+  else permBtn.removeAttribute("data-tone");
+  if (chat) {
+    permBtn.setAttribute("disabled", "");
+    permBtn.setAttribute("title", "Chat only answers \u2013 it never changes anything");
+  } else {
+    permBtn.removeAttribute("disabled");
+    permBtn.setAttribute("title", d.hint);
+  }
+  if (state.menu) menuEl.removeAttribute("hidden");
+  else menuEl.setAttribute("hidden", "");
+  if (state.menu) {
+    menuEl.innerHTML = "";
+    PERMS.forEach(function (p) {
+      var b = document.createElement("button");
+      b.setAttribute("type", "button");
+      b.setAttribute("role", "menuitemradio");
+      b.setAttribute("aria-checked", p.id === state.perm ? "true" : "false");
+      b.tabIndex = -1;
+      b.setAttribute("class", "item");
+      if (p.id === "full") b.setAttribute("data-tone", "alert");
+      b.innerHTML = '<span class="item-icon">' + permIcon(p.id) + "</span>" +
+        '<span class="item-text"><span>' + esc(p.label) + "</span><span>" + esc(p.hint) + "</span></span>" +
+        '<span class="item-check">' + (p.id === state.perm ? IC.check() : "") + "</span>";
+      b.addEventListener("click", function (ev) {
+        ev.stopPropagation();
+        state.perm = p.id; setMenu(false); renderPerm(); permBtn.focus();
+      });
+      menuEl.appendChild(b);
+    });
+  }
+}
+function renderCtx() {
+  var f = ctxFrac(), pct = Math.round(f * 100);
+  ctxEl.innerHTML = "";
+  var NS = "http://www.w3.org/2000/svg";
+  var svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("width", "16"); svg.setAttribute("height", "16");
+  svg.setAttribute("viewBox", "0 0 16 16"); svg.setAttribute("aria-hidden", "true");
+  var bg = document.createElementNS(NS, "circle");
+  bg.setAttribute("cx", "8"); bg.setAttribute("cy", "8"); bg.setAttribute("r", "6");
+  bg.setAttribute("class", "ctx-track");
+  var fg = document.createElementNS(NS, "circle");
+  fg.setAttribute("cx", "8"); fg.setAttribute("cy", "8"); fg.setAttribute("r", "6");
+  fg.setAttribute("class", "ctx-fill");
+  fg.setAttribute("stroke-dasharray", (CIRC * f).toFixed(1) + " " + CIRC.toFixed(1));
+  fg.setAttribute("transform", "rotate(-90 8 8)");
+  svg.appendChild(bg); svg.appendChild(fg);
+  ctxEl.appendChild(svg);
+  var lab = document.createElement("span");
+  lab.textContent = pct + "%";
+  ctxEl.appendChild(lab);
+  var sr = document.createElement("span");
+  sr.setAttribute("class", "sr");
+  sr.textContent = " of the context in use";
+  ctxEl.appendChild(sr);
+  ctxEl.setAttribute("title", pct + "% of the context window in use");
+  if (f >= 0.8) ctxEl.setAttribute("data-high", "");
+  else ctxEl.removeAttribute("data-high");
+}
+function renderActions() {
+  actionsEl.innerHTML = "";
+  var running = state.status === "running";
+  function mk(cls, label, title, icon, dis, act, solid) {
+    var b = document.createElement("button");
+    b.setAttribute("type", "button");
+    b.setAttribute("class", cls);
+    b.setAttribute("aria-label", label);
+    if (title) b.setAttribute("title", title);
+    if (dis) b.setAttribute("disabled", "");
+    if (solid) b.setAttribute("data-solid", "");
+    if (act) b.setAttribute("data-act", act);
+    b.innerHTML = icon;
+    return b;
+  }
+  if (running && state.input.trim()) {
+    var q = mk("btn", "Queue for later", "Queue for when the run is done (\u2325 Enter)", IC.queue() + "Queue", false, "queue");
+    q.addEventListener("click", function (ev) { ev.stopPropagation(); doQueue(); });
+    var st = mk("btn", "Steer the agent now", "Steer the agent now (Enter)", IC.steer() + "Steer", false, "steer", true);
+    st.addEventListener("click", function (ev) { ev.stopPropagation(); doSteer(); });
+    actionsEl.appendChild(q); actionsEl.appendChild(st);
+  } else if (running) {
+    var stop = mk("round", "Stop the run (Esc)", "Stop (Esc)", IC.stop(), false, "stop");
+    stop.setAttribute("data-stop", "");
+    stop.addEventListener("click", function (ev) { ev.stopPropagation(); doStop(); });
+    actionsEl.appendChild(stop);
+  } else {
+    var send = mk("round", "Send (Enter)", "Send (Enter)", IC.send(), !state.input.trim(), "send");
+    send.addEventListener("click", function (ev) { ev.stopPropagation(); doSend(); });
+    actionsEl.appendChild(send);
+  }
+}
+function renderComposerChrome() {
+  var running = state.status === "running";
+  field.setAttribute("placeholder", running ? "Steer the agent, or queue what\u2019s next\u2026" : "Ask the agent\u2026");
+  field.setAttribute("aria-label", running ? "Steer or queue a message" : "Message");
+  keysHint.textContent = running
+    ? "Enter steers the agent now, Option Enter queues the message, Escape stops the run"
+    : "Enter sends, Shift Enter adds a line";
+  renderMode(); renderPerm(); renderCtx(); renderActions();
+}
+function renderLive() {
+  var t = "";
+  if (state.prompt) {
+    var st = statusText();
+    if (st) t += AGENT.name + ": " + st;
+    if (state.queue.length) t += ", " + state.queue.length + " queued";
+  }
+  liveEl.textContent = t;
+}
+function renderHeader() {
+  var n = state.status === "running" ? 1 : 0;
+  workingCount.textContent = n + " working";
+  workingCount.setAttribute("data-live", n ? "true" : "false");
+}
+function renderAll() {
+  rcl.setAttribute("data-status", state.status);
+  renderLog(); renderQueue(); renderComposerChrome(); renderLive(); renderHeader();
+}
+
+/* ============ run engine (timings match the demo) ============ */
+function clearTimers() {
+  if (tickTimer) { clearTimeout(tickTimer); tickTimer = null; }
+  if (queueTimer) { clearTimeout(queueTimer); queueTimer = null; }
+}
+function sourceFor(prompt) {
+  if (prompt === PROMPT_X) return ANSWER_S;
+  if (prompt === QUEUE_T) return ANSWER_E;
+  return null;
+}
+function startRun(promptText) {
+  clearTimers();
+  var src = sourceFor(promptText);
+  var body = src !== null ? src : fallbackFor(promptText);
+  state.prompt = promptText;
+  state.answer = "";
+  state.steers = [];
+  state.status = "running";
+  sourceKind = src !== null ? (promptText === PROMPT_X ? "S" : "E") : "custom";
+  tokensLeft = tokenize(body);
+  accumulated = "";
+  runStart = (typeof performance !== "undefined" ? performance.now() : Date.now());
+  renderAll();
+  scheduleTick(true);
+}
+function scheduleTick(first) {
+  clearTimeout(tickTimer);
+  tickTimer = setTimeout(tick, first ? (accumulated ? 60 : 900) : 30 + Math.random() * 40);
+}
+function scheduleQueueAdvance() {
+  if (!state.queue.length) return;
+  queueTimer = setTimeout(function () {
+    var next = state.queue.shift();
+    if (!next) return;
+    renderQueue(); renderLive();
+    startRun(next.text);
+  }, 1100);
+}
+function tick() {
+  if (state.status !== "running") return;
+  var tok = tokensLeft.shift();
+  if (tok === undefined) {
+    var now = (typeof performance !== "undefined" ? performance.now() : Date.now());
+    state.took = (now - runStart) / 1000;
+    state.status = "done";
+    syncLogHead(); renderAnswerBody(); renderAfter(); renderComposerChrome(); renderLive(); renderHeader();
+    rcl.setAttribute("data-status", "done");
+    scheduleQueueAdvance();
+    return;
+  }
+  accumulated += tok;
+  state.answer = accumulated;
+  appendTokenFast(tok);
+  syncLogHead();
+  renderCtx(); // targeted context update only
+  if (autoSteerArmed && sourceKind === "S" && accumulated.length > 100 && accumulated.slice(-2) === "\n\n") {
+    sourceKind = "";
+    injectSteer(STEER_C);
+    scheduleTick(false);
+    return;
+  }
+  scheduleTick(false);
+}
+function injectSteer(text) {
+  var at = accumulated.length;
+  state.steers = state.steers.concat([{ at: at, text: text }]);
+  var rest = tokensLeft.join("");
+  var cont = (text === STEER_C) ? ANSWER_W
+    : " Noted \u2013 " + text.replace(/[.!]+$/, "").toLowerCase() + ". " + rest;
+  tokensLeft = tokenize(cont);
+  renderAnswerBody(); syncLogHead(); renderLive();
+}
+function doSteer() {
+  var v = field.value.trim();
+  if (!v || state.status !== "running") return;
+  field.value = ""; state.input = "";
+  injectSteer(v);
+  renderComposerChrome(); field.focus();
+}
+function doQueue() {
+  var v = field.value.trim();
+  if (!v) return;
+  field.value = ""; state.input = "";
+  state.queue = state.queue.concat([{ id: "q" + Date.now(), text: v }]);
+  renderQueue(); renderActions(); renderLive(); field.focus();
+}
+function doSend() {
+  var v = field.value.trim();
+  if (!v || state.status === "running") return;
+  field.value = ""; state.input = "";
+  startRun(v);
+  field.focus();
+}
+function doStop() {
+  if (state.status !== "running") return;
+  clearTimers();
+  state.status = "stopped";
+  rcl.setAttribute("data-status", "stopped");
+  syncLogHead(); renderAnswerBody(); renderAfter(); renderComposerChrome(); renderLive(); renderHeader();
+}
+function doResume() {
+  if (state.status !== "stopped" && state.status !== "error") return;
+  state.status = "running";
+  rcl.setAttribute("data-status", "running");
+  syncLogHead(); renderAnswerBody(); renderAfter(); renderComposerChrome(); renderLive(); renderHeader();
+  scheduleTick(false);
+}
+function doRetry() {
+  if (!state.prompt || state.status === "running") return;
+  startRun(state.prompt);
+}
+function doDismiss() {
+  clearTimers();
+  state.prompt = undefined;
+  state.answer = ""; state.steers = []; state.status = "idle";
+  renderAll();
+}
+function unqueue(id) {
+  state.queue = state.queue.filter(function (q) { return q.id !== id; });
+  renderQueue(); renderLive();
+}
+function setMode(m) {
+  if (state.mode === m) return;
+  state.mode = m;
+  renderMode(); renderPerm();
+  var btn = modeEl.querySelector('[data-mode="' + m + '"]');
+  if (btn && document.activeElement && modeEl.contains(document.activeElement)) btn.focus();
+}
+function setMenu(open) {
+  state.menu = open;
+  renderPerm();
+  if (open) {
+    var items = menuEl.querySelectorAll('[role="menuitemradio"]');
+    for (var i = 0; i < items.length; i++)
+      if (items[i].getAttribute("aria-checked") === "true") { items[i].focus(); break; }
+  }
+}
+
+/* ============ events ============ */
+// trusted-gesture disarms the scripted auto-steer (capture, like the demo)
+rcl.addEventListener("pointerdown", function (e) { if (e.isTrusted) autoSteerArmed = false; }, true);
+rcl.addEventListener("keydown", function (e) { if (e.isTrusted) autoSteerArmed = false; }, true);
+
+field.addEventListener("input", function () {
+  state.input = field.value;
+  renderActions(); // targeted: only the action buttons change
+});
+field.addEventListener("keydown", function (e) {
+  if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+    e.preventDefault();
+    if (state.status === "running") { if (e.altKey) doQueue(); else doSteer(); }
+    else doSend();
+  }
+});
+rcl.addEventListener("keydown", function (e) {
+  if (e.key === "Escape" && state.status === "running" && !state.menu) {
+    e.preventDefault();
+    doStop();
+  }
+});
+writeEl.addEventListener("click", function () { field.focus(); });
+rcl.addEventListener("click", function (e) {
+  var b = e.target.closest ? e.target.closest("[data-act]") : null;
+  if (!b || !rcl.contains(b)) return;
+  var a = b.getAttribute("data-act");
+  if (a === "resume") doResume();
+  else if (a === "retry") doRetry();
+  else if (a === "dismiss") doDismiss();
+  else if (a === "stop") doStop();
+});
+// permission popover opens on pointerdown capture so the click survives
+permBtn.addEventListener("pointerdown", function (e) {
+  e.stopPropagation();
+  if (permBtn.disabled) return;
+  setMenu(!state.menu);
+}, true);
+permBtn.addEventListener("click", function (e) { e.stopPropagation(); });
+menuEl.addEventListener("click", function (e) { e.stopPropagation(); });
+document.addEventListener("pointerdown", function (e) {
+  if (state.menu && !menuEl.contains(e.target) && e.target !== permBtn && !permBtn.contains(e.target))
+    setMenu(false);
+});
+menuEl.addEventListener("keydown", function (e) {
+  var items = Array.prototype.slice.call(menuEl.querySelectorAll('[role="menuitemradio"]'));
+  var i = items.indexOf(document.activeElement);
+  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+    e.preventDefault();
+    var n = (i + (e.key === "ArrowDown" ? 1 : items.length - 1)) % items.length;
+    if (items[n]) items[n].focus();
+  } else if (e.key === "Home" || e.key === "End") {
+    e.preventDefault();
+    var t = items[e.key === "Home" ? 0 : items.length - 1];
+    if (t) t.focus();
+  } else if (e.key === "Escape" || e.key === "Tab") {
+    if (e.key === "Escape") e.preventDefault();
+    e.stopPropagation();
+    setMenu(false);
+    if (e.key === "Escape") permBtn.focus();
+  }
+});
+modeEl.addEventListener("keydown", function (e) {
+  if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].indexOf(e.key) === -1) return;
+  e.preventDefault();
+  var next = state.mode === "chat" ? "act" : "chat";
+  setMode(next);
+  var btn = modeEl.querySelector('[data-mode="' + next + '"]');
+  if (btn) btn.focus();
+});
+var logStuck = true;
+logEl.addEventListener("scroll", function () {
+  logStuck = (logEl.scrollHeight - logEl.scrollTop - logEl.clientHeight) < 24;
+});
+
+/* ============ theme toggle ============ */
+var themeBtn = $("themeBtn");
+function paintThemeBtn() {
+  var dark = document.documentElement.getAttribute("data-theme") === "dark";
+  themeBtn.innerHTML = dark ? IC.sun() : IC.moon();
+  themeBtn.setAttribute("aria-label", dark ? "Switch to light theme" : "Switch to dark theme");
+}
+themeBtn.addEventListener("click", function () {
+  var cur = document.documentElement.getAttribute("data-theme");
+  var next = cur === "dark" ? "light" : "dark";
+  document.documentElement.setAttribute("data-theme", next);
+  try { localStorage.setItem("rcl-theme", next); } catch (e) {}
+  paintThemeBtn();
+});
+(function initTheme() {
+  var saved = null;
+  try { saved = localStorage.getItem("rcl-theme"); } catch (e) {}
+  if (saved === "light" || saved === "dark") {
+    document.documentElement.setAttribute("data-theme", saved);
+  } else if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
+    document.documentElement.setAttribute("data-theme", "dark");
+  } else {
+    document.documentElement.setAttribute("data-theme", "light"); // original demo appearance
+  }
+  paintThemeBtn();
+})();
+
+/* ============ boot ============ */
+renderAll();
+if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+  // instant path, mirrors the demo: first paragraph + scripted steer + three-day rewrite
+  clearTimers();
+  var cut = ANSWER_S.indexOf("\n\n") + 2;
+  var head = ANSWER_S.slice(0, cut);
+  state.steers = [{ at: head.length, text: STEER_C }];
+  state.answer = head + ANSWER_W;
+  accumulated = state.answer;
+  state.status = "done";
+  renderAll();
+  scheduleQueueAdvance();
+} else {
+  scheduleTick(true);
+}
+</script>
+</body>
+</html>
