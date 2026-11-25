@@ -1,0 +1,1276 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>agent-timing — Fix the cart total</title>
+<script>
+/* Early theme boot: honour saved choice, else OS preference. */
+(function () {
+  try {
+    var saved = localStorage.getItem("atg-theme");
+    var theme = saved || (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    document.documentElement.setAttribute("data-theme", theme);
+  } catch (e) { /* storage unavailable: stay on default */ }
+})();
+</script>
+<style>
+/* ============ design tokens (required) ============ */
+html[data-theme="light"] {
+  --page: #fafaf9;
+  --surface: #ffffff;
+  --ink: #171717;
+  --ink-strong: #1c1917;
+  --muted: #78716c;
+  --subtle: #f5f5f4;
+  --border: #e7e5e4;
+  --shadow: 0 1px 2px rgba(0,0,0,.05), 0 4px 16px rgba(0,0,0,.05);
+  --shadow-pop: 0 0 0 1px rgba(0,0,0,.06), 0 8px 20px -8px rgba(0,0,0,.14), 0 2px 6px -2px rgba(0,0,0,.06);
+  --atg-blue: rgba(0, 96, 226, 0.78);
+  --atg-blue-solid: #005fe0;
+  --atg-person: rgba(0, 0, 0, 0.88);
+  --atg-amber: #e08a00;
+  --atg-amber-dot: #f59e0b;
+  --atg-amber-bg: #fef3c7;
+  --atg-amber-text: #92400e;
+  --atg-faint: rgba(0, 0, 0, 0.30);
+  --atg-track: rgba(0, 0, 0, 0.10);
+  --atg-grid: rgba(0, 0, 0, 0.045);
+  --atg-focus: rgba(0, 96, 226, 0.70);
+  --atg-idle-bg: rgba(127, 127, 127, 0.12);
+  --on-blue: #ffffff;
+}
+html[data-theme="dark"] {
+  --page: #101012;
+  --surface: #1c1c1f;
+  --ink: #ededed;
+  --ink-strong: #ffffff;
+  --muted: #a1a1aa;
+  --subtle: #26262a;
+  --border: #2e2e33;
+  --shadow: 0 0 0 1px rgba(255,255,255,.07), 0 4px 18px rgba(0,0,0,.45);
+  --shadow-pop: 0 0 0 1px rgba(255,255,255,.10), 0 8px 20px -8px rgba(0,0,0,.55), 0 2px 6px -2px rgba(0,0,0,.35);
+  --atg-blue: rgba(77, 141, 255, 0.85);
+  --atg-blue-solid: #6cbcff;
+  --atg-person: rgba(255, 255, 255, 0.90);
+  --atg-amber: #ffb35c;
+  --atg-amber-dot: #fbbf24;
+  --atg-amber-bg: #451a03;
+  --atg-amber-text: #fde68a;
+  --atg-faint: rgba(255, 255, 255, 0.34);
+  --atg-track: rgba(255, 255, 255, 0.13);
+  --atg-grid: rgba(255, 255, 255, 0.055);
+  --atg-focus: rgba(77, 141, 255, 0.80);
+  --atg-idle-bg: rgba(127, 127, 127, 0.18);
+  --on-blue: #101014;
+}
+/* agent accent colours (exact demo palette, theme-independent) */
+:root {
+  --radius-lg: 16px;
+  --radius: 10px;
+  --radius-sm: 6px;
+  --atg-c1: rgba(166, 81, 240, 0.85);
+  --atg-c2: rgba(20, 179, 240, 0.85);
+  --atg-c3: rgba(95, 200, 138, 0.9);
+  --atg-c4: rgba(238, 62, 158, 0.8);
+  --atg-c5: rgba(94, 106, 210, 0.85);
+  --atg-c6: rgba(20, 160, 150, 0.85);
+  --atg-ease: cubic-bezier(0.32, 0.72, 0.24, 1);
+}
+/* ============ page ============ */
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--page);
+  color: var(--muted);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px;
+  line-height: 1.45;
+  min-height: 100vh;
+  transition: background 150ms ease, color 150ms ease;
+}
+.page {
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 28px 20px 40px;
+}
+.page-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 34px;
+  height: 34px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  transition: transform 150ms ease, box-shadow 150ms ease, background 150ms ease;
+}
+.icon-btn:hover { transform: translateY(-1px); }
+.icon-btn:focus-visible { outline: 2px solid var(--atg-focus); outline-offset: 2px; }
+.icon-btn svg { width: 16px; height: 16px; flex: none; }
+.sr-only {
+  position: absolute; width: 1px; height: 1px;
+  margin: -1px; padding: 0; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+/* ============ component card ============ */
+.atg {
+  background: var(--subtle);
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius-lg) + 4px);
+  padding: 4px;
+  font-size: 13px;
+}
+.atg-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-height: 20px;
+  padding: 9px 12px 11px;
+}
+.atg-title {
+  flex: 1 1 0;
+  min-width: min(140px, 100%);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--ink-strong);
+}
+.atg-sum {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.atg-sum b { font-weight: 600; color: var(--ink); }
+.atg-wait {
+  min-height: 22px;
+  padding: 0 9px;
+  border-radius: 999px;
+  background: var(--atg-amber-bg);
+  color: var(--atg-amber-text);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 22px;
+}
+.atg-time { min-width: 34px; font-weight: 600; color: var(--ink); text-align: right; }
+.atg-ctl {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  transition: color 150ms ease, transform 150ms ease;
+}
+.atg-ctl:hover { color: var(--ink); transform: translateY(-1px); }
+.atg-ctl:focus-visible { outline: 2px solid var(--atg-focus); outline-offset: 2px; }
+.atg-grid {
+  padding: 16px 18px 8px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  grid-template-rows: auto 26px;
+}
+/* ============ names column ============ */
+.atg-names {
+  margin: 0;
+  padding: 0 16px 0 0 !important;
+  list-style: none;
+  display: grid;
+}
+.atg-who {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  grid-template-rows: 18px 17px;
+  column-gap: 8px;
+  align-content: start;
+  min-width: 0;
+  height: 64px;
+  padding-top: 15px;
+}
+/* deterministic 3x3 pixel-mark per agent id — exactly 9 cells */
+.atg-mark {
+  display: grid;
+  grid-template-columns: repeat(3, 3px);
+  grid-auto-rows: 3px;
+  gap: 1.5px;
+  place-content: center;
+  width: 16px;
+  height: 16px;
+  align-self: center;
+}
+.atg-mark i {
+  display: block;
+  width: 3px;
+  height: 3px;
+  border-radius: 0.75px;
+  background: var(--mark-c, var(--atg-blue));
+  opacity: 0;
+}
+.atg-mark i.on { opacity: 1; }
+.atg-mark.busy i.on { animation: atg-pixel 1.2s ease-in-out infinite both; }
+.atg-name {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 18px;
+  color: var(--ink);
+}
+.atg-status {
+  grid-column: 2;
+  justify-self: start;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  height: 17px;
+  margin-top: 1px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--pill-bg, var(--atg-idle-bg));
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 17px;
+  color: var(--pill-fg, var(--muted));
+}
+.atg-status:empty { display: none; }
+/* ============ plot ============ */
+.atg-plot {
+  position: relative;
+  isolation: isolate;
+  min-width: 0;
+  min-height: 64px;
+}
+.atg-gridline {
+  position: absolute;
+  top: 0;
+  bottom: -4px;
+  width: 1px;
+  margin-left: -0.5px;
+  background: var(--atg-grid);
+  pointer-events: none;
+}
+.atg-base {
+  position: absolute;
+  left: 0;
+  height: 1.5px;
+  margin-top: -0.75px;
+  background: var(--atg-track);
+  pointer-events: none;
+}
+.atg-empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+.atg-svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+  overflow: visible;
+  pointer-events: none;
+}
+.atg-seg { transition: opacity 200ms ease; }
+.atg-seg.dim { opacity: 0.75; }
+.atg-line {
+  fill: none;
+  stroke: var(--seg-c);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.atg-seg[data-state="waiting"] .atg-line { stroke-dasharray: 3 3; }
+.atg-area { fill: var(--seg-c); opacity: 0.10; }
+.atg-dot { fill: var(--seg-c); stroke: var(--surface); stroke-width: 1.5; }
+.atg-pulse {
+  fill: var(--seg-c);
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: atg-pulse 1.8s var(--atg-ease) infinite;
+}
+.atg-steps { position: absolute; inset: 0; z-index: 2; margin: 0; padding: 0; list-style: none; }
+.atg-step {
+  position: absolute;
+  border-radius: 4px 4px 0 0;
+  outline: none;
+  cursor: default;
+}
+.atg-step:focus-visible { outline: 2px solid var(--atg-focus); outline-offset: 2px; }
+.atg-step-label {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  left: 7px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 15px;
+  color: var(--seg-c);
+  pointer-events: none;
+  transition: opacity 200ms ease;
+}
+.atg-step[data-state="thinking"] .atg-step-label { font-weight: 500; color: var(--muted); }
+.atg-step-label.dim { opacity: 0.75; }
+.atg-hand {
+  position: absolute;
+  z-index: 1;
+  border-radius: 4px;
+  outline: none;
+  cursor: default;
+  transition: opacity 200ms ease;
+}
+.atg-hand:focus-visible { outline: 2px solid var(--atg-focus); outline-offset: 2px; }
+.atg-hand.dim { opacity: 0.75; }
+.atg-hand-svg { position: absolute; inset: 0; overflow: visible; }
+.atg-hand-wire {
+  fill: none;
+  stroke: var(--hand-c);
+  opacity: 0.7;
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+  stroke-linecap: butt;
+}
+.atg-hand-dot { fill: var(--hand-c); stroke: var(--surface); stroke-width: 1.5; }
+.atg-now {
+  position: absolute;
+  top: 0;
+  bottom: -6px;
+  z-index: 3;
+  width: 1.5px;
+  margin-left: -0.75px;
+  background: var(--atg-blue);
+  pointer-events: none;
+}
+.atg-axis { position: relative; height: 26px; grid-column: 2; }
+.atg-tick {
+  position: absolute;
+  top: 6px;
+  font-size: 11.5px;
+  line-height: 16px;
+  color: var(--atg-faint);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  translate: -50% 0;
+}
+.atg-tick.edge-start { translate: 0 0; }
+.atg-tick.edge-end { translate: -100% 0; }
+.atg-tick.gone { opacity: 0; }
+.atg-now-pill {
+  position: absolute;
+  top: 5px;
+  z-index: 2;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: var(--atg-blue-solid);
+  color: var(--on-blue);
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 20px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  translate: -50% 0;
+}
+/* ============ tooltip ============ */
+.atg-tip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 5;
+  display: grid;
+  gap: 3px;
+  width: max-content;
+  min-width: 170px;
+  max-width: min(270px, 100%);
+  padding: 10px 14px 11px;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius-lg) - 2px);
+  background: var(--surface);
+  box-shadow: var(--shadow-pop);
+  pointer-events: none;
+  animation: atg-tip 160ms var(--atg-ease) both;
+}
+.atg-tip[hidden] { display: none; }
+.atg-tip-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 19px;
+  color: var(--ink);
+}
+.atg-tip-head bdi { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.atg-tip-to { flex: none; font-weight: 400; color: var(--muted); }
+.atg-tip-state {
+  flex: none;
+  margin-left: auto;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: var(--atg-idle-bg);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 20px;
+  color: var(--tip-c, var(--muted));
+}
+.atg-tip-state[data-state="waiting"] { background: var(--atg-amber-bg); color: var(--atg-amber-text); }
+.atg-tip-label { font-size: 13px; line-height: 18px; color: var(--muted); overflow-wrap: anywhere; }
+.atg-tip-meta { font-size: 12.5px; line-height: 17px; color: var(--muted); font-variant-numeric: tabular-nums; }
+/* ============ responsive: narrow = stacked/list ============ */
+@media (max-width: 560px) {
+  .atg-grid { grid-template-columns: 32px minmax(0, 1fr); padding: 12px 12px 6px 10px; }
+  .atg-names { padding-right: 12px !important; }
+  .atg-who { grid-template-columns: 16px; }
+  .atg-name, .atg-status { display: none; }
+  .atg-sum { flex-basis: 100%; margin-left: 0; }
+  .atg-time { margin-left: auto; }
+}
+@keyframes atg-pixel { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
+@keyframes atg-pulse { 0% { opacity: 0.45; transform: scale(1); } 100% { opacity: 0; transform: scale(3.2); } }
+@keyframes atg-tip { from { opacity: 0; transform: translateY(3px) scale(0.97); } }
+@media (prefers-reduced-motion: reduce) {
+  .atg *, .atg *::before, .atg *::after { animation: none !important; transition: none !important; }
+  .atg-pulse { display: none; }
+}
+.hint { margin: 12px 4px 0; font-size: 12.5px; color: var(--muted); }
+.hint kbd {
+  display: inline-block;
+  padding: 0 5px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--surface);
+  font-family: inherit;
+  font-size: 11.5px;
+  color: var(--ink);
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="page-bar">
+    <h1 class="sr-only">Agent run as a timing diagram</h1>
+    <button class="icon-btn" id="themeBtn" type="button" aria-pressed="false" title="Toggle light / dark theme">
+      <svg id="themeIconMoon" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <path d="M13.5 9.5A5.5 5.5 0 0 1 6.5 2.5a5.5 5.5 0 1 0 7 7Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+      </svg>
+      <svg id="themeIconSun" viewBox="0 0 16 16" fill="none" aria-hidden="true" hidden>
+        <circle cx="8" cy="8" r="3" stroke="currentColor" stroke-width="1.5"/>
+        <path d="M8 1.5v1.6M8 12.9v1.6M1.5 8h1.6M12.9 8h1.6M3.4 3.4l1.1 1.1M11.5 11.5l1.1 1.1M12.6 3.4l-1.1 1.1M4.5 11.5l-1.1 1.1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+      <span id="themeLabel">Dark</span>
+    </button>
+  </div>
+
+  <section class="atg" id="atg" aria-labelledby="atgTitle">
+    <header class="atg-bar">
+      <span class="atg-title" id="atgTitle" dir="auto">Fix the cart total</span>
+      <span class="atg-sum" id="atgSum">
+        <span class="atg-wait" id="atgWait" hidden></span>
+        <span id="atgTools" hidden><b id="atgToolCount">0</b> <span id="atgToolWord">tool calls</span></span>
+        <span class="atg-time" id="atgTime">0:00</span>
+      </span>
+      <button class="atg-ctl" id="pauseBtn" type="button" title="Pause / resume the run" aria-label="Pause the run" aria-pressed="false">❚❚</button>
+      <button class="atg-ctl" id="replayBtn" type="button" title="Restart the run" aria-label="Restart the run">↻</button>
+    </header>
+    <div class="atg-grid" id="atgGrid">
+      <ul class="atg-names" id="atgNames" aria-label="Participants"></ul>
+      <div class="atg-plot" id="atgPlot">
+        <div id="atgLayers"></div>
+        <div class="atg-tip" id="atgTip" role="tooltip" hidden></div>
+      </div>
+      <div class="atg-axis" id="atgAxis" aria-hidden="true"></div>
+    </div>
+  </section>
+  <p class="hint">Hover a signal step or handoff for details — click to pin it. Steps are keyboard-focusable:
+    <kbd>←</kbd><kbd>→</kbd> move along a row, <kbd>↑</kbd><kbd>↓</kbd> change rows,
+    <kbd>Home</kbd>/<kbd>End</kbd> jump, <kbd>Esc</kbd> unpins. Focusing pauses the run.</p>
+</div>
+
+<script>
+"use strict";
+/* =====================================================================
+   agent-timing — clean-room replica.
+   Behaviour / data read from the compiled demo for understanding only;
+   all code below is original.
+   ===================================================================== */
+
+/* ---------- exact demo data (participants, segments, handoffs) ---------- */
+var PARTICIPANTS = [
+  { id: "you",      name: "You",      kind: "person" },
+  { id: "lead",     name: "Lead" },
+  { id: "coder",    name: "Coder" },
+  { id: "tester",   name: "Tester" },
+  { id: "reviewer", name: "Reviewer" },
+  { id: "docs",     name: "Docs" }
+];
+/* who / state(thinking|tool|waiting) / start,end seconds / label */
+var SEGMENTS = [
+  { who: "lead",     state: "thinking", start: 0.6,  end: 4,    label: "Planning the fix" },
+  { who: "lead",     state: "tool",     start: 4,    end: 8,    label: "search_code" },
+  { who: "lead",     state: "thinking", start: 9,    end: 10.5, label: "Splitting the work" },
+  { who: "coder",    state: "thinking", start: 9,    end: 11.5, label: "Reading the cart code" },
+  { who: "coder",    state: "tool",     start: 11.5, end: 15,   label: "read_file" },
+  { who: "coder",    state: "thinking", start: 15,   end: 17,   label: "Finding the rounding error" },
+  { who: "coder",    state: "tool",     start: 17,   end: 22.5, label: "edit_file" },
+  { who: "tester",   state: "tool",     start: 23.5, end: 29,   label: "run_tests" },
+  { who: "tester",   state: "thinking", start: 29,   end: 30,   label: "Reading the results" },
+  { who: "reviewer", state: "thinking", start: 25,   end: 26.5, label: "Reading the diff" },
+  { who: "reviewer", state: "tool",     start: 26.5, end: 29.5, label: "review_diff" },
+  { who: "reviewer", state: "thinking", start: 29.5, end: 31.2, label: "Writing notes" },
+  { who: "docs",     state: "thinking", start: 40.6, end: 41.6, label: "Reading the change" },
+  { who: "docs",     state: "tool",     start: 41.6, end: 43.6, label: "update_changelog" },
+  { who: "lead",     state: "thinking", start: 30.5, end: 33,   label: "Checking the change" },
+  { who: "lead",     state: "waiting",  start: 33.5, end: 39.5, label: "Approve the fix?" },
+  { who: "lead",     state: "tool",     start: 40,   end: 44,   label: "open_pull_request" }
+];
+var HANDOFFS = [
+  { from: "you",      to: "lead",     at: 0.2,  label: "Fix the cart total bug" },
+  { from: "lead",     to: "coder",    at: 8.6,  label: "Fix rounding in cart.ts" },
+  { from: "coder",    to: "tester",   at: 23,   label: "Run the cart tests" },
+  { from: "coder",    to: "reviewer", at: 24.6, label: "Review the rounding fix" },
+  { from: "tester",   to: "lead",     at: 30.2, label: "All 48 tests pass" },
+  { from: "reviewer", to: "lead",     at: 31.5, label: "Looks good, one nit" },
+  { from: "lead",     to: "you",      at: 33.2, label: "Approve the fix?" },
+  { from: "you",      to: "lead",     at: 39.6, label: "Approved" },
+  { from: "lead",     to: "docs",     at: 40.2, label: "Add it to the changelog" },
+  { from: "docs",     to: "lead",     at: 43.9, label: "Changelog updated" },
+  { from: "lead",     to: "you",      at: 44.4, label: "Pull request #482 is ready" }
+];
+var TITLE = "Fix the cart total";
+var DURATION = 46;      /* finished state at 46s */
+var LOOP_AT = 55.6;    /* restart the loop here */
+var SPEED = 3;         /* demo runs at 3x */
+var ROW_H = 64, BASE_Y = 52;
+var STATE_Y = { thinking: 30, tool: 13, waiting: 30 };
+var CORNER = 5;
+var EASE_T = 0.9;      /* step settle + drop retract time */
+var HAND_T = 0.6;      /* handoff wire draw-in time */
+var STATE_NAMES = { thinking: "Thinking", tool: "Tool call", waiting: "Waiting on you" };
+
+/* ---------- helpers (pure, exposed for tests) ---------- */
+function numOrNull(v) {
+  return (typeof v === "number" && isFinite(v)) ? Math.max(0, v) : null;
+}
+/* clock m:ss / h:mm:ss */
+function fmtClock(sec) {
+  var t = Math.max(0, Math.round(sec));
+  var h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), s = t % 60;
+  var mm = String(m).padStart(2, "0");
+  if (h) return h + ":" + String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
+  return m + ":" + String(s).padStart(2, "0");
+}
+/* busy duration: 4.2s / 12s / 3m 04s / 2h 05m */
+function fmtDur(sec) {
+  var v = Math.max(0, sec);
+  if (v < 10) { var s1 = v.toFixed(1).replace(/\.0$/, ""); return s1 + "s"; }
+  if (v < 60) return Math.round(v) + "s";
+  if (v < 3600) return Math.floor(v / 60) + "m " + String(Math.round(v % 60)).padStart(2, "0") + "s";
+  return Math.floor(v / 3600) + "h " + String(Math.floor((v % 3600) / 60)).padStart(2, "0") + "m";
+}
+/* deterministic symmetric 3x3 on/off pattern per agent id (>=5 cells lit) */
+function pixelCells(id) {
+  var h = 0, k, j, v, row, lit;
+  for (k = 0; k < id.length; k++) h = ((h * 31) + id.charCodeAt(k)) >>> 0;
+  for (k = 0; k < 64; k++) {
+    v = (h >>> (k % 26)) & 63;
+    row = [];
+    for (j = 0; j < 3; j++) {
+      var a = (v >>> (j * 2)) & 1, b = (v >>> (j * 2 + 1)) & 1;
+      row.push(a, b, a);
+    }
+    lit = 0;
+    for (j = 0; j < 9; j++) lit += row[j];
+    if (lit >= 5) return row;
+    h = ((h * 1103515245) + 12345) >>> 0;
+  }
+  return [1, 0, 1, 0, 1, 0, 1, 0, 1];
+}
+var MARK_DELAYS = [0, 120, 240, 120, 240, 360, 240, 360, 480];
+function easeOut(x) {
+  x = Math.min(1, Math.max(0, x));
+  var u = 1 - x;
+  return 1 - u * u * u;
+}
+/* nice axis step so ticks sit ~90px apart */
+var NICE_STEPS = [1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600, 7200, 14400];
+function tickStep(dur, width) {
+  for (var k = 0; k < NICE_STEPS.length; k++) {
+    if ((dur / NICE_STEPS[k]) * 90 <= width) return NICE_STEPS[k];
+  }
+  return NICE_STEPS[NICE_STEPS.length - 1];
+}
+function esc(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+/* agent accent colours: lead uses the theme-aware blue, rest cycle the demo palette */
+var PALETTE = ["var(--atg-c1)", "var(--atg-c2)", "var(--atg-c3)", "var(--atg-c4)", "var(--atg-c5)", "var(--atg-c6)"];
+var colorOf = (function () {
+  var map = {}, n = 0, k = 1;
+  PARTICIPANTS.forEach(function (p) {
+    if (p.kind === "person") { map[p.id] = "var(--atg-person)"; return; }
+    if (n++ === 0) map[p.id] = "var(--atg-blue)";
+    else map[p.id] = PALETTE[(k++ - 1) % PALETTE.length];
+  });
+  return function (id) { return map[id] || "var(--atg-blue)"; };
+})();
+function participantName(id) {
+  for (var k = 0; k < PARTICIPANTS.length; k++) {
+    if (PARTICIPANTS[k].id === id) return (PARTICIPANTS[k].name || "").trim() || "Agent";
+  }
+  return "Agent";
+}
+function segId(s) { return (typeof s.id === "string" && s.id) ? s.id : (s.who + "@" + s.start); }
+function handId(h, k) { return (typeof h.id === "string" && h.id) ? h.id : (h.from + ">" + h.to + "@" + h.at); }
+
+/* ---------- per-frame model ---------- */
+/* Returns everything the renderer needs for a given sim-time (seconds) or null when finished. */
+function buildModel(now) {
+  var D = (now === null || now === undefined) ? null : now;
+  var rowOf = {}, r;
+  PARTICIPANTS.forEach(function (p, k) { rowOf[p.id] = k; });
+  var vis = [];
+  SEGMENTS.forEach(function (s) {
+    var st = numOrNull(s.start);
+    if (st === null || !(s.state in STATE_Y) || !(s.who in rowOf)) return;
+    if (D !== null && st > D) return;
+    var en = numOrNull(s.end);
+    if (en !== null && D !== null && en > D) en = null; /* still running: open end */
+    if (en !== null) en = Math.max(st, en);
+    vis.push({ who: s.who, state: s.state, start: st, end: en,
+      label: (typeof s.label === "string") ? s.label.trim() : "",
+      id: segId({ id: s.id, who: s.who, start: st }) });
+  });
+  vis.sort(function (a, b) { return a.start - b.start; });
+  var hands = [];
+  HANDOFFS.forEach(function (h, k) {
+    var at = numOrNull(h.at);
+    if (at === null || !(h.from in rowOf) || !(h.to in rowOf) || h.from === h.to) return;
+    if (D !== null && at > D) return;
+    hands.push({ from: h.from, to: h.to, at: at,
+      label: (typeof h.label === "string") ? h.label.trim() : "", id: handId(h, k) });
+  });
+  hands.sort(function (a, b) { return a.at - b.at; });
+
+  var maxT = D !== null ? D : 0;
+  vis.forEach(function (s) { maxT = Math.max(maxT, s.end === null ? (D === null ? s.start : D) : s.end); });
+  hands.forEach(function (h) { maxT = Math.max(maxT, h.at); });
+  maxT = Math.max(maxT, 1);
+  var span = Math.max(numOrNull(DURATION) || 0, maxT * (numOrNull(DURATION) ? 1 : 1.08), 1);
+  if (numOrNull(DURATION)) span = Math.max(numOrNull(DURATION), 1);
+
+  /* live (open-ended) segment per participant */
+  var open = {};
+  vis.forEach(function (s) { if (s.end === null && D !== null) open[s.who] = s; });
+  var nWait = 0, nTool = 0;
+  Object.keys(open).forEach(function (w) {
+    if (open[w].state === "waiting") nWait++;
+    if (open[w].state === "tool") nTool++;
+  });
+
+  /* geometry per visible segment */
+  var R = span * 0.002;
+  var geo = {}, byWho = {};
+  vis.forEach(function (s) { (byWho[s.who] = byWho[s.who] || []).push(s); });
+  Object.keys(byWho).forEach(function (w) {
+    var list = byWho[w], row = rowOf[w], base = row * ROW_H + BASE_Y;
+    var laid = list.map(function (s, k) {
+      var prev = list[k - 1], next = list[k + 1];
+      var mEnd = Math.min(span, s.end === null ? (D === null ? s.start : D) : s.end);
+      if (next) mEnd = Math.min(mEnd, next.start);
+      return { s: s, k: k, prev: prev, next: next, mEnd: mEnd, base: base,
+        y: row * ROW_H + STATE_Y[s.state], row: row };
+    });
+    /* entrance easing: slide from previous level toward the new one */
+    laid.forEach(function (g) {
+      var fromY = base;
+      if (g.prev && g.prev.end !== null && g.prev.end >= g.s.start - R) {
+        var pg = laid[g.k - 1];
+        fromY = pg ? pg.y : base;
+      }
+      g.fromY = fromY;
+      if (D !== null) g.yEff = fromY + (g.y - fromY) * easeOut((D - g.s.start) / EASE_T);
+      else g.yEff = g.y;
+      g.drop = (D === null || g.s.end === null) ? 1 : easeOut((D - g.s.end) / EASE_T);
+    });
+    laid.forEach(function (g, k) {
+      var contiguousNext = g.next && g.mEnd >= g.next.start - R;
+      var nextY = contiguousNext ? laid[k + 1].y : null;
+      var wNow = Math.max(0.5, g.mEnd - g.s.start);
+      var prevW = g.prev ? Math.max(0.5, laid[k - 1].mEnd - laid[k - 1].s.start) : CORNER;
+      var rIn = Math.min(CORNER, wNow / 2, prevW / 2, Math.abs(g.yEff - g.fromY) / 2 || CORNER);
+      var rOut;
+      if (contiguousNext) {
+        var nw = Math.max(0.5, laid[k + 1].mEnd - laid[k + 1].s.start);
+        rOut = Math.min(CORNER, nw / 2, wNow / 2, Math.abs(nextY - g.yEff) / 2 || CORNER);
+      } else {
+        rOut = Math.min(CORNER, wNow / 2, (g.base - g.yEff) / 2 || CORNER);
+      }
+      g.rIn = Math.max(0, rIn); g.rOut = Math.max(0, rOut);
+      g.toY = nextY;
+      g.isOpen = (g.s.end === null && D !== null && !g.next);
+      geo[g.s.id] = g;
+    });
+  });
+
+  function busy(w) {
+    var t = 0;
+    (byWho[w] || []).forEach(function (s) {
+      var e = s.end === null ? (D === null ? s.start : D) : Math.min(span, s.end);
+      t += Math.max(0, e - s.start);
+    });
+    return t;
+  }
+  var statuses = {};
+  PARTICIPANTS.forEach(function (p) {
+    var cur = open[p.id];
+    if (p.kind === "person") {
+      statuses[p.id] = nWait > 0 ? { text: "Your turn", tone: "wait" } : { text: "", tone: "" };
+    } else if (cur) {
+      if (cur.state === "waiting") statuses[p.id] = { text: "Waiting", tone: "wait" };
+      else if (cur.state === "tool") statuses[p.id] = { text: cur.label || "Tool call", tone: "tool" };
+      else statuses[p.id] = { text: cur.label || "Thinking", tone: "" };
+    } else if (D !== null) {
+      statuses[p.id] = { text: "Idle", tone: "idle" };
+    } else {
+      var b = busy(p.id);
+      statuses[p.id] = b > 0 ? { text: fmtDur(b) + " busy", tone: "idle" } : { text: "", tone: "" };
+    }
+  });
+
+  return { D: D, now: now, vis: vis, hands: hands, rowOf: rowOf, geo: geo,
+    open: open, nWait: nWait, nTool: nTool, maxT: maxT, span: span, statuses: statuses };
+}
+function stateLabel(s, D, span) {
+  var mEnd = Math.min(span, s.end === null ? (D === null ? s.start : D) : s.end);
+  var range = fmtClock(s.start) + " – " + ((s.end === null && D !== null) ? "now" : fmtClock(mEnd));
+  var dur = (s.end === null && D !== null)
+    ? fmtDur(mEnd - s.start) + " so far"
+    : fmtDur(mEnd - s.start);
+  return { range: range, dur: dur };
+}
+function segAria(s, D, span) {
+  var who = participantName(s.who);
+  var what = STATE_NAMES[s.state].toLowerCase() + (s.label ? ", " + s.label : "");
+  var mEnd = Math.min(span, s.end === null ? (D === null ? s.start : D) : s.end);
+  var when = "from " + fmtClock(s.start) + ((s.end === null && D !== null)
+    ? ", still running"
+    : " for " + fmtDur(mEnd - s.start));
+  return who + ", " + what + ", " + when;
+}
+function handAria(h) {
+  return participantName(h.from) + " handed " + (h.label ? "\u201c" + h.label + "\u201d work " : "work ") +
+    "to " + participantName(h.to) + " at " + fmtClock(h.at);
+}
+
+/* ---------- SVG path builders ---------- */
+function fnum(n) { return Math.round(n * 100) / 100; }
+function linePath(g, X) {
+  var x0 = X(g.s.start), x1 = Math.max(x0 + 1, X(g.mEnd));
+  var y = g.yEff, base = g.base, fromY = g.fromY, toY = g.toY;
+  var rIn = Math.min(g.rIn, 8), rOut = Math.min(g.rOut, 8), d;
+  if (fromY === y || rIn <= 0) { d = "M " + fnum(x0) + " " + fnum(y); }
+  else {
+    var dir = (y > fromY) ? 1 : -1;
+    d = "M " + fnum(x0 - rIn) + " " + fnum(fromY) +
+        " Q " + fnum(x0) + " " + fnum(fromY) + " " + fnum(x0) + " " + fnum(fromY + dir * rIn) +
+        " L " + fnum(x0) + " " + fnum(y - dir * rIn) +
+        " Q " + fnum(x0) + " " + fnum(y) + " " + fnum(x0 + rIn) + " " + fnum(y);
+  }
+  if (g.isOpen) {
+    if (g.drop < 1) {
+      var dy = (base - y) * g.drop;
+      d += " L " + fnum(x1 - rOut) + " " + fnum(y) +
+           " Q " + fnum(x1) + " " + fnum(y) + " " + fnum(x1) + " " + fnum(y + rOut) +
+           " L " + fnum(x1) + " " + fnum(Math.max(y + rOut, y + dy));
+    } else {
+      d += " L " + fnum(x1 - rOut) + " " + fnum(y) +
+           " Q " + fnum(x1) + " " + fnum(y) + " " + fnum(x1) + " " + fnum(y + rOut) +
+           " L " + fnum(x1) + " " + fnum(base - rOut) +
+           " Q " + fnum(x1) + " " + fnum(base) + " " + fnum(x1 + rOut) + " " + fnum(base);
+    }
+  } else if (toY === null) {
+    d += " L " + fnum(x1) + " " + fnum(y);
+  } else {
+    d += " L " + fnum(x1 - (toY === y ? 0 : rOut)) + " " + fnum(y);
+  }
+  return { d: d, x0: x0, x1: x1, y: y };
+}
+function areaPath(g, X, lp) {
+  var x0 = lp.x0, x1 = lp.x1, y = lp.y, base = g.base;
+  var l = (g.fromY === y) ? 0 : g.rIn;
+  var u = (g.isOpen || (g.toY !== null && g.toY <= y)) ? 0 : g.rOut;
+  return "M " + fnum(x0) + " " + fnum(base) +
+         " L " + fnum(x0) + " " + fnum(y + l) +
+         " Q " + fnum(x0) + " " + fnum(y) + " " + fnum(x0 + l) + " " + fnum(y) +
+         " L " + fnum(x1 - u) + " " + fnum(y) +
+         " Q " + fnum(x1) + " " + fnum(y) + " " + fnum(x1) + " " + fnum(y + u) +
+         " L " + fnum(x1) + " " + fnum(base) + " Z";
+}
+
+/* ---------- live page wiring (DOM kept minimal for stub testing) ---------- */
+(function page() {
+  var rootEl = (typeof document !== "undefined") ? document.getElementById("atg") : null;
+  if (!rootEl) return; /* headless import: helpers only */
+  var namesEl = document.getElementById("atgNames");
+  var plotEl = document.getElementById("atgPlot");
+  var layersEl = document.getElementById("atgLayers");
+  var axisEl = document.getElementById("atgAxis");
+  var tipEl = document.getElementById("atgTip");
+  var waitEl = document.getElementById("atgWait");
+  var toolsEl = document.getElementById("atgTools");
+  var toolCountEl = document.getElementById("atgToolCount");
+  var toolWordEl = document.getElementById("atgToolWord");
+  var timeEl = document.getElementById("atgTime");
+  var pauseBtn = document.getElementById("pauseBtn");
+  var replayBtn = document.getElementById("replayBtn");
+  var themeBtn = document.getElementById("themeBtn");
+
+  var reduced = false;
+  try {
+    reduced = !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  } catch (e) { reduced = false; }
+
+  var W = 0;                 /* plot width px */
+  var simT = reduced ? 36 : 0;
+  var lastTs = -1;
+  var userPause = false, focusPause = false;
+  var hoverKey = null, pinnedKey = null;
+  var tipAnchor = null;      /* {kind, id} selected for tooltip */
+  var nodeCache = {};        /* key -> element, rebuilt on structural change */
+  var lastStruct = "";
+
+  try {
+    W = plotEl.clientWidth || 600;
+    if (window.ResizeObserver) {
+      new window.ResizeObserver(function () {
+        var w = plotEl.clientWidth || 0;
+        if (w && Math.abs(w - W) > 1) { W = w; lastStruct = ""; }
+      }).observe(plotEl);
+    }
+  } catch (e) { W = 600; }
+
+  function X(t, span) {
+    return Math.min(span, Math.max(0, t)) / span * W;
+  }
+
+  /* ----- static names column ----- */
+  function markHTML(id, isPerson, busy) {
+    var cells = isPerson ? [1,1,1,1,1,1,1,1,1] : pixelCells(id);
+    var out = '<span class="atg-mark' + (busy ? " busy" : "") + '" data-busy="' + (busy ? "1" : "") +
+      '" aria-hidden="true" style="--mark-c:' + esc(colorOf(id)) + '">';
+    for (var k = 0; k < 9; k++) {
+      out += '<i class="' + (cells[k] ? "on" : "") + '"' +
+        (cells[k] ? ' data-on="1"' : "") +
+        ' style="animation-delay:' + MARK_DELAYS[k] + 'ms"></i>';
+    }
+    return out + "</span>";
+  }
+  function renderNames(model) {
+    var html = "";
+    PARTICIPANTS.forEach(function (p) {
+      var st = model.statuses[p.id] || { text: "", tone: "" };
+      var busy = !!(model.open[p.id] && p.kind !== "person");
+      var pillBg = "", pillFg = "";
+      if (st.tone === "wait") { pillBg = "var(--atg-amber-bg)"; pillFg = "var(--atg-amber-text)"; }
+      else if (st.tone === "tool") { pillBg = ""; pillFg = ""; }
+      html += '<li class="atg-who" data-who="' + esc(p.id) + '" title="' + esc(p.name) + '"' +
+        ' style="--mark-c:' + esc(colorOf(p.id)) + (st.tone === "tool" ? ";--pill-bg:color-mix(in srgb, " + esc(colorOf(p.id)) + " 12%, var(--surface));--pill-fg:var(--ink)" : "") +
+        (st.tone === "wait" ? ";--pill-bg:" + pillBg + ";--pill-fg:" + pillFg : "") + '">' +
+        markHTML(p.id, p.kind === "person", busy) +
+        '<span class="atg-name" dir="auto">' + esc(participantName(p.id)) + "</span>" +
+        '<span class="atg-status" data-tone="' + esc(st.tone) + '" dir="auto">' + esc(st.text) + "</span></li>";
+    });
+    if (namesEl.innerHTML !== html) namesEl.innerHTML = html;
+  }
+
+  /* ----- per-frame render ----- */
+  function activeKey() { return pinnedKey || hoverKey; }
+  function itemKind(key) { return (key && key.charAt(0) === "h") ? "hand" : "seg"; }
+
+  function render(model) {
+    var D = model.D, span = model.span, key;
+    var struct = W + "|" + model.vis.length + "|" + model.hands.length;
+    if (struct !== lastStruct) { nodeCache = {}; lastStruct = struct; }
+
+    /* header */
+    if (model.nWait > 0) {
+      waitEl.hidden = false;
+      waitEl.textContent = model.nWait === 1 ? "Waiting on you" : model.nWait + " waiting on you";
+    } else waitEl.hidden = true;
+    if (model.nTool > 0) {
+      toolsEl.hidden = false;
+      toolCountEl.textContent = String(model.nTool);
+      toolWordEl.textContent = model.nTool === 1 ? "tool call" : "tool calls";
+    } else toolsEl.hidden = true;
+    timeEl.textContent = fmtClock(D === null ? model.maxT : D);
+
+    renderNames(model);
+
+    /* axis ticks */
+    var step = tickStep(span, W || 400), ticks = [], t;
+    for (t = 0; t <= span + 1e-6 && ticks.length < 200; t += step) ticks.push(t);
+    var ax = "";
+    ticks.forEach(function (tk) {
+      var left = X(tk, span);
+      var edge = tk === 0 ? " edge-start" : (left > W - 24 ? " edge-end" : "");
+      var gone = (D !== null && Math.abs(left - X(D, span)) < 34) ? " gone" : "";
+      ax += '<span class="atg-tick' + edge + gone + '" style="left:' + fnum(left) + 'px">' + fmtClock(tk) + "</span>";
+    });
+    if (D !== null) ax += '<span class="atg-now-pill" style="left:' + fnum(X(D, span)) + 'px">' + fmtClock(D) + "</span>";
+    if (axisEl.innerHTML !== ax) axisEl.innerHTML = ax;
+
+    /* layers: gridlines + baselines + svg + steps + hands + now */
+    var i, s, g, lp;
+    var html = "";
+    ticks.forEach(function (tk, idx) {
+      if (idx === 0) return;
+      html += '<span class="atg-gridline" style="left:' + fnum(X(tk, span)) + 'px" aria-hidden="true"></span>';
+    });
+    PARTICIPANTS.forEach(function (p, row) {
+      html += '<span class="atg-base" style="top:' + (row * ROW_H + BASE_Y) + "px;width:" + W + 'px" aria-hidden="true"></span>';
+    });
+    var H = PARTICIPANTS.length * ROW_H;
+    plotEl.style.height = H + "px";
+
+    /* svg signals */
+    var svg = '<svg class="atg-svg" width="' + W + '" height="' + H + '" aria-hidden="true">';
+    model.vis.forEach(function (sg) {
+      g = model.geo[sg.id];
+      lp = linePath(g, function (tt) { return X(tt, span); });
+      var col = sg.state === "waiting" ? "var(--atg-amber)" : colorOf(sg.who);
+      var dim = (activeKey() && activeKey() !== "s:" + sg.id) ? " dim" : "";
+      svg += '<g class="atg-seg' + dim + '" data-state="' + sg.state + '">' +
+        '<path class="atg-area" d="' + areaPath(g, null, lp) + '" style="--seg-c:' + esc(col) + '"/>' +
+        '<path class="atg-line" d="' + lp.d + '" style="--seg-c:' + esc(col) + '"/>';
+      if (g.isOpen) {
+        svg += '<circle class="atg-pulse" cx="' + fnum(lp.x1) + '" cy="' + fnum(lp.y) + '" r="3"/>' +
+               '<circle class="atg-dot" cx="' + fnum(lp.x1) + '" cy="' + fnum(lp.y) + '" r="3"/>';
+      }
+      svg += "</g>";
+    });
+    svg += "</svg>";
+    html += svg;
+
+    /* focusable step hit-areas */
+    html += '<ul class="atg-steps" aria-label="' + esc(TITLE) + " – steps and hand-offs" + '">';
+    model.vis.forEach(function (sg) {
+      g = model.geo[sg.id];
+      lp = linePath(g, function (tt) { return X(tt, span); });
+      var col2 = sg.state === "waiting" ? "var(--atg-amber)" : colorOf(sg.who);
+      var k2 = "s:" + sg.id;
+      var wpx = Math.max(4, lp.x1 - lp.x0);
+      var dimAttr = (activeKey() && activeKey() !== k2) ? " dim" : "";
+      var lbl = (sg.label || (sg.state === "waiting" ? "Waiting on you" : "")) ;
+      html += '<li class="atg-step" data-key="' + esc(k2) + '" data-state="' + sg.state + '"' +
+        ' tabindex="' + (isTabStop(k2) ? "0" : "-1") + '"' +
+        ' role="button" aria-label="' + esc(segAria(sg, D, span)) + '"' +
+        ' style="--seg-c:' + esc(col2) + ";left:" + fnum(lp.x0) + "px;width:" + fnum(wpx) +
+        "px;top:" + fnum(g.yEff - 3) + "px;height:" + fnum(g.base - g.yEff + 3) + 'px">' +
+        ((lbl && wpx > 40) ? '<span class="atg-step-label' + dimAttr + '" aria-hidden="true">' + esc(lbl) + "</span>" : "") +
+        "</li>";
+    });
+    /* handoff wires */
+    model.hands.forEach(function (hh, idx) {
+      var r1 = model.rowOf[hh.from], r2 = model.rowOf[hh.to];
+      var y1 = r1 * ROW_H + BASE_Y, y2 = r2 * ROW_H + BASE_Y;
+      var top = Math.min(y1, y2), hhH = Math.abs(y2 - y1);
+      var down = r2 > r1;
+      var yA = down ? 4 : 4 + hhH, yB = down ? 4 + hhH : 4;
+      var prog = (D === null) ? 1 : Math.min(1, Math.max(0, (D - hh.at) / HAND_T));
+      var k3 = "h:" + hh.id;
+      var dot = prog >= 1 ? '<circle class="atg-hand-dot" cx="5" cy="' + fnum(yB) + '" r="2.5"/>' : "";
+      html += '<li class="atg-hand' + ((activeKey() && activeKey() !== k3) ? " dim" : "") + '" data-key="' + esc(k3) + '"' +
+        ' tabindex="' + (isTabStop(k3) ? "0" : "-1") + '"' +
+        ' role="button" aria-label="' + esc(handAria(hh)) + '"' +
+        ' style="--hand-c:' + esc(colorOf(hh.from)) + ";left:" + fnum(X(hh.at, span) - 5) +
+        "px;top:" + fnum(top - 4) + "px;width:10px;height:" + fnum(hhH + 8) + 'px">' +
+        '<svg class="atg-hand-svg" width="10" height="' + fnum(hhH + 8) + '" aria-hidden="true">' +
+        '<path class="atg-hand-wire" d="M 5 ' + fnum(yA) + " L 5 " + fnum(yB) + '"' +
+        ' style="stroke-dasharray:' + fnum(prog) + ' 1" pathLength="1"/>' + dot + "</svg></li>";
+    });
+    html += "</ul>";
+    if (D !== null) {
+      html += '<span class="atg-now" style="left:' + fnum(X(D, span)) + 'px" aria-hidden="true"></span>';
+    }
+    if (PARTICIPANTS.length === 0) html += '<p class="atg-empty">No participants yet</p>';
+    else if (model.vis.length === 0 && model.hands.length === 0) html += '<p class="atg-empty">Nothing happened yet</p>';
+    layersEl.innerHTML = html;
+
+    bindSteps();
+    renderTip(model);
+  }
+
+  /* roving tabindex: first item is the tab stop unless focus is elsewhere */
+  var focusKey = null;
+  function orderedKeys(model) {
+    var items = [];
+    model.vis.forEach(function (sg) { items.push({ key: "s:" + sg.id, row: model.rowOf[sg.who], at: sg.start }); });
+    model.hands.forEach(function (hh) {
+      items.push({ key: "h:" + hh.id,
+        row: Math.min(model.rowOf[hh.from], model.rowOf[hh.to]), at: hh.at });
+    });
+    return items;
+  }
+  var lastModel = null;
+  function isTabStop(k2) {
+    if (focusKey) return focusKey === k2;
+    if (!lastModel) return false;
+    var all = orderedKeys(lastModel);
+    return all.length ? all[0].key === k2 : false;
+  }
+  function bindSteps() {
+    var els = layersEl.querySelectorAll("[data-key]");
+    for (var i = 0; i < els.length; i++) {
+      (function (el) {
+        if (el.__atgBound) return;
+        el.__atgBound = true;
+        el.addEventListener("mouseenter", function () { hoverKey = el.getAttribute("data-key"); refresh(); });
+        el.addEventListener("mouseleave", function () {
+          if (hoverKey === el.getAttribute("data-key")) hoverKey = null;
+          refresh();
+        });
+        el.addEventListener("focus", function () {
+          focusKey = el.getAttribute("data-key");
+          try {
+            if (el.matches && el.matches(":focus-visible")) pinnedKey = focusKey;
+          } catch (e) { pinnedKey = focusKey; }
+          refresh();
+        });
+        el.addEventListener("blur", function () { pinnedKey = null; refresh(); });
+        el.addEventListener("click", function () {
+          var k2 = el.getAttribute("data-key");
+          pinnedKey = (pinnedKey === k2) ? null : k2;
+          if (pinnedKey) focusKey = k2;
+          refresh();
+        });
+        el.addEventListener("keydown", onKey);
+      })(els[i]);
+    }
+  }
+  function onKey(e) {
+    var cur = e.currentTarget ? e.currentTarget.getAttribute("data-key") : null;
+    if (!cur || !lastModel) return;
+    var items = orderedKeys(lastModel);
+    var byRow = {};
+    items.forEach(function (it) { (byRow[it.row] = byRow[it.row] || []).push(it); });
+    Object.keys(byRow).forEach(function (r) {
+      byRow[r].sort(function (a, b) { return a.at - b.at; });
+    });
+    function curItem() {
+      for (var i = 0; i < items.length; i++) if (items[i].key === cur) return items[i];
+      return null;
+    }
+    var me = curItem(), next = null, k2;
+    if (!me) return;
+    if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+      var row = byRow[me.row] || [], idx = row.indexOf(me);
+      next = row[idx + (e.key === "ArrowRight" ? 1 : -1)] || null;
+    } else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      var rows = Object.keys(byRow).map(Number).sort(function (a, b) { return a - b; });
+      var ri = rows.indexOf(me.row) + (e.key === "ArrowDown" ? 1 : -1);
+      if (rows[ri] !== undefined) {
+        var cand = byRow[rows[ri]];
+        next = cand.slice().sort(function (a, b) {
+          return Math.abs(a.at - me.at) - Math.abs(b.at - me.at);
+        })[0] || null;
+      }
+    } else if (e.key === "Home" || e.key === "End") {
+      var r2 = (byRow[me.row] || []);
+      next = e.key === "Home" ? r2[0] : r2[r2.length - 1];
+    } else if (e.key === "Escape") {
+      if (pinnedKey) { pinnedKey = null; refresh(); }
+      else if (e.currentTarget && e.currentTarget.blur) e.currentTarget.blur();
+      e.preventDefault();
+      return;
+    } else return;
+    e.preventDefault();
+    if (next) {
+      pinnedKey = next.key; focusKey = next.key;
+      var sel = layersEl.querySelector('[data-key="' + next.key + '"]');
+      if (sel && sel.focus) { try { sel.focus(); } catch (err) {} }
+      refresh();
+    }
+  }
+
+  /* ----- tooltip ----- */
+  function renderTip(model) {
+    var k2 = activeKey();
+    if (!k2) { tipEl.hidden = true; tipAnchor = null; return; }
+    var D = model.D, span = model.span, html = "", cx = 0, cy = 0, col = "";
+    if (k2.charAt(0) === "s") {
+      var sg = null, i;
+      for (i = 0; i < model.vis.length; i++) if ("s:" + model.vis[i].id === k2) sg = model.vis[i];
+      if (!sg) { tipEl.hidden = true; return; }
+      var g = model.geo[sg.id];
+      var lp = linePath(g, function (tt) { return X(tt, span); });
+      col = sg.state === "waiting" ? "var(--atg-amber)" : colorOf(sg.who);
+      cx = (lp.x0 + lp.x1) / 2; cy = g.yEff;
+      var info = stateLabel(sg, D, span);
+      html = '<span class="atg-tip-head" style="--mark-c:' + esc(colorOf(sg.who)) + '">' +
+        markHTML(sg.who, sg.who === "you", false) +
+        "<bdi>" + esc(participantName(sg.who)) + "</bdi>" +
+        '<span class="atg-tip-state" data-state="' + sg.state + '"' +
+        ' style="--tip-c:' + esc(col) + '">' + esc(STATE_NAMES[sg.state]) + "</span></span>" +
+        (sg.label ? '<span class="atg-tip-label" dir="auto">' + esc(sg.label) + "</span>" : "") +
+        '<span class="atg-tip-meta">' + esc(info.range) + " · " + esc(info.dur) + "</span>";
+    } else {
+      var hh = null, j;
+      for (j = 0; j < model.hands.length; j++) if ("h:" + model.hands[j].id === k2) hh = model.hands[j];
+      if (!hh) { tipEl.hidden = true; return; }
+      col = colorOf(hh.from);
+      cx = X(hh.at, span);
+      var rA = model.rowOf[hh.from], rB = model.rowOf[hh.to];
+      cy = Math.min(rA, rB) * ROW_H + 20;
+      html = '<span class="atg-tip-head"><bdi>' + esc(participantName(hh.from)) + "</bdi>" +
+        '<span class="atg-tip-to" aria-hidden="true">→</span><bdi>' +
+        esc(participantName(hh.to)) + "</bdi></span>" +
+        (hh.label ? '<span class="atg-tip-label" dir="auto">' + esc(hh.label) + "</span>" : "") +
+        '<span class="atg-tip-meta">Handed over at ' + esc(fmtClock(hh.at)) + "</span>";
+    }
+    if (tipAnchor !== k2) { tipEl.innerHTML = html; tipAnchor = k2; }
+    else if (tipEl.innerHTML !== html) tipEl.innerHTML = html;
+    tipEl.hidden = false;
+    tipEl.style.setProperty("--tip-c", col);
+    /* position: above the anchor when room, else below; clamped to the plot */
+    var tw = tipEl.offsetWidth || 220, th = tipEl.offsetHeight || 90;
+    var left = cx - tw / 2, top = cy - 4 - th - 8;
+    if (top < -plotEl.offsetTop - 4 && cy + 12 + th < H_PLOT(model) + 30) top = cy + 12;
+    if (left < 0) left = 0;
+    if (left + tw > W) left = Math.max(0, W - tw);
+    tipEl.style.left = fnum(left) + "px";
+    tipEl.style.top = fnum(top) + "px";
+  }
+  function H_PLOT(model) { return PARTICIPANTS.length * ROW_H; }
+
+  /* ----- main loop ----- */
+  function currentNow() { return (simT >= DURATION) ? null : simT; }
+  function refresh() {
+    lastModel = buildModel(currentNow());
+    render(lastModel);
+  }
+  function frame(ts) {
+    if (lastTs < 0) lastTs = ts;
+    var dt = Math.min(0.25, Math.max(0, (ts - lastTs) / 1000));
+    lastTs = ts;
+    if (!userPause && !focusPause && !reduced) {
+      simT += dt * SPEED;
+      if (simT >= LOOP_AT) { simT = 0; pinnedKey = null; hoverKey = null; focusKey = null; }
+    }
+    refresh();
+    if (typeof window.requestAnimationFrame === "function") {
+      window.requestAnimationFrame(frame);
+    }
+  }
+
+  /* ----- controls ----- */
+  pauseBtn.addEventListener("click", function () {
+    userPause = !userPause;
+    pauseBtn.setAttribute("aria-pressed", userPause ? "true" : "false");
+    pauseBtn.setAttribute("aria-label", userPause ? "Resume the run" : "Pause the run");
+    pauseBtn.textContent = userPause ? "▶" : "❚❚";
+  });
+  replayBtn.addEventListener("click", function () {
+    simT = 0; pinnedKey = null; hoverKey = null;
+    refresh();
+  });
+  rootEl.addEventListener("focusin", function (e) {
+    try {
+      if (e.target instanceof HTMLElement && e.target.matches(":focus-visible")) focusPause = true;
+    } catch (err) { focusPause = true; }
+  });
+  rootEl.addEventListener("focusout", function (e) {
+    if (!rootEl.contains(e.relatedTarget)) focusPause = false;
+  });
+  document.addEventListener("visibilitychange", function () { lastTs = -1; });
+
+  /* ----- theme toggle ----- */
+  function syncThemeBtn() {
+    var dark = document.documentElement.getAttribute("data-theme") === "dark";
+    themeBtn.setAttribute("aria-pressed", dark ? "true" : "false");
+    document.getElementById("themeLabel").textContent = dark ? "Light" : "Dark";
+    document.getElementById("themeIconMoon").hidden = dark;
+    document.getElementById("themeIconSun").hidden = !dark;
+  }
+  themeBtn.addEventListener("click", function () {
+    var next = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", next);
+    try { localStorage.setItem("atg-theme", next); } catch (e) {}
+    syncThemeBtn();
+  });
+  syncThemeBtn();
+
+  /* test hooks (also used by the DOM-stub harness) */
+  window.__atg = {
+    seek: function (sec) { simT = sec; lastTs = -1; refresh(); },
+    now: function () { return currentNow(); },
+    model: function () { return lastModel; },
+    setWidth: function (w) { W = w; lastStruct = ""; refresh(); },
+    hover: function (k2) { hoverKey = k2; refresh(); },
+    pin: function (k2) { pinnedKey = k2; focusKey = k2; refresh(); },
+    mark: pixelCells,
+    fmtClock: fmtClock,
+    fmtDur: fmtDur,
+    layersHTML: function () { return layersEl.innerHTML; },
+    namesHTML: function () { return namesEl.innerHTML; },
+    timeText: function () { return timeEl.textContent; },
+    tipHTML: function () { return tipEl.hidden ? "" : tipEl.innerHTML; }
+  };
+
+  if (!reduced && typeof window.requestAnimationFrame === "function") {
+    window.requestAnimationFrame(frame);
+  } else {
+    refresh();
+  }
+})();
+</script>
+</body>
+</html>

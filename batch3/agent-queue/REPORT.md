@@ -30,7 +30,44 @@ Done/Failed bins) → `Queue depth` chart → kind legend + live status message.
 - **Timings:** per-kind min/max durations, 300 ms worker cooldown, 120 s chart window,
   96 s retention, 106 s pre-roll so the chart/backlog look alive on load.
 
-## Fix pass 2026-11-25 (dialog never opened + empty-state text)
+## Fix pass 2, 2026-11-25 (real-browser click STILL dead — real root cause)
+Why pass 1 failed in a real browser: its stub dispatched a synthetic `click`
+directly on the button with no rebuild in between, so 18/18 passed while the
+real gesture kept failing. The actual defects, found by reading `tick()`:
+1. `render()` ran on EVERY `requestAnimationFrame` (~60x/sec), not every
+   250 ms: it destroyed and recreated every job button between the browser's
+   `mousedown` and `mouseup`. The press lands on node v-N, the release on
+   replacement node v-N+k, so the browser fires `click` on their nearest
+   common ancestor (the persistent container, no `data-job-id`) instead of
+   on the button — container delegation finds no id, nothing opens. This also
+   explains the "covered/obscured" automation verdict and dead Tab+Enter
+   (focus evaporates within ~16 ms, key events reach nothing).
+2. No covering overlay exists: `.pop-backdrop`/`.pop` are `display:none`
+   without `data-open` (verified in CSS), so suspect (a) is ruled out.
+3. `openJob` itself was fine but unguarded — any throw would silently swallow
+   the gesture.
+Fixes in `index.html` (empty-state text and pause behaviour untouched):
+- `tick()` now re-renders ONLY when a 250 ms sim step actually elapsed
+  (`stepped` flag), so the DOM is stable inside a press→release gesture and
+  for keyboard focus (progress bars still update 4x/sec).
+- Document-level CAPTURE `pointerdown` + `mousedown` listeners resolve
+  `data-job-id` from `event.target` and open synchronously on the live node
+  before any rebuild can detach it; plus a document-level capture
+  Enter/Space backup. `openJob`/`safeOpen` are idempotent, so press+click
+  double-fire is harmless. All click/keydown paths now route through
+  `safeOpen`, and `openJob` has a try/catch fallback that still shows the
+  dialog and flips `aria-expanded`.
+Verification with new `verify-fix.js` (node, no packages — models the REAL
+failure: press on v-N → full `render()` tick → release/click retargeted to
+the container; asserts dialog open + `aria-expanded` on the replacement node;
+also worker-card press, Enter-after-rebuild, no-overlay CSS check,
+empty-state/pause regression checks): 24/24 PASS on the fixed file. The same
+harness run against the old behaviour (render-every-frame, no capture
+listeners) fails 11/24 — including "press never opens" and "aria-expanded
+never flips" — proving it reproduces the reported browser symptoms.
+`index.html` is now 56,306 B (< 200 KB).
+
+## Fix pass 1, 2026-11-25 (superseded — stub did not model the real failure)
 Root cause of the click defect: `render()` rebuilds every job button and worker row
 from scratch on each 250 ms tick (`chipsEl.innerHTML = ""` etc.), with click/keydown
 listeners attached directly to those transient nodes. Any click (mousedown → mouseup)

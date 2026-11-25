@@ -690,7 +690,7 @@ function makeJobBtn(job, shape){
     b.title = job.name + " \u2013 " + job.detail;
     if (job.priority !== "high") b.setAttribute("data-dim", "");
   }
-  b.addEventListener("click", function(){ openJob(job.id); });
+  b.addEventListener("click", function(){ safeOpen(job.id); });
   b.addEventListener("keydown", function(e){ onJobKey(e, job.id); });
   return b;
 }
@@ -707,23 +707,75 @@ function jobIdFromEvent(e){
   } catch (err) {}
   return null;
 }
+function safeOpen(id, doFocus){
+  /* Capture-phase press path must never let an exception swallow the click:
+     on any failure still show the dialog and flip aria-expanded. */
+  try { openJob(id, doFocus); }
+  catch (err) {
+    try {
+      openId = id;
+      pop.setAttribute("data-open", "");
+      backdrop.setAttribute("data-open", "");
+      syncExpanded(id);
+    } catch (err2) {}
+  }
+}
 function delegateOpen(box, arrows){
   box.addEventListener("click", function(e){
     var id = jobIdFromEvent(e);
-    if (id) openJob(id);
+    if (id) safeOpen(id);
   });
   box.addEventListener("keydown", function(e){
     var id = jobIdFromEvent(e);
     if (!id) return;
-    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openJob(id); }
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); safeOpen(id); }
     else if (arrows) { onJobKey(e, id); }
     else if (e.key === "Escape") { closePop(); }
   });
 }
+/* REAL-BROWSER FIX: render() rebuilds every job button, so a real
+   mousedown->mouseup gesture can span a rebuild: the press lands on node
+   v-N, the release lands on replacement node v-N+k, and the browser then
+   fires `click` on their nearest common ancestor (the persistent container,
+   which carries no data-job-id) instead of on the button. Container-level
+   `click` delegation therefore sees no id and never opens. Opening on the
+   press (capture phase, document level) fires synchronously on the live
+   node before any rebuild can detach it. `mousedown` is the fallback for
+   engines without PointerEvent; openJob/safeOpen are idempotent so a
+   press+click double-fire is harmless. */
+document.addEventListener("pointerdown", function(e){
+  try {
+    if (e && e.button !== undefined && e.button !== 0) return;
+    var id = jobIdFromEvent(e);
+    if (id) safeOpen(id);
+  } catch (err) {}
+}, true);
+document.addEventListener("mousedown", function(e){
+  try {
+    if (e && e.button !== undefined && e.button !== 0) return;
+    var id = jobIdFromEvent(e);
+    if (id) safeOpen(id);
+  } catch (err) {}
+}, true);
+document.addEventListener("keydown", function(e){
+  /* Document-level backup so Tab-focus + Enter/Space opens even if focus
+     or the container-level listener was disturbed by a rebuild. */
+  try {
+    if (!e || (e.key !== "Enter" && e.key !== " ")) return;
+    var t = e.target;
+    if (!t || !t.closest) return;
+    if (t.id === "popFront" || t.id === "popCancel" || t.id === "popClose") return;
+    var hit = t.closest("[data-job-id]");
+    if (hit) {
+      var id = hit.getAttribute("data-job-id");
+      if (id) { e.preventDefault(); safeOpen(id); }
+    }
+  } catch (err) {}
+}, true);
 function onJobKey(e, id){
   var items = Array.prototype.slice.call(document.querySelectorAll(".chip,.sq"));
   var idx = items.findIndex(function(el){ return el.dataset.jobId === id; });
-  if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openJob(id); }
+  if (e.key === "Enter" || e.key === " ") { e.preventDefault(); safeOpen(id); }
   else if (e.key === "ArrowDown" || e.key === "ArrowRight") { e.preventDefault(); var n = items[idx + 1]; if (n) n.focus(); }
   else if (e.key === "ArrowUp" || e.key === "ArrowLeft") { e.preventDefault(); var p = items[idx - 1]; if (p) p.focus(); }
   else if (e.key === "Escape") { closePop(); }
@@ -819,8 +871,8 @@ function render(){
       row.dataset.jobId = job.id;
       row.setAttribute("aria-label", jobLabel(job) + ", running on " + meta.name);
       (function(jid){
-        row.addEventListener("click", function(){ openJob(jid); });
-        row.addEventListener("keydown", function(e){ if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openJob(jid); } });
+        row.addEventListener("click", function(){ safeOpen(jid); });
+        row.addEventListener("keydown", function(e){ if (e.key === "Enter" || e.key === " ") { e.preventDefault(); safeOpen(jid); } });
       })(job.id);
     }
     workersEl.appendChild(row);
@@ -927,6 +979,7 @@ function syncExpanded(id){
 function openJob(id, doFocus){
   var j = findJob(id);
   if (!j) return;
+  try {
   if (doFocus === undefined) doFocus = true;
   if (doFocus && openId !== id) {
     try { focusId = document.activeElement; } catch (err) { focusId = null; }
@@ -958,6 +1011,16 @@ function openJob(id, doFocus){
   backdrop.setAttribute("data-open", "");
   syncExpanded(id);
   if (doFocus) document.getElementById("popClose").focus();
+  } catch (err) {
+    /* Never let a render-path exception swallow the click: the dialog must
+       still appear and aria-expanded must still flip. */
+    try {
+      openId = id;
+      pop.setAttribute("data-open", "");
+      backdrop.setAttribute("data-open", "");
+      syncExpanded(id);
+    } catch (err2) {}
+  }
 }
 function closePop(){
   openId = null;
@@ -1018,10 +1081,21 @@ function tick(now){
   last = now;
   if (!document.hidden) {
     acc += dt;
-    while (acc >= 250) { step(250); acc -= 250; }
-    sample();
-    render();
+    /* REAL-BROWSER FIX: render() used to run on EVERY animation frame
+       (~60x/sec), destroying and recreating every job button between the
+       browser's mousedown and mouseup. A real click then never fires on the
+       button (press and release land on different detached nodes, so the
+       browser targets their common ancestor instead), and Tab focus is
+       dropped within ~16ms so Enter/Space reach nothing. Only re-render
+       when a 250ms simulation step actually elapsed, keeping the DOM stable
+       inside a press->release gesture. */
+    var stepped = false;
+    while (acc >= 250) { step(250); acc -= 250; stepped = true; }
+    if (stepped) {
+      sample();
+      render();
       if (openId) { var j = findJob(openId); if (j) openJob(openId, false); else closePop(); }
+    }
   }
   requestAnimationFrame(tick);
 }
