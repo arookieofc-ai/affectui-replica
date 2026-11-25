@@ -150,18 +150,18 @@ body {
   height: 100%; padding: 0 10px 0 2px; margin: 0; border: 0; border-radius: var(--radius-sm);
   background: linear-gradient(to right, var(--surface) 86%, transparent);
   font: inherit; color: inherit; text-align: left; cursor: pointer;
-  width: 112px;
+  width: 152px;
 }
 .hs-lane-btn:hover .hs-lane-name { color: var(--ink-strong); }
 .hs-lane-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
 .hs-lane-text { display: grid; min-width: 0; }
 .hs-lane-name {
   color: var(--ink); font-weight: 600; font-size: 13px;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  overflow-wrap: anywhere;
 }
 .hs-lane-role {
   color: var(--muted); font-size: 12px; line-height: 1.3;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  overflow-wrap: anywhere;
 }
 
 /* ---- 3x3 pixel-mark identity (always exactly 9 cells) ---- */
@@ -227,10 +227,13 @@ body {
 .hs-node[data-status="skipped"] .hs-box-text { text-decoration: line-through; }
 .hs-node.hl { outline: 2px solid var(--focus); outline-offset: 2px; }
 .hs-box-text {
-  display: flex; align-items: center; min-width: 0;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left;
+  display: -webkit-box; min-width: 0; overflow: hidden;
+  -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+  overflow-wrap: anywhere; text-align: left;
+  font-size: 12px; line-height: 15px; max-height: 30px;
 }
 .hs-box-text .hs-mark { margin-right: 6px; }
+.hs-box-text > span:last-child { min-width: 0; }
 .hs-glyph { display: inline-grid; place-items: center; margin-right: 6px; flex: none; }
 .hs-node[data-status="done"] .hs-glyph { color: var(--done-fg); }
 html[data-theme="dark"] .hs-node[data-status="done"] .hs-glyph { color: var(--lane-blue); }
@@ -249,16 +252,22 @@ html[data-theme="dark"] .hs-node[data-status="done"] .hs-glyph { color: var(--la
 .hs-node[data-kind="gate"][data-status="waiting"] .hs-glyph { color: var(--wait-fg); }
 .hs-gate-label {
   position: absolute; top: calc(100% + 4px); left: 50%; transform: translateX(-50%);
-  max-width: 96px; padding: 1px 8px; border-radius: 999px;
+  padding: 1px 8px; border-radius: 999px;
   background: var(--surface); border: 1px solid var(--border);
   font-size: 11px; font-weight: 600; color: var(--muted);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .hs-node[data-kind="gate"][data-status="waiting"] .hs-gate-label {
   background: var(--wait-bg); border-color: var(--wait-edge); color: var(--wait-fg);
 }
 .hs-node[data-kind="start"], .hs-node[data-kind="end"] {
   display: grid; place-items: center; width: 18px; height: 18px;
+}
+.hs-event-label {
+  position: absolute; top: calc(100% + 4px); left: 50%; transform: translateX(-50%);
+  padding: 1px 8px; border-radius: 999px; white-space: nowrap;
+  background: var(--surface); border: 1px solid var(--border);
+  font-size: 11px; font-weight: 600; color: var(--ink);
 }
 .hs-event { width: 18px; height: 18px; border-radius: 50%; background: var(--surface); border: 2px solid var(--edge); }
 .hs-node[data-kind="end"] .hs-event { border-width: 4px; border-color: var(--edge-next); }
@@ -274,7 +283,7 @@ html[data-theme="dark"] .hs-node[data-status="done"] .hs-glyph { color: var(--la
 }
 .hs-row:hover { box-shadow: var(--shadow-pop); }
 .hs-row:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
-.hs-row .hs-row-title { flex: 1 1 auto; min-width: 0; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hs-row .hs-row-title { flex: 1 1 auto; min-width: 0; font-weight: 600; overflow-wrap: anywhere; }
 .hs-row .hs-row-lane { color: var(--muted); font-size: 12px; white-space: nowrap; }
 .hs-chip {
   flex: none; font-size: 11px; font-weight: 600; line-height: 18px;
@@ -444,10 +453,12 @@ var AGENT_COLORS = ["#8a63f6", "#1f9bf0", "#43b581", "#e5499b", "#5b6ee1", "#0ea
 /* Per-cell twinkle offsets so busy marks shimmer rather than blink. */
 var TWINKLE = [0, 140, 280, 140, 280, 420, 280, 420, 560];
 
-/* Layout metrics. */
-var LANE_H = 60, LABEL_W = 112;
-var COL_W = { start: 30, task: 136, gate: 64, end: 64 };
-var NODE_W = { task: 104, gate: 26, other: 18 };
+/* Layout metrics: widened vs the original bundle (104px boxes / 112px labels
+   truncated "Split into tasks", "Splits the work", etc.) so every title and
+   lane subtitle renders in full; task boxes use the original's 2-line clamp. */
+var LANE_H = 60, LABEL_W = 152;
+var COL_W = { start: 44, task: 160, gate: 72, end: 72 };
+var NODE_W = { task: 132, gate: 26, other: 18 };
 var NODE_H = 40;
 
 /* ---------------- deterministic 3x3 pixel-mark (own hash) ---------------- */
@@ -731,6 +742,7 @@ function buildCanvas() {
       b.appendChild(el("span", "hs-gate-label", n.t.title));
     } else {
       b.appendChild(el("span", "hs-event"));
+      b.appendChild(el("span", "hs-event-label", n.t.title));
     }
     b.setAttribute("aria-label", n.t.title + " \u2013 " + lane.name);
     canvas.appendChild(b);

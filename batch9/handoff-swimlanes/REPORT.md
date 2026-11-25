@@ -33,10 +33,35 @@ automatically on a loop.
 - Nothing invented: no token counts bar (belongs to a different component),
   no extra agents or tasks.
 
-## Interactions
-Play/pause/restart the loop · click (or keyboard-activate) any node or lane for
-details · Approve advances to the deploy frame, Reject resets · theme toggle
-(sun/moon, top-right, follows `prefers-color-scheme` by default).
+## Visual QA fixes (2026-11-25, browser QA in both themes)
+Browser visual QA had failed this replica: task titles truncated
+("Split into ta…", "Fix invoice r…", …), the You lane's "Ship the billing
+fix" / "Shipped" showing as bare circles, lane subtitles truncated
+("Splits the w…", "Docs & cha…"), plus reports of a 6-frame timeline and a
+button-less approve dialog. Fixed in `index.html`:
+- Task cards: adopted the original bundle's 2-line clamp
+  (`.hs-box-text` is now `-webkit-box` / `-webkit-line-clamp: 2`, matching
+  `demo-original.js` `.ui-hs__box-text`) instead of single-line ellipsis,
+  and widened task boxes 104→132 px (columns 136→160 px) so all six titles
+  ("Split into tasks", "Fix invoice rounding", "Draft the changelog",
+  "Review PR #482", "Approve deploy", "Deploy to production") render in full.
+- Start/end nodes: now render a visible `.hs-event-label` pill under the
+  circle with the full title ("Ship the billing fix", "Shipped"); previously
+  only the hollow circle was painted (the original bundle also paints only
+  the circle, but the QA requirement is visible titles, so the label was
+  added and edge geometry kept on the circle).
+- Lane subtitles: widened the label column 112→152 px and removed the
+  single-line ellipsis on `.hs-lane-name` / `.hs-lane-role`, so "Splits the
+  work" and "Docs & changelog" (and all other roles) show in full.
+- Gate label: removed the 96 px `max-width` + ellipsis on
+  `.hs-gate-label`; "Approve deploy" now renders on one untruncated line.
+- Timeline: confirmed 7 frames with the original's exact holds
+  (`[2200,2000,2400,2600,4200,2600,3600]` ms, 420 ms fade reset) matching
+  `demo-original.js` `k`/`j`; final 7th frame completes all 8 nodes.
+- Approve gate: the waiting-gate dialog (frame 4) renders working
+  Reject → frame 0 and Approve → frame 5 buttons, matching the original's
+  `onApprove: () => t(5)` / `onReject: () => t(0)`; verified in-harness.
+- Narrow stacked list rows also wrap instead of ellipsis-truncating.
 
 ## Engineering notes (per prompt)
 - No fast tick loop: one chained `setTimeout` per frame hold; per-frame updates
@@ -62,14 +87,23 @@ done 6.49, fail 5.30 → all ≥ 4.5 PASS.
 Dark — ink 14.52, strong 16.29, muted 6.63, work 8.72, wait 12.03,
 done 12.11, fail 8.96 → all ≥ 4.5 PASS.
 
+## Interactions
+Play/pause/restart the loop · click (or keyboard-activate) any node or lane for
+details · Approve advances to the deploy frame, Reject resets · theme toggle
+(sun/moon, top-right, follows `prefers-color-scheme` by default).
+
 ## Verification
 - `node --check` on the extracted page script: pass.
 - `node harness.mjs` (kept in this directory; uses `verify/node_modules`
-  linkedom + a timer mock): **60 assertions, ALL GREEN** — boot state, exact
+  linkedom + a timer mock): **90 assertions, ALL GREEN** — boot state, exact
   holds incl. 420 ms fade reset, frame-by-frame statuses, 9-cell marks,
   pointerdown-open/click-survive dialog, Approve/Reject jumps, Esc + outside
   close, lane stats, 8 edges + dots, live-edge states, pause/restart, both
-  themes, narrow list mode, contrast audit.
+  themes, narrow list mode, contrast audit, plus the visual-QA block: all 6
+  task/gate titles in full, start/end `.hs-event-label` titles, all 6 lane
+  roles in full, 2-line-clamp/no-ellipsis CSS checks, exactly 7 frames with
+  the original's holds, frame 4 waiting gate, 8-node final frame, and
+  Approve→5 / Reject→0 from the dialog buttons.
 - Could not verify: pixel-perfect match to the proprietary rendered demo
   (no screenshot available); animation smoothness is CSS-driven and was
   asserted via state/attribute changes, not raster frames.

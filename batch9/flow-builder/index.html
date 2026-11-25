@@ -68,7 +68,7 @@ body{
 .fb-run:disabled{opacity:.45; cursor:default}
 .fb-canvas{position:relative; overflow:auto; overscroll-behavior:contain; scrollbar-width:none;
   cursor:grab; border:1px solid var(--border); border-radius:var(--radius-lg);
-  background:var(--surface); box-shadow:var(--shadow); max-height:520px}
+  background:var(--surface); box-shadow:var(--shadow); max-height:760px}
 .fb-canvas::-webkit-scrollbar{display:none}
 .fb-canvas.panning{cursor:grabbing; user-select:none}
 .fb-flow{display:flex; flex-direction:column; align-items:center; width:max-content; min-width:100%; padding:28px 16px 30px}
@@ -89,7 +89,7 @@ body{
 .fb-step[data-kind="trigger"] .fb-tile{background:var(--ink); color:var(--page); border-color:transparent}
 .fb-text{display:grid; flex:1; min-width:0}
 .fb-title{font-weight:600; font-size:14px; line-height:17px; color:var(--ink);
-  white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  white-space:normal; overflow:visible; overflow-wrap:break-word}
 .fb-detail{font-size:12px; line-height:15px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
 .fb-tag{display:inline-flex; flex:none; align-self:start; align-items:center; gap:4px; height:19px; padding:0 7px;
   border-radius:999px; background:var(--idle-bg); color:var(--idle-fg);
@@ -426,6 +426,10 @@ function render(){
   var key=renderKey();
   if (key===lastRenderKey) return; /* re-render only when state changes */
   lastRenderKey=key;
+  /* preserve canvas scroll across rebuilds — innerHTML would otherwise reset it to 0 */
+  var prevCv=rootEl.querySelector?rootEl.querySelector("[data-canvas]"):null;
+  var savedTop=prevCv?prevCv.scrollTop:0, savedLeft=prevCv?prevCv.scrollLeft:0;
+  var hadCanvas=!!prevCv;
   var steps=state.steps, all=allSteps();
   var running=isRunning();
   var doneCount=all.filter(function(n){return state.status[n.id]==="done";}).length;
@@ -475,12 +479,22 @@ function render(){
   rootEl.setAttribute("aria-label","Onboard new signups");
   rootEl.innerHTML='<div class="fb-head"><div class="fb-name"><h3 title="Onboard new signups" dir="auto">Onboard new signups</h3>'
     + '<span class="count" dir="auto">'+esc(headCount)+'</span></div>'+right+'</div>'
-    + '<div class="fb-canvas" data-canvas style="height:420px" role="group" aria-label="Workflow steps">'
+    + '<div class="fb-canvas" data-canvas style="height:680px" role="group" aria-label="Workflow steps">'
     + '<div class="fb-flow">'+flow+'</div></div>'
     + '<div class="fb-foot" role="status" aria-live="polite">'+foot+'</div>'+menu;
   if (state.menu){
     var mi=rootEl.querySelector("[data-menu] [role=menuitem]");
     if (mi && document.activeElement && document.activeElement.hasAttribute && document.activeElement.hasAttribute("data-plus")){ try{mi.focus({preventScroll:true});}catch(e){} }
+  }
+  /* restore scroll preserved across the rebuild, then keep the selected step in view */
+  var cv=rootEl.querySelector?rootEl.querySelector("[data-canvas]"):null;
+  if (cv && hadCanvas){ try{ cv.scrollTop=savedTop; cv.scrollLeft=savedLeft; }catch(e){} }
+  if (cv && state.selected && !isRunning()){
+    try{ scrollToId(state.selected); }catch(e){}
+    try{
+      var selEl=rootEl.querySelector('[data-step="'+CSS.escape(state.selected)+'"]');
+      if(selEl && selEl.scrollIntoView) selEl.scrollIntoView({block:"nearest",inline:"nearest"});
+    }catch(e){}
   }
 }
 /* ---------- mutations ---------- */

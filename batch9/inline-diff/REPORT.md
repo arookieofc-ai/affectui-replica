@@ -81,9 +81,35 @@ wait/bg 6.37, popover 17.93, primary-btn 16.74. Dark — ink 14.52, muted 6.63, 
 8.49, add-ink 9.44, del-ink 7.66, wait/bg 12.03, popover 16.31, primary-btn 15.00.
 All 16 pairs pass (minimum 4.80).
 
+## Fixes after browser visual QA (2026-11-25)
+1. **Live outcome contradiction (both themes)** — `mergedText()` rendered pending
+   replacements with the *suggested* insert (`now live / twice as fast / in one click`)
+   while the first deletion still showed the original, so the outcome with 4 pending
+   was neither the original nor the reviewed text. Checked against
+   `demo-original.js`: the original computes outcome as
+   `decisions[i] === 'accepted' ? insert : remove` (pending AND rejected show the
+   original `remove`). Fixed `mergedText()` to the same rule: pending shows
+   `remove`, only `accepted` shows `insert`.
+2. **Popover covered header buttons** — a 2nd-change (first-row) chip's "above"
+   popover landed at `top = y - ph - 6` inside the header row, on top of
+   Reject all / Accept all. `placePop()` now measures the header bottom edge
+   (`#dfHead`, fallback 51px) and forces the popover below the chip whenever
+   `top < headH + 4`, clamped to `top >= headH + 4`, so it never overlaps the
+   header buttons. Verified with mocked card/head/chip geometry in the harness.
+3. **Blurred header flash after hard refresh (unreproduced in fresh tab)** — no
+   loading/skeleton state exists in the original or replica; the only blur is the
+   `.df-layer` crossfade. The replica's static markup had *neither* layer
+   pre-shown, so first `update()` ran a blurred entrance transition. Static HTML
+   now ships the correct initial state (`#layerTodo[data-show]`,
+   `#layerDone[aria-hidden][inert]`), matching the original's first React render,
+   so there is no initial blur flash. Nothing else blurs/fades on load.
+
 ## How to test
 `node harness.mjs` in this directory — runs `node --check` on the extracted page script,
 then loads the real markup + script into a stub DOM, plays the tour on fast timers and
-asserts 60 checks (segments, tour plan, outcome text, undo/reset, keyboard, hover/popover,
-capture-pointerdown, nav, theme, replay, 9-cell mark, layer crossfade, contrast).
-Result here: **60 passed, 0 failed**. Or open `index.html` in a browser and check both themes.
+asserts 76 checks (segments, tour plan, outcome text, undo/reset, keyboard, hover/popover,
+capture-pointerdown, nav, theme, replay, 9-cell mark, layer crossfade, contrast,
++ new regressions: outcome === original with zero accepted, reject leaves outcome at
+original / accept applies only that change, 2nd-change popover sits at/below the
+header bottom and flips below the chip, one header layer pre-shown).
+Result here: **76 passed, 0 failed**. Or open `index.html` in a browser and check both themes.

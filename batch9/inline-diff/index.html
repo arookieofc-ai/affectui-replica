@@ -408,9 +408,9 @@ html[data-theme="dark"] .df{
         <span id="dfLabel">Suggested by AI · Make it shorter</span>
       </div>
       <div class="df-card" id="dfCard">
-        <div class="df-head">
+        <div class="df-head" id="dfHead">
           <div class="df-bar">
-            <div class="df-layer" id="layerTodo">
+            <div class="df-layer" id="layerTodo" data-show>
               <span class="df-count"><span class="df-num" id="pendNum">4</span><span class="df-word" id="pendWord">suggestions</span></span>
               <span class="df-actions">
                 <span class="df-nav" data-stop="1">
@@ -421,7 +421,7 @@ html[data-theme="dark"] .df{
                 <button class="df-btn df-btn--primary" id="accAllBtn" type="button">Accept all</button>
               </span>
             </div>
-            <div class="df-layer" id="layerDone">
+            <div class="df-layer" id="layerDone" aria-hidden="true" inert>
               <span class="df-count"><svg class="df-ok" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.75 8.4 6.6 11.1 12.25 5" pathLength="1"/></svg>All changes reviewed</span>
               <button class="df-btn" id="undoBtn" type="button"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 4 2.75 6.75 5.5 9.5"/><path d="M3 6.75h6.5a3.75 3.75 0 0 1 0 7.5H7.5"/></svg>Undo</button>
             </div>
@@ -586,7 +586,7 @@ var hideTimer = 0, tourTimers = [], tourOn = false;
 
 /* ---- dom refs ---- */
 function $(id){ return document.getElementById(id); }
-var rootEl, cardEl, textEl, popEl, liveEl, pendNumEl, pendWordEl;
+var rootEl, cardEl, headEl, textEl, popEl, liveEl, pendNumEl, pendWordEl;
 var layerTodoEl, layerDoneEl, undoBtn, prevBtn, nextBtn, accAllBtn, rejAllBtn;
 var popAccBtn, popRejBtn, replayBtn, resetBtn, themeBtn, hdrPendingEl;
 var pendPillEl, pxEl, outcomeEl, labelEl;
@@ -613,10 +613,10 @@ function mergedText(){
     var sg = segments[k];
     if (sg.type === 'equal'){ buf.push(sg.text); continue; }
     ci++;
-    var d = decisions[ci];
-    if (d === 'accepted') buf.push(sg.insert);
-    else if (d === 'rejected') buf.push(sg.remove);
-    else buf.push(sg.insert !== '' ? sg.insert : sg.remove);
+    /* original demo: outcome shows the ORIGINAL text until a change is
+       accepted — pending and rejected both render `remove` */
+    if (decisions[ci] === 'accepted') buf.push(sg.insert);
+    else buf.push(sg.remove);
   }
   return buf.join('');
 }
@@ -626,7 +626,9 @@ function setLayer(el, show){
   else { el.removeAttribute('data-show'); el.setAttribute('aria-hidden', 'true'); el.inert = true; }
 }
 
-/* ---- popover placement (graceful when layout is unavailable) ---- */
+/* ---- popover placement (graceful when layout is unavailable) ----
+   Never cover the card header's Reject all / Accept all buttons:
+   the popover is clamped to sit at/below the header bottom edge. */
 function placePop(idx){
   var chip = chipEls[idx];
   if (!chip) return;
@@ -641,8 +643,24 @@ function placePop(idx){
       left = Math.min(Math.max(cx - pw / 2, 8), Math.max(8, cardW - pw - 8));
       var y = (r.top - cr.top) * scale;
       var h = (r.height || 20) * scale;
+      /* header bottom edge in the same offset coordinate space */
+      var headH = 51;
+      try {
+        if (headEl){
+          if (headEl.offsetHeight) headH = headEl.offsetHeight;
+          else if (headEl.getBoundingClientRect){
+            var hr = headEl.getBoundingClientRect();
+            if (hr && hr.height) headH = hr.height * scale;
+          }
+        }
+      } catch (e2) {}
+      if (!(headH > 0)) headH = 51;
       top = y - ph - 6;
       if (top < 4){ top = y + h + 6; below = true; }
+      /* QA fix: an "above" popover for a first-row chip would land inside
+         the header and cover Reject all / Accept all — force it below. */
+      if (top < headH + 4){ top = y + h + 6; below = true; }
+      if (top < headH + 4) top = headH + 4;
     }
   } catch (e) { top = 40; }
   popEl.style.left = Math.round(left) + 'px';
@@ -916,7 +934,7 @@ function initTheme(){
 
 /* ---- init ---- */
 function init(){
-  rootEl = $('dfRoot'); cardEl = $('dfCard'); textEl = $('dfText'); popEl = $('dfPop');
+  rootEl = $('dfRoot'); cardEl = $('dfCard'); headEl = $('dfHead'); textEl = $('dfText'); popEl = $('dfPop');
   liveEl = $('live'); pendNumEl = $('pendNum'); pendWordEl = $('pendWord');
   layerTodoEl = $('layerTodo'); layerDoneEl = $('layerDone');
   undoBtn = $('undoBtn'); prevBtn = $('prevBtn'); nextBtn = $('nextBtn');
@@ -1004,7 +1022,22 @@ function init(){
     tour: function(){ return tourOn; },
     stopTour: stopTour,
     live: function(){ return liveEl.textContent; },
-    outcome: function(){ return outcomeEl.textContent; }
+    outcome: function(){ return outcomeEl.textContent; },
+    original: function(){ return ORIGINAL_TEXT; },
+    popPos: function(){
+      var top = parseFloat(popEl.style.top) || 0;
+      var left = parseFloat(popEl.style.left) || 0;
+      var ph = popEl.offsetHeight || 40;
+      var headH = 51;
+      try {
+        if (headEl && headEl.offsetHeight) headH = headEl.offsetHeight;
+      } catch (e) {}
+      return { left: left, top: top, height: ph, headH: headH, open: popEl.hasAttribute('data-open'), below: popEl.hasAttribute('data-below') };
+    },
+    headBottom: function(){
+      if (headEl && headEl.offsetHeight) return headEl.offsetHeight;
+      return 51;
+    }
   };
 }
 
