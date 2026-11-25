@@ -449,23 +449,25 @@ function nodePositions(){
   var right=AGENTS.filter(function(_,i){return i%2===1;});
   var H=Math.max(AGENTS.length*30,vis.length*52,220)+90;
   map.style.height=H+"px";
-  wires.setAttribute("viewBox","0 0 100 "+H);
+  wires.setAttribute("viewBox","0 0 "+W+" "+H);
   var y0=52,span=Math.max(H-y0*2,120);
   function ys(n){var r=[];for(var i=0;i<n;i++){r.push(n===1?H/2:y0+span*i/(n-1));}return r;}
   var ly=ys(left.length),ry=ys(right.length),cy=ys(vis.length);
   var pos={};
   left.forEach(function(a,i){pos[a.key]={x:2,y:ly[i],side:"l"};});
   right.forEach(function(a,i){pos[a.key]={x:98,y:ry[i],side:"r"};});
-  var cpos={};vis.forEach(function(c,i){cpos[c.id]={x:50,y:cy[i]};});
-  /* wires */
+  var cpos={};vis.forEach(function(c,i){cpos[c.id]={x:W/2,y:cy[i]};});
+  /* wires: pixel-space S-curves in the original's form (horizontal tangents,
+     control offsets share the sign of dx so x is monotonic => no loops/kinks) */
   var paths="";
   vis.forEach(function(c){
     c.sides.forEach(function(s){
       var k=s.personId+"::"+s.agentName,p=pos[k],q=cpos[c.id];
       if(!p||!q)return;
-      var x1=p.side==="l"?16:84,x2=q.x+(p.side==="l"?-7:7);
-      var mx=(x1+x2)/2;
-      paths+='<path class="wire" data-severity="'+c.severity+'"'+(isLitConflict(c.id)?' data-lit':'')+' d="M '+x1+' '+p.y+' C '+mx+' '+p.y+', '+mx+' '+q.y+', '+x2+' '+q.y+'"/>';
+      var nodeW=Math.min(196,W*0.3);
+      var x1=p.side==="l"?8+nodeW:W-8-nodeW,x2=q.x;
+      var a=(x2-x1)*0.55;
+      paths+='<path class="wire" data-c="'+c.id+'" data-severity="'+c.severity+'"'+(isLitConflict(c.id)?' data-lit':'')+' d="M '+x1+' '+p.y+' C '+(x1+a)+' '+p.y+', '+(x2-a)+' '+q.y+', '+x2+' '+q.y+'"/>';
     });
   });
   wires.innerHTML=paths;
@@ -487,13 +489,15 @@ function nodePositions(){
       '<span class="who">'+esc(firstName(person.name))+'</span>'+
       '<span class="tool"><span class="ticon" aria-hidden="true">'+esc(HARNESS_SHORT[a.harness]||"?")+'</span><span class="tname">'+esc(a.agentName)+'</span></span>'+
       '<span class="cnt">'+a.conflicts.length+'</span>';
-    el.addEventListener("click",function(){
+    el.setAttribute("data-agent",a.key);
+    el.addEventListener("click",function(ev){
       state.selectedAgent=(state.selectedAgent===a.key?null:a.key);
       state.selectedConflict=null;
       render();
+      if(ev&&ev.detail===0){var nn=map.querySelector('[data-agent="'+a.key+'"]');if(nn)nn.focus();}
     });
-    el.addEventListener("pointerenter",function(){state.hover={type:"a",id:a.key};render();});
-    el.addEventListener("pointerleave",function(){state.hover=null;render();});
+    el.addEventListener("pointerenter",function(){state.hover={type:"a",id:a.key};paintLit();});
+    el.addEventListener("pointerleave",function(){state.hover=null;paintLit();});
     el.addEventListener("focus",function(){state.hover={type:"a",id:a.key};paintLit();});
     el.addEventListener("blur",function(){state.hover=null;paintLit();});
     map.appendChild(el);
@@ -504,18 +508,20 @@ function nodePositions(){
     var el=document.createElement("button");
     el.type="button";el.className="badge";
     el.setAttribute("data-severity",c.severity);
+    el.setAttribute("data-conflict",c.id);
     if(!isLitConflict(c.id))el.setAttribute("data-dim","");
     if(state.selectedConflict===c.id)el.setAttribute("aria-expanded","true");else el.setAttribute("aria-expanded","false");
     el.setAttribute("aria-label",c.label+" \u2013 "+c.title);
-    el.style.left=q.x+"%";el.style.top=q.y+"px";
+    el.style.left=q.x+"px";el.style.top=q.y+"px";
     el.innerHTML='<span class="blabel">'+esc(c.label)+'</span>';
-    el.addEventListener("click",function(){
+    el.addEventListener("click",function(ev){
       state.selectedConflict=(state.selectedConflict===c.id?null:c.id);
       state.selectedAgent=null;
       render();
+      if(ev&&ev.detail===0){var nb=map.querySelector('[data-conflict="'+c.id+'"]');if(nb)nb.focus();}
     });
-    el.addEventListener("pointerenter",function(){state.hover={type:"c",id:c.id};render();});
-    el.addEventListener("pointerleave",function(){state.hover=null;render();});
+    el.addEventListener("pointerenter",function(){state.hover={type:"c",id:c.id};paintLit();});
+    el.addEventListener("pointerleave",function(){state.hover=null;paintLit();});
     el.addEventListener("focus",function(){state.hover={type:"c",id:c.id};paintLit();});
     el.addEventListener("blur",function(){state.hover=null;paintLit();});
     map.appendChild(el);
@@ -534,23 +540,42 @@ function badgeInner(c){
 }
 function bindNodes(){
   list.querySelectorAll("[data-agent]").forEach(function(el){
-    el.addEventListener("click",function(){
+    el.addEventListener("click",function(ev){
       var k=el.getAttribute("data-agent");
       state.selectedAgent=(state.selectedAgent===k?null:k);
       state.selectedConflict=null;render();
+      if(ev&&ev.detail===0){var nn=list.querySelector('[data-agent="'+k+'"]');if(nn)nn.focus();}
     });
   });
   list.querySelectorAll("[data-conflict]").forEach(function(el){
-    el.addEventListener("click",function(){
+    el.addEventListener("click",function(ev){
       var id=el.getAttribute("data-conflict");
       state.selectedConflict=(state.selectedConflict===id?null:id);
       state.selectedAgent=null;render();
+      if(ev&&ev.detail===0){var nb=list.querySelector('[data-conflict="'+id+'"]');if(nb)nb.focus();}
     });
   });
 }
 function paintLit(){
-  /* lightweight hover repaint without full rebuild */
-  render();
+  /* lightweight hover/focus highlight: toggles classes in place and NEVER
+     rebuilds the DOM, so the focused/clicked element is never replaced
+     mid-gesture (rebuilding on focus destroys the focused node, which drops
+     focus and retargets the pending click to #map). Full render() runs only
+     on selection/filter/resize/Esc. */
+  wires.querySelectorAll("path.wire").forEach(function(p){
+    var id=p.getAttribute("data-c");
+    if(!id)return;
+    if(isLitConflict(id)){p.setAttribute("data-lit","");}else{p.removeAttribute("data-lit");}
+  });
+  var anySel=!!(state.hover||state.selectedConflict||state.selectedAgent);
+  map.querySelectorAll(".node").forEach(function(el){
+    var k=el.getAttribute("data-agent");
+    if(anySel&&k&&!isNearAgent(k)){el.setAttribute("data-dim","");}else{el.removeAttribute("data-dim");}
+  });
+  map.querySelectorAll(".badge").forEach(function(el){
+    var id=el.getAttribute("data-conflict");
+    if(anySel&&id&&!isLitConflict(id)){el.setAttribute("data-dim","");}else{el.removeAttribute("data-dim");}
+  });
 }
 function renderDetails(){
   var vis=visibleConflicts();
@@ -570,8 +595,8 @@ function renderDetails(){
         return '<li><button type="button" data-c="'+c.id+'"><span class="chip" data-severity="'+c.severity+'">'+esc(c.label)+'</span><span class="chip">'+esc(SEV_MEANING[c.severity])+'</span><span>'+esc(c.title)+'</span></button></li>';
       }).join("")+'</ul>';
   }else{
-    var c=CONFLICTS.filter(function(x){return x.id===state.selectedConflict;})[0]||vis[0];
-    if(!c){details.innerHTML='<p class="empty">Select a conflict.</p>';}
+    var c=state.selectedConflict?CONFLICTS.filter(function(x){return x.id===state.selectedConflict;})[0]:null;
+    if(!c){details.innerHTML='<h2>No conflict pinned</h2><p class="meta">Click a conflict badge to pin its details.</p><p class="empty">Hover a node to trace its overlaps · click to pin details · Esc clears selection.</p>';}
     else{
       details.innerHTML='<h2>'+esc(c.label)+' \u00B7 '+esc(c.id.toUpperCase())+'</h2>'+
         '<p class="meta"><span class="chip" data-severity="'+c.severity+'">'+esc(c.label)+'</span> <span style="margin-left:6px">'+esc(SEV_MEANING[c.severity])+'</span></p>'+
@@ -587,7 +612,8 @@ function renderDetails(){
     }
   }
   details.querySelectorAll("[data-c]").forEach(function(b){
-    b.addEventListener("click",function(){state.selectedConflict=b.getAttribute("data-c");state.selectedAgent=null;render();});
+    b.addEventListener("click",function(ev){state.selectedConflict=b.getAttribute("data-c");state.selectedAgent=null;render();
+      if(ev&&ev.detail===0){var nb=map.querySelector('[data-conflict="'+b.getAttribute("data-c")+'"]');if(nb)nb.focus();}});
   });
   /* sync line: owners with no overlaps at all */
   var inConflict={};

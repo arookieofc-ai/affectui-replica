@@ -110,7 +110,9 @@ svg.map{display:block;width:100%;height:auto;min-width:640px}
 .st.lit .ring{transform:scale(1.18)}
 .st.waiting .ring{stroke:var(--warn);animation:ask 2s ease-in-out infinite}
 @keyframes ask{0%,100%{stroke-width:2.5}50%{stroke-width:4}}
+.train{cursor:pointer}
 .train rect{fill:var(--surface);stroke-width:1.5}
+.train text{font-size:9px;font-weight:700;text-anchor:middle;dominant-baseline:central;pointer-events:none}
 .controls{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin-top:10px;
   padding-top:12px;border-top:1px solid var(--border)}
 .btn{
@@ -370,7 +372,9 @@ function render(){
   });
   legend.innerHTML=lh;
 
-  /* map */
+  /* map: layer order is rails -> trains -> stations+labels, so no label
+     is ever painted under a train marker. Markers sit east of the dot
+     (clear of above/below labels) and are smaller than before. */
   var out="";
   LINES.forEach(function(L,i){
     var pts=L.stations.map(function(id){return pt(byId[id]);});
@@ -378,11 +382,27 @@ function render(){
     var upto=ls.status==="idle"?0:(L.stations.indexOf(ls.at)+1);
     var donePts=pts.slice(0,Math.max(upto,1));
     var lit=!f||(f.kind==="line"&&f.id===L.id)||(f.kind==="station"&&L.stations.indexOf(f.id)>=0);
-    out+='<g opacity="'+(lit?1:.28)+'">'
+    out+='<g data-rail="'+i+'" opacity="'+(lit?1:.28)+'">'
       +'<path class="rail ahead" style="stroke:'+lineVar(i)+'" d="'+smooth(pts)+'"/>'
       +(donePts.length>1&&ls.status!=="idle"?'<path class="rail" style="stroke:'+lineVar(i)+'" d="'+smooth(donePts)+'"/>':"")
       +"</g>";
   });
+  /* train layer (under labels; each marker carries data-st so a mouse
+     click on the marker opens the same station dialog) */
+  var trainOut="";
+  STATIONS.forEach(function(s){
+    var p=pt(s), k=0;
+    LINES.forEach(function(L,i){
+      var ls=lineState(i);
+      if(ls.at===s.id&&ls.status==="running"){
+        var cx=p[0]+19+k*18, cy=p[1];
+        trainOut+='<g class="train" data-st="'+s.id+'" transform="translate('+cx+","+cy+')">'
+          +'<rect x="-7.5" y="-7.5" width="15" height="15" rx="5" style="stroke:'+lineVar(i)+'"/></g>';
+        k++;
+      }
+    });
+  });
+  out+=trainOut;
   STATIONS.forEach(function(s){
     var p=pt(s), st=stationState(s.id), big=shareCount[s.id]>1;
     var linesHere=LINES.map(function(L,i){return L.stations.indexOf(s.id)>=0?i:-1;}).filter(function(x){return x>=0;});
@@ -391,10 +411,10 @@ function render(){
     if(f&&f.kind==="station"&&f.id===s.id)lit=true;
     var dim=f&&!lit;
     var side=s.side||"below", dx=0,dy=0,anchor="middle";
-    if(side==="above"){dy=-16;anchor="middle";}
-    else if(side==="below"){dy=22;anchor="middle";}
-    else if(side==="right"){dx=14;anchor="start";}
-    else if(side==="left"){dx=-14;anchor="end";}
+    if(side==="above"){dy=-26;anchor="middle";}
+    else if(side==="below"){dy=26;anchor="middle";}
+    else if(side==="right"){dx=16;anchor="start";}
+    else if(side==="left"){dx=-16;anchor="end";}
     var cls="st "+st+(dim?" dim":"")+(lit&&f?" lit":"");
     var aria=s.label+(big?", interchange":"")+", "+linesHere.map(function(i){return LINES[i].name;}).join(" and ")
       +(st==="now"?", train here":st==="done"?", passed":st==="waiting"?", waiting for approval":", not reached");
@@ -402,16 +422,9 @@ function render(){
       +'<circle class="ring" cx="'+p[0]+'" cy="'+p[1]+'" r="'+(big?8:6)+'" style="stroke:'+(st==="ahead"||st==="waiting"?col:col)+';'+(st==="done"?"fill:"+col+";":"")+(st==="waiting"?"fill:var(--warn-bg);":"")+'"/>'
       +(st==="now"?'<circle cx="'+p[0]+'" cy="'+p[1]+'" r="2.6" style="fill:'+col+'"/>':"")
       +'<text class="halo" x="'+(p[0]+dx)+'" y="'+(p[1]+dy)+'" text-anchor="'+anchor+'">'+esc(s.label)+"</text></g>";
-    /* train marker for running lines at their station */
-    LINES.forEach(function(L,i){
-      var ls=lineState(i);
-      if(ls.at===s.id&&ls.status==="running"){
-        out+='<g class="train" transform="translate('+(p[0]+12)+","+(p[1]-12)+')" aria-hidden="true">'
-          +'<rect x="-10" y="-10" width="20" height="20" rx="6" style="stroke:'+lineVar(i)+'"/></g>';
-      }
-    });
   });
   svg.innerHTML=out;
+  updateHover();
 
   /* approval banner */
   if(stationState("signoff")==="waiting"){
@@ -491,15 +504,60 @@ function renderDetail(passed){
 function approve(){ if(TIMELINE[step][0]==="signoff"){step=Math.min(step+1,TIMELINE.length-1);sel=null;render();restart();} }
 function reject(){ step=0;sel=null;render();restart(); }
 
+/* Hover highlight without re-render: pointerover used to call render(),
+   which replaced svg.innerHTML and destroyed the hovered node before the
+   click event could fire (mouse clicks died; keyboard still worked). Now
+   hover only toggles classes/opacity in place. */
+function stationLit(sid,f){
+  if(!f)return true;
+  if(f.kind==="station")return f.id===sid;
+  var hit=LINES.filter(function(L){return L.id===f.id;})[0];
+  return !!hit&&hit.stations.indexOf(sid)>=0;
+}
+function lineLit(li,f){
+  if(!f)return true;
+  if(f.kind==="line")return LINES[li].id===f.id;
+  return LINES[li].stations.indexOf(f.id)>=0;
+}
+function updateHover(){
+  if(!svg.querySelectorAll)return;
+  var f=focusMatch();
+  var nodes=svg.querySelectorAll("[data-st]");
+  for(var k=0;k<nodes.length;k++){
+    var n=nodes[k], sid=n.getAttribute("data-st"), lit=stationLit(sid,f);
+    if(n.classList&&n.classList.contains("st")){
+      if(f&&!lit)n.classList.add("dim");else n.classList.remove("dim");
+      if(f&&lit)n.classList.add("lit");else n.classList.remove("lit");
+    }else{
+      n.style.opacity=(f&&!lit)?".28":"";
+    }
+  }
+  var rails=svg.querySelectorAll("[data-rail]");
+  for(var r=0;r<rails.length;r++){
+    var li=+rails[r].getAttribute("data-rail");
+    rails[r].setAttribute("opacity",(!f||lineLit(li,f))?"1":".28");
+  }
+  var btns=legend.querySelectorAll("[data-line]");
+  for(var b=0;b<btns.length;b++){
+    var id=btns[b].getAttribute("data-line");
+    var hit=LINES.filter(function(L){return L.id===id;})[0];
+    var lit2=!f||((f.kind==="line"&&f.id===id)||(f.kind==="station"&&hit&&hit.stations.indexOf(f.id)>=0));
+    btns[b].classList.toggle("dim",!!(f&&!lit2));
+  }
+}
+
 /* ---------- events ---------- */
 legend.addEventListener("click",function(e){
-  var b=e.target.closest("[data-line]"); if(!b)return;
-  var id=b.getAttribute("data-line");
+  var t=e.target&&e.target.closest?e.target.closest("[data-line]"):null; if(!t)return;
+  var id=t.getAttribute("data-line");
   sel=(sel&&sel.kind==="line"&&sel.id===id)?null:{kind:"line",id:id}; render();
 });
+function stationFromEvent(e){
+  var t=e.target&&e.target.closest?e.target.closest("[data-st]"):null;
+  return t?t.getAttribute("data-st"):null;
+}
 svg.addEventListener("click",function(e){
-  var g=e.target.closest("[data-st]"); if(!g)return;
-  var id=g.getAttribute("data-st");
+  var id=stationFromEvent(e); if(!id)return;
   sel=(sel&&sel.kind==="station"&&sel.id===id)?null:{kind:"station",id:id}; render();
 });
 svg.addEventListener("keydown",function(e){
@@ -508,10 +566,26 @@ svg.addEventListener("keydown",function(e){
     sel=(sel&&sel.kind==="station"&&sel.id===id)?null:{kind:"station",id:id};render();}
 });
 document.addEventListener("keydown",function(e){if(e.key==="Escape"){sel=null;hover=null;render();}});
-svg.addEventListener("pointerover",function(e){var g=e.target.closest("[data-st]");hover=g?{kind:"station",id:g.getAttribute("data-st")}:null;render();});
-svg.addEventListener("pointerout",function(){hover=null;render();});
-legend.addEventListener("pointerover",function(e){var b=e.target.closest("[data-line]");hover=b?{kind:"line",id:b.getAttribute("data-line")}:null;render();});
-legend.addEventListener("pointerout",function(){hover=null;render();});
+svg.addEventListener("pointerover",function(e){
+  var id=stationFromEvent(e);
+  var nh=id?{kind:"station",id:id}:null;
+  var cur=hover?hover.kind+":"+hover.id:"", nxt=nh?nh.kind+":"+nh.id:"";
+  if(cur!==nxt){hover=nh;updateHover();}
+});
+svg.addEventListener("pointerout",function(e){
+  var to=e.relatedTarget&&e.relatedTarget.closest?e.relatedTarget.closest("[data-st]"):null;
+  if(!to&&hover){hover=null;updateHover();}
+});
+svg.addEventListener("focusin",function(e){
+  var t=e.target&&e.target.closest?e.target.closest("[data-st]"):null;
+  if(t){hover={kind:"station",id:t.getAttribute("data-st")};updateHover();}
+});
+svg.addEventListener("focusout",function(){if(hover){hover=null;updateHover();}});
+legend.addEventListener("pointerover",function(e){
+  var b=e.target&&e.target.closest?e.target.closest("[data-line]"):null;
+  hover=b?{kind:"line",id:b.getAttribute("data-line")}:null;updateHover();
+});
+legend.addEventListener("pointerout",function(){if(hover){hover=null;updateHover();}});
 
 /* ---------- autoplay ---------- */
 function tick(){

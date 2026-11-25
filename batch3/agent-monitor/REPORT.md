@@ -60,7 +60,46 @@ one agent card that cycles the original demo's TWO scenarios, release → suppor
   to screenshot; verified by code inspection against the bundle's strings/behaviour instead).
 - The demo bundle's exact easing curves and shine keyframes (re-implemented close equivalents).
 
-## Verification (all pass)
+## URGENT FIX 2026-11-25 — frozen live page (root cause + harness evidence)
+
+Root cause: `#pxmark` had 8 `<i>` cells but `pixelmark()` loops `i<9` for a
+deterministic 3×3 mark. `cells[8]` is `undefined`, so
+`pixelmark("claude-opus-5-5")` threw
+`TypeError: Cannot set properties of undefined (setting 'className')`
+synchronously during IIFE load — before the engine, `setInterval`, and the
+first `render()`. The whole script aborted: timer stuck at `0:00`, steps list
+empty, no `Ready to ship` / `gh release create v3.2.0 --latest`, no outcome,
+support scenario never started. Exactly the Visual QA symptom.
+
+Fix (keeps v3 spec, `index.html` only):
+- Added the missing 9th `<i></i>` so the mark is a true 3×3 grid.
+- Hardened the loop: `for(i=0;i<9&&i<cells.length;i++)` + `if(!cells[i])continue;`
+  so a future DOM slip can never freeze the page again.
+- No data/behaviour change: release + support phases, ms, labels, approval
+  auto-allow ~6.5s, fail auto-retry ~4s, cycle ~5.2s all unchanged.
+
+Call-site re-check (line-by-line): 0 bare `AGENT`/`PHASES`/`OUTCOME_NOTE`
+references (all 16 sites use `()`); `S` defined before first `scen()` call
+(via `buildSteps()`); `pixelmark` defined before its call; seeded first step,
+`buildSteps`/`startStep` id-lookup (ask phases excluded by design),
+`render`/`buildTools`/`shareOf`/`tick` all null-safe.
+
+Harness (`harness.js` in this directory, real headless run — NOT just
+`node --check`; no browser/jsdom in this env so a small DOM stub + fake
+`Date.now`/timers loads the page script): BEFORE fix it reproduced the freeze
+(`LOAD THREW: TypeError ... at pixelmark`, steps=0). AFTER fix
+`ALL HARNESS ASSERTIONS PASSED`:
+- step 1 completes ~2.2s (`Comparing v3.1…main` running, clock `0:02`);
+- ask `Ready to ship` + `gh release create v3.2.0 --latest`, state `Needs you`;
+- `Allow` click advances to `Running`;
+- release outcome `v3.2.0 is live · 14 changes`;
+- cycles to support (`GPT-5`, `Reading the customer thread`);
+- orders fails once (`Failed`, `The orders sheet is locked`, `Retry` present),
+  auto-retries to `Running` (failed row kept, new row appended);
+- outcome `Refund sent · ticket closed`.
+Run: `node harness.js` (exit 0).
+
+## Verification (all pass, re-run 2026-11-25 after fix)
 - Token audit: `0` hex colours outside the two token blocks in CSS; JS contains no hex
   colours (only `#4821` / `#20931` inside ticket/order-number strings — not colours).
 - Contrast (WCAG AA, recomputed 2026-11-25): light ink 17.49, muted 4.80, amber text-on-bg 6.37,

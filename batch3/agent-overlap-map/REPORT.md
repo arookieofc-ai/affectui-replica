@@ -66,6 +66,64 @@ and are referenced via `var()` everywhere else:
   details panel, 4.40) fixed by using `--text` on `--subtle` (9.4 light /
   10.2 dark). Dimmed nodes use 0.75 opacity per v3 (not the original's 0.4).
 
+## Visual-QA fixes (2026-11-25 batch-3 review)
+
+Two defects found against the replica, both fixed in `index.html`
+(35.6 KB, still self-contained, no new colours/tokens):
+
+1. **Click-to-pin never updated the details panel (mouse + Tab+Enter).**
+   Root cause: hover/focus handlers ran a full `render()`, which deletes and
+   recreates every `.node`/`.badge` element. Focusing a badge (Tab, or the
+   implicit focus on mousedown) therefore destroyed the focused element
+   mid-gesture: keyboard focus fell back to `<body>` so Enter hit nothing,
+   and the mousedown/mouseup targets became two different elements, so the
+   browser retargeted the `click` to `#map` and the badge handler never ran.
+   The panel stayed on `Contradicts · C1`. (The old `paintLit()` was just an
+   alias for `render()`, so even pure hover was a full rebuild.)
+   Fix: hover/focus now only call a real lightweight `paintLit()` that
+   toggles `data-lit`/`data-dim` in place (wires carry `data-c`, wide-mode
+   nodes/badges now carry `data-agent`/`data-conflict`, matching the narrow
+   list). Full `render()` runs only on selection, filter, resize and Esc.
+   Keyboard clicks (`event.detail === 0`) restore focus to the rebuilt
+   badge/node so Tab position survives. Esc (and clicking the pinned badge
+   again) now shows an explicit `No conflict pinned` placeholder instead of
+   silently falling back to the first conflict, so "Esc clears" is visible.
+   Severity names/counts untouched: Needs a decision 3 / Heads-up 3 /
+   Minor 2.
+
+2. **Connector loop/kink between the top `Contradicts` badge and the middle
+   `Same files` badge.** Root cause: wires were computed in a synthetic
+   `0 0 100 H` viewBox (percent-like x, pixel y) while nodes/badges are laid
+   out in CSS pixels, so the SVG's aspect-preserving scale letterboxed the
+   paths into a strip that no longer matched the cards; the mixed-unit
+   midpoint routing rendered as a folded kink on the c1–c2 span in both
+   themes (geometry is theme-independent).
+   Fix: wires are now computed in pixel space exactly like the original
+   demo — `viewBox="0 0 W H"` with `W = map.clientWidth`, node edges at
+   `8+nodeW` / `W-8-nodeW` (`nodeW = min(196, W*0.3)`), badges at `W/2`
+   (badge `left` is now px, not %), path
+   `M x1 y1 C x1+a y1 x2-a y2 x2 y2` with `a = (x2-x1)*0.55`. Control
+   offsets share the sign of dx, so x is monotonic along every connector —
+   clean S-curves/elbows with no loops; endpoints tuck under the cards.
+
+## Verification (re-run after fixes)
+
+- DOM-stub harness (jsdom, in-page script executed): realistic
+  hover→focus→mousedown→mouseup→click pins each of the 8 conflicts
+  (c1 toggles off on second click by design); hover/focus leave the live
+  element in the DOM; Tab+Enter pins `Out of sync · C4` and focus is
+  restored to the rebuilt badge; Esc shows `No conflict pinned`;
+  narrow mode (500px) lists 8 badges and pins `Same files · C5`.
+  **44/44 checks pass**, plus narrow smoke test OK.
+- Wire geometry: `viewBox 0 0 W H` in real pixels (800×506 in the stub), 17 paths (sum of
+  sides); all 17 sampled at 41 points each are x-monotonic (no folds).
+- Token audit: **0 hex / 0 rgb()/hsl() outside the two token blocks**,
+  no external refs; v3 tokens and light+dark toggle unchanged.
+- Contrast (WCAG normal text ≥ 4.5): light ink 17.9 / text 10.3 /
+  muted 4.8 / chips 6.4–7.0 / text-on-subtle 9.4; dark ink 14.5 /
+  text 11.5 / muted 6.6 / chips 9.0–13.7 / text-on-subtle 10.2.
+- `node --check` on the extracted inline script: OK.
+
 ## Could not verify
 - Pixel-perfect parity with the production screenshot (no screenshot available
   in this environment); placement algorithm is my own (alternate left/right

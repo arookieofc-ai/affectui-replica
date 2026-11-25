@@ -563,10 +563,11 @@ function step(dt){
       j.prog = Math.min(1, j.prog + dt / j.dur);
       if (j.prog < 1) continue;
       if (j.flaky && j.attempt === 1) {
+        var w0 = j.worker;
         j.status = "queued"; j.attempt = 2; j.enqueuedAt = sim.t;
         j.startedAt = undefined; j.worker = undefined; j.prog = 0;
         j.error = "Attempt 1: 504 Gateway Timeout from acme.com";
-        sim.free[j.worker || ""] = sim.t + 400;
+        sim.free[w0 || ""] = sim.t + 400;
         say(j.name + " failed \u2013 retrying, attempt 2 of 3");
       } else if (j.fails) {
         j.status = "failed"; j.endedAt = sim.t;
@@ -666,6 +667,8 @@ function makeJobBtn(job, shape){
   b.className = shape === "chip" ? "chip" : "sq";
   b.setAttribute("aria-label", jobLabel(job));
   b.setAttribute("aria-haspopup", "dialog");
+  b.setAttribute("aria-expanded", "false");
+  b.setAttribute("data-job-id", job.id);
   b.dataset.jobId = job.id;
   styleKind(b, job.kind);
   if (shape === "chip") {
@@ -690,6 +693,32 @@ function makeJobBtn(job, shape){
   b.addEventListener("click", function(){ openJob(job.id); });
   b.addEventListener("keydown", function(e){ onJobKey(e, job.id); });
   return b;
+}
+/* Delegated open: the containers below are persistent while render() rebuilds
+   their children every tick, so per-node listeners alone can miss clicks/keys
+   that span a rebuild. One bubbling listener per container survives. */
+function jobIdFromEvent(e){
+  try {
+    var t = e && e.target;
+    if (t && t.closest) {
+      var hit = t.closest("[data-job-id]");
+      if (hit) return hit.getAttribute("data-job-id") || hit.dataset.jobId;
+    }
+  } catch (err) {}
+  return null;
+}
+function delegateOpen(box, arrows){
+  box.addEventListener("click", function(e){
+    var id = jobIdFromEvent(e);
+    if (id) openJob(id);
+  });
+  box.addEventListener("keydown", function(e){
+    var id = jobIdFromEvent(e);
+    if (!id) return;
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openJob(id); }
+    else if (arrows) { onJobKey(e, id); }
+    else if (e.key === "Escape") { closePop(); }
+  });
 }
 function onJobKey(e, id){
   var items = Array.prototype.slice.call(document.querySelectorAll(".chip,.sq"));
@@ -751,7 +780,7 @@ function render(){
   }
   rest.forEach(function(j){ wellEl.appendChild(makeJobBtn(j, "sq")); });
   if (!rest.length && waiting.length <= 3) {
-    var en3 = document.createElement("span"); en3.className = "empty-note"; en3.textContent = waiting.length ? "Grid clear." : "Waiting for jobs\u2026"; wellEl.appendChild(en3);
+    var en3 = document.createElement("span"); en3.className = "empty-note"; en3.textContent = "Nothing waiting"; wellEl.appendChild(en3);
   }
   if (waiting.length > 11) {
     var mc = document.createElement("span"); mc.className = "more-chip"; mc.textContent = "+" + (waiting.length - 11) + " more"; wellEl.appendChild(mc);
@@ -784,6 +813,10 @@ function render(){
       row.style.cursor = "pointer";
       row.setAttribute("role", "button");
       row.tabIndex = 0;
+      row.setAttribute("aria-haspopup", "dialog");
+      row.setAttribute("aria-expanded", "false");
+      row.setAttribute("data-job-id", job.id);
+      row.dataset.jobId = job.id;
       row.setAttribute("aria-label", jobLabel(job) + ", running on " + meta.name);
       (function(jid){
         row.addEventListener("click", function(){ openJob(jid); });
@@ -884,9 +917,20 @@ var backdrop = document.getElementById("backdrop");
 var popFront = document.getElementById("popFront");
 var popCancelBtn = document.getElementById("popCancel");
 function findJob(id){ return sim.jobs.find(function(j){ return j.id === id; }); }
-function openJob(id){
+function syncExpanded(id){
+  try {
+    Array.prototype.forEach.call(document.querySelectorAll("[data-job-id]"), function(el){
+      el.setAttribute("aria-expanded", el.getAttribute("data-job-id") === id ? "true" : "false");
+    });
+  } catch (err) {}
+}
+function openJob(id, doFocus){
   var j = findJob(id);
   if (!j) return;
+  if (doFocus === undefined) doFocus = true;
+  if (doFocus && openId !== id) {
+    try { focusId = document.activeElement; } catch (err) { focusId = null; }
+  }
   openId = id;
   document.getElementById("popName").textContent = j.name;
   document.getElementById("popSub").textContent = j.detail + " \u00B7 " + ({ llm: "LLM call", tool: "Tool call", agent: "Sub-agent" }[j.kind] || j.kind);
@@ -912,15 +956,22 @@ function openJob(id){
   popCancelBtn.style.display = (j.status === "queued" || j.status === "running") ? "" : "none";
   pop.setAttribute("data-open", "");
   backdrop.setAttribute("data-open", "");
-  document.getElementById("popClose").focus();
+  syncExpanded(id);
+  if (doFocus) document.getElementById("popClose").focus();
 }
 function closePop(){
   openId = null;
   pop.removeAttribute("data-open");
   backdrop.removeAttribute("data-open");
+  syncExpanded(null);
+  try { if (focusId && focusId.focus && document.contains(focusId)) focusId.focus(); } catch (err) {}
+  focusId = null;
 }
 document.getElementById("popClose").addEventListener("click", closePop);
 backdrop.addEventListener("click", closePop);
+delegateOpen(chipsEl, true);
+delegateOpen(wellEl, true);
+delegateOpen(workersEl, false);
 document.addEventListener("keydown", function(e){ if (e.key === "Escape" && openId) closePop(); });
 popFront.addEventListener("click", function(){
   var j = openId && findJob(openId);
@@ -970,7 +1021,7 @@ function tick(now){
     while (acc >= 250) { step(250); acc -= 250; }
     sample();
     render();
-    if (openId) { var j = findJob(openId); if (j) openJob(openId); else closePop(); }
+      if (openId) { var j = findJob(openId); if (j) openJob(openId, false); else closePop(); }
   }
   requestAnimationFrame(tick);
 }

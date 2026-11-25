@@ -32,16 +32,57 @@ with 6 coloured lines, 21 stations, moving trains and an approval stop.
 - Responsive: map scrolls horizontally on narrow screens, legend wraps.
 - Keyboard: stations focusable, Enter/Space opens, Escape closes.
 
-## Verification
+## Visual-QA defects fixed (2026-11-25)
+
+### 1. Train marker occluded station labels
+- Symptom: the 20×20 rounded-square train at `(+12,−12)` sat in the same
+  quadrant as the `side:"above"` labels (baseline `−16`, centre-anchored), so
+  e.g. step 1 `Question` rendered as `Ques□on`, step 4 `Write fix` lost `fix`,
+  step 5 `Tests` was partly covered — even when stationary, since the marker
+  is drawn at every running line's station. Trains were also emitted inline
+  right after their own station, so a later train painted over earlier labels.
+- Root cause: marker geometry overlapped the label band + no layering
+  (trains and labels in one pass, trains sometimes on top).
+- Fix (all three): (a) paint order is now rails → trains → stations+labels,
+  so labels always win; (b) markers shrunk 20→15 px and moved east of the dot
+  (`+19, 0`, fanned `+18 px` per extra line at the same station) — clear of
+  both the above- and below-label bands; (c) label offset pushed out
+  (`above −16→−26`, `below +22→+26`, sides `±14→±16`).
+- Verify: geometry check over all 11 steps × 21 labels vs every active marker
+  (conservative label widths) reports **0 overlaps**; all 21 `<text>` labels
+  present in the SVG at every step; layer order asserted (trains before
+  stations).
+
+### 2. Mouse click on stations did not open details (keyboard worked)
+- Symptom: clicking dots/labels/train markers did nothing; Tab+Enter opened
+  the dialog fine.
+- Root cause (two parts): (a) `pointerover`/`pointerout` on the SVG and
+  legend called full `render()`, which replaces `svg.innerHTML` — the hovered
+  node was destroyed between `pointerover` and `click`, so the click target
+  never fired. (b) Train `<g>` markers had no `data-st`, so even without (a)
+  `closest("[data-st]")` missed on marker clicks.
+- Fix: hover/highlight no longer re-renders — new `updateHover()` toggles
+  `dim`/`lit` classes and rail opacity in place (`pointerover/out`,
+  `focusin/out`); `render()` is only called on real state changes (step,
+  select, theme, approve/reject). Every train marker now carries its
+  station's `data-st`, so dot, label and marker clicks all resolve to the
+  same station dialog. Keyboard (Enter/Space/Escape) unchanged.
+- Verify: DOM-stub harness registers 1 SVG click listener; synthetic click
+  events on a station node and on a train-marker node both populate the
+  detail card (`Write fix`, `Tests`); `pointerover` leaves `innerHTML`
+  untouched (no re-render on hover).
+
+## Verification (re-run after fixes)
 - Token audit: all colours live in the `:root` / `html[data-theme="dark"]` token
   blocks and are referenced via `var()`; the only other `#…` match in the file is
   the text "PR #482". No ad-hoc hex per element. Status amber stays amber in dark
   (`#fbbf24` on `#451a03`).
 - Contrast (all ≥ 4.5:1): light ink 17.2, light muted 4.6–4.8, dark ink 16.2,
   dark muted 6.6–7.4, warn pairs 6.4 / 12.0, ok/fail pairs 4.9–11.2.
-- JS syntax checked with `node --check`; render logic executed under Node with a
+- JS syntax checked with `node --check` (on extracted `<script>`); render logic executed under Node with a
   DOM stub: all 11 steps render, approval banner shows at step 10, Approve
-  advances 9→10, Reject resets to 0, station + line detail cards populate.
+  advances 9→10, Reject resets to 0, station + line detail cards populate,
+  plus the click/hover harness above (click fires, hover does not re-render).
 - Checked in both themes via token review (dark uses the same token names;
   borders/shadows adjusted, no grey-on-grey).
 
