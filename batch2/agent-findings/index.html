@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent Findings — affectUI replica</title>
+<script>
+(function () {
+  try {
+    var saved = localStorage.getItem("af-theme");
+    if (saved === "light" || saved === "dark") {
+      document.documentElement.setAttribute("data-theme", saved);
+    } else if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
+      document.documentElement.setAttribute("data-theme", "dark");
+    } else {
+      document.documentElement.setAttribute("data-theme", "light");
+    }
+  } catch (e) {
+    if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
+      document.documentElement.setAttribute("data-theme", "dark");
+    }
+  }
+})();
+</script>
+<style>
+/* ===== tokens-light (start) ===== */
+:root {
+  --af-page: #fafaf9;
+  --af-surface: #ffffff;
+  --af-tray: #f0f0f0;
+  --af-ink: #171717;
+  --af-ink-2: #1c1917;
+  --af-text: #57534e;
+  --af-muted: #78716c;
+  --af-faint: #a8a29e;
+  --af-subtle: #f5f5f4;
+  --af-border: #e7e5e4;
+  --af-run: #0190fe;
+  --af-run-soft: #e0effe;
+  --af-run-edge: #7cc4fe;
+  --af-done-bg: #e4e4e6;
+  --af-done-edge: #d6d6d9;
+  --af-wait: #f59e0b;
+  --af-wait-bg: #fef3c7;
+  --af-wait-tx: #92400e;
+  --af-fail: #f04438;
+  --af-fail-bg: #fdecea;
+  --af-crit: #c4320a;
+  --af-warn: #b25e00;
+  --af-note: #0369a1;
+  --af-focus: rgba(0, 96, 226, 0.7);
+  --af-av1: #0e7490;
+  --af-av2: #6d28d9;
+  --af-av3: #15803d;
+  --af-av4: #b45309;
+  --af-r-lg: 16px;
+  --af-r: 10px;
+  --af-r-sm: 6px;
+  --af-pill: 999px;
+  --af-shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 4px 16px rgba(0, 0, 0, 0.05);
+  --af-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+/* ===== tokens-dark ===== */
+[data-theme="dark"] {
+  --af-page: #101012;
+  --af-surface: #1c1c1f;
+  --af-tray: #111113;
+  --af-ink: #ededed;
+  --af-ink-2: #fafafa;
+  --af-text: rgba(255, 255, 255, 0.72);
+  --af-muted: #a1a1aa;
+  --af-faint: rgba(255, 255, 255, 0.34);
+  --af-subtle: #26262a;
+  --af-border: #2e2e33;
+  --af-run: #4fb0fe;
+  --af-run-soft: rgba(0, 119, 255, 0.23);
+  --af-run-edge: #4fb0fe;
+  --af-done-bg: rgba(255, 255, 255, 0.1);
+  --af-done-edge: rgba(255, 255, 255, 0.16);
+  --af-wait: #fbbf24;
+  --af-wait-bg: #451a03;
+  --af-wait-tx: #fde68a;
+  --af-fail: #ff6b5f;
+  --af-fail-bg: rgba(255, 53, 35, 0.17);
+  --af-crit: #ff8a7a;
+  --af-warn: #ffb35c;
+  --af-note: #4fb0fe;
+  --af-focus: rgba(77, 141, 255, 0.8);
+  --af-av1: #22d3ee;
+  --af-av2: #c4b5fd;
+  --af-av3: #86efac;
+  --af-av4: #fcd34d;
+  --af-shadow: 0 0 0 1px #2a2a2e, 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+/* ===== tokens-end ===== */
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--af-page);
+  color: var(--af-muted);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px;
+  line-height: 20px;
+  letter-spacing: -0.006em;
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 200ms ease, color 200ms ease;
+}
+button {
+  margin: 0; padding: 0; border: 0; background: none;
+  font: inherit; color: inherit; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+button:focus-visible, [tabindex]:focus-visible {
+  outline: 2px solid var(--af-focus);
+  outline-offset: 2px;
+}
+ul, ol { margin: 0; padding: 0; list-style: none; }
+
+.page { max-width: 680px; margin: 0 auto; padding: 28px 16px 48px; }
+.topbar { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 14px; }
+.topbar-text { min-width: 0; flex: 1; }
+.topbar-kicker {
+  font-size: 12px; font-weight: 600; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--af-muted); margin-bottom: 4px;
+}
+.topbar h1 {
+  margin: 0; font-size: 20px; line-height: 26px; font-weight: 650;
+  color: var(--af-ink); letter-spacing: -0.01em;
+}
+.topbar p { margin: 4px 0 0; font-size: 13px; line-height: 18px; color: var(--af-muted); }
+.theme-toggle {
+  flex: none; display: grid; place-items: center;
+  width: 38px; height: 38px; border-radius: var(--af-pill);
+  border: 1px solid var(--af-border); background: var(--af-surface);
+  color: var(--af-ink); box-shadow: var(--af-shadow);
+  transition: transform 150ms ease, background-color 150ms ease, border-color 150ms ease;
+}
+.theme-toggle:hover { transform: translateY(-1px); background: var(--af-subtle); }
+.theme-toggle svg { width: 18px; height: 18px; }
+.theme-toggle .icon-moon { display: none; }
+[data-theme="dark"] .theme-toggle .icon-sun { display: none; }
+[data-theme="dark"] .theme-toggle .icon-moon { display: block; }
+
+/* ---------- component tray ---------- */
+.af {
+  background: var(--af-tray);
+  border-radius: calc(var(--af-r-lg) + 4px);
+  padding: 4px;
+  container-type: inline-size;
+  transition: background-color 200ms ease;
+}
+.af__card {
+  background: var(--af-surface);
+  border-radius: var(--af-r-lg);
+  box-shadow: var(--af-shadow);
+  overflow: hidden;
+  transition: background-color 200ms ease;
+}
+.af__sr {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip-path: inset(50%); white-space: nowrap;
+}
+
+/* ---------- header bar: project name + working count + totals ---------- */
+.af__bar {
+  display: flex; align-items: center; gap: 10px;
+  min-width: 0; padding: 10px 12px 12px 14px;
+}
+.af__spark { display: grid; place-items: center; flex: none; width: 16px; color: var(--af-run); }
+.af__spark svg { width: 14px; height: 14px; }
+.af__title {
+  font-weight: 600; color: var(--af-ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.af__progress {
+  flex: 1 0 auto; min-width: 0; overflow: hidden;
+  font-size: 12px; line-height: 16px; color: var(--af-muted);
+  white-space: nowrap; text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+.af__totals { display: flex; flex: none; gap: 12px; font-size: 12px; line-height: 16px; white-space: nowrap; }
+.af__totals > span { display: inline-flex; align-items: center; gap: 6px; }
+.af__totals > span::before {
+  content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor;
+}
+.af__totals [data-sev="critical"] { color: var(--af-crit); }
+.af__totals [data-sev="warning"] { color: var(--af-warn); }
+.af__totals [data-zero] { color: var(--af-faint); }
+.af__totals b { font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* ---------- agents ---------- */
+.af__agents { padding: 6px; }
+.af__agent {
+  display: grid; align-items: center; gap: 12px;
+  grid-template-columns: 26px minmax(0, 1fr) 128px 52px 66px;
+  width: 100%; min-height: 52px; padding: 6px 10px;
+  border-radius: calc(var(--af-r-lg) - 4px);
+  transition: background-color 160ms ease, opacity 220ms ease;
+  text-align: left;
+}
+.af__agent:hover { background: var(--af-subtle); }
+.af__agent[aria-pressed="true"] { background: var(--af-subtle); box-shadow: inset 0 0 0 1px var(--af-border); }
+.af__agent[data-dim] { opacity: 0.78; }
+.af__agent[data-dim]:hover { opacity: 1; }
+.af__avatar {
+  display: grid; place-items: center; width: 26px; height: 26px;
+  border-radius: 50%; background: var(--af-subtle);
+  color: var(--af-text); box-shadow: inset 0 0 0 1px var(--af-border);
+}
+.af__avatar svg { width: 14px; height: 14px; }
+.af__avatar[data-av="auditor"] { color: var(--af-av1); }
+.af__avatar[data-av="fuzzer"] { color: var(--af-av2); }
+.af__avatar[data-av="prover"] { color: var(--af-av3); }
+.af__avatar[data-av="gas"] { color: var(--af-av4); }
+.af__who { display: grid; min-width: 0; }
+.af__name {
+  overflow: hidden; font-weight: 500; line-height: 19px; color: var(--af-ink);
+  white-space: nowrap; text-overflow: ellipsis;
+}
+.af__step {
+  overflow: hidden; font-size: 12.5px; line-height: 17px; color: var(--af-muted);
+  white-space: nowrap; text-overflow: ellipsis;
+}
+.af__track {
+  position: relative; height: 8px; border-radius: 4px;
+  background: var(--af-subtle); box-shadow: inset 0 0 0 1px var(--af-border);
+  overflow: hidden;
+}
+.af__fill {
+  position: absolute; top: 0; bottom: 0; left: 0; overflow: hidden;
+  border-radius: 4px; background: var(--af-done-bg);
+  box-shadow: inset 0 0 0 0.5px var(--af-done-edge);
+  transition: width 700ms var(--af-ease), background-color 300ms ease;
+}
+.af__agent[data-status="running"] .af__fill { background: var(--af-run-soft); box-shadow: inset 0 0 0 0.5px var(--af-run-edge); }
+.af__agent[data-status="running"] .af__fill::before {
+  content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 40px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+  opacity: 0.7; animation: af-sheen 1500ms linear infinite;
+}
+[data-theme="dark"] .af__agent[data-status="running"] .af__fill::before {
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.14), transparent);
+}
+.af__agent[data-status="running"] .af__fill::after {
+  content: ""; position: absolute; top: 0; bottom: 0; right: 0; width: 18px;
+  background: linear-gradient(90deg, transparent, var(--af-run-edge));
+  animation: af-breathe 1100ms ease-in-out infinite alternate;
+}
+.af__agent[data-status="failed"] .af__fill { background: var(--af-fail-bg); }
+.af__count {
+  font-size: 12px; line-height: 16px; color: var(--af-muted); text-align: right;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.af__found { display: flex; justify-content: flex-end; gap: 10px; font-size: 12px; line-height: 16px; }
+.af__found > span { display: inline-flex; align-items: center; gap: 4px; min-width: 22px; }
+.af__found [data-zero] { opacity: 0.45; }
+.af__found [data-sev="critical"] b { color: var(--af-crit); font-variant-numeric: tabular-nums; }
+.af__found [data-sev="warning"] b { color: var(--af-warn); font-variant-numeric: tabular-nums; }
+.af__found [data-zero] b { color: var(--af-muted); }
+
+/* 2x2 severity mark (own CSS-grid rendition) */
+.mark { display: inline-grid; grid-template-columns: 1fr 1fr; gap: 1px; width: 10px; height: 10px; flex: none; }
+.mark i { border-radius: 1px; background: currentColor; display: block; }
+.mark[data-sev="critical"] { color: var(--af-crit); }
+.mark[data-sev="warning"] { color: var(--af-warn); }
+.mark[data-sev="note"] { color: var(--af-note); }
+.mark[data-sev="critical"] i:nth-child(4) { opacity: 0.6; }
+.mark[data-sev="warning"] i:nth-child(1) { opacity: 1; }
+.mark[data-sev="warning"] i:nth-child(n+2) { opacity: 0.45; }
+.mark[data-sev="note"] i:nth-child(1) { opacity: 0.6; }
+.mark[data-sev="note"] i:nth-child(n+2) { opacity: 0.3; }
+.af__found [data-zero] .mark { color: var(--af-faint); }
+
+/* ---------- feed head ---------- */
+.af__feed-head {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  min-height: 40px; padding: 6px 14px 2px;
+}
+.af__label { font-size: 13px; font-weight: 500; line-height: 18px; color: var(--af-text); }
+.af__chip {
+  display: inline-flex; align-items: center; gap: 4px; height: 22px; max-width: 60%;
+  padding: 0 6px 0 9px; border-radius: var(--af-pill);
+  background: var(--af-surface); box-shadow: var(--af-shadow);
+  font-size: 12px; font-weight: 500; line-height: 16px; color: var(--af-ink);
+}
+.af__chip:hover { background: var(--af-subtle); }
+.af__chip-name { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.af__chip svg { width: 10px; height: 10px; color: var(--af-muted); }
+.af__filters { display: flex; align-items: center; gap: 6px; margin-left: auto; flex-wrap: wrap; }
+.af__pill {
+  height: 22px; padding: 0 10px; border-radius: var(--af-pill);
+  border: 1px solid var(--af-border); background: transparent;
+  font-size: 12px; line-height: 20px; font-weight: 500; color: var(--af-muted);
+  transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
+  white-space: nowrap;
+}
+.af__pill:hover { background: var(--af-subtle); color: var(--af-ink); }
+.af__pill[aria-pressed="true"] { background: var(--af-ink); border-color: var(--af-ink); color: var(--af-surface); }
+.af__pill[data-sev="critical"][aria-pressed="true"] { background: var(--af-crit); border-color: var(--af-crit); color: var(--af-surface); }
+.af__pill[data-sev="warning"][aria-pressed="true"] { background: var(--af-warn); border-color: var(--af-warn); color: var(--af-surface); }
+.af__pill[data-sev="note"][aria-pressed="true"] { background: var(--af-note); border-color: var(--af-note); color: var(--af-surface); }
+
+/* ---------- feed ---------- */
+.af__feed {
+  position: relative; margin: 6px; overflow: hidden;
+  height: calc(var(--af-shown, 4) * 40px + 12px);
+  transition: height 520ms var(--af-ease);
+}
+.af__slot {
+  position: absolute; top: 0; right: 0; left: 0; height: 40px;
+  transition: transform 520ms var(--af-ease), opacity 320ms ease;
+}
+.af__slot[data-out] { opacity: 0; pointer-events: none; }
+.af__finding { display: block; width: 100%; height: 100%; border-radius: calc(var(--af-r-lg) - 4px); }
+.af__finding:hover { background: var(--af-subtle); }
+.af__in {
+  display: flex; align-items: center; gap: 10px; height: 100%; min-width: 0; padding: 0 10px;
+}
+.af__ftitle {
+  flex: 0 1 auto; min-width: 0; overflow: hidden; color: var(--af-ink);
+  white-space: nowrap; text-overflow: ellipsis;
+}
+.af__meta {
+  display: flex; flex: 1 1 0; align-items: center; gap: 6px; min-width: 0; overflow: hidden;
+  font-size: 12px; line-height: 16px; color: var(--af-muted); white-space: nowrap;
+}
+.af__meta code {
+  overflow: hidden; font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 11.5px; text-overflow: ellipsis; white-space: nowrap;
+}
+.af__who-name { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.af__dot { color: var(--af-faint); }
+.af__time {
+  flex: none; min-width: 30px; font-size: 12px; line-height: 16px; color: var(--af-muted);
+  text-align: right; font-variant-numeric: tabular-nums;
+}
+.af__detail {
+  margin: 0 10px 8px 30px; padding: 8px 10px;
+  border: 1px solid var(--af-border); border-radius: var(--af-r);
+  background: var(--af-subtle); font-size: 12px; line-height: 17px; color: var(--af-text);
+}
+.af__detail code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 11.5px; color: var(--af-ink); }
+.af__empty { display: grid; place-items: center; height: 40px; font-size: 12px; color: var(--af-muted); }
+
+/* ---------- footer bar ---------- */
+.af__foot {
+  display: flex; align-items: center; gap: 10px;
+  padding: 2px 14px 12px; font-size: 12px; line-height: 16px; color: var(--af-muted);
+}
+.af__replay {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 26px; padding: 0 12px; border-radius: var(--af-pill);
+  border: 1px solid var(--af-border); background: var(--af-surface);
+  font-size: 12px; font-weight: 500; color: var(--af-ink);
+  transition: background-color 150ms ease, transform 150ms ease;
+}
+.af__replay:hover { background: var(--af-subtle); transform: translateY(-1px); }
+.af__replay svg { width: 12px; height: 12px; }
+.af__status { margin-left: auto; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+@keyframes af-in { from { opacity: 0; transform: translateY(-10px); } }
+@keyframes af-sheen { from { transform: translateX(-40px); } to { transform: translateX(160px); } }
+@keyframes af-breathe { from { opacity: 0.45; } to { opacity: 1; } }
+.af__slot:not([data-out]) .af__in { animation: af-in 560ms var(--af-ease); }
+
+@container (max-width: 480px) {
+  .af__agent { grid-template-columns: 26px minmax(0, 1fr) 64px; gap: 10px; }
+  .af__track, .af__count { display: none; }
+  .af__meta { display: none; }
+  .af__ftitle { flex: 1; }
+  .af__progress { display: none; }
+}
+@media (max-width: 520px) {
+  .af__agent { grid-template-columns: 26px minmax(0, 1fr) 64px; }
+  .af__track, .af__count { display: none; }
+  .af__meta { display: none; }
+  .af__ftitle { flex: 1; }
+  .af__progress { display: none; }
+  .page { padding-top: 18px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .af *, .af *::before, .af *::after { animation: none; transition: none; }
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="topbar">
+    <div class="topbar-text">
+      <div class="topbar-kicker">affectUI replica</div>
+      <h1>Agent Findings</h1>
+      <p>Swarm of checking agents with per-agent progress and a live findings feed.</p>
+    </div>
+    <button class="theme-toggle" id="themeToggle" type="button" aria-label="Switch to dark mode" title="Toggle theme">
+      <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.4M12 19.1v2.4M2.5 12h2.4M19.1 12h2.4M5 5l1.7 1.7M17.3 17.3 19 19M19 5l-1.7 1.7M6.7 17.3 5 19"/></svg>
+      <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.4 14.2A8.5 8.5 0 0 1 9.8 3.6a8.5 8.5 0 1 0 10.6 10.6Z"/></svg>
+    </button>
+  </div>
+
+  <div class="af" id="af">
+    <header class="af__bar">
+      <span class="af__spark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 1.8c.8 5.6 4.6 9.4 10.2 10.2-5.6.8-9.4 4.6-10.2 10.2-.8-5.6-4.6-9.4-10.2-10.2 5.6-.8 9.4-4.6 10.2-10.2Z"/></svg>
+      </span>
+      <span class="af__title" title="Verification">Verification</span>
+      <span class="af__progress" id="afProgress"></span>
+      <span class="af__totals" id="afTotals"></span>
+    </header>
+
+    <div class="af__card">
+      <ul class="af__agents" aria-label="Agents" id="afAgents"></ul>
+    </div>
+
+    <div class="af__feed-head">
+      <span class="af__label">Latest findings</span>
+      <span id="afChipWrap"></span>
+      <span class="af__filters" role="group" aria-label="Filter by severity" id="afFilters"></span>
+    </div>
+
+    <div class="af__card">
+      <ol class="af__feed" aria-live="polite" id="afFeed"></ol>
+    </div>
+
+    <div class="af__foot">
+      <button class="af__replay" id="afReplay" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 8a8.5 8.5 0 1 1-.6 6"/><path d="M3.5 3.5V8H8"/></svg>
+        Replay run
+      </button>
+      <span class="af__status" id="afStatus"></span>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* Original demo data extracted from demo-original.js (agent ids, names,
+   models, totals, step labels, finding severity/title/location/timing). */
+var AGENTS = [
+  { id: "auditor", name: "Auditor", model: "Opus 5.5", total: 24, finish: 25,
+    steps: ["Tracing calls in Vault.withdraw", "Checking access control on mint", "Reading upgrade paths", "Comparing roles with the spec"] },
+  { id: "fuzzer", name: "Fuzzer", model: "GPT-6", total: 18, finish: 24,
+    steps: ["Fuzzing transfer with 10k inputs", "Replaying failed sequences", "Shrinking a failing case", "Fuzzing the oracle feed"] },
+  { id: "prover", name: "Prover", model: "Gemini 3.8 Pro", total: 12, finish: 26,
+    steps: ["Proving totalSupply invariant", "Checking balance conservation", "Bounding loop iterations"] },
+  { id: "gas", name: "Gas review", model: "Sonnet 5.5", total: 10, finish: 17,
+    steps: ["Profiling storage reads", "Packing struct slots", "Checking loop costs"] }
+];
+var FINDINGS = [
+  { id: "f0", agentId: "gas",     severity: "note",     title: "Constant could be immutable", location: "Pool.sol:12", t: -40 },
+  { id: "f1", agentId: "auditor", severity: "critical", title: "Reentrancy in withdraw()", location: "Vault.sol:142", t: 2 },
+  { id: "f2", agentId: "fuzzer",  severity: "warning",  title: "Return value of transfer not checked", location: "Token.sol:88", t: 4.5 },
+  { id: "f3", agentId: "gas",     severity: "note",     title: "Loop reads storage on every pass", location: "Pool.sol:61", t: 7 },
+  { id: "f4", agentId: "auditor", severity: "warning",  title: "Owner can mint without a cap", location: "Token.sol:31", t: 9.5 },
+  { id: "f5", agentId: "prover",  severity: "critical", title: "totalSupply can differ from the sum of balances", location: "Token.sol:204", t: 12 },
+  { id: "f6", agentId: "fuzzer",  severity: "warning",  title: "Price used without a staleness check", location: "Oracle.sol:57", t: 15 },
+  { id: "f7", agentId: "prover",  severity: "note",     title: "Loop bound depends on user input", location: "Vault.sol:96", t: 18.5 }
+];
+var ROWS = 4;
+var SEV_LABEL = { critical: "Critical", warning: "Warning", note: "Note" };
+
+var AVATAR_PATHS = {
+  auditor: "M13 2 4.5 5.5v6c0 5 3.6 8.6 8.5 10.5 4.9-1.9 8.5-5.5 8.5-10.5v-6L13 2Zm-1 5.2 4.2 4.2-1.4 1.4-2.8-2.8-1.6 1.6-1.4-1.4 3-3Z",
+  fuzzer: "M4 6h4l2 5 3-8 2 6 1.5-3H20M4 18h4l2-5 3 8 2-6 1.5 3H20",
+  prover: "M12 2 14.5 4.5 18 4l-.5 3.5L20 10l-2.5 2.5L18 16l-3.5-.5L12 18l-2.5-2.5L6 16l.5-3.5L4 10l2.5-2.5L6 4l3.5.5L12 2Zm0 4.2-1.9 3.9-4.3.6 3.1 3-.7 4.3 3.8-2 3.8 2-.7-4.3 3.1-3-4.3-.6L12 6.2Z",
+  gas: "M13 2 5 13.5h5L10.5 22 19 10h-5.5L13 2Z"
+};
+
+var startTime = Date.now();
+var nowTime = Date.now();
+var selectedAgent = null;
+var severityFilter = "all";
+var openFinding = null;
+
+var elAgents = document.getElementById("afAgents");
+var elFeed = document.getElementById("afFeed");
+var elProgress = document.getElementById("afProgress");
+var elTotals = document.getElementById("afTotals");
+var elFilters = document.getElementById("afFilters");
+var elChipWrap = document.getElementById("afChipWrap");
+var elStatus = document.getElementById("afStatus");
+
+function agentById(id) {
+  for (var i = 0; i < AGENTS.length; i++) if (AGENTS[i].id === id) return AGENTS[i];
+  return null;
+}
+function fmtNum(n) { return n.toLocaleString("en-US"); }
+function fmtAgo(at, now) {
+  if (!isFinite(at)) return "";
+  var s = Math.max(0, Math.round((now - at) / 1000));
+  if (s < 5) return "now";
+  if (s < 60) return s + "s";
+  var m = Math.floor(s / 60);
+  if (m < 60) return m + "m";
+  var h = Math.floor(m / 60);
+  if (h < 24) return h + "h";
+  return Math.floor(h / 24) + "d";
+}
+function progressOf(agent, elapsed) {
+  var p = Math.min(1, elapsed / agent.finish);
+  return { p: p, done: Math.floor(p * agent.total) };
+}
+function stepOf(agent, p) {
+  var idx = Math.min(agent.steps.length - 1, Math.floor(p * agent.steps.length));
+  return agent.steps[idx];
+}
+function visibleFindings(elapsed) {
+  return FINDINGS.filter(function (f) { return f.t <= elapsed; })
+    .map(function (f) { return { f: f, at: startTime + f.t * 1000 }; });
+}
+function countSev(list, sev, agentId) {
+  var n = 0;
+  for (var i = 0; i < list.length; i++) {
+    if (list[i].f.severity === sev && (!agentId || list[i].f.agentId === agentId)) n++;
+  }
+  return n;
+}
+function markHTML(sev) {
+  return '<span class="mark" data-sev="' + sev + '" aria-hidden="true"><i></i><i></i><i></i><i></i></span>';
+}
+function esc(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function render() {
+  var elapsed = Math.max(0, (nowTime - startTime) / 1000);
+  var shown = visibleFindings(elapsed);
+  var doneSum = 0, totalSum = 0, running = 0;
+  var states = AGENTS.map(function (a) {
+    var pr = progressOf(a, elapsed);
+    doneSum += pr.done; totalSum += a.total;
+    var status = pr.done >= a.total ? "done" : "running";
+    if (status === "running") running++;
+    return { a: a, done: pr.done, p: pr.p, status: status };
+  });
+
+  elProgress.textContent = totalSum > 0 ? fmtNum(doneSum) + " of " + fmtNum(totalSum) + " checks" : "";
+  var nc = countSev(shown, "critical"), nw = countSev(shown, "warning");
+  elTotals.setAttribute("aria-label", nc + " critical, " + nw + " warnings");
+  elTotals.innerHTML =
+    '<span data-sev="critical"' + (nc === 0 ? ' data-zero="true"' : "") + '><b>' + fmtNum(nc) + "</b> critical</span>" +
+    '<span data-sev="warning"' + (nw === 0 ? ' data-zero="true"' : "") + '><b>' + fmtNum(nw) + "</b> " + (nw === 1 ? "warning" : "warnings") + "</span>";
+
+  elAgents.innerHTML = states.map(function (st) {
+    var a = st.a;
+    var pct = a.total ? Math.min(100, (st.done / a.total) * 100) : 0;
+    var step = st.status === "done" ? "All checks done" : stepOf(a, st.p);
+    var ic = countSev(shown, "critical", a.id), iw = countSev(shown, "warning", a.id);
+    var dim = selectedAgent && selectedAgent !== a.id ? ' data-dim="true"' : "";
+    var pressed = selectedAgent === a.id ? "true" : "false";
+    return '<li><button type="button" class="af__agent" data-status="' + st.status + '"' +
+      ' aria-pressed="' + pressed + '"' + dim +
+      ' title="' + esc(a.name + " · " + a.model) + '" data-agent="' + a.id + '">' +
+      '<span class="af__avatar" data-av="' + a.id + '" aria-hidden="true">' +
+      '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="' + AVATAR_PATHS[a.id] + '"/></svg></span>' +
+      '<span class="af__who"><span class="af__name">' + esc(a.name) + "</span>" +
+      '<span class="af__step" title="' + esc(step) + '">' + esc(step) + "</span></span>" +
+      '<span class="af__track" aria-hidden="true"><span class="af__fill" style="width:' + pct.toFixed(1) + '%"></span></span>' +
+      '<span class="af__count">' + fmtNum(st.done) + "/" + fmtNum(a.total) + "</span>" +
+      '<span class="af__found" aria-label="' + ic + " critical, " + iw + ' warnings">' +
+      '<span data-sev="critical"' + (ic === 0 ? ' data-zero="true"' : "") + ">" + markHTML("critical") + "<b>" + (ic > 99 ? "99+" : ic) + "</b></span>" +
+      '<span data-sev="warning"' + (iw === 0 ? ' data-zero="true"' : "") + ">" + markHTML("warning") + "<b>" + (iw > 99 ? "99+" : iw) + "</b></span>" +
+      "</span></button></li>";
+  }).join("");
+
+  var sel = selectedAgent ? agentById(selectedAgent) : null;
+  if (sel) {
+    elChipWrap.innerHTML = '<button type="button" class="af__chip" id="afChip" aria-label="Show all agents (now only ' +
+      esc(sel.name) + ')" title="' + esc(sel.name) + '"><span class="af__chip-name">' + esc(sel.name) +
+      '</span><svg viewBox="0 0 10 10" aria-hidden="true"><path d="M2.5 2.5l5 5M7.5 2.5l-5 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></button>';
+    document.getElementById("afChip").addEventListener("click", function () { selectedAgent = null; render(); });
+  } else {
+    elChipWrap.innerHTML = "";
+  }
+
+  var filters = [["all", "All"], ["critical", "Critical"], ["warning", "Warning"], ["note", "Note"]];
+  elFilters.innerHTML = filters.map(function (fl) {
+    var on = severityFilter === fl[0] ? "true" : "false";
+    var sevAttr = fl[0] === "all" ? "" : ' data-sev="' + fl[0] + '"';
+    return '<button type="button" class="af__pill"' + sevAttr + ' aria-pressed="' + on + '" data-sevfilter="' + fl[0] + '">' + fl[1] + "</button>";
+  }).join("");
+
+  var feed = shown.slice().sort(function (x, y) { return y.at - x.at; });
+  if (sel) feed = feed.filter(function (e) { return e.f.agentId === sel.id; });
+  if (severityFilter !== "all") feed = feed.filter(function (e) { return e.f.severity === severityFilter; });
+
+  var list = feed.slice(0, ROWS + 1);
+  var openIdx = -1;
+  for (var k = 0; k < Math.min(list.length, ROWS); k++) {
+    if (list[k].f.id === openFinding) openIdx = k;
+  }
+  var extra = openIdx >= 0 ? 72 : 0;
+  var shownRows = Math.max(1, Math.min(list.length, ROWS));
+  elFeed.style.setProperty("--af-shown", String(shownRows));
+  elFeed.style.height = "calc(" + shownRows + " * 40px + 12px" + (extra ? " + " + extra + "px" : "") + ")";
+  if (list.length === 0) {
+    elFeed.innerHTML = '<li class="af__empty">Nothing found yet</li>';
+  } else {
+    elFeed.innerHTML = list.map(function (entry, i) {
+      var f = entry.f;
+      var ag = agentById(f.agentId);
+      var agName = ag ? ag.name : "";
+      var out = i >= ROWS ? ' data-out="true" aria-hidden="true"' : "";
+      var open = i === openIdx;
+      var y = i * 40 + (openIdx >= 0 && i > openIdx ? extra : 0);
+      var slotStyle = "transform:translateY(" + y + "px)" + (open ? ";height:" + (40 + extra) + "px" : "");
+      var html = '<li class="af__slot" style="' + slotStyle + '"' + out + ">" +
+        '<button type="button" class="af__finding" style="height:40px"' + (i >= ROWS ? ' tabindex="-1"' : "") + ' data-finding="' + f.id + '"' +
+        ' aria-expanded="' + (open ? "true" : "false") + '">' +
+        '<span class="af__in">' + markHTML(f.severity) +
+        '<span class="af__sr">' + SEV_LABEL[f.severity] + ": </span>" +
+        '<span class="af__ftitle" title="' + esc(f.title) + '">' + esc(f.title) + "</span>" +
+        '<span class="af__meta" title="' + esc((agName && f.location ? agName + " · " + f.location : (agName || f.location || ""))) + '">' +
+        (agName ? '<span class="af__who-name">' + esc(agName) + "</span>" : "") +
+        (agName && f.location ? '<span class="af__dot" aria-hidden="true">·</span>' : "") +
+        (f.location ? "<code>" + esc(f.location) + "</code>" : "") + "</span>" +
+        '<span class="af__time">' + esc(fmtAgo(entry.at, nowTime)) + "</span>" +
+        "</span></button>";
+      if (open) {
+        html += '<div class="af__detail"><b>' + SEV_LABEL[f.severity] + "</b> · " + esc(agName) +
+          (ag ? " (" + esc(ag.model) + ")" : "") + " · <code>" + esc(f.location || "") + "</code></div>";
+      }
+      return html + "</li>";
+    }).join("");
+  }
+
+  elStatus.textContent = running === 0 ? "Run complete · " + fmtNum(shown.length) + " findings"
+    : running + " of " + AGENTS.length + " agents working · " + fmtNum(doneSum) + "/" + fmtNum(totalSum);
+}
+
+elAgents.addEventListener("click", function (ev) {
+  var btn = ev.target.closest("[data-agent]");
+  if (!btn) return;
+  var id = btn.getAttribute("data-agent");
+  selectedAgent = (selectedAgent === id) ? null : id;
+  render();
+});
+elFeed.addEventListener("click", function (ev) {
+  var btn = ev.target.closest("[data-finding]");
+  if (!btn) return;
+  var id = btn.getAttribute("data-finding");
+  openFinding = (openFinding === id) ? null : id;
+  render();
+});
+elFilters.addEventListener("click", function (ev) {
+  var btn = ev.target.closest("[data-sevfilter]");
+  if (!btn) return;
+  severityFilter = btn.getAttribute("data-sevfilter");
+  render();
+});
+document.getElementById("afReplay").addEventListener("click", function () {
+  startTime = Date.now();
+  nowTime = Date.now();
+  openFinding = null;
+  render();
+});
+
+var toggle = document.getElementById("themeToggle");
+function syncToggleLabel() {
+  var cur = document.documentElement.getAttribute("data-theme");
+  toggle.setAttribute("aria-label", cur === "dark" ? "Switch to light mode" : "Switch to dark mode");
+}
+toggle.addEventListener("click", function () {
+  var cur = document.documentElement.getAttribute("data-theme");
+  var next = cur === "dark" ? "light" : "dark";
+  document.documentElement.setAttribute("data-theme", next);
+  try { localStorage.setItem("af-theme", next); } catch (e) {}
+  syncToggleLabel();
+});
+syncToggleLabel();
+
+setInterval(function () {
+  nowTime = Date.now();
+  render();
+}, 500);
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,884 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent Ledger — affectUI clean-room replica</title>
+<script>
+/* Theme init: stored override wins, otherwise follow prefers-color-scheme. */
+(function () {
+  try {
+    var saved = localStorage.getItem("ldg-theme");
+    var theme = saved || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    document.documentElement.setAttribute("data-theme", theme);
+  } catch (e) {
+    if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
+      document.documentElement.setAttribute("data-theme", "dark");
+    }
+  }
+})();
+</script>
+<style>
+/* ================= Design tokens (all literal colours live here) ============ */
+:root {
+  color-scheme: light;
+  --page: #fafaf9;
+  --surface: #ffffff;
+  --tray: #efeeec;
+  --panel: #ffffff;
+  --card: #ffffff;
+  --ink: #1c1917;
+  --muted: #78716c;
+  --faint: #c9c4bf;
+  --subtle: #f5f5f4;
+  --border: #e7e5e4;
+  --pill: 999px;
+  --radius-lg: 16px;
+  --radius: 10px;
+  --radius-sm: 6px;
+  --accent: #0369a1;
+  --focus: #1d4ed8;
+  --preview: #eef4ff;
+  --also-bg: #f2f7ff;
+  --also-chip: #dbeafe;
+  --also-fg: #075985;
+  --kept-bg: #fff8ec;
+  --kept-chip: #fef3c7;
+  --kept-fg: #92400e;
+  --amber: #f59e0b;
+  --before-fg: #b91c1c;
+  --before-bg: #fef2f2;
+  --after-fg: #15803d;
+  --after-bg: #f0fdf4;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 4px 16px rgba(0, 0, 0, 0.05);
+  --shadow-sm: 0 0 0 1px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-hover: 0 0 0 1px rgba(0, 0, 0, 0.07), 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #101012;
+  --surface: #1c1c1f;
+  --tray: #161618;
+  --panel: #232326;
+  --card: #2a2a2e;
+  --ink: #ededed;
+  --muted: #a1a1aa;
+  --faint: #55555c;
+  --subtle: #26262a;
+  --border: #2e2e33;
+  --pill: 999px;
+  --radius-lg: 16px;
+  --radius-sm: 6px;
+  --radius: 10px;
+  --accent: #38bdf8;
+  --focus: #7dd3fc;
+  --preview: #1b2a38;
+  --also-bg: #192835;
+  --also-chip: #1d364d;
+  --also-fg: #8bcbfe;
+  --kept-bg: #2d2216;
+  --kept-chip: #3a2712;
+  --kept-fg: #fde68a;
+  --amber: #fbbf24;
+  --before-fg: #fca5a5;
+  --before-bg: #2b1a1a;
+  --after-fg: #86efac;
+  --after-bg: #10281a;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 4px 16px rgba(0, 0, 0, 0.5);
+  --shadow-sm: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-hover: 0 0 0 1px rgba(255, 255, 255, 0.1), 0 2px 6px rgba(0, 0, 0, 0.55);
+}
+/* ================= Base ================= */
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--muted);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px;
+  line-height: 20px;
+  letter-spacing: -0.006em;
+  -webkit-font-smoothing: antialiased;
+  padding: 64px 16px 48px;
+  transition: background 180ms ease, color 180ms ease;
+}
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip-path: inset(50%); white-space: nowrap;
+}
+.wrap { max-width: 720px; margin: 0 auto; }
+/* Theme toggle, top-right of the page */
+.theme-toggle {
+  position: fixed; top: 14px; right: 14px; z-index: 50;
+  display: inline-flex; align-items: center; gap: 8px;
+  height: 36px; min-width: 36px; padding: 0 10px;
+  border: 1px solid var(--border); border-radius: var(--pill);
+  background: var(--surface); color: var(--ink);
+  box-shadow: var(--shadow-sm);
+  font: inherit; font-size: 13px; font-weight: 500;
+  cursor: pointer;
+  transition: box-shadow 150ms ease, transform 150ms ease, background 180ms ease;
+}
+.theme-toggle:hover { box-shadow: var(--shadow-hover); transform: translateY(-1px); }
+.theme-toggle:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.theme-toggle svg { display: block; }
+.theme-toggle .tt-label { line-height: 1; }
+/* ================= Ledger ================= */
+.ledger {
+  background: var(--tray);
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius-lg) + 4px);
+  box-shadow: var(--shadow);
+  padding: 4px;
+  transition: background 180ms ease, border-color 180ms ease;
+}
+.ledger__bar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px;
+  padding: 8px 12px 10px;
+}
+.ledger__mark {
+  display: grid; place-items: center; flex: none;
+  width: 16px; height: 16px; color: var(--accent);
+}
+.ledger__mark svg { display: block; }
+.ledger__title {
+  min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  font-weight: 600; font-size: 15px; color: var(--ink);
+}
+.ledger__agent {
+  min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  font-size: 13px; color: var(--muted);
+}
+.ledger__sum {
+  display: flex; align-items: center; gap: 14px; margin-left: auto;
+  font-size: 13px; line-height: 18px; color: var(--muted);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.ledger__sum b { font-weight: 600; color: var(--ink); }
+.ledger__undone[hidden] { display: none; }
+/* Toolbar: agent filter + system filter + replay */
+.ledger__tools {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px;
+  padding: 0 12px 10px;
+}
+.pills { display: inline-flex; gap: 6px; }
+.pills button {
+  border: 1px solid var(--border); border-radius: var(--pill);
+  background: var(--panel); color: var(--muted);
+  font: inherit; font-size: 12.5px; font-weight: 500;
+  padding: 5px 12px; cursor: pointer; white-space: nowrap;
+  transition: background 150ms ease, color 150ms ease, box-shadow 150ms ease, border-color 150ms ease;
+}
+.pills button:hover { color: var(--ink); box-shadow: var(--shadow-sm); }
+.pills button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.pills button[aria-pressed="true"] {
+  background: var(--ink); border-color: var(--ink); color: var(--page);
+}
+.sys-filter {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12.5px; color: var(--muted); margin-left: auto;
+}
+.sys-filter select {
+  font: inherit; font-size: 12.5px; font-weight: 500;
+  color: var(--ink); background: var(--panel);
+  border: 1px solid var(--border); border-radius: var(--pill);
+  padding: 5px 8px; cursor: pointer; max-width: 150px;
+}
+.sys-filter select:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.replay {
+  display: inline-flex; align-items: center; gap: 6px;
+  border: 1px solid var(--border); border-radius: var(--pill);
+  background: var(--panel); color: var(--muted);
+  font: inherit; font-size: 12.5px; font-weight: 500;
+  padding: 5px 12px 5px 9px; cursor: pointer; white-space: nowrap;
+  transition: color 150ms ease, box-shadow 150ms ease;
+}
+.replay:hover { color: var(--ink); box-shadow: var(--shadow-sm); }
+.replay:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.replay svg { display: block; }
+/* Panel + rows */
+.ledger__panel {
+  display: grid; margin: 0; padding: 6px; list-style: none;
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  transition: background 180ms ease;
+}
+.row {
+  position: relative;
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center;
+  column-gap: 12px;
+  min-height: 62px;
+  padding: 6px 12px 6px 4px;
+  border-radius: calc(var(--radius-sm) + 4px);
+  transition: background-color 200ms ease;
+  animation: row-in 420ms ease backwards;
+}
+.row + .row::before {
+  content: ""; position: absolute; top: 0; right: 12px; left: 50px;
+  height: 1px; background: var(--border);
+}
+.row:hover { background: var(--subtle); }
+.row[data-preview] { background: var(--preview); }
+.row[data-chain="also"] { background: var(--also-bg); }
+.row[data-chain="kept"] { background: var(--kept-bg); }
+.row__btn {
+  grid-column: 1 / 2;
+  display: grid; grid-template-columns: 32px minmax(0, 1fr) 16px;
+  align-items: center; column-gap: 10px;
+  min-width: 0; margin: 0; padding: 4px 0 4px 6px;
+  border: 0; background: none; font: inherit; color: inherit;
+  text-align: left; cursor: pointer; border-radius: var(--radius-sm);
+}
+.row__btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.row__icon {
+  display: grid; place-items: center;
+  width: 32px; height: 32px; border-radius: 50%;
+  background: var(--subtle); color: var(--muted);
+  border: 1px solid var(--border);
+  transition: opacity 160ms ease, background 180ms ease;
+}
+.row__icon svg { display: block; }
+.row[data-undone] .row__icon { opacity: 0.55; }
+.row__main { min-width: 0; display: grid; gap: 1px; padding-right: 2px; }
+.row__what {
+  position: relative; display: block;
+  min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  color: var(--ink); font-size: 14px;
+}
+.row__action { font-weight: 600; }
+.row__target { color: var(--muted); font-weight: 400; }
+.row__target::before { content: " "; }
+.row[data-undone] .row__action,
+.row[data-undone] .row__target,
+.row[data-undone] .row__after { color: var(--muted); }
+.row__strike {
+  position: absolute; top: 50%; left: -2px; width: calc(100% + 4px); height: 1.5px;
+  border-radius: 1px; background: var(--faint);
+  transform: scaleX(0); transform-origin: left center; pointer-events: none;
+  transition: transform 380ms ease calc(var(--o, 0) * 110ms);
+}
+.row[data-undone] .row__strike { transform: scaleX(1); }
+.row__change {
+  display: block; min-width: 0; overflow: hidden;
+  white-space: nowrap; text-overflow: ellipsis;
+  font-size: 13px; color: var(--muted);
+}
+.row__before { color: var(--muted); }
+.row__arrow { color: var(--faint); padding: 0 4px; }
+.row__after { color: var(--muted); }
+.row__detail-text { font-style: normal; }
+.row__chev { color: var(--faint); transition: transform 180ms ease; display: grid; place-items: center; }
+.row__chev svg { display: block; }
+.row__btn[aria-expanded="true"] .row__chev { transform: rotate(180deg); }
+/* End cell: time / undo-redo / flags */
+.row__end {
+  grid-column: 2 / 3;
+  position: relative; display: grid; justify-items: end; align-items: center;
+  min-width: 128px; min-height: 28px;
+}
+.row__time {
+  grid-area: 1 / 1; font-size: 13px; line-height: 18px; color: var(--muted);
+  white-space: nowrap; font-variant-numeric: tabular-nums;
+  transition: opacity 140ms ease;
+}
+.row[data-undone] .row__time { color: var(--muted); }
+.row__time[data-hide] { pointer-events: none; }
+.row:hover .row__time[data-hide],
+.row:focus-within .row__time[data-hide], .row[data-preview] .row__time[data-hide] { opacity: 0; }
+.act {
+  grid-area: 1 / 1; position: relative; z-index: 1;
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 28px; margin-right: -4px; padding: 0 11px 0 9px;
+  border: 0; border-radius: var(--pill);
+  background: var(--card); color: var(--ink);
+  box-shadow: var(--shadow-sm);
+  font: inherit; font-size: 13px; font-weight: 500; white-space: nowrap;
+  opacity: 0; cursor: pointer;
+  transition: opacity 140ms ease, box-shadow 140ms ease;
+}
+.act svg { display: block; }
+.row:hover .act, .row:focus-within .act, .row[data-preview] .act { opacity: 1; }
+.act:hover { box-shadow: var(--shadow-hover); }
+.act:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; opacity: 1; }
+.row[data-preview] .act { color: var(--also-fg); }
+.flag {
+  grid-area: 1 / 1;
+  display: inline-flex; align-items: center; gap: 5px;
+  height: 24px; padding: 0 10px; border-radius: var(--pill);
+  font-size: 12.5px; font-weight: 500; line-height: 24px; white-space: nowrap;
+  animation: fade-in 160ms ease both;
+}
+.flag svg { display: block; }
+.flag[data-kind="also"] { background: var(--also-chip); color: var(--also-fg); }
+.flag[data-kind="kept"] { background: var(--kept-chip); color: var(--kept-fg); }
+/* Expanded detail */
+.row__detail {
+  grid-column: 1 / -1;
+  margin: 2px 2px 8px 48px;
+  border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--surface);
+  padding: 12px 14px 14px;
+  animation: fade-in 200ms ease both;
+}
+.row__detail[hidden] { display: none; }
+.diff { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; align-items: stretch; }
+.diff__col {
+  display: grid; gap: 4px; align-content: start;
+  border-radius: var(--radius-sm); padding: 8px 10px;
+  min-width: 0;
+}
+.diff__before { background: var(--before-bg); }
+.diff__after { background: var(--after-bg); }
+.diff__k { font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+.diff__v { font-size: 13px; word-break: break-word; }
+.diff__before .diff__v { color: var(--before-fg); text-decoration: line-through; }
+.diff__after .diff__v { color: var(--after-fg); font-weight: 600; }
+.diff__arrow { align-self: center; color: var(--muted); font-size: 16px; }
+.detail__text { margin: 0 0 8px; font-size: 13px; color: var(--ink); }
+.detail__meta {
+  margin: 10px 0 0; padding-top: 8px;
+  border-top: 1px solid var(--border);
+  font-size: 12.5px; color: var(--muted);
+  display: flex; flex-wrap: wrap; gap: 4px 12px;
+}
+.detail__meta b { color: var(--ink); font-weight: 600; }
+.detail__kept { color: var(--kept-fg); font-weight: 600; }
+/* Empty state + footer */
+.ledger__empty { margin: 0; padding: 22px 12px; text-align: center; font-size: 13px; }
+.ledger__empty[hidden] { display: none; }
+.footer { margin: 14px 4px 0; font-size: 12.5px; color: var(--muted); text-align: center; }
+/* Animations */
+@keyframes row-in { from { opacity: 0; transform: translateY(-4px); } }
+@keyframes fade-in { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+/* Responsive: narrow = stacked, compact end cell */
+@media (max-width: 560px) {
+  body { padding: 58px 10px 40px; }
+  .ledger__sum { flex-basis: 100%; justify-content: space-between; margin-left: 0; }
+  .sys-filter { margin-left: 0; }
+  .row { column-gap: 8px; padding-right: 8px; }
+  .row + .row::before { left: 46px; right: 8px; }
+  .row__end { min-width: 76px; }
+  .row__sys { display: none; }
+  .act { width: 28px; justify-content: center; padding: 0; margin-right: 0; }
+  .act__label {
+    position: absolute; width: 1px; height: 1px; overflow: hidden;
+    clip-path: inset(50%); white-space: nowrap;
+  }
+  .row__detail { margin-left: 42px; }
+  .diff { grid-template-columns: minmax(0, 1fr); }
+  .diff__arrow { justify-self: center; transform: rotate(90deg); }
+  .theme-toggle .tt-label { display: none; }
+  .theme-toggle { min-width: 36px; padding: 0 8px; }
+}
+@media (hover: none) {
+  .act { opacity: 1; }
+  .row__time[data-hide] { opacity: 0; }
+}
+</style>
+</head>
+<body>
+<h1 class="visually-hidden">Agent Ledger</h1>
+<button class="theme-toggle" id="themeToggle" type="button" aria-label="Switch to dark mode">
+  <span id="themeIcon" aria-hidden="true"></span>
+  <span class="tt-label" id="themeLabel">Dark</span>
+</button>
+
+<div class="wrap">
+  <div class="ledger" id="ledger">
+    <header class="ledger__bar">
+      <span class="ledger__mark" id="ledgerMark" aria-hidden="true"></span>
+      <span class="ledger__title">Ledger</span>
+      <span class="ledger__agent">Launch agent</span>
+      <span class="ledger__sum" aria-live="polite">
+        <span><b id="changeCount">0</b> <span id="changeWord">changes</span></span>
+        <span class="ledger__undone" id="undoneWrap" hidden><b id="undoneCount">0</b> undone</span>
+      </span>
+    </header>
+    <div class="ledger__tools">
+      <div class="pills" role="group" aria-label="Filter by agent">
+        <button type="button" data-agent="all" aria-pressed="true">All agents</button>
+        <button type="button" data-agent="Launch agent" aria-pressed="false">Launch agent</button>
+      </div>
+      <label class="sys-filter">System
+        <select id="sysSelect" aria-label="Filter by system"></select>
+      </label>
+      <button class="replay" id="replayBtn" type="button" aria-label="Replay the launch demo">
+        <span id="replayIcon" aria-hidden="true"></span>Replay
+      </button>
+    </div>
+    <ol class="ledger__panel" id="panel" aria-label="Agent changes"></ol>
+    <p class="ledger__empty" id="emptyState" hidden>No changes match this filter.</p>
+  </div>
+  <p class="footer">Clean-room replica of the affectUI Agent Ledger demo. Change data matches the public demo bundle.</p>
+</div>
+
+<script>
+"use strict";
+/* Original demo data: change entries, agents, before/after values, undo states. */
+var AGENT = "Launch agent";
+var ENTRIES = [
+  { t: 0,   id: "pr",     action: "Merged PR #482",    target: "Pricing page v2",   system: "GitHub",  change: ["pricing-v2", "main"] },
+  { t: 1.5, id: "deploy", action: "Deployed",          target: "affectui.com",      system: "Vercel",  change: ["#481", "#483 in production"], dependsOn: ["pr"] },
+  { t: 2.6, id: "price",  action: "Changed price",     target: "Pro plan",          system: "Stripe",  change: ["$29 / month", "$34 / month"] },
+  { t: 3.7, id: "coupon", action: "Created coupon",    target: "LAUNCH20",          system: "Stripe",  detail: "20% off the first year \u00B7 ends in 7 days" },
+  { t: 4.8, id: "faq",    action: "Updated page",      target: "Pricing FAQ",       system: "Notion",  change: ["3 answers", "3 answers rewritten"] },
+  { t: 5.9, id: "deals",  action: "Updated 212 deals", target: "Renewals in Q4",    system: "HubSpot", change: ["$29 per seat", "$34 per seat"], dependsOn: ["price"] },
+  { t: 7,   id: "post",   action: "Posted in #launch", target: "New pricing is live", system: "Slack", detail: "With a link to the pricing page", dependsOn: ["deploy"] },
+  { t: 8.1, id: "email",  action: "Sent email",        target: "3,812 customers",    system: "HubSpot", detail: "New price and the code LAUNCH20", dependsOn: ["price", "coupon"], reversible: false }
+];
+/* Demo timeline constants from the original: staged reveal, auto-undo, loop. */
+var TIME_MULT = 22;
+var AUTO_UNDO_AT = 12.2;
+var POINT_FROM = 10;
+var LOOP_AT = 24;
+
+/* ---------- tiny icon set (original line icons drawn for this replica) ---------- */
+function svgWrap(inner, size) {
+  var s = size || 16;
+  return '<svg width="' + s + '" height="' + s + '" viewBox="0 0 16 16" fill="none" aria-hidden="true">' + inner + "</svg>";
+}
+var P = {
+  mark: function () {
+    return svgWrap('<rect x="2" y="1.8" width="12" height="12.4" rx="2.6" stroke="currentColor" stroke-width="1.3"/><path d="M5 5.4h6M5 8h6M5 10.6h3.6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>');
+  },
+  undo: function () {
+    return svgWrap('<path d="M4 6.5h6.2c2 0 3.3 1.3 3.3 3s-1.3 3-3.3 3H6.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M7 3.5 4 6.5l3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>', 13);
+  },
+  redo: function () {
+    return svgWrap('<path d="M12 6.5H5.8c-2 0-3.3 1.3-3.3 3s1.3 3 3.3 3h3.7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M9 3.5l3 3-3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>', 13);
+  },
+  lock: function () {
+    return svgWrap('<rect x="3.5" y="7" width="9" height="6.5" rx="1.6" stroke="currentColor" stroke-width="1.4"/><path d="M5.5 7V5.2a2.5 2.5 0 0 1 5 0V7" stroke="currentColor" stroke-width="1.4"/>', 13);
+  },
+  chev: function () {
+    return svgWrap('<path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>', 14);
+  },
+  sun: function () {
+    return svgWrap('<circle cx="8" cy="8" r="3.2" stroke="currentColor" stroke-width="1.4"/><path d="M8 1.5v1.6M8 12.9v1.6M1.5 8h1.6M12.9 8h1.6M3.4 3.4l1.1 1.1M11.5 11.5l1.1 1.1M12.6 3.4l-1.1 1.1M4.5 11.5 3.4 12.6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>', 18);
+  },
+  moon: function () {
+    return svgWrap('<path d="M13.2 9.5A5.2 5.2 0 0 1 6.5 2.8 5.2 5.2 0 1 0 13.2 9.5z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>', 18);
+  },
+  replay: function () {
+    return svgWrap('<path d="M2.8 8a5.2 5.2 0 1 1 1.5 3.7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M2.8 12.4V9.2h3.2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>', 14);
+  },
+  github: function () {
+    return svgWrap('<circle cx="4.5" cy="4" r="1.8" stroke="currentColor" stroke-width="1.3"/><circle cx="4.5" cy="12" r="1.8" stroke="currentColor" stroke-width="1.3"/><circle cx="11.5" cy="8" r="1.8" stroke="currentColor" stroke-width="1.3"/><path d="M4.5 5.8v4.4M6 4.6c2.5.3 2.6 2.6 3.8 2.9" stroke="currentColor" stroke-width="1.3"/>');
+  },
+  vercel: function () {
+    return svgWrap('<path d="M8 3.2 13.4 12.4H2.6z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>');
+  },
+  stripe: function () {
+    return svgWrap('<rect x="2" y="3.6" width="12" height="8.8" rx="1.8" stroke="currentColor" stroke-width="1.3"/><path d="M2 6.4h12" stroke="currentColor" stroke-width="1.3"/><path d="M4 10h3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>');
+  },
+  notion: function () {
+    return svgWrap('<path d="M4 2.5h5.5L12.5 5v8.5h-8.5z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M9.3 2.5V5h3.2M6 7.5h4M6 9.8h4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>');
+  },
+  hubspot: function () {
+    return svgWrap('<circle cx="8" cy="8" r="1.7" stroke="currentColor" stroke-width="1.3"/><circle cx="3.2" cy="3.4" r="1.3" stroke="currentColor" stroke-width="1.2"/><circle cx="12.8" cy="3.4" r="1.3" stroke="currentColor" stroke-width="1.2"/><circle cx="8" cy="13.4" r="1.3" stroke="currentColor" stroke-width="1.2"/><path d="M4.2 4.3 6.7 6.7M11.8 4.3 9.3 6.7M8 9.7v2" stroke="currentColor" stroke-width="1.2"/>');
+  },
+  slack: function () {
+    return svgWrap('<path d="M6.2 2.5v5M9.8 8.5v5M2.5 9.8h5M8.5 6.2h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>');
+  }
+};
+function systemIcon(system) {
+  var k = String(system).toLowerCase();
+  if (k === "github") return P.github();
+  if (k === "vercel") return P.vercel();
+  if (k === "stripe") return P.stripe();
+  if (k === "notion") return P.notion();
+  if (k === "hubspot") return P.hubspot();
+  if (k === "slack") return P.slack();
+  return P.mark();
+}
+
+/* ---------- state ---------- */
+var byId = {};
+ENTRIES.forEach(function (e) { byId[e.id] = e; });
+var dependents = {}; /* id -> [entries that directly depend on it] */
+ENTRIES.forEach(function (e) {
+  (e.dependsOn || []).forEach(function (dep) {
+    if (!dependents[dep]) dependents[dep] = [];
+    dependents[dep].push(e);
+  });
+});
+function transitiveDependents(id) {
+  var out = [], seen = {}, queue = [id];
+  seen[id] = true;
+  while (queue.length) {
+    var cur = queue.shift();
+    (dependents[cur] || []).forEach(function (e) {
+      if (!seen[e.id]) { seen[e.id] = true; out.push(e); queue.push(e.id); }
+    });
+  }
+  return out;
+}
+function label(e) { return e.target ? e.action + " " + e.target : e.action; }
+
+var state = {
+  clock: 0,            /* demo seconds elapsed */
+  bootTime: Date.now(),/* wall-clock anchor for relative timestamps */
+  paused: false,
+  interacted: false,   /* user undid/redid: skip the scripted auto-undo */
+  undone: [],
+  expanded: {},
+  hoverPreview: null,  /* entry id hovered via an Undo button */
+  agentFilter: "all",
+  systemFilter: "all"
+};
+function isUndone(id) { return state.undone.indexOf(id) !== -1; }
+function nowMs() { return state.bootTime + state.clock * TIME_MULT * 1000; }
+function atMs(e) { return state.bootTime + e.t * TIME_MULT * 1000; }
+function visibleEntries() {
+  return ENTRIES.filter(function (e) { return state.clock >= e.t; });
+}
+function filteredEntries() {
+  return visibleEntries().filter(function (e) {
+    if (state.agentFilter !== "all" && AGENT !== state.agentFilter) return false;
+    if (state.systemFilter !== "all" && e.system !== state.systemFilter) return false;
+    return true;
+  }).sort(function (a, b) { return b.t - a.t; }); /* newest first */
+}
+function autoPreview() {
+  if (!state.interacted && state.clock >= POINT_FROM && state.clock < AUTO_UNDO_AT) return "price";
+  return null;
+}
+function effectivePreview() { return state.hoverPreview || autoPreview(); }
+
+/* ---------- relative time (same shape as the original demo) ---------- */
+function ago(at, now) {
+  var s = Math.max(0, Math.round((now - at) / 1000));
+  if (s < 10) return "just now";
+  if (s < 60) return s + "s ago";
+  var m = Math.floor(s / 60);
+  if (m < 60) return m + "m ago";
+  var h = Math.floor(m / 60);
+  if (h < 24) return h + "h ago";
+  return Math.floor(h / 24) + "d ago";
+}
+function esc(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+/* ---------- render ---------- */
+var panel = document.getElementById("panel");
+var changeCount = document.getElementById("changeCount");
+var changeWord = document.getElementById("changeWord");
+var undoneWrap = document.getElementById("undoneWrap");
+var undoneCount = document.getElementById("undoneCount");
+var emptyState = document.getElementById("emptyState");
+
+function chainInfo(previewId) {
+  /* rows highlighted while previewing an undo: dependents get also/kept flags */
+  var map = {};
+  if (!previewId || !byId[previewId]) return map;
+  transitiveDependents(previewId).forEach(function (e) {
+    map[e.id] = (e.reversible === false) ? "kept" : "also";
+  });
+  return map;
+}
+
+function render(restoreFocus) {
+  var list = filteredEntries();
+  var previewId = effectivePreview();
+  var chain = chainInfo(previewId);
+  var now = nowMs();
+  var html = list.map(function (e, idx) {
+    var undone = isUndone(e.id);
+    var flag = chain[e.id];
+    var isPreview = previewId === e.id;
+    var deps = transitiveDependents(e.id).filter(function (d) { return d.reversible !== false; });
+    var hasChange = e.change && (String(e.change[0]).trim() || String(e.change[1]).trim());
+    var expanded = !!state.expanded[e.id];
+    var changeHtml;
+    if (hasChange) {
+      changeHtml = '<span class="row__before">' + esc(e.change[0]) + '</span>' +
+        '<span class="row__arrow" aria-hidden="true">\u2192</span>' +
+        '<span class="row__after">' + esc(e.change[1]) + "</span>";
+    } else {
+      changeHtml = '<span class="row__detail-text">' + esc(e.detail) + "</span>";
+    }
+    var endHtml;
+    if (flag) {
+      endHtml = flag === "also"
+        ? '<span class="flag" data-kind="also">Also undone</span>'
+        : '<span class="flag" data-kind="kept">' + P.lock() + "Can\u2019t undo</span>";
+    } else if (e.reversible === false) {
+      endHtml = '<span class="flag" data-kind="kept" title="This change can\u2019t be undone">' + P.lock() + "Can\u2019t undo</span>";
+    } else {
+      var timeLabel = undone ? "Undone" : esc(ago(atMs(e), now));
+      var timeInner = undone ? "Undone"
+        : esc(ago(atMs(e), now)) + '<span class="row__sys"> \u00B7 ' + esc(e.system) + "</span>";
+      var timeAttrs = (!undone) ? ' data-at="' + atMs(e) + '" data-hide' : "";
+      if (undone) {
+        endHtml = '<span class="row__time">' + timeInner + "</span>" +
+          '<button type="button" class="act" data-act="redo" data-id="' + e.id + '"' +
+          ' aria-label="Redo: ' + esc(label(e)) + '">' + P.redo() + '<span class="act__label">Redo</span></button>';
+      } else {
+        var undoLabel = "Undo: " + label(e) + (deps.length ? " \u2013 and " + deps.length + " that build" + (deps.length === 1 ? "s" : "") + " on it" : "");
+        endHtml = '<span class="row__time"' + timeAttrs + ">" + timeInner + "</span>" +
+          '<button type="button" class="act" data-act="undo" data-id="' + e.id + '"' +
+          ' aria-label="' + esc(undoLabel) + '">' + P.undo() + '<span class="act__label">Undo</span></button>';
+      }
+    }
+    var detailHtml = "";
+    if (expanded) {
+      var before = hasChange ? e.change[0] : e.detail;
+      var after = hasChange ? e.change[1] : null;
+      var builtOn = (e.dependsOn || []).map(function (d) { return byId[d] ? label(byId[d]) : d; });
+      var requiredBy = transitiveDependents(e.id).map(label);
+      detailHtml = '<div class="row__detail" data-detail="' + e.id + '">' +
+        (after !== null
+          ? '<div class="diff"><div class="diff__col diff__before"><span class="diff__k">Before</span><span class="diff__v">' + esc(before) + '</span></div>' +
+            '<span class="diff__arrow" aria-hidden="true">\u2192</span>' +
+            '<div class="diff__col diff__after"><span class="diff__k">After</span><span class="diff__v">' + esc(after) + "</span></div></div>"
+          : '<p class="detail__text">' + esc(e.detail) + "</p>") +
+        '<p class="detail__meta"><span>System <b>' + esc(e.system) + "</b></span>" +
+        "<span>" + esc(ago(atMs(e), now)) + "</span>" +
+        (builtOn.length ? "<span>Builds on <b>" + esc(builtOn.join(", ")) + "</b></span>" : "") +
+        (requiredBy.length ? "<span>Required by <b>" + esc(requiredBy.join(", ")) + "</b></span>" : "") +
+        (e.reversible === false ? '<span class="detail__kept">Can\u2019t be undone</span>' : "<span>Reversible</span>") +
+        "</p></div>";
+    }
+    var attrs = ' class="row" data-id="' + e.id + '" style="--o:' + idx + '"' +
+      (undone ? " data-undone" : "") +
+      (flag ? ' data-chain="' + flag + '"' : "") +
+      (isPreview ? " data-preview" : "");
+    return '<li' + attrs + ">" +
+      '<button type="button" class="row__btn" data-expand="' + e.id + '" aria-expanded="' + expanded + '"' +
+      ' aria-label="' + (expanded ? "Collapse" : "Expand") + ": " + esc(label(e)) + '">' +
+      '<span class="row__icon">' + systemIcon(e.system) + "</span>" +
+      '<span class="row__main"><span class="row__what"><span class="row__action">' + esc(e.action) + "</span>" +
+      (e.target ? '<span class="row__target">' + esc(e.target) + "</span>" : "") +
+      '<span class="row__strike" aria-hidden="true"></span></span>' +
+      '<span class="row__change" title="' + (hasChange ? esc(e.change[0] + " \u2192 " + e.change[1]) : esc(e.detail)) + '">' + changeHtml + "</span></span>" +
+      '<span class="row__chev">' + P.chev() + "</span></button>" +
+      '<div class="row__end">' + endHtml + "</div>" +
+      detailHtml + "</li>";
+  }).join("");
+  panel.innerHTML = html;
+  var n = list.length;
+  var u = list.filter(function (e) { return isUndone(e.id); }).length;
+  changeCount.textContent = n.toLocaleString("en-US");
+  changeWord.textContent = n === 1 ? "change" : "changes";
+  undoneCount.textContent = u.toLocaleString("en-US");
+  undoneWrap.hidden = u === 0;
+  emptyState.hidden = n !== 0;
+  panel.style.display = n === 0 ? "none" : "";
+  if (restoreFocus) {
+    var sel = restoreFocus.act
+      ? '[data-act="' + restoreFocus.act + '"][data-id="' + restoreFocus.id + '"]'
+      : '[data-expand="' + restoreFocus.id + '"]';
+    var el = panel.querySelector(sel);
+    if (el) el.focus();
+  }
+}
+
+function refreshTimes() {
+  var now = nowMs();
+  var times = panel.querySelectorAll(".row__time[data-at]");
+  for (var i = 0; i < times.length; i++) {
+    var at = parseInt(times[i].getAttribute("data-at"), 10);
+    var sysEl = times[i].querySelector(".row__sys");
+    var sys = sysEl ? sysEl.textContent : "";
+    times[i].textContent = ago(at, now);
+    if (sys) {
+      var s = document.createElement("span");
+      s.className = "row__sys";
+      s.textContent = sys;
+      times[i].appendChild(s);
+    }
+  }
+}
+
+/* ---------- undo / redo with dependent cascade ---------- */
+function doUndo(id, focusAfter) {
+  var targets = [id].concat(
+    transitiveDependents(id)
+      .filter(function (e) { return e.reversible !== false && !isUndone(e.id); })
+      .map(function (e) { return e.id; })
+  );
+  targets.forEach(function (t) { if (!isUndone(t)) state.undone.push(t); });
+  state.interacted = true;
+  state.hoverPreview = null;
+  var next = isUndone(id) ? { act: "redo", id: id } : null;
+  render(focusAfter ? next : null);
+}
+function doRedo(id, focusAfter) {
+  var inChain = {};
+  inChain[id] = true;
+  transitiveDependents(id).forEach(function (e) { inChain[e.id] = true; });
+  state.undone = state.undone.filter(function (t) { return !inChain[t]; });
+  state.interacted = true;
+  state.hoverPreview = null;
+  render(focusAfter ? { act: "undo", id: id } : null);
+}
+
+/* ---------- events (delegated) ---------- */
+panel.addEventListener("click", function (ev) {
+  var actBtn = ev.target.closest("[data-act]");
+  if (actBtn) {
+    var id = actBtn.getAttribute("data-id");
+    if (actBtn.getAttribute("data-act") === "undo") doUndo(id, true);
+    else doRedo(id, true);
+    return;
+  }
+  var expBtn = ev.target.closest("[data-expand]");
+  if (expBtn) {
+    var eid = expBtn.getAttribute("data-expand");
+    state.expanded[eid] = !state.expanded[eid];
+    render({ id: eid });
+  }
+});
+panel.addEventListener("mouseover", function (ev) {
+  var b = ev.target.closest('[data-act="undo"]');
+  var id = b ? b.getAttribute("data-id") : null;
+  if (id !== state.hoverPreview) {
+    state.hoverPreview = id;
+    applyPreview();
+  }
+});
+panel.addEventListener("mouseout", function (ev) {
+  if (ev.target.closest && ev.target.closest('[data-act="undo"]')) {
+    state.hoverPreview = null;
+    applyPreview();
+  }
+});
+panel.addEventListener("focusin", function (ev) {
+  var b = ev.target.closest ? ev.target.closest('[data-act="undo"]') : null;
+  var id = b ? b.getAttribute("data-id") : null;
+  if (id !== state.hoverPreview) {
+    state.hoverPreview = id;
+    applyPreview();
+  }
+});
+panel.addEventListener("focusout", function () {
+  if (state.hoverPreview) {
+    state.hoverPreview = null;
+    applyPreview();
+  }
+});
+panel.addEventListener("keydown", function (ev) {
+  if (ev.key === "Escape") {
+    var open = Object.keys(state.expanded).filter(function (k) { return state.expanded[k]; });
+    if (open.length) {
+      var last = open[open.length - 1];
+      state.expanded[last] = false;
+      render({ id: last });
+    }
+  }
+});
+function applyPreview() {
+  /* hover preview only toggles attributes on existing rows (no rebuild, keeps focus) */
+  var previewId = effectivePreview();
+  var chain = chainInfo(previewId);
+  var rows = panel.querySelectorAll(".row");
+  for (var i = 0; i < rows.length; i++) {
+    var id = rows[i].getAttribute("data-id");
+    if (previewId === id) rows[i].setAttribute("data-preview", "");
+    else rows[i].removeAttribute("data-preview");
+    /* data-chain is only ever set by hover/auto preview, so it is safe to clear */
+    if (chain[id]) rows[i].setAttribute("data-chain", chain[id]);
+    else rows[i].removeAttribute("data-chain");
+  }
+}
+
+/* filters */
+document.querySelectorAll(".pills button").forEach(function (btn) {
+  btn.addEventListener("click", function () {
+    document.querySelectorAll(".pills button").forEach(function (b) { b.setAttribute("aria-pressed", "false"); });
+    btn.setAttribute("aria-pressed", "true");
+    state.agentFilter = btn.getAttribute("data-agent");
+    render();
+  });
+});
+var sysSelect = document.getElementById("sysSelect");
+(function initSystems() {
+  var systems = [];
+  ENTRIES.forEach(function (e) { if (systems.indexOf(e.system) === -1) systems.push(e.system); });
+  var opts = '<option value="all">All systems</option>' + systems.map(function (s) {
+    return '<option value="' + esc(s) + '">' + esc(s) + "</option>";
+  }).join("");
+  sysSelect.innerHTML = opts;
+})();
+sysSelect.addEventListener("change", function () {
+  state.systemFilter = sysSelect.value;
+  render();
+});
+document.getElementById("replayBtn").addEventListener("click", function () {
+  state.clock = 0;
+  state.bootTime = Date.now();
+  state.undone = [];
+  state.expanded = {};
+  state.interacted = false;
+  state.hoverPreview = null;
+  render();
+});
+
+/* pause the demo while the pointer rests on it or focus is inside */
+var ledger = document.getElementById("ledger");
+ledger.addEventListener("pointerenter", function (ev) {
+  if (ev.pointerType === "mouse") state.paused = true;
+});
+ledger.addEventListener("pointerleave", function () { state.paused = false; });
+ledger.addEventListener("focusin", function () { state.paused = true; });
+ledger.addEventListener("focusout", function () { state.paused = false; });
+
+/* ---------- demo clock: staged reveal, scripted auto-undo, loop ---------- */
+var lastCount = -1;
+setInterval(function () {
+  if (!state.paused) state.clock += 0.1;
+  var visible = visibleEntries().length;
+  if (visible !== lastCount) {
+    lastCount = visible;
+    render();
+  } else {
+    refreshTimes();
+    if (autoPreview() || state.hoverPreview) applyPreview();
+  }
+  if (!state.interacted && state.clock >= AUTO_UNDO_AT && state.undone.length === 0) {
+    state.undone = ["price", "deals"];
+    render();
+  }
+  if (state.clock > LOOP_AT) {
+    state.clock = 0;
+    state.bootTime = Date.now();
+    state.undone = [];
+    state.expanded = {};
+    state.interacted = false;
+    state.hoverPreview = null;
+    lastCount = -1;
+    render();
+  }
+}, 100);
+
+/* ---------- theme toggle ---------- */
+var themeToggle = document.getElementById("themeToggle");
+var themeIcon = document.getElementById("themeIcon");
+var themeLabel = document.getElementById("themeLabel");
+function paintTheme() {
+  var dark = document.documentElement.getAttribute("data-theme") === "dark";
+  themeIcon.innerHTML = dark ? P.sun() : P.moon();
+  themeLabel.textContent = dark ? "Light" : "Dark";
+  themeToggle.setAttribute("aria-label", dark ? "Switch to light mode" : "Switch to dark mode");
+}
+themeToggle.addEventListener("click", function () {
+  var dark = document.documentElement.getAttribute("data-theme") !== "dark";
+  document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
+  try { localStorage.setItem("ldg-theme", dark ? "dark" : "light"); } catch (e) {}
+  paintTheme();
+});
+
+/* ---------- init ---------- */
+document.getElementById("ledgerMark").innerHTML = P.mark();
+document.getElementById("replayIcon").innerHTML = P.replay();
+paintTheme();
+render();
+</script>
+</body>
+</html>
