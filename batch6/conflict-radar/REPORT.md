@@ -1,8 +1,8 @@
 # conflict-radar — clean-room replica report
 
 ## What was built
-`index.html` (32,958 bytes, single file, no network, system fonts) — a
-standalone replica of the affectUI Pro **conflict-radar** component:
+`index.html` (~35 KB, single file, no network, system fonts) — a
+standalone replica of the affectUI Pro `conflict-radar` component:
 per-file, per-agent view of branch conflicts with resolution choices and merge.
 
 - Header bar: radar icon + title `Parallel work` + merge button whose label
@@ -64,12 +64,106 @@ Checked in both themes via toggle (default follows `prefers-color-scheme`).
 ## Verification
 - `node --check` on the extracted page script: **OK**.
 - `node harness.cjs` (in this directory): minimal DOM stub + fake clock drives
-  the real page script through t = 0/8/13/17/20/27/44 s — **ALL CHECKS PASSED**
-  (37 checks: layout, pixel-mark cell counts, timings, clicks, toggle,
-  contrast, tokens). Pixel-marks: 6 in header (visible + KPI per agent), each
-  **exactly 9 cells**, distinct hues per agent id, twinkle while working.
+  the real page script through t = 0/8/13/17/20/21/25/27/44 s — **ALL CHECKS PASSED**
+  (119 checks: layout, pixel-mark cell counts, timings, clicks, toggle,
+  contrast, tokens, plus the grid probes and round-3 nesting asserts). Pixel-marks: 6 in
+  header (visible + KPI per agent), each **exactly 9 cells**, distinct hues per
+  agent id, twinkle while working. Merged banner + `Merged ✓` persist at
+  t = 21/25 s and the loop still wraps cleanly at 26 s.
 - Could not verify: pixel-perfect match to the Pro .tsx (not available);
   only the public compiled demo + spec were used.
+
+## Round-3 fix (REAL root cause — round-2 diagnosis was wrong)
+
+Browser re-QA failed the round-2 build in both themes while the 120/120
+stub harness passed. Round 2 blamed an unclosed `<b>` + `display:contents`;
+both were wrong/incomplete: the `<b>` tags were already closed (`</b>` was
+present) and no `display:contents` remained. The real defects were
+**span-nesting hierarchy bugs** the string-matching harness could not see:
+
+1. **Header:** the template closed the top row immediately after the name —
+   `"...<b>"+name+"</b></span>"+'<span class="cr-kpistate">'...` — evicting
+   the state badge AND leaving `.cr-kpimodel` (full `Opus 5.5 · …` model) and
+   `.cr-kpis` (`3 Files 0 Conflicts…`) as **always-visible flex children of
+   `.cr-head`** instead of children of the hidden `.cr-kpi`
+   (`position:absolute; visibility:hidden`). The hide selector therefore
+   never applied to them (selector/class mismatch: it hid the wrapper, but
+   the markup didn't nest the details inside it). The visible counts
+   squeezed `.cr-hname` to a truncated stub, avatars sat on count text, and
+   because `.cr-head{overflow:visible}` the overflowing counts spilled over
+   neighbouring tracks — the exact 'squeezed into one row, cut off at the
+   container edge' render. It also left one stray `</span>` per header,
+   confirmed by `html.parser` reporting `unmatched </span>`.
+2. **Legend:** no legend bug of its own — the 'Kept covered' render was the
+   header overflow from (1) painting over the file column (legend itself
+   clips with `overflow:hidden`, so Kept showed only `ept`/`Ke` at the edge).
+   Removing the overflow source restores the full legend; legend markup/CSS
+   unchanged.
+3. **payment.ts `Lines 52–80` in the File column:** same bug class in the
+   cell tooltip — `"...<b>"+name+"</b></span>"+state+"</span></span>"+meta+
+   "</span>"` closed `.cr-tip` early, leaving `.cr-tipmeta` (the line-range)
+   as a **visible static sibling** of the hidden `.cr-tip`, plus one stray
+   `</span>` per filled cell. Browsers re-parented the strays, closing
+   `.cr-cells` early and dumping the orphan line-range into the file column
+   (worst on payment.ts: 3 filled cells = 3 strays). Other rows had fewer
+   filled cells so they happened to land correctly.
+4. **Fix (2 lines):** delete the `</span>` right after `</b>` in both
+   templates so the state badge nests *inside* `.cr-kpitop`/`.cr-tiptop`
+   and the outer popup stays open to contain model/counts/meta:
+   `"</b>"+'<span class="cr-kpistate">'`, `"</b>"+'<span class="cr-tipstate">'`.
+   Verified with a REAL parser (`html.parser` over the actual `t=13 s`
+   generated output, not string search): zero parse errors / unclosed tags,
+   `cr-kpimodel`/`cr-kpis` chain `cr-head > cr-kpi > …`, every `cr-tipmeta`
+   chains `cr-cell > cr-tip > cr-tipmeta`, all 10 line-ranges sit in their
+   own agent's column via tree walk, no `Lines`/`Line` text in any
+   `.cr-file`, legend reads `Changed Conflict Kept`. `node --check` OK,
+   stub harness updated (its old `<b>` check encoded the buggy pattern as
+   'good' — now asserts the fixed nesting + absence of `</b></span>`) and
+   passes 119/119. Merge flow untouched: green banner + `Merged ✓` persist
+   until the 26 s loop reset.
+
+## Round-2 fix (header/table overlap — merge part untouched, still passing)
+Browser re-QA failed the header/table layout in both themes while the merge
+flow passed. Root causes found in `index.html`:
+
+1. **Malformed markup the stub could not see.** The KPI header
+   (`cr-kpitop`) and cell tooltip (`cr-tiptop`) opened `<b>` for the agent
+   name but closed it with `</span>` (`"<b>"+name+'</span>'`). The harness
+   matches strings so it passed, but a real HTML parser re-parents the
+   unclosed `<b>`, breaking the KPI/tooltip layout — model text (`Opus 5.5 ·
+   fix/flaky-checkout`, …) and the `Files`/`Kept` badges spilled over
+   neighbouring columns. Both are now properly closed
+   (`<b>name</b></span>`).
+2. **Fragile `display:contents` flattening.** Header row, data rows and the
+   `#fileRows`/`#agentHeads`/`.cr-cells` wrappers relied on
+   `display:contents` (4-column flat grid incl. `display:grid` on `<button>`
+   rows). This never took effect reliably in the browser, so agent columns
+   overlapped and tooltips (whose containing block vanished with the
+   wrapper's box) landed under the File column / in a single band. It also
+   made the conflict-link math relative to the whole row instead of the
+   cells area.
+3. **Fix — nested grid exactly like the original:** each `.cr-row` (header
+   AND every data row, same rule, same widths) is now
+   `grid-template-columns: minmax(var(--filew),1fr) minmax(0,calc(3*var(--col)))`;
+   `.cr-cells` is a real box in column 2 with
+   `grid-template-columns: repeat(3,minmax(0,1fr))`. No `display:contents`
+   anywhere, no `repeat(var(--n,3))` / `calc(var(--n,3)…)` patterns (verified
+   absent; link uses `left: calc((var(--a)+0.5)*100%/3)` inside the cells
+   area). Header names truncate with ellipsis inside their own
+   `min-width:0` cell (model/`Files`/`Kept` live only in the hidden hover
+   KPI: `position:absolute; visibility:hidden` until hover); tooltips are
+   likewise absolutely positioned + hidden until hover; the legend clips
+   (`max-width:100%; overflow:hidden`) inside the file column.
+- Harness additions (kept in this directory): static CSS asserts (no
+  `display:contents`, no invalid `repeat`/`calc` with `var(--n,3)`, shared
+  row template, nested 3-col cells, ellipsis + hidden-popup rules,
+  closed `<b>` tags) plus runtime probes at t = 13 s — 3 header cells show
+  names only with model/counts in the KPI, legend `Kept` complete, and all
+  10 line-ranges sit in their own agent's column (`Lines 12–30` fix vs
+  `Lines 90–104` retry, `Lines 40–68`/`52–80`/`44–58` split across the three
+  payment.ts cells, etc.), no `Line(s)` text in any File cell, plus alien-
+  column negatives. 26 s loop, conflict formation and the `Pick a way`
+  panel are unchanged.
 
 ## How to test
 Open `index.html` in a browser (no server needed). Toggle ◐ top-right for
