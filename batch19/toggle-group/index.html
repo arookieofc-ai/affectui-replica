@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Toggle Group — affectUI replica</title>
+<script>/*noflash*/try{var __k='affectui-toggle-group-theme';var __s=null;try{__s=localStorage.getItem(__k);}catch(e){}var __d=__s||((window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light');document.documentElement.setAttribute('data-theme',__d);}catch(e){}</script>
+<style>html{background:#fafaf9}html[data-theme="dark"]{background:#101012}</style>
+<style>
+:root{
+  --surface:#ffffff; --page:#fafaf9; --ink:#171717; --ink-2:#1c1917;
+  --muted:#78716c; --subtle:#f5f5f4; --border:#e7e5e4;
+  --radius-lg:16px; --radius:10px; --radius-sm:6px;
+  --shadow:0 1px 2px rgba(0,0,0,.05),0 4px 16px rgba(0,0,0,.05);
+  --focus:rgba(0,96,226,.7);
+  --amber-bg:#fef3c7; --amber-tx:#92400e; --amber-bd:#f59e0b;
+  --tray:#f0f0f0; --pill:#ffffff; --chip:#ffffff; --fill:#f0f0f0;
+  --line:#e5e5e5; --line-strong:#d4d4d4;
+}
+html[data-theme="dark"]{
+  --surface:#1c1c1f; --page:#101012; --ink:#ededed; --ink-2:#ededed;
+  --muted:#a1a1aa; --subtle:#26262a; --border:#2e2e33;
+  --shadow:0 1px 2px rgba(0,0,0,.5),0 8px 24px rgba(0,0,0,.45);
+  --focus:rgba(77,141,255,.8);
+  --amber-bg:#451a03; --amber-tx:#fde68a; --amber-bd:#fbbf24;
+  --tray:#111113; --pill:#26262a; --chip:#161618; --fill:#26262a;
+  --line:#2a2a2e; --line-strong:#3a3a3f;
+}
+html{-webkit-tap-highlight-color:transparent}
+[hidden]{display:none !important}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--page); color:var(--ink);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:14px; line-height:1.45;
+  font-variant-numeric:tabular-nums;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:760px;margin:0 auto;padding:20px 16px 48px}
+.topbar{display:flex;align-items:center;gap:12px;padding:6px 2px 14px}
+.brand{display:flex;align-items:center;gap:10px;min-width:0}
+.mark{width:26px;height:26px;border-radius:8px;background:var(--ink);color:var(--page);
+  display:grid;place-items:center;font-size:13px;font-weight:700;flex:none}
+.brand h1{font-size:15px;margin:0;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brand small{display:block;font-size:12px;color:var(--muted);font-weight:500}
+.counts{margin-left:auto;display:flex;align-items:center;gap:8px;flex:none}
+.pill{border:1px solid var(--border);background:var(--surface);color:var(--muted);
+  border-radius:999px;padding:3px 10px;font-size:12px;font-weight:600;white-space:nowrap}
+.pill b{color:var(--ink);font-weight:700}
+.pill.live b{color:#15803d}
+html[data-theme="dark"] .pill.live b{color:#4ade80}
+.theme-btn{
+  border:1px solid var(--border);background:var(--surface);color:var(--ink);
+  width:34px;height:34px;border-radius:999px;cursor:pointer;
+  display:inline-grid;place-items:center;flex:none;
+  box-shadow:var(--shadow);
+  transition:transform 150ms ease;
+}
+.theme-btn:active{transform:scale(.94)}
+.theme-btn:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.theme-btn svg{width:17px;height:17px}
+.card{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);
+  box-shadow:var(--shadow);padding:16px;
+  display:flex;flex-direction:column;gap:16px;
+}
+/* concentric radii: card 16px, rows inset 12px padding -> inner 12px, groups inside */
+.drow{
+  background:var(--subtle);border:1px solid var(--border);border-radius:12px;
+  padding:12px;display:flex;flex-direction:column;gap:10px;
+}
+.drow__head{display:flex;align-items:baseline;gap:10px;min-width:0}
+.dlabel{font-size:12.5px;font-weight:650;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dmeta{margin-left:auto;font-size:12px;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+/* ---- toggle group (clean-room) ---- */
+.tgl{
+  --h:30px; --px:12px; --fs:13.5px; --is:15px; --pad:3px; --r:11px;
+  display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap;
+  max-width:100%;min-width:0;vertical-align:middle;
+  font-size:var(--fs);font-weight:500;line-height:20px;color:var(--muted);
+}
+.tgl[data-size="sm"]{--h:26px;--px:10px;--fs:12.5px;--is:14px;--pad:2px;--r:9px}
+.tgl[data-size="lg"]{--h:36px;--px:16px;--fs:14px;--is:16px;--pad:4px;--r:13px}
+.tgl[data-disabled]{opacity:.5}
+.tgl:not(:has(> .tgl__item)){display:none}
+.tgl__item{
+  position:relative;display:inline-flex;flex:none;align-items:center;justify-content:center;gap:6px;
+  min-width:var(--h);height:var(--h);margin:0;padding:0 var(--px);
+  border:0;border-radius:calc(var(--r) - var(--pad));
+  background:transparent;color:inherit;font:inherit;white-space:nowrap;cursor:pointer;
+  -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;
+  transition:color 200ms ease,background-color 160ms ease,box-shadow 160ms ease,transform 200ms cubic-bezier(.22,1,.36,1);
+}
+.tgl__item::before{
+  content:"";position:absolute;inset:0;border-radius:inherit;background:var(--pill);
+  box-shadow:0 0 0 .5px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.08),0 2px 8px -2px rgba(0,0,0,.06);
+  opacity:0;transform:scale(.86);pointer-events:none;
+  transition:opacity 160ms ease,transform 320ms cubic-bezier(.22,1,.36,1);
+}
+html[data-theme="dark"] .tgl__item::before{
+  box-shadow:0 0 0 1px rgba(255,255,255,.06),0 1px 2px rgba(0,0,0,.4);
+}
+.tgl__item[aria-pressed="true"]{color:var(--ink)}
+.tgl__item[aria-pressed="true"]::before{opacity:1;transform:none}
+.tgl__item[data-icon-only]{padding:0;padding-left:2px;padding-right:4px;width:var(--h)}
+.tgl__item:active:not(:disabled){transform:scale(.96)}
+.tgl__item:disabled{opacity:.4;cursor:not-allowed}
+.tgl[data-disabled] .tgl__item:disabled{opacity:1}
+.tgl__item:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.tgl__icon{position:relative;z-index:1;display:grid;place-items:center;width:var(--is);height:var(--is);overflow:hidden;flex:none}
+.tgl__icon svg{width:100%;height:100%}
+.tgl__label{position:relative;z-index:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.tgl[data-variant="tray"]{
+  flex-wrap:nowrap;gap:0;padding:var(--pad);overflow-x:auto;border-radius:var(--r);
+  background:var(--tray);scrollbar-width:none;
+}
+.tgl[data-variant="tray"]::-webkit-scrollbar{display:none}
+.tgl[data-variant="tray"] .tgl__item:focus-visible{outline-offset:-2px}
+.tgl[data-variant="buttons"] .tgl__item{
+  border:1px solid var(--line);border-radius:calc(var(--r) - 2px);
+  background:var(--chip);box-shadow:0 1px 2px rgba(0,0,0,.04);
+}
+.tgl[data-variant="buttons"] .tgl__item::before{background:var(--fill);box-shadow:inset 0 0 0 1px var(--line-strong)}
+.tgl[data-variant="buttons"] .tgl__item[aria-pressed="true"]{box-shadow:none}
+@media (pointer:coarse){
+  .tgl[data-size]{--h:36px}
+  .tgl[data-size="lg"]{--h:40px}
+}
+@media (prefers-reduced-motion:reduce){
+  .tgl__item,.tgl__item::before{transition:none}
+  .tgl__item:active:not(:disabled){transform:none}
+  *{scroll-behavior:auto !important}
+}
+@media (hover:hover) and (pointer:fine){
+  .tgl__item:not([aria-pressed="true"]):not(:disabled):hover{color:var(--ink)}
+  .tgl[data-variant="buttons"] .tgl__item:not([aria-pressed="true"]):not(:disabled):hover{
+    background:var(--subtle);border-color:var(--line-strong);
+  }
+  .theme-btn:hover{border-color:var(--line-strong)}
+  .card:hover{box-shadow:0 1px 2px rgba(0,0,0,.06),0 8px 24px rgba(0,0,0,.07)}
+}
+.hint{font-size:12.5px;color:var(--muted);margin:12px 2px 0}
+.statusbar{
+  margin-top:12px;background:var(--surface);border:1px solid var(--border);
+  border-radius:12px;box-shadow:var(--shadow);padding:12px 14px;
+  display:flex;gap:10px;align-items:center;flex-wrap:wrap;
+}
+.dot{width:8px;height:8px;border-radius:999px;background:#22c55e;flex:none}
+.dot.paused{background:var(--amber-bd)}
+.liveline{font-size:13px;color:var(--ink);font-variant-numeric:tabular-nums}
+.liveline span{color:var(--muted)}
+@media (max-width:560px){
+  .drow{padding:10px}
+  .tgl{max-width:100%}
+  .brand h1{font-size:14px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <div class="brand">
+      <div class="mark" aria-hidden="true">Tg</div>
+      <h1>Toggle Group<small>affectUI replica · auto demo + keyboard nav</small></h1>
+    </div>
+    <div class="counts">
+      <span class="pill" id="countPill"><b id="countNum">3</b>&nbsp;groups · <b id="optNum">11</b>&nbsp;options</span>
+      <button class="theme-btn" id="themeBtn" type="button" aria-label="Switch to dark theme" title="Toggle theme">
+        <svg id="iconSun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.4M12 19.1v2.4M2.5 12h2.4M19.1 12h2.4M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7M19.1 4.9l-1.7 1.7M6.6 17.4l-1.7 1.7"/></svg>
+        <svg id="iconMoon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true" hidden><path d="M20 13.2A8 8 0 0 1 10.8 4 8 8 0 1 0 20 13.2Z"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <section class="card" id="demoCard" aria-label="Toggle group demo">
+    <div class="drow">
+      <div class="drow__head"><span class="dlabel" id="lbl-status">Show runs</span><span class="dmeta" id="meta-status">2 selected</span></div>
+      <div class="tgl" id="g-status" role="group" aria-labelledby="lbl-status" data-variant="buttons" data-size="md" data-type="multiple">
+        <button type="button" class="tgl__item" data-value="running" aria-pressed="true"><span class="tgl__label">Running</span></button>
+        <button type="button" class="tgl__item" data-value="needs-you" aria-pressed="true"><span class="tgl__label">Needs you</span></button>
+        <button type="button" class="tgl__item" data-value="done" aria-pressed="false"><span class="tgl__label">Done</span></button>
+        <button type="button" class="tgl__item" data-value="failed" aria-pressed="false"><span class="tgl__label">Failed</span></button>
+      </div>
+    </div>
+    <div class="drow">
+      <div class="drow__head"><span class="dlabel" id="lbl-format">Prompt formatting</span><span class="dmeta" id="meta-format">1 selected</span></div>
+      <div class="tgl" id="g-format" role="group" aria-labelledby="lbl-format" data-variant="tray" data-size="sm" data-type="multiple">
+        <button type="button" class="tgl__item" data-value="bold" data-icon-only aria-pressed="true" aria-label="Bold" title="Bold"><span class="tgl__icon"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 2.5h3.6a2.6 2.6 0 0 1 0 5.2H4zM4 7.7h4.2a2.8 2.8 0 0 1 0 5.6H4z"/></svg></span></button>
+        <button type="button" class="tgl__item" data-value="italic" data-icon-only aria-pressed="false" aria-label="Italic" title="Italic"><span class="tgl__icon"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M9.5 2.5 6.5 13.5M7 2.5h4M5 13.5h4"/></svg></span></button>
+        <button type="button" class="tgl__item" data-value="code" data-icon-only aria-pressed="false" aria-label="Code" title="Code"><span class="tgl__icon"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4 2.5 8 6 12M10 4l3.5 4L10 12"/></svg></span></button>
+        <button type="button" class="tgl__item" data-value="list" data-icon-only aria-pressed="false" aria-label="List" title="List"><span class="tgl__icon"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M5.5 4h8M5.5 8h8M5.5 12h8"/><circle cx="2.8" cy="4" r="1" fill="currentColor" stroke="none"/><circle cx="2.8" cy="8" r="1" fill="currentColor" stroke="none"/><circle cx="2.8" cy="12" r="1" fill="currentColor" stroke="none"/></svg></span></button>
+      </div>
+    </div>
+    <div class="drow">
+      <div class="drow__head"><span class="dlabel" id="lbl-group">Group by · press again for none</span><span class="dmeta" id="meta-group">Agent</span></div>
+      <div class="tgl" id="g-by" role="group" aria-labelledby="lbl-group" data-variant="tray" data-size="sm" data-type="single">
+        <button type="button" class="tgl__item" data-value="agent" aria-pressed="true"><span class="tgl__label">Agent</span></button>
+        <button type="button" class="tgl__item" data-value="model" aria-pressed="false"><span class="tgl__label">Model</span></button>
+        <button type="button" class="tgl__item" data-value="day" aria-pressed="false"><span class="tgl__label">Day</span></button>
+      </div>
+    </div>
+  </section>
+  <p class="hint">Keyboard: Tab into a group, then ← → ↑ ↓ / Home / End to move. Space or Enter toggles. Single-select presses again for none. Interacting pauses the auto demo.</p>
+  <div class="statusbar" aria-live="polite">
+    <span class="dot" id="liveDot" aria-hidden="true"></span>
+    <div class="liveline" id="liveLine">Showing: Running, Needs you <span>· auto demo running</span></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var THEME_KEY = "affectui-toggle-group-theme";
+  var root = document.documentElement;
+  var themeBtn = document.getElementById("themeBtn");
+  var iconSun = document.getElementById("iconSun");
+  var iconMoon = document.getElementById("iconMoon");
+
+  function currentTheme(){ return root.getAttribute("data-theme") === "dark" ? "dark" : "light"; }
+  function paintThemeIcon(){
+    var dark = currentTheme() === "dark";
+    if (iconSun && iconMoon){
+      if (dark){ iconSun.setAttribute("hidden",""); iconMoon.removeAttribute("hidden"); }
+      else { iconMoon.setAttribute("hidden",""); iconSun.removeAttribute("hidden"); }
+    }
+    if (themeBtn) themeBtn.setAttribute("aria-label", dark ? "Switch to light theme" : "Switch to dark theme");
+  }
+  function setTheme(t){
+    root.setAttribute("data-theme", t);
+    try{ localStorage.setItem(THEME_KEY, t); }catch(e){}
+    paintThemeIcon();
+  }
+  if (themeBtn){
+    themeBtn.addEventListener("click", function(){ setTheme(currentTheme() === "dark" ? "light" : "dark"); });
+    /* capture-phase press so a real click always survives even if auto timers fire */
+    themeBtn.addEventListener("pointerdown", function(){}, true);
+  }
+  paintThemeIcon();
+
+  /* ---------- toggle-group core (clean-room) ---------- */
+  function itemsOf(groupEl){
+    return Array.prototype.slice.call(groupEl.querySelectorAll(":scope > .tgl__item"));
+  }
+  function enabledItems(groupEl){
+    if (groupEl.getAttribute("data-disabled") != null) return [];
+    return itemsOf(groupEl).filter(function(b){ return !b.disabled; });
+  }
+  function selectedOf(groupEl){
+    return itemsOf(groupEl).filter(function(b){ return b.getAttribute("aria-pressed") === "true"; })
+      .map(function(b){ return b.getAttribute("data-value"); });
+  }
+  function labelFor(groupEl, value){
+    var b = itemsOf(groupEl).filter(function(x){ return x.getAttribute("data-value") === value; })[0];
+    if (!b) return value;
+    return b.getAttribute("aria-label") || (b.textContent || "").trim() || value;
+  }
+  function setPressed(groupEl, value, on){
+    var b = itemsOf(groupEl).filter(function(x){ return x.getAttribute("data-value") === value; })[0];
+    if (!b || b.disabled) return false;
+    b.setAttribute("aria-pressed", on ? "true" : "false");
+    return true;
+  }
+  function applySelection(groupEl, next){
+    var type = groupEl.getAttribute("data-type") || "multiple";
+    var items = itemsOf(groupEl);
+    var seen = {};
+    var want = {};
+    var list = (next || []).slice();
+    if (type === "single" && list.length > 1) list = [list[0]];
+    for (var i = 0; i < list.length; i++) want[list[i]] = true;
+    for (var j = 0; j < items.length; j++){
+      var v = items[j].getAttribute("data-value");
+      if (v == null || seen[v]) continue;
+      seen[v] = true;
+      var on = !!want[v];
+      if ((items[j].getAttribute("aria-pressed") === "true") !== on) items[j].setAttribute("aria-pressed", on ? "true" : "false");
+    }
+  }
+  function toggleValue(groupEl, value){
+    if (groupEl.getAttribute("data-disabled") != null) return;
+    var btn = itemsOf(groupEl).filter(function(x){ return x.getAttribute("data-value") === value; })[0];
+    if (!btn || btn.disabled) return;
+    var type = groupEl.getAttribute("data-type") || "multiple";
+    var cur = selectedOf(groupEl);
+    var has = cur.indexOf(value) !== -1;
+    var next;
+    if (type === "single"){ next = has ? [] : [value]; }
+    else {
+      next = cur.filter(function(v){ return v !== value; });
+      if (!has) next.push(value);
+      /* keep DOM order stable */
+      var order = itemsOf(groupEl).map(function(b){ return b.getAttribute("data-value"); });
+      next.sort(function(a,b){ return order.indexOf(a) - order.indexOf(b); });
+    }
+    applySelection(groupEl, next);
+    refreshMeta();
+  }
+  function focusStep(groupEl, dir){
+    var list = enabledItems(groupEl);
+    if (!list.length) return;
+    var active = document.activeElement;
+    var idx = list.indexOf(active);
+    var target;
+    if (idx === -1){
+      var sel = list.filter(function(b){ return b.getAttribute("aria-pressed") === "true"; })[0];
+      target = sel || list[0];
+    } else {
+      target = list[(idx + dir + list.length) % list.length];
+    }
+    if (target && target.focus) target.focus();
+  }
+  function wireGroup(groupEl){
+    groupEl.addEventListener("click", function(ev){
+      var t = ev.target;
+      while (t && t !== groupEl && !(t.classList && t.classList.contains("tgl__item"))) t = t.parentNode;
+      if (!t || t === groupEl) return;
+      stopAuto();
+      toggleValue(groupEl, t.getAttribute("data-value"));
+    });
+    groupEl.addEventListener("keydown", function(ev){
+      if (ev.altKey || ev.ctrlKey || ev.metaKey) return;
+      var list = enabledItems(groupEl);
+      if (!list.length) return;
+      var idx = list.indexOf(document.activeElement);
+      if (idx === -1) return;
+      var rtl = false;
+      try{ rtl = window.getComputedStyle ? getComputedStyle(groupEl).direction === "rtl" : (groupEl.dir === "rtl"); }catch(e){}
+      var right = rtl ? "ArrowLeft" : "ArrowRight";
+      var left = rtl ? "ArrowRight" : "ArrowLeft";
+      var at = -1;
+      if (ev.key === right || ev.key === "ArrowDown") at = (idx + 1) % list.length;
+      else if (ev.key === left || ev.key === "ArrowUp") at = (idx - 1 + list.length) % list.length;
+      else if (ev.key === "Home") at = 0;
+      else if (ev.key === "End") at = list.length - 1;
+      else return;
+      ev.preventDefault();
+      if (list[at] && list[at].focus) list[at].focus();
+    });
+    /* toggle with keyboard activation is native button behaviour; keep selection in sync */
+    groupEl.addEventListener("keyup", function(){});
+  }
+
+  var gStatus = document.getElementById("g-status");
+  var gFormat = document.getElementById("g-format");
+  var gBy = document.getElementById("g-by");
+  var metaStatus = document.getElementById("meta-status");
+  var metaFormat = document.getElementById("meta-format");
+  var metaGroup = document.getElementById("meta-group");
+  var liveLine = document.getElementById("liveLine");
+  var liveDot = document.getElementById("liveDot");
+  [gStatus, gFormat, gBy].forEach(function(g){ if (g) wireGroup(g); });
+
+  var PRETTY = { "running":"Running", "needs-you":"Needs you", "done":"Done", "failed":"Failed",
+    "bold":"Bold", "italic":"Italic", "code":"Code", "list":"List",
+    "agent":"Agent", "model":"Model", "day":"Day" };
+  function pretty(v){ return PRETTY[v] || v; }
+
+  function refreshMeta(){
+    if (gStatus && metaStatus){
+      var s = selectedOf(gStatus);
+      metaStatus.textContent = s.length + (s.length === 1 ? " selected" : " selected");
+    }
+    if (gFormat && metaFormat){
+      var f = selectedOf(gFormat);
+      metaFormat.textContent = f.length + (f.length === 1 ? " selected" : " selected");
+    }
+    if (gBy && metaGroup){
+      var b = selectedOf(gBy);
+      metaGroup.textContent = b.length ? pretty(b[0]) : "None";
+    }
+    if (gStatus && liveLine){
+      var cur = selectedOf(gStatus);
+      var names = cur.map(pretty).join(", ") || "Nothing";
+      /* update only the first text node in place; keep the suffix span node identity */
+      var first = liveLine.firstChild;
+      var txt = "Showing: " + names + " ";
+      if (first && first.nodeType === 3){ first.nodeValue = txt; }
+      else { liveLine.textContent = txt; }
+      var suffix = liveLine.querySelector ? liveLine.querySelector("span") : null;
+      if (suffix) suffix.textContent = autoOn ? "· auto demo running" : "· paused — you have control";
+    }
+  }
+
+  /* ---------- verbatim demo data / timings ---------- */
+  var STEPS = [["running","needs-you","failed"],["needs-you","failed"],["needs-you"],["running","needs-you"]];
+  var DELAYS = [1000, 2300, 3600, 4900];
+  var CYCLE_MS = 7400;
+  var timers = [];
+  var autoOn = true;
+  function clearTimers(){ for (var i=0;i<timers.length;i++){ try{ clearTimeout(timers[i]); }catch(e){} } timers = []; }
+  function stopAuto(){
+    if (!autoOn) return;
+    autoOn = false;
+    clearTimers();
+    if (liveDot) liveDot.classList.add("paused");
+    refreshMeta();
+  }
+  function scheduleCycle(){
+    clearTimers();
+    for (var i=0;i<STEPS.length;i++){
+      (function(step, d){
+        timers.push(setTimeout(function(){
+          if (!autoOn) return;
+          if (gStatus) applySelection(gStatus, step);
+          refreshMeta();
+        }, d));
+      })(STEPS[i], DELAYS[i]);
+    }
+    timers.push(setTimeout(function(){
+      if (!autoOn) return;
+      scheduleCycle();
+    }, CYCLE_MS));
+  }
+  var demoCard = document.getElementById("demoCard");
+  if (demoCard){
+    demoCard.addEventListener("pointerdown", stopAuto, true);
+    demoCard.addEventListener("keydown", stopAuto, true);
+  }
+
+  refreshMeta();
+  scheduleCycle();
+
+  /* harness hook: read-only inspection, no re-render */
+  window.__toggleDemo = {
+    steps: STEPS, delays: DELAYS,
+    groups: { status: gStatus, format: gFormat, by: gBy },
+    selected: function(id){ var g = document.getElementById(id); return g ? selectedOf(g) : []; },
+    auto: function(){ return autoOn; },
+    stop: stopAuto
+  };
+})();
+</script>
+</body>
+</html>

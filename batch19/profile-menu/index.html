@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Profile Menu — affectUI replica</title>
+<script>/*noflash*/try{var __t=null;try{__t=localStorage.getItem('pm-theme')}catch(e){}if(__t==='light'||__t==='dark'){document.documentElement.setAttribute('data-theme',__t)}else if(window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches){document.documentElement.setAttribute('data-theme','dark')}else{document.documentElement.setAttribute('data-theme','light')}}catch(e){document.documentElement.setAttribute('data-theme','light')}</script>
+<style>html{background:#fafaf9}html[data-theme="dark"]{background:#101012}</style>
+<style>
+:root, html[data-theme="light"]{
+  --page:#fafaf9; --surface:#ffffff; --ink:#1c1917; --ink-2:#171717;
+  --muted:#78716c; --subtle:#f5f5f4; --border:#e7e5e4;
+  --radius-lg:16px; --radius:10px; --radius-sm:6px;
+  --shadow:0 1px 2px rgba(0,0,0,.05), 0 4px 16px rgba(0,0,0,.05);
+  --shadow-soft:0 1px 2px rgba(0,0,0,.06);
+  --blue:#4fb0fe; --amber:#f59e0b; --amber-bg:#fef3c7; --amber-ink:#92400e;
+  --badge:#e12a1d; --badge-wash:#fff0f3;
+  --pm-tray:#f0f0f0; --pm-card:var(--surface); --pm-line:var(--border);
+  --pm-text:#404040; --pm-muted:var(--muted); --pm-icon:#737373; --pm-hover:var(--subtle);
+  --pm-active:#efefef; --pm-track:rgba(0,0,0,.07); --pm-nexthover:rgba(0,0,0,.04);
+  --content-outline:rgba(0,0,0,.1);
+}
+html[data-theme="dark"]{
+  --page:#101012; --surface:#1c1c1f; --ink:#ededed; --ink-2:#ededed;
+  --muted:#a1a1aa; --subtle:#26262a; --border:#2e2e33;
+  --shadow:0 1px 2px rgba(0,0,0,.5), 0 8px 28px rgba(0,0,0,.45);
+  --shadow-soft:0 1px 2px rgba(0,0,0,.4);
+  --blue:#4fb0fe; --amber:#fbbf24; --amber-bg:#451a03; --amber-ink:#fde68a;
+  --badge:#ff8a7a; --badge-wash:rgba(255,107,95,.16);
+  --pm-tray:#161618; --pm-card:#232326; --pm-line:rgba(255,255,255,.08);
+  --pm-text:#c4c4c4; --pm-muted:#8f8f8f; --pm-icon:#8f8f8f; --pm-hover:#2a2a2d;
+  --pm-active:#313135; --pm-track:rgba(255,255,255,.1); --pm-nexthover:rgba(255,255,255,.06);
+  --content-outline:rgba(255,255,255,.1);
+}
+html{-webkit-tap-highlight-color:transparent}
+[hidden]{display:none !important}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-variant-numeric:tabular-nums;
+  font-size:14px; line-height:20px; color:var(--ink); background:var(--page);
+  -webkit-font-smoothing:antialiased; min-height:100vh;
+}
+.page{max-width:720px;margin:0 auto;padding:20px 16px 48px}
+.page-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:16px}
+.brand h1{font-size:16px;line-height:22px;margin:0;font-weight:650;letter-spacing:-.01em}
+.brand p{margin:2px 0 0;font-size:13px;line-height:18px;color:var(--muted)}
+.theme-btn{
+  flex:none;display:inline-flex;align-items:center;gap:8px;height:34px;padding:0 12px 0 10px;
+  border-radius:999px;border:1px solid var(--border);background:var(--surface);color:var(--ink);
+  box-shadow:var(--shadow-soft);cursor:pointer;font:inherit;font-size:13px;font-weight:550;
+  transition:transform 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
+}
+.theme-btn svg{width:16px;height:16px}
+.stage{display:grid;gap:14px;justify-items:center}
+.pm{
+  width:100%;max-width:320px;background:var(--pm-tray);padding:6px;
+  border-radius:calc(var(--radius-lg) + 6px);
+  border:1px solid var(--border);
+  box-shadow:var(--shadow);
+}
+.pm-card{
+  padding:16px 8px 8px;background:var(--pm-card);
+  border:1px solid var(--pm-line);border-radius:var(--radius-lg);
+  box-shadow:var(--shadow-soft);
+}
+.pm-user{display:flex;align-items:center;gap:14px;padding:0 10px 12px}
+.pm-avatar{flex:none;width:42px;height:42px;border-radius:50%;overflow:hidden;color:var(--blue);background:transparent}
+.pm-avatar > svg{width:100%;height:100%}
+.pm-avatar img{width:100%;height:100%;object-fit:cover;box-shadow:inset 0 0 0 1px var(--content-outline)}
+.pm-who{display:grid;min-width:0}
+.pm-name{font-size:15px;font-weight:550;line-height:22px;overflow-wrap:anywhere;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pm-email{font-size:13px;line-height:20px;color:var(--pm-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pm-items{display:grid;grid-template-columns:minmax(0,1fr);gap:2px;max-height:380px;overflow-y:auto;overscroll-behavior:contain}
+.pm-item{
+  display:flex;align-items:center;gap:12px;width:100%;height:36px;
+  padding:0 12px 0 10px;margin:0;border:0;border-radius:calc(var(--radius-sm) + 5px);
+  background:transparent;font:inherit;text-align:left;color:var(--pm-text);cursor:pointer;
+  transition:background-color 160ms ease,color 160ms ease;
+}
+.pm-icon{flex:none;width:20px;height:20px;display:grid;place-items:center;color:var(--pm-icon);transition:color 160ms ease}
+.pm-icon svg{width:20px;height:20px}
+.pm-label{flex:1;min-width:0;overflow:hidden;font-size:14px;line-height:20px;white-space:nowrap;text-overflow:ellipsis}
+.pm-badge{
+  flex:none;max-width:50%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
+  padding:2px 8px;border-radius:999px;background:var(--badge-wash);
+  font-size:12px;font-weight:550;line-height:18px;color:var(--badge);
+  border:1px solid transparent;
+}
+.pm-setup{padding:10px 18px 12px}
+.pm-setup-head{display:flex;align-items:baseline;justify-content:space-between;font-size:13px;line-height:18px}
+.pm-setup-title{color:var(--pm-text);font-weight:550}
+.pm-setup-count{font-variant-numeric:tabular-nums;color:var(--pm-muted)}
+.pm-track{display:block;height:4px;margin-top:7px;overflow:hidden;border-radius:2px;background:var(--pm-track)}
+.pm-fill{display:block;height:100%;border-radius:inherit;background:var(--blue);transform-origin:left center;transform:scaleX(0);transition:transform 900ms cubic-bezier(.22,1,.36,1) 150ms}
+.pm[data-filled] .pm-fill{transform:scaleX(var(--fill,0))}
+.pm-next{
+  display:flex;align-items:center;gap:8px;width:calc(100% + 16px);margin:6px -8px 0;
+  padding:3px 6px 3px 8px;border:0;border-radius:calc(var(--radius-sm) + 1px);
+  background:transparent;font:inherit;text-align:left;color:var(--ink);cursor:pointer;
+  transition:background-color 160ms ease;
+}
+.pm-next-label{flex:1;min-width:0;overflow:hidden;font-size:13px;line-height:20px;white-space:nowrap;text-overflow:ellipsis}
+.pm-next-hint{color:var(--pm-muted)}
+.pm-next svg{flex:none;width:14px;height:14px;color:var(--pm-icon);transition:transform 200ms cubic-bezier(.22,1,.36,1),color 160ms ease}
+.pm-next:focus-visible,.pm-item:focus-visible,.theme-btn:focus-visible,.demo-btn:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.demo{width:100%;max-width:320px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-soft);padding:12px 14px}
+.demo h2{margin:0 0 4px;font-size:13px;line-height:18px;font-weight:650}
+.demo p{margin:0 0 8px;font-size:12.5px;line-height:18px;color:var(--muted)}
+.demo-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.demo-btn{
+  height:30px;padding:0 12px 0 10px;border-radius:999px;border:1px solid var(--border);
+  background:var(--subtle);color:var(--ink);font:inherit;font-size:13px;cursor:pointer;
+  display:inline-flex;align-items:center;gap:6px;transition:background-color 160ms ease,transform 160ms ease;
+}
+.status{min-height:20px;margin-top:10px;font-size:13px;line-height:20px;color:var(--muted);border-top:1px solid var(--border);padding-top:8px}
+.status strong{color:var(--ink);font-weight:600}
+.foot{margin-top:14px;text-align:center;font-size:12px;line-height:16px;color:var(--muted)}
+@media (max-width:560px){.page{padding:14px 12px 40px}.pm,.demo{max-width:100%}}
+@media (prefers-reduced-motion:reduce){
+  .pm-item,.pm-icon,.pm-fill,.pm-next,.pm-next svg,.theme-btn,.demo-btn{transition:none}
+}
+@media (hover:hover) and (pointer:fine){
+  .pm-item:hover{background:var(--pm-hover);color:var(--ink)}
+  .pm-item:hover .pm-icon{color:var(--ink)}
+  .pm-item:active{background:var(--pm-active)}
+  .pm-next:hover{background:var(--pm-nexthover)}
+  .pm-next:hover svg{transform:translateX(2px);color:var(--ink)}
+  .theme-btn:hover{transform:translateY(-1px)}
+  .demo-btn:hover{background:var(--border)}
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="page-head">
+    <div class="brand">
+      <h1>Profile Menu</h1>
+      <p>Lena Hartmann &middot; 4 actions &middot; Setup 3/5</p>
+    </div>
+    <button class="theme-btn" id="theme-toggle" type="button" aria-label="Switch to dark theme" aria-pressed="false">
+      <svg id="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 13.2A8 8 0 0 1 10.8 4 7.2 7.2 0 1 0 20 13.2Z"/></svg>
+      <svg id="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.4M12 19.1v2.4M4.3 4.3l1.7 1.7M18 18l1.7 1.7M2.5 12h2.4M19.1 12h2.4M4.3 19.7 6 18M18 6l1.7-1.7"/></svg>
+      <span id="theme-label">Dark</span>
+    </button>
+  </header>
+  <div class="stage">
+    <div class="pm" id="pm-root" aria-busy="true"></div>
+    <section class="demo" aria-label="Demo controls">
+      <h2>Try it</h2>
+      <p>Menu buttons report the selection below. Keyboard: Up / Down / Home / End moves between actions. “Next” continues the setup step.</p>
+      <div class="demo-row">
+        <button class="demo-btn" id="demo-focus" type="button">Focus first item</button>
+        <button class="demo-btn" id="demo-next" type="button">Trigger next step</button>
+      </div>
+      <p class="status" id="demo-status" role="status" aria-live="polite">Idle — no action selected yet.</p>
+    </section>
+    <p class="foot">Replica of the “Profile Menu” account card · Signed-in user, menu actions, setup progress.</p>
+  </div>
+</div>
+<noscript><p style="text-align:center">Profile Menu: Lena Hartmann, lena.hartmann@fastmail.com, Settings, Docs, Apps (New), Logout, Profile setup 3/5, Next: Add a profile photo.</p></noscript>
+<script>
+(function(){
+"use strict";
+var DATA = {
+  name: "Lena Hartmann",
+  email: "lena.hartmann@fastmail.com",
+  items: [
+    { id: "settings", label: "Settings", kind: "gear" },
+    { id: "docs", label: "Docs", kind: "doc" },
+    { id: "apps", label: "Apps", kind: "apps", badge: "New" },
+    { id: "logout", label: "Logout", kind: "logout" }
+  ],
+  setup: { done: 3, total: 5, next: "Add a profile photo" }
+};
+var fmt = new Intl.NumberFormat("en");
+function clampSetup(done, total){
+  var t = (typeof total === "number" && isFinite(total)) ? Math.max(0, total) : 0;
+  var d = (typeof done === "number" && isFinite(done)) ? Math.max(0, done) : 0;
+  d = Math.min(t, d);
+  return { done: d, total: t, frac: t > 0 ? d / t : 0, pct: t > 0 ? Math.round((d / t) * 100) : 0 };
+}
+function el(tag, cls, text){
+  var n = document.createElement(tag);
+  if (cls) n.setAttribute("class", cls);
+  if (text != null) n.textContent = text;
+  return n;
+}
+function svgIcon(kind){
+  var NS = "http://www.w3.org/2000/svg";
+  var s = document.createElementNS(NS, "svg");
+  s.setAttribute("viewBox", "0 0 24 24");
+  s.setAttribute("fill", "none");
+  s.setAttribute("stroke", "currentColor");
+  s.setAttribute("stroke-width", kind === "arrow" ? "1.6" : "1.5");
+  s.setAttribute("stroke-linecap", "round");
+  s.setAttribute("stroke-linejoin", "round");
+  s.setAttribute("aria-hidden", "true");
+  function path(d){ var p = document.createElementNS(NS, "path"); p.setAttribute("d", d); s.appendChild(p); return p; }
+  function circle(cx, cy, r){ var c = document.createElementNS(NS, "circle"); c.setAttribute("cx", cx); c.setAttribute("cy", cy); c.setAttribute("r", r); s.appendChild(c); return c; }
+  function rect(x, y, w, h, rx){ var r = document.createElementNS(NS, "rect"); r.setAttribute("x", x); r.setAttribute("y", y); r.setAttribute("width", w); r.setAttribute("height", h); r.setAttribute("rx", rx); s.appendChild(r); return r; }
+  if (kind === "gear"){ path("M11.9 4.2v2.1M11.9 17.7v2.1M4.9 8.1l1.8 1M17.3 15l1.8 1M4.9 15.9l1.8-1M17.3 9l1.8-1M2.8 12h2.2M19 12h2.2"); circle("11.9", "12", "2.7"); }
+  else if (kind === "doc"){ path("M6.5 3.5h6l3.5 3.5v13.5h-9.5Z"); path("M12.5 3.5v3.5H16"); path("M9 12.5h6M9 15.8h6M9 9.2h2"); }
+  else if (kind === "apps"){ rect("3.5", "3.5", "6.5", "6.5", "1.6"); rect("3.5", "14", "6.5", "6.5", "1.6"); rect("14", "14", "6.5", "6.5", "1.6"); path("M17.2 3.5v6.4M14 6.7h6.4"); }
+  else if (kind === "logout"){ path("M9.5 20.5H5.8v-17h3.7M15.5 16.5l4.5-4.5-4.5-4.5M20 12H9.5"); }
+  else if (kind === "arrow"){ path("M4.5 12h14M12.8 6l6 6-6 6"); }
+  return s;
+}
+function avatarFallback(){
+  var NS = "http://www.w3.org/2000/svg";
+  var s = document.createElementNS(NS, "svg");
+  s.setAttribute("viewBox", "0 0 40 40");
+  s.setAttribute("aria-hidden", "true");
+  function c(cx, cy, r, op){ var e = document.createElementNS(NS, "circle"); e.setAttribute("cx", cx); e.setAttribute("cy", cy); e.setAttribute("r", r); e.setAttribute("fill", "currentColor"); if (op != null) e.setAttribute("opacity", op); s.appendChild(e); }
+  c("20", "20", "20", "0.12"); c("20", "15.5", "5", null);
+  var p = document.createElementNS(NS, "path");
+  p.setAttribute("d", "M11.2 28.4c1-4.1 4.3-6.6 8.8-6.6s7.8 2.5 8.8 6.6c.2.7-.4 1.3-1.1 1.3H12.3c-.7 0-1.3-.6-1.1-1.3Z");
+  p.setAttribute("fill", "currentColor");
+  s.appendChild(p);
+  return s;
+}
+var root = document.getElementById("pm-root");
+var statusEl = document.getElementById("demo-status");
+var refs = {};
+function setStatus(htmlName, action){
+  while (statusEl.firstChild) statusEl.removeChild(statusEl.firstChild);
+  var a = el("span", null, "Selected: ");
+  var b = el("strong", null, htmlName);
+  var c = el("span", null, action ? " — " + action : "");
+  statusEl.appendChild(a); statusEl.appendChild(b); statusEl.appendChild(c);
+}
+function build(){
+  var st = clampSetup(DATA.setup.done, DATA.setup.total);
+  var sec = root;
+  sec.setAttribute("aria-label", "Profile menu demo");
+  var card = el("div", "pm-card");
+  var head = el("header", "pm-user");
+  var av = el("span", "pm-avatar");
+  av.appendChild(avatarFallback());
+  refs.avatar = av;
+  var who = el("span", "pm-who");
+  var nm = el("span", "pm-name", DATA.name);
+  nm.setAttribute("dir", "auto"); nm.setAttribute("title", DATA.name);
+  var em = el("span", "pm-email", DATA.email);
+  em.setAttribute("dir", "auto"); em.setAttribute("title", DATA.email);
+  who.appendChild(nm); who.appendChild(em);
+  refs.name = nm; refs.email = em;
+  head.appendChild(av); head.appendChild(who);
+  card.appendChild(head);
+  var items = el("div", "pm-items");
+  items.setAttribute("role", "menu");
+  items.setAttribute("aria-label", "Account");
+  refs.items = items; refs.buttons = [];
+  DATA.items.forEach(function(it){
+    var b = el("button", "pm-item");
+    b.setAttribute("type", "button");
+    b.setAttribute("role", "menuitem");
+    var ic = el("span", "pm-icon");
+    ic.appendChild(svgIcon(it.kind));
+    var lb = el("span", "pm-label", it.label);
+    lb.setAttribute("dir", "auto"); lb.setAttribute("title", it.label);
+    b.appendChild(ic); b.appendChild(lb);
+    if (it.badge){
+      var bd = el("span", "pm-badge", it.badge);
+      bd.setAttribute("dir", "auto"); bd.setAttribute("title", it.badge);
+      b.appendChild(bd);
+      if (it.id === "apps") refs.badge = bd;
+    }
+    b.addEventListener("click", function(){
+      setStatus(it.label, it.id === "logout" ? "signing out…" : "opening…");
+    });
+    refs.buttons.push(b);
+    items.appendChild(b);
+  });
+  items.addEventListener("keydown", function(e){
+    var btns = refs.buttons;
+    var idx = btns.indexOf(document.activeElement);
+    var n = null;
+    if (e.key === "ArrowDown") n = (idx + 1 + btns.length) % btns.length;
+    else if (e.key === "ArrowUp") n = (idx - 1 + btns.length) % btns.length;
+    else if (e.key === "Home") n = 0;
+    else if (e.key === "End") n = btns.length - 1;
+    if (n !== null && n !== undefined){ e.preventDefault(); if (btns[n] && btns[n].focus) btns[n].focus(); }
+  });
+  card.appendChild(items);
+  sec.appendChild(card);
+  var setup = el("div", "pm-setup");
+  var shead = el("div", "pm-setup-head");
+  var ttl = el("span", "pm-setup-title", "Profile setup");
+  var cnt = el("span", "pm-setup-count", fmt.format(st.done) + "/" + fmt.format(st.total));
+  shead.appendChild(ttl); shead.appendChild(cnt);
+  refs.count = cnt;
+  setup.appendChild(shead);
+  var track = el("span", "pm-track");
+  track.setAttribute("role", "progressbar");
+  track.setAttribute("aria-label", "Profile setup");
+  track.setAttribute("aria-valuemin", "0");
+  track.setAttribute("aria-valuemax", "100");
+  track.setAttribute("aria-valuenow", String(st.pct));
+  refs.track = track;
+  var fill = el("span", "pm-fill");
+  fill.style.setProperty("--fill", String(st.frac));
+  fill.style.transform = "scaleX(0)";
+  refs.fill = fill;
+  track.appendChild(fill);
+  setup.appendChild(track);
+  if (DATA.setup.next && st.done < st.total){
+    var nx = el("button", "pm-next");
+    nx.setAttribute("type", "button");
+    var nl = el("span", "pm-next-label");
+    nl.setAttribute("dir", "auto"); nl.setAttribute("title", DATA.setup.next);
+    var hint = el("span", "pm-next-hint", "Next: ");
+    nl.appendChild(hint);
+    nl.appendChild(document.createTextNode(DATA.setup.next));
+    nx.appendChild(nl);
+    nx.appendChild(svgIcon("arrow"));
+    refs.next = nx; refs.nextLabel = nl;
+    nx.addEventListener("click", function(){
+      setStatus(DATA.setup.next, "continuing setup…");
+      if (nx.focus) { try { nx.focus({ preventScroll: true }); } catch (e2) { nx.focus(); } }
+    });
+    setup.appendChild(nx);
+  }
+  sec.appendChild(setup);
+  sec.setAttribute("aria-busy", "false");
+  refs.section = sec; refs.card = card; refs.setup = setup;
+  refs.state = st;
+}
+build();
+function markFilled(){
+  if (!refs.section) return;
+  if (refs.section.hasAttribute("data-filled")) return;
+  refs.section.setAttribute("data-filled", "");
+  if (refs.fill) refs.fill.style.transform = "scaleX(" + refs.state.frac + ")";
+}
+if ("IntersectionObserver" in window && root){
+  try {
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(en){ if (en.isIntersecting){ markFilled(); io.disconnect(); } });
+    }, { threshold: 0.3 });
+    io.observe(root);
+    setTimeout(function(){
+      if (!refs.section.hasAttribute("data-filled")) markFilled();
+    }, 2500);
+  } catch (e){ setTimeout(markFilled, 400); }
+} else {
+  setTimeout(markFilled, 400);
+}
+var toggle = document.getElementById("theme-toggle");
+var themeLabel = document.getElementById("theme-label");
+var iconMoon = document.getElementById("icon-moon");
+var iconSun = document.getElementById("icon-sun");
+function currentTheme(){ return document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light"; }
+function paintToggle(){
+  var t = currentTheme();
+  if (themeLabel) themeLabel.textContent = t === "dark" ? "Light" : "Dark";
+  if (toggle){
+    toggle.setAttribute("aria-label", t === "dark" ? "Switch to light theme" : "Switch to dark theme");
+    toggle.setAttribute("aria-pressed", t === "dark" ? "true" : "false");
+  }
+  if (iconMoon && iconSun){
+    if (t === "dark"){ iconMoon.setAttribute("hidden", ""); iconSun.removeAttribute("hidden"); }
+    else { iconSun.setAttribute("hidden", ""); iconMoon.removeAttribute("hidden"); }
+  }
+}
+function setTheme(t){
+  document.documentElement.setAttribute("data-theme", t);
+  try { localStorage.setItem("pm-theme", t); } catch (e) {}
+  paintToggle();
+}
+if (toggle){
+  toggle.addEventListener("click", function(){ setTheme(currentTheme() === "dark" ? "light" : "dark"); });
+  toggle.addEventListener("pointerdown", function(){}, { capture: true });
+}
+paintToggle();
+var demoFocus = document.getElementById("demo-focus");
+if (demoFocus) demoFocus.addEventListener("click", function(){
+  if (refs.buttons[0] && refs.buttons[0].focus) refs.buttons[0].focus();
+  setStatus(DATA.items[0].label, "focused via demo control");
+});
+var demoNext = document.getElementById("demo-next");
+if (demoNext) demoNext.addEventListener("click", function(){
+  if (refs.next) refs.next.click();
+  else setStatus("Profile setup", "complete — 5/5");
+});
+window.__pm = {
+  data: DATA, refs: refs, state: refs.state,
+  markFilled: markFilled,
+  setStatus: setStatus,
+  setTheme: setTheme, currentTheme: currentTheme,
+  visibleText: function(){
+    var parts = [];
+    parts.push(refs.name ? refs.name.textContent : "");
+    parts.push(refs.email ? refs.email.textContent : "");
+    refs.buttons.forEach(function(b){ parts.push(b.textContent); });
+    if (refs.badge) parts.push(refs.badge.textContent);
+    parts.push("Profile setup");
+    parts.push(refs.count ? refs.count.textContent : "");
+    parts.push(refs.nextLabel ? refs.nextLabel.textContent : "");
+    return parts.join(" | ");
+  }
+};
+})();
+</script>
+</body>
+</html>
