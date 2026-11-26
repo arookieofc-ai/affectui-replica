@@ -68,6 +68,38 @@ requests) replicating the affectUI **Reasoning Summary** card:
   used only for delegation). All demo data, timings, formats, and styles are
   otherwise byte-identical in behaviour.
 
+## Fix (2026-11-26 timing QA: click during streaming did nothing)
+- Symptom: clicking a model row DURING the streaming phase only highlighted
+  the row; the detail panel never expanded. The same click after the loop
+  settled worked fine.
+- Root cause: during streaming the page re-rendered the summary rows on each
+  tick / step reveal (`innerHTML` rebuild), so a real-mouse press that started
+  on a row node landed on a node that was destroyed/replaced mid-gesture
+  (between `mousedown` and `mouseup`/`click`), and/or the tick render wiped
+  the just-set expanded state. Behaviour must match `demo-original.js`
+  `onClick:()=>P(e=>e===n.id?null:n.id)` — an id-based toggle that persists
+  across steps.
+- Fix in `index.html` (data, timings, both themes unchanged):
+  1. Rows are stable nodes during streaming: the 120 ms tick updates only
+     changed text/state in place (`textContent` / `flexGrow` / `title`) and
+     never rebuilds the row list (`innerHTML` only runs on real state changes:
+     step reveals, settle, toggles). Ticks therefore keep the pressed/opened
+     node alive and never wipe `expanded`/`panel`.
+  2. Expanded state survives ticks: `render()` is id-driven and preserves
+     `state.expanded`/`state.panel`; the tick path never touches
+     `.rs__more`/`aria-expanded`.
+  3. Real-mouse click works at ANY point (streaming or settled) and stays
+     open: one delegated `click` listener on stable `#card` (attached once,
+     survives `innerHTML` rebuilds) plus press-intent captured on
+     `pointerdown` capture (and `mousedown` capture for mouse/stub paths,
+     per the popovers/dialogs pointerdown-capture rule) storing
+     `{model,panel}` ids. `click` prefers the press-time id, so even a stale
+     node — or a click retargeted to an ancestor after the node was destroyed
+     — still toggles the correct id-based panel.
+- Rules kept: `[hidden]{display:none}` explicit, collapsed panels use
+  `grid-rows` animation only; no `.className` assignment anywhere (SVG classes
+  via `setAttribute` only); no external deps; `<200KB` single file.
+
 ## Verification (`node harness.js` — in-dir, no installs, no browser)
 - `node --check` passes on the extracted page script.
 - Page script loads under a DOM stub; pure-API asserts cover all verbatim data,
@@ -81,15 +113,20 @@ requests) replicating the affectUI **Reasoning Summary** card:
   by token inspection (surface `#1c1c1f` / ink `#ededed`, amber adjusted to
   `#fbbf24` on `#451a03`); light by the same audit. No browser was available in
   this environment, so final visual confirmation is manual.
-- Result: **122 passed, 0 failed.**
-- New §10 real-click coverage (all node-only): boots the REAL page code on a
-  stub DOM with a fake clock, then dispatches `mousedown` + `mouseup` + `click`
-  as separate events with a scheduled step re-render (1500 ms → 3700 ms) in
-  between, asserting the stale target node still opens the GPT-5.5 panel
-  (`aria-expanded="true"` + `Picked for writing and running code` visible),
-  that it STAYS open through ticks to settle (`Reasoned for` at 9000 ms), that
-  a second click collapses it, and that open/close still works after toggling
-  to the dark theme.
+- Result: **133 passed, 0 failed.**
+- Streaming-click coverage (§10, all node-only, light AND dark): boots the REAL
+  page code on a stub DOM with a fake clock, then simulates the failing case —
+  `pointerdown`+`mousedown` on the GPT-5.5 row node, a streaming tick
+  re-render attempt (asserts the node is NOT replaced and collapsed state is
+  kept), a scheduled step reveal (1500 ms → 3700 ms) that DOES replace the
+  node mid-gesture, then `mouseup`+`click` on the stale node — asserting the
+  panel opens (`aria-expanded="true"` + `Picked for writing and running code`)
+  and STAYS open across ticks to settle (`Reasoned for` at 9000 ms). Also
+  asserts a retargeted click (press node destroyed, click lands on `#card`)
+  still opens via press intent, a second click collapses, and open/close +
+  tick-survival still work after toggling to the dark theme. Extraction takes
+  the last `<script>` block so the head noflash script never pollutes
+  `node --check`.
 
 ## How to test
 Open `index.html` in a browser (double-click works, no server needed). Watch one

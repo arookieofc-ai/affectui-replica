@@ -582,8 +582,13 @@ function wire(){
 /* One stable click listener on #card itself (never rebuilt by render(),
    so a scheduled re-render between mousedown and mouseup cannot swallow
    the click: the click bubbles to #card either way). Toggle is id-based,
-   never a captured node/index, and re-render preserves state.expanded. */
+   never a captured node/index, and re-render preserves state.expanded.
+   To survive the real-browser case where the pressed node is destroyed
+   before mouseup (click then targets an ancestor, not the stale button),
+   we also capture the press intent on pointerdown-capture (plus mousedown
+   for mouse/stub environments) and reuse that id on click. */
 var _delegated=false;
+var _press=null; /* {model:string|null,panel:string|null} captured at press */
 function findBtn(target,sel){
   if(!target) return null;
   if(typeof target.closest==="function"){
@@ -599,19 +604,54 @@ function findBtn(target,sel){
   }
   return null;
 }
+function pressId(target){
+  var mBtn=findBtn(target,".rs__model-btn");
+  if(mBtn&&typeof mBtn.getAttribute==="function"){
+    var id=mBtn.getAttribute("data-model");
+    if(id) return {model:id,panel:null};
+  }
+  var sBtn=findBtn(target,".rs__sources");
+  if(sBtn) return {model:null,panel:"sources"};
+  var tog=findBtn(target,".rs__toggle");
+  if(tog) return {model:null,panel:"steps"};
+  return null;
+}
 function ensureDelegated(){
   if(_delegated) return; _delegated=true;
+  /* Capture press intent BEFORE any streaming re-render can replace nodes.
+     pointerdown capture is the primary path (also satisfies the
+     popovers/dialogs pointerdown-capture rule); mousedown covers mouse
+     and stub-DOM harnesses without pointer events. Both only record ids. */
+  function onPress(e){
+    try{_press=pressId(e&&e.target?e.target:null);}catch(_){_press=null;}
+  }
+  try{card.addEventListener("pointerdown",onPress,true);}catch(_){}
+  try{card.addEventListener("mousedown",onPress,true);}catch(_){}
   card.addEventListener("click",function(e){
     var t=e&&e.target?e.target:null;
     var mBtn=findBtn(t,".rs__model-btn");
-    if(mBtn&&typeof mBtn.getAttribute==="function"){
-      var id=mBtn.getAttribute("data-model");
-      if(id){state.expanded=state.expanded===id?null:id;render(false);return;}
-    }
+    var id=mBtn&&typeof mBtn.getAttribute==="function"?mBtn.getAttribute("data-model"):null;
+    /* Prefer the press-time id so a node replaced mid-gesture still toggles. */
+    if(!id&&_press&&_press.model) id=_press.model;
+    if(id){state.expanded=state.expanded===id?null:id;_press=null;render(false);return;}
     var sBtn=findBtn(t,".rs__sources");
-    if(sBtn&&!sBtn.disabled){state.panel=state.panel==="sources"?null:"sources";render(false);return;}
-    var tog=findBtn(t,".rs__toggle");
-    if(tog){state.panel=state.panel==="steps"?null:"steps";render(false);return;}
+    var panel=null;
+    if(sBtn&&!sBtn.disabled) panel="sources";
+    else{
+      var tog=findBtn(t,".rs__toggle");
+      if(tog) panel="steps";
+    }
+    if(!panel&&_press&&_press.panel) panel=_press.panel;
+    if(panel){
+      if(panel==="sources"){
+        if(sBtn&&sBtn.disabled){_press=null;return;}
+        state.panel=state.panel==="sources"?null:"sources";
+      }else{
+        state.panel=state.panel==="steps"?null:"steps";
+      }
+      _press=null;render(false);return;
+    }
+    _press=null;
   });
 }
 function roving(e,list,cols){
