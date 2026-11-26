@@ -222,7 +222,7 @@ function build(){
   bar.addEventListener('pointerleave',function(e){if(e.pointerType==='mouse')setHover(null)});
   bar.addEventListener('pointerdown',function(e){var t=barHoverLabel(e);setHover(t===state.hover?null:t)});
   bar.addEventListener('keydown',function(e){
-    var vis=ALL_CATS.filter(function(l){return catVal(l)>0});
+    var vis=ALL_CATS.slice();
     if(!vis.length)return;
     var idx=vis.indexOf(state.hover);
     if(e.key==='ArrowRight')setHover(vis[(idx+1)%vis.length]);
@@ -383,11 +383,11 @@ function renderStatic(){
   els.track.setAttribute('aria-valuemax',String(TOTAL));
   els.track.setAttribute('aria-valuenow',String(Math.min(state.sum,TOTAL)));
   els.track.setAttribute('aria-valuetext',fmt(state.sum)+' of '+fmt(TOTAL)+' '+UNIT);
-  var present={};DEMO[state.period].used.forEach(function(c){present[c.label]=true});
   ALL_CATS.forEach(function(label){
-    var r=els.rows[label];var isP=!!present[label];
-    if(isP){r.li.removeAttribute('data-leaving')}else{r.li.setAttribute('data-leaving','')}
+    var r=els.rows[label];
+    r.li.removeAttribute('data-leaving');
     r.li.style.display='';
+    r.li.removeAttribute('hidden');
   });
   els.limUl.style.setProperty('--n',String(Math.min(3,DEMO[state.period].limits.length)));
   ALL_LIMITS.forEach(function(label){
@@ -487,6 +487,7 @@ function updateHover(){
   });
   var found=null;
   DEMO[state.period].used.forEach(function(c){if(c.label===h)found=c});
+  if(h&&ALL_CATS.indexOf(h)>=0&&!found)found={label:h,value:0};
   if(found){
     els.tip.setAttribute('data-open','');
     var share=state.sum?num(found.value)/state.sum*100:0;
@@ -495,8 +496,7 @@ function updateHover(){
     els.tipValue.textContent=joinVal(fmtSmall(num(found.value),num(found.value)),UNIT);
     els.tipShare.textContent=' · '+fmt(Math.round(share))+'%';
     var left=0,w=segWidth(found.label);
-    DEMO[state.period].used.forEach(function(c){if(c.label===found.label)return;});
-    var acc=0;for(var i=0;i<DEMO[state.period].used.length;i++){var cc=DEMO[state.period].used[i];if(cc.label===found.label){left=acc;break}acc+=segWidth(cc.label)}
+    var acc=0;for(var i=0;i<ALL_CATS.length;i++){var cc=ALL_CATS[i];if(cc===found.label){left=acc;break}acc+=segWidth(cc)}
     var mid=Math.min(100,Math.max(0,left+w/2));
     els.tip.style.left=mid+'%';els.tip.style.setProperty('--tip-x',(-mid)+'%');
   }else{els.tip.removeAttribute('data-open')}

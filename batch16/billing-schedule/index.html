@@ -107,7 +107,7 @@ body{background:var(--page);color:var(--ink);
 .ui-bs__price{display:grid;justify-items:end;min-width:0}
 .ui-bs__price-main{display:flex;align-items:center;gap:4px;white-space:nowrap}
 .ui-bs__num{display:inline-flex;align-items:center;color:var(--ink);font-variant-numeric:tabular-nums}
-.ui-bs__num input{padding:3px 1px;border:0;border-radius:5px;background:none;outline:none;text-align:right;font-variant-numeric:tabular-nums;width:auto}
+.ui-bs__num input{padding:3px 1px;border:0;border-radius:5px;background:none;outline:none;text-align:right;font-variant-numeric:tabular-nums;width:auto;color:var(--ink)}
 @media (hover: hover) and (pointer: fine) {
 .ui-bs__num input:hover{background:var(--subtle)}
 }
@@ -258,15 +258,15 @@ function closeOpen(refocus){
 function toggleOpen(key){if(state.open===key){closeOpen(true)}else{state.open=key;syncMenus(null)}}
 
 function bindTriggerOpen(trigger,key){
-  var fired=false;
-  trigger.addEventListener('pointerdown',function(){fired=true;toggleOpen(key)},true);
-  trigger.addEventListener('mousedown',function(e){if(!fired){toggleOpen(key)}fired=false},true);
+  var suppressClick=false;
+  trigger.addEventListener('pointerdown',function(e){suppressClick=true;toggleOpen(key)},true);
+  trigger.addEventListener('mousedown',function(e){if(suppressClick){try{e.preventDefault()}catch(_){}}},true);
   trigger.addEventListener('click',function(e){
-    if(fired){fired=false;e.preventDefault();return}
+    if(suppressClick){suppressClick=false;try{e.preventDefault()}catch(_){}return}
     toggleOpen(key);
   });
   trigger.addEventListener('keydown',function(e){
-    if(e.key==='Enter'||e.key===' '){e.preventDefault();toggleOpen(key)}
+    if(e.key==='Enter'||e.key===' '||e.key==='Spacebar'){try{e.preventDefault()}catch(_){}suppressClick=true;toggleOpen(key)}
     else if(e.key==='Escape'){closeOpen(true)}
   });
 }

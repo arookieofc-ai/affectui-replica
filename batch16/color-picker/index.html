@@ -80,7 +80,10 @@ html[data-theme="dark"] .swatch{box-shadow:inset 0 0 0 .5px rgba(255,255,255,.14
 .thumb{position:absolute;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:50%;background:var(--solid,#a651f0);box-shadow:0 0 0 2px #fff,0 0 0 2.5px rgba(0,0,0,.18),0 1px 4px 1px rgba(0,0,0,.24);pointer-events:none}
 .slider{position:relative;height:12px;border-radius:999px;cursor:pointer;touch-action:none;user-select:none;-webkit-user-select:none;box-shadow:inset 0 0 0 1px rgba(0,0,0,.1);margin-top:14px}
 .slider--hue{background:linear-gradient(to right,#f00 0%,#ff0 16.67%,#0f0 33.33%,#0ff 50%,#00f 66.67%,#f0f 83.33%,#f00 100%)}
-.knob{position:absolute;top:50%;width:16px;height:16px;margin:-8px 0 0 -8px;border-radius:50%;box-shadow:0 0 0 2px #fff,0 0 0 2.5px rgba(0,0,0,.18),0 1px 4px 1px rgba(0,0,0,.24);pointer-events:none;background:var(--kb,transparent)}
+.knob{position:absolute;top:50%;left:calc(6px + (100% - 12px) * var(--p,.5));width:16px;height:16px;margin:-8px 0 0 -8px;border-radius:50%;box-shadow:0 0 0 2px #fff,0 0 0 2.5px rgba(0,0,0,.18),0 1px 4px 1px rgba(0,0,0,.24);pointer-events:none;background:var(--kb,transparent)}
+.slider--alpha{background:linear-gradient(to right,transparent,var(--solid,#a651f0)),repeating-conic-gradient(#e6e6e6 0 25%,#fff 0 50%) 0 0/8px 8px}
+.slider--alpha .knob{background:linear-gradient(var(--c,#a651f0),var(--c,#a651f0)),repeating-conic-gradient(#e6e6e6 0 25%,#fff 0 50%) 0 0/6px 6px}
+.pct{flex:none;width:38px;font-size:12px;line-height:16px;text-align:end;font-variant-numeric:tabular-nums;color:var(--muted)}
 .fields{display:flex;align-items:center;gap:8px;margin-top:14px}
 .preview{flex:none;width:32px;height:32px;border-radius:var(--radius);background:linear-gradient(var(--c,#a651f0),var(--c,#a651f0)),repeating-conic-gradient(#e6e6e6 0 25%,#fff 0 50%) 0 0/8px 8px;box-shadow:inset 0 0 0 .5px rgba(0,0,0,.12)}
 .hex{display:flex;flex:1 1 auto;align-items:center;gap:2px;height:32px;padding:0 10px;border-radius:var(--radius);background:var(--surface);box-shadow:0 0 0 1px var(--border);cursor:text;transition:box-shadow 140ms ease;min-width:0}
@@ -135,9 +138,13 @@ html[data-theme="dark"] .hex[data-invalid]{box-shadow:0 0 0 1px rgba(255,99,105,
             <div class="slider slider--hue" id="hue" role="slider" tabindex="0" dir="ltr" aria-label="Hue" aria-orientation="horizontal" aria-valuemin="0" aria-valuemax="360" aria-valuenow="277" aria-valuetext="277°, purple">
               <span class="knob" id="hueKnob"></span>
             </div>
+            <div class="slider slider--alpha" id="alpha" role="slider" tabindex="0" dir="ltr" aria-label="Opacity" aria-orientation="horizontal" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100" aria-valuetext="100%">
+              <span class="knob" id="alphaKnob"></span>
+            </div>
             <div class="fields">
               <span class="preview" id="preview" aria-hidden="true"></span>
               <label class="hex" id="hexWrap"><span class="hash" aria-hidden="true">#</span><input class="hexin" id="hexIn" value="A651F0" aria-label="Hex color" spellcheck="false" autocomplete="off" autocapitalize="off"></label>
+              <span class="pct" id="pct">100%</span>
             </div>
             <div class="presets" id="presets" role="radiogroup" aria-label="Presets">
               <button type="button" role="radio" class="preset" aria-checked="false" aria-label="Blue" title="Blue" tabindex="0" data-val="#0190fe"></button>
@@ -226,29 +233,33 @@ function markPattern(id){
 /* ---- state ---- */
 var state={hex:"#a651f0",hsv:null,open:true,draft:null,invalid:false};
 var rgb0=parseColor(state.hex)||{r:166,g:81,b:240,a:1};
-state.hsv=rgbToHsv(rgb0.r,rgb0.g,rgb0.b,1,0,0);
+state.hsv=rgbToHsv(rgb0.r,rgb0.g,rgb0.b,rgb0.a,0,0);
 /* ---- refs (grab once) ---- */
 var $=function(id){return document.getElementById(id)};
 var root=document.documentElement;
 var themeBtn=$("themeBtn"),trig=$("trig"),card=$("clpCard"),
   trigSwatch=$("trigSwatch"),trigVal=$("trigVal"),
   area=$("area"),thumb=$("thumb"),hue=$("hue"),hueKnob=$("hueKnob"),
-  preview=$("preview"),hexIn=$("hexIn"),hexWrap=$("hexWrap"),
+  alpha=$("alpha"),alphaKnob=$("alphaKnob"),
+  preview=$("preview"),hexIn=$("hexIn"),hexWrap=$("hexWrap"),pct=$("pct"),
   presetsEl=$("presets"),markTop=$("markTop"),markFoot=$("markFoot"),
   hint=$("hint");
 var presetBtns=Array.prototype.slice.call(presetsEl.querySelectorAll(".preset"));
 var hexRe=/^(#?([0-9a-f]{6}|[0-9a-f]{8})|rgba?\(.*\))$/i;
-function curRgb(){return hsvToRgb(state.hsv.h,state.hsv.s,state.hsv.v,1)}
-function curHex(){return toHex(curRgb(),false)}
+function curRgb(){return hsvToRgb(state.hsv.h,state.hsv.s,state.hsv.v,state.hsv.a)}
+function curHex(){return toHex(curRgb(),true)}
+function curHex6(){return toHex(curRgb(),false)}
+function setAlpha(a){a=clamp(a,0,1);state.hsv.a=Math.round(a*100)/100;state.hex=curHex();state.draft=null;state.invalid=false;paint();return state.hsv.a}
 /* ---- in-place updates only ---- */
 function paint(){
-  var rgb=curRgb(),hex=curHex(),up=hex.toUpperCase();
+  var rgb=curRgb(),hex=curHex(),hex6=curHex6(),up6=hex6.toUpperCase(),up=hex.toUpperCase();
   var h=Math.round(state.hsv.h);
   var sPct=Math.round(state.hsv.s*100),vPct=Math.round(state.hsv.v*100);
+  var mPct=Math.round(state.hsv.a*100);
   var solid="rgb("+rgb.r+" "+rgb.g+" "+rgb.b+" / 1)";
   var col=rgbStr(rgb);
   trigSwatch.style.setProperty("--c",col);
-  trigVal.textContent=up;
+  trigVal.textContent=(state.hsv.a<1?up6+" "+mPct+"%":up6);
   card.style.setProperty("--c",col);
   card.style.setProperty("--solid",solid);
   card.style.setProperty("--hue","hsl("+h+" 100% 50%)");
@@ -258,10 +269,14 @@ function paint(){
   thumb.style.background=solid;
   hueKnob.style.setProperty("--p",(state.hsv.h/360));
   hueKnob.style.setProperty("--kb","hsl("+h+" 100% 50%)");
+  alphaKnob.style.setProperty("--p",state.hsv.a);
+  alpha.setAttribute("aria-valuenow",String(mPct));
+  alpha.setAttribute("aria-valuetext",mPct+"%");
   area.setAttribute("aria-valuenow",String(sPct));
   area.setAttribute("aria-valuetext","Saturation "+sPct+"%, brightness "+vPct+"%");
   hue.setAttribute("aria-valuenow",String(h));
   hue.setAttribute("aria-valuetext",h+"°, "+hueName(h));
+  pct.textContent=mPct+"%";
   if(state.draft==null){
     if(document.activeElement!==hexIn||hexIn.value!==up.slice(1)){hexIn.value=up.slice(1)}
   }
@@ -303,7 +318,7 @@ function commitHex(raw,fromEnter){
   var t=String(raw==null?"":raw).trim();
   var c=parseColor(t);
   if(c&&hexRe.test(t)){
-    state.hsv=rgbToHsv(c.r,c.g,c.b,1,state.hsv.h,state.hsv.s);
+    state.hsv=rgbToHsv(c.r,c.g,c.b,c.a,state.hsv.h,state.hsv.s);
     state.hex=curHex();state.draft=null;state.invalid=false;paint();return true;
   }
   if(fromEnter){state.invalid=true;paint()}
@@ -315,12 +330,14 @@ document.addEventListener("pointerdown",function(ev){
   if(!state.open)return;
   var t=ev.target;
   if(card.contains(t)||trig.contains(t))return;
+  try{if(themeBtn&&(t===themeBtn||themeBtn.contains(t)))return}catch(e){}
   setOpen(false);
 },true);
 document.addEventListener("mousedown",function(ev){
   if(!state.open)return;
   var t=ev.target;
   if(card.contains(t)||trig.contains(t))return;
+  try{if(themeBtn&&(t===themeBtn||themeBtn.contains(t)))return}catch(e){}
   setOpen(false);
 },true);
 window.addEventListener("keydown",function(ev){
@@ -378,6 +395,30 @@ hue.addEventListener("keydown",function(ev){
   else if(ev.key==="Home")next=0;else if(ev.key==="End")next=360;
   if(next!=null){ev.preventDefault();state.hsv.h=clamp(next,0,360);state.hex=curHex();state.draft=null;state.invalid=false;paint()}
 });
+function alphaPoint(ev){
+  var r=alpha.getBoundingClientRect();
+  if(!r||!r.width)return;
+  var q=clamp((ev.clientX-r.left)/Math.max(1,r.width),0,1);
+  setAlpha(Math.round(q*100)/100);
+}
+var alphaCap=false;
+alpha.addEventListener("pointerdown",function(ev){
+  alphaCap=true;
+  try{alpha.setPointerCapture(ev.pointerId)}catch(e){}
+  try{alpha.focus({preventScroll:true})}catch(e){}
+  if(ev.cancelable)ev.preventDefault();
+  alphaPoint(ev);
+});
+alpha.addEventListener("pointermove",function(ev){if(alphaCap)alphaPoint(ev)});
+alpha.addEventListener("pointerup",function(ev){alphaCap=false;try{alpha.releasePointerCapture(ev.pointerId)}catch(e){}});
+alpha.addEventListener("keydown",function(ev){
+  var cur=Math.round(state.hsv.a*100),st=ev.shiftKey?10:1,next=null;
+  if(ev.key==="ArrowRight"||ev.key==="ArrowUp")next=cur+st;
+  else if(ev.key==="ArrowLeft"||ev.key==="ArrowDown")next=cur-st;
+  else if(ev.key==="PageUp")next=cur+10;else if(ev.key==="PageDown")next=cur-10;
+  else if(ev.key==="Home")next=0;else if(ev.key==="End")next=100;
+  if(next!=null){ev.preventDefault();setAlpha(clamp(next,0,100)/100)}
+});
 hexIn.addEventListener("change",function(){});
 hexIn.addEventListener("input",function(){
   var t=hexIn.value;state.draft=t;state.invalid=false;
@@ -394,7 +435,7 @@ hexIn.addEventListener("keydown",function(ev){
 presetBtns.forEach(function(btn,idx){
   btn.addEventListener("click",function(){
     var c=parseColor(btn.getAttribute("data-val"));
-    if(c){state.hsv=rgbToHsv(c.r,c.g,c.b,1,state.hsv.h,state.hsv.s);state.hsv.h=rgbToHsv(c.r,c.g,c.b,1,0,0).h;state.hex=curHex();state.draft=null;state.invalid=false;paint()}
+    if(c){state.hsv=rgbToHsv(c.r,c.g,c.b,c.a,state.hsv.h,state.hsv.s);state.hex=curHex();state.draft=null;state.invalid=false;paint()}
   });
   btn.addEventListener("keydown",function(ev){
     var map={ArrowRight:1,ArrowDown:1,ArrowLeft:-1,ArrowUp:-1};
@@ -434,7 +475,7 @@ themeBtn.addEventListener("click",function(){
   applyOpen();paint();paintTheme();
 })();
 /* expose for harness (no globals leak in browser visuals) */
-try{window.__clp={state:state,paint:paint,setOpen:setOpen,commitHex:commitHex,parseColor:parseColor,toHex:toHex,hsvToRgb:hsvToRgb,rgbToHsv:rgbToHsv,markPattern:markPattern,refs:function(){return {trig:trig,card:card,trigVal:trigVal,area:area,hue:hue,hexIn:hexIn,presets:presetBtns,markTop:markTop,markFoot:markFoot,footLine:document.getElementById("footLine"),footTime:document.getElementById("footTime"),proj:document.getElementById("projName")}}}}catch(e){}
+try{window.__clp={state:state,paint:paint,setOpen:setOpen,commitHex:commitHex,setAlpha:setAlpha,parseColor:parseColor,toHex:toHex,hsvToRgb:hsvToRgb,rgbToHsv:rgbToHsv,markPattern:markPattern,refs:function(){return {trig:trig,card:card,trigVal:trigVal,area:area,hue:hue,alpha:alpha,alphaKnob:alphaKnob,pct:pct,hexIn:hexIn,presets:presetBtns,markTop:markTop,markFoot:markFoot,footLine:document.getElementById("footLine"),footTime:document.getElementById("footTime"),proj:document.getElementById("projName")}}}}catch(e){}
 })();
 </script>
 </body>

@@ -7,7 +7,7 @@ Layout (matches original `demo-original.js` + CSS `ne`):
 - Card in tray: `Acme AI` title + `Pro plan · Resets in 9 days` sub + period switch (`This month` / `Last month` / `7 days` with sliding pill).
 - Figure: big animated used number + `of 10,000 credits` + pct badge with warn dot.
 - Bar: stacked category segments (10px track), hover tooltip, keyboard arrows, `role=meter`.
-- Legend: rows with swatch, label, value, share %; leaving rows collapse (Image hides in 7d).
+- Legend: rows with swatch, label, value, share %; ALL 4 rows always painted — zero-value rows show dot + label + `0` + `0%` (Image is `0 / 0%` in 7d, never blank/hidden).
 - Daily: `Per day` head with `Avg N / day` or selected day, 30/30/7 spark bars, hover + keyboard.
 - Limits: `Seats`, `Storage`, `Projects` grid with thin 4px bars, unlimited hatched for Projects, warn/limit dots.
 - Foot: status (`X credits left` / `Running low` / `Limit reached` + over) + action button (`Upgrade` ↔ `Add credits` strong).
@@ -21,10 +21,10 @@ Clean-room: wrote own HTML/CSS/JS from observed behaviour, did not copy compiled
 - Periods: `month/This month`, `last/Last month`, `7d/7 days`.
 - month used: Chat 3980, Search 1640, Image 1120, API 680 (sum 7420); limits Seats 8/10, Storage 3.2/5 GB, Projects 12/null; daily `y(start-21,22,7420,11,30)`.
 - last used: Chat 5210, Search 2140, Image 1690, API 960 (sum 10000); limits Seats 10/10, Storage 2.9/5 GB, Projects 11/null; daily `y(start-51,30,10000,29)`.
-- 7d used: Chat 1260, Search 540, API 340 (sum 2140, no Image); limits same as month; daily `y(start-6,7,2140,5)`.
+- 7d used: Chat 1260, Search 540, API 340 (sum 2140; demo has no Image entry → treated as 0 and still painted as `Image 0 / 0%`); limits same as month; daily `y(start-6,7,2140,5)`.
 - Daily generator replicated: weekend ×0.45, `(0.7+rnd*0.6)*(1+k/t/3)` with LCG `a=a*16807%2147483647`, rounding + fix-last, labels `MMM d`, `null` futures (8 futures in month).
 - Reset: `todayMidnight+9d` → `Resets in 9 days` (same `u()` logic: today/tomorrow/>60 full date).
-- Timings: first animate 1200ms, subsequent 650ms, `easeOutQuart`, leaving collapse; auto-loop `3600ms → last, +3200 → 7d, +3200 → month`, cancelled on `pointerdown/keydown` capture.
+- Timings: first animate 1200ms, subsequent 650ms, `easeOutQuart`; no leaving/hiding — rows persist with in-place text updates; auto-loop `3600ms → last, +3200 → 7d, +3200 → month`, cancelled on `pointerdown/keydown` capture.
 - Formatting: `Intl.NumberFormat en-US`, `<1` for 0<val<1, limits decimals (int+unlimited→0 else 1), `>999` pct cap, `Avg` = rounded mean of valued days (337/333/306).
 - States: `ok` (month 74%, 7d 21%) → `Upgrade` + `2,580`/`7,860 left`; `limit` (last 100%) → `Limit reached` + `Add credits`.
 
@@ -44,16 +44,17 @@ Clean-room: wrote own HTML/CSS/JS from observed behaviour, did not copy compiled
 - `node --check .main-extract.js` (extracted main `<script>`): PASS.
 - In-dir harness `harness.cjs` (DOM stub, mock timers/rAF, `IntersectionObserver` immediate):
   - init exposes `window.__um`; pumps 1500ms animation.
-  - VISIBLE text (skips `[hidden]`, `display:none`, `[data-leaving]`) asserts: `Acme AI`, `Pro plan`, `This month/Last month/7 days`, `Chat/Search/Image/API` (month), `Seats/Storage/Projects`, `Per day`, `of 10,000 credits`, `Resets`, `7,420` + `2,580 left` + `Upgrade` (month) → `10,000` + `Limit reached` + `Add credits` (last) → `2,140` + no `Image` + `7,860 left` + `Upgrade` (7d) → `7,420` + `Image` again (loop).
+  - VISIBLE text (skips `[hidden]`, `display:none`, `[data-leaving]`) asserts: `Acme AI`, `Pro plan`, `This month/Last month/7 days`, `Chat/Search/Image/API` (month), `Seats/Storage/Projects`, `Per day`, `of 10,000 credits`, `Resets`, `7,420` + `2,580 left` + `Upgrade` (month) → `10,000` + `Limit reached` + `Add credits` (last) → `2,140` + `Image` + `0` + `0%` + `7,860 left` + `Upgrade` (7d, row `Image | 0 | 0%` painted) → `7,420` + `Image` again (loop).
+  - QA FIX (2026-11-26, Browser QA FAILED painted pixels): in 7d `Image` painted blank gap (row in DOM but `data-leaving` → `0fr/opacity:0`, no dot/label/`0`/`0%` in both themes). Fixed: `renderStatic` never sets `data-leaving`/`hidden`/`display:none` for zero-value categories; `ALL_CATS` rows always persist; keyboard nav uses `ALL_CATS.slice()` (was `catVal>0`); tooltip `updateHover` synthesizes `{label,value:0}` for missing cats and positions over `ALL_CATS`. Harness now asserts VISIBLE painted `Image | 0 | 0%` in 7d light AND dark, `data-leaving` absent, `val=="0"`, `share=="0%"`, swatch present, and all 4 cats painted in every period view.
   - Node identity across full loop: `els` container + `title/big/rowChat/segChat/limSeats/day0` same objects: PASS.
   - Zero `innerHTML` writes after init: PASS.
-  - Theme toggle light→dark→light: PASS (light AND dark checked).
+  - Theme toggle light→dark→light: PASS + 7d zero-row painted fully in BOTH themes (dark 7d `Image | 0 | 0%` VISIBLE, light 7d re-checked): PASS (light AND dark checked).
   - Result: `ALL CHECKS PASSED`.
 
 ## How to test
 - `node --check` extracted script + `node harness.cjs` in this dir, or open `index.html` in a browser, watch auto-rotation (3.6s/6.8s/10s), hover bar/legend/spark, arrow keys, period switch, theme toggle, resize to 360px.
 
 ## Gaps
-- Leaving animation simplified to CSS grid collapse (no 460ms removal timer; nodes kept hidden to preserve identity — visually equivalent).
+- No leaving/hiding by design (QA fix): all 4 category rows + segs persist across periods; zero values animate to `0` in place and paint `0 / 0%`. Keeps node identity across full loop (required for in-place rule). Original `ee()` leaving-merge + 460ms removal intentionally not replicated because it produced the blank-gap bug.
 - Spark `dense/many` + `regrow` stagger + `nudge/pop` keyframes trimmed for size; core rise/hover kept.
 - `onUpgrade` is noop in original; replica shows transient `…clicked` live text (button still works + hover).
