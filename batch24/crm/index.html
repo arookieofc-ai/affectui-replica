@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Company CRM — Sales</title>
+<meta name="color-scheme" content="light dark">
+<style>html{background:#fafaf9}html[data-theme="dark"]{background:#101012}</style>
+<script>/*noflash*/(function(){try{var k='affectui-crm-theme';var t=null;try{t=localStorage.getItem(k)}catch(e){}if(!t){try{t=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}catch(e){t='light'}}if(t!=='light'&&t!=='dark'){t='light'}document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<style>
+:root, html[data-theme="light"]{
+  --surface:#ffffff; --page:#fafaf9; --ink:#171717; --ink2:#1c1917;
+  --muted:#78716c; --subtle:#f5f5f4; --border:#e7e5e4;
+  --radius-lg:16px; --radius:10px; --radius-sm:6px;
+  --shadow:0 1px 2px rgba(0,0,0,.05), 0 4px 16px rgba(0,0,0,.05);
+  --shadow-lg:0 2px 6px rgba(0,0,0,.06), 0 12px 32px rgba(0,0,0,.08);
+  --working:#15803d; --working-bg:#dcfce7;
+  --waiting:#92400e; --waiting-bg:#fef3c7; --waiting-bd:#f59e0b;
+  --idle:#57534e; --idle-bg:#f5f5f4; --failed:#b91c1c; --failed-bg:#fee2e2;
+  --accent:#4f46e5; --accent-soft:#eef2ff;
+  --hover:rgba(0,0,0,.045); --chip:#efefec; --line:#e7e5e4; --focus:#4f46e5;
+  --outline-logo:rgba(0,0,0,.10);
+}
+html[data-theme="dark"]{
+  --surface:#1c1c1f; --page:#101012; --ink:#ededed; --ink2:#ededed;
+  --muted:#a1a1aa; --subtle:#26262a; --border:#2e2e33;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 4px 16px rgba(0,0,0,.4);
+  --shadow-lg:0 2px 8px rgba(0,0,0,.5), 0 12px 32px rgba(0,0,0,.5);
+  --working:#4ade80; --working-bg:rgba(34,197,94,.14);
+  --waiting:#fde68a; --waiting-bg:#451a03; --waiting-bd:#fbbf24;
+  --idle:#d4d4d8; --idle-bg:#26262a; --failed:#fca5a5; --failed-bg:rgba(239,68,68,.14);
+  --accent:#a5b4fc; --accent-soft:#2a2f4a;
+  --hover:rgba(255,255,255,.07); --chip:#2a2a2e; --line:#2e2e33; --focus:#a5b4fc;
+  --outline-logo:rgba(255,255,255,.10);
+}
+html{-webkit-tap-highlight-color:transparent}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--page); color:var(--ink);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:14px; line-height:1.45; font-variant-numeric:tabular-nums;
+}
+button{font:inherit; color:inherit; background:none; border:0; cursor:pointer}
+button:focus-visible, a:focus-visible, input:focus-visible, [tabindex]:focus-visible{outline:2px solid var(--focus); outline-offset:2px; border-radius:6px}
+.wrap{max-width:1180px; margin:0 auto; padding:0 16px 28px}
+.topbar{display:flex; align-items:center; gap:10px; min-height:48px; padding:10px 4px 6px}
+.brand{font-size:13px; color:var(--muted); display:flex; align-items:center; gap:8px; min-width:0; white-space:nowrap}
+.brand b{color:var(--ink); font-weight:600}
+.brand .sep{color:var(--muted); opacity:.6; font-style:normal}
+.viewbtn{display:inline-flex; align-items:center; gap:4px; height:26px; padding:0 6px; margin-left:-6px; border-radius:7px; font-weight:500; color:var(--ink)}
+.countpill{display:inline-flex; align-items:center; height:22px; padding:0 9px; border-radius:999px; background:var(--subtle); border:1px solid var(--border); color:var(--muted); font-size:12px}
+.spacer{flex:1}
+.iconbtn{display:inline-grid; place-items:center; width:28px; height:28px; border-radius:8px; color:var(--muted)}
+@media (hover: hover) and (pointer: fine) {
+.iconbtn:hover{background:var(--hover); color:var(--ink)}
+}
+.iconbtn[aria-pressed="true"]{color:#e8b000}
+html[data-theme="dark"] .iconbtn[aria-pressed="true"]{color:#fbbf24}
+.tabs{display:flex; align-items:center; gap:4px; padding:2px 2px 12px; overflow-x:auto; scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{display:inline-flex; align-items:center; gap:8px; height:32px; padding:0 12px 0 10px; border-radius:9px; font-size:13px; color:var(--muted); white-space:nowrap; border:1px solid transparent}
+.tab[aria-selected="true"]{background:var(--chip); color:var(--ink); font-weight:500; border-color:var(--border)}
+.tablogo{display:grid; place-items:center; width:18px; height:18px; border-radius:5px; flex:none; font-size:10px; font-weight:700; color:#fff; outline:1px solid var(--outline-logo); outline-offset:-1px}
+.panel{background:var(--surface); border:1px solid var(--border); border-radius:calc(var(--radius-lg) + 2px); box-shadow:var(--shadow); overflow:hidden}
+.pipe{display:flex; flex-wrap:wrap; gap:8px; padding:12px 14px; border-bottom:1px solid var(--border)}
+.stagepill{display:inline-flex; align-items:center; gap:7px; height:28px; padding:0 4px 0 10px; border-radius:999px; background:var(--subtle); border:1px solid var(--border); font-size:12px; color:var(--muted)}
+.stagepill b{color:var(--ink); font-variant-numeric:tabular-nums}
+.stagepill .dot{width:8px; height:8px; border-radius:999px; flex:none}
+.toolbar{display:flex; align-items:center; gap:10px; padding:10px 14px; border-bottom:1px solid var(--border)}
+.search{flex:1; display:flex; align-items:center; gap:8px; height:32px; padding:0 10px; border-radius:9px; background:var(--subtle); border:1px solid var(--border); color:var(--muted); min-width:0}
+.search input{flex:1; min-width:0; border:0; background:transparent; color:var(--ink); font:inherit; outline:none}
+.meta{font-size:12px; color:var(--muted); white-space:nowrap}
+.tablewrap{overflow-x:auto}
+table{width:100%; min-width:880px; border-collapse:collapse; table-layout:fixed; font-size:13px}
+col.c-select{width:36px}
+thead th{height:36px; padding:0 6px; font-size:12px; font-weight:500; color:var(--muted); text-align:left; border-bottom:1px solid var(--border); white-space:nowrap}
+thead th button{display:inline-flex; align-items:center; gap:6px; height:28px; padding:0 6px; border-radius:6px; color:inherit; max-width:100%}
+thead th button span{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+tbody td{height:44px; padding:0 12px; border-bottom:1px solid var(--border); vertical-align:middle; overflow:hidden; white-space:nowrap; text-overflow:ellipsis}
+tbody tr:last-child td{border-bottom:0}
+tbody tr{transition:background-color 150ms ease}
+.celltitle{display:flex; align-items:center; gap:8px; min-width:0}
+.celllogo{width:22px; height:22px; border-radius:5px; display:grid; place-items:center; font-size:10px; font-weight:700; color:#fff; flex:none; outline:1px solid var(--outline-logo); outline-offset:-1px}
+.celllogo.avatar{border-radius:50%; font-size:8px; background:var(--accent-soft); color:var(--accent); outline:none}
+.cellname{overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:500; color:var(--ink)}
+.pill{display:inline-flex; align-items:center; height:22px; padding:0 10px; border-radius:999px; font-size:12px; border:1px solid transparent; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.tone-gray{background:var(--subtle); color:var(--muted); border-color:var(--border)}
+.tone-blue{background:#dbeafe; color:#1d4ed8; border-color:#bfdbfe}
+html[data-theme="dark"] .tone-blue{background:rgba(59,130,246,.18); color:#bfdbfe; border-color:rgba(59,130,246,.35)}
+.tone-violet{background:#ede9fe; color:#6d28d9; border-color:#ddd6fe}
+html[data-theme="dark"] .tone-violet{background:rgba(139,92,246,.18); color:#ddd6fe; border-color:rgba(139,92,246,.35)}
+.tone-pink{background:#fce7f3; color:#be185d; border-color:#fbcfe8}
+html[data-theme="dark"] .tone-pink{background:rgba(236,72,153,.16); color:#fbcfe8; border-color:rgba(236,72,153,.32)}
+.tone-amber{background:#fef3c7; color:#92400e; border-color:#fde68a}
+html[data-theme="dark"] .tone-amber{background:#451a03; color:#fde68a; border-color:rgba(251,191,36,.4)}
+.tone-green{background:#dcfce7; color:#15803d; border-color:#bbf7d0}
+html[data-theme="dark"] .tone-green{background:rgba(34,197,94,.15); color:#bbf7d0; border-color:rgba(34,197,94,.35)}
+.link{color:var(--accent); text-decoration:none; overflow:hidden; text-overflow:ellipsis}
+.num{font-variant-numeric:tabular-nums}
+.rowbtn{cursor:pointer}
+.editinput{width:100%; height:28px; padding:0 8px; border-radius:7px; border:1px solid var(--focus); background:var(--surface); color:var(--ink); font:inherit}
+.detail{position:fixed; top:0; right:0; bottom:0; width:min(380px,92vw); background:var(--surface); border-left:1px solid var(--border); box-shadow:var(--shadow-lg); padding:18px 18px 22px; transform:translateX(105%); transition:transform 180ms ease; z-index:30; overflow:auto}
+.detail.open{transform:none}
+.detail h2{margin:0 0 2px; font-size:16px}
+.detail .sub{color:var(--muted); font-size:13px; margin:0 0 12px}
+.kv{display:grid; grid-template-columns:110px 1fr; gap:6px 10px; font-size:13px; margin-top:10px}
+.kv dt{color:var(--muted)} .kv dd{margin:0; color:var(--ink); min-width:0; overflow:hidden; text-overflow:ellipsis}
+.toast{position:fixed; left:50%; bottom:22px; transform:translateX(-50%) translateY(8px); background:var(--ink); color:var(--page); font-size:13px; padding:9px 14px; border-radius:999px; opacity:0; pointer-events:none; transition:opacity 160ms ease, transform 160ms ease; z-index:40; max-width:90vw; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.toast.show{opacity:1; transform:translateX(-50%)}
+.empty{padding:36px 24px; text-align:center; color:var(--muted)}
+.empty h3{margin:8px 0 4px; color:var(--ink); font-size:15px}
+.skel{color:var(--muted); font-size:12px}
+@media (max-width:900px){
+  .tablewrap table{min-width:880px}
+  .topbar{padding-left:4px}
+}
+@media (max-width:600px){
+  .wrap{padding:0 8px 18px}
+  .toolbar{flex-wrap:wrap}
+  .meta{width:100%}
+  .kv{grid-template-columns:96px 1fr}
+}
+@media (hover: hover) and (pointer: fine){
+  .tab:hover{color:var(--ink); background:var(--hover)}
+  .viewbtn:hover{background:var(--hover)}
+  tbody tr:hover{background:var(--hover)}
+  .link:hover{text-decoration:underline}
+  .stagepill:hover{border-color:var(--focus)}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar" id="topbar"></div>
+  <div class="tabs" id="tabs" role="tablist" aria-label="Views"></div>
+  <section class="panel" aria-label="CRM table">
+    <div class="pipe" id="pipe" aria-label="Pipeline summary"></div>
+    <div class="toolbar" id="toolbar"></div>
+    <div class="tablewrap">
+      <table id="grid" aria-label="Company CRM">
+        <colgroup id="colgroup"></colgroup>
+        <thead><tr id="headrow"></tr></thead>
+        <tbody id="bodyrows"></tbody>
+      </table>
+      <div class="empty" id="empty" hidden></div>
+    </div>
+  </section>
+  <p class="skel" id="updated"></p>
+</div>
+<aside class="detail" id="detail" aria-label="Record details"></aside>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script>
+(function(){
+"use strict";
+var COMPANIES=[
+  {id:"notion",name:"Notion",category:"Productivity",domain:"notion.so",owner:"Mara Klein",value:48000,stage:"Negotiation",contact:"Today"},
+  {id:"linear",name:"Linear",category:"Planning",domain:"linear.app",owner:"Jonas Weber",value:12500,stage:"Proposal",contact:"Yesterday"},
+  {id:"figma",name:"Figma",category:"Design",domain:"figma.com",owner:"Mara Klein",value:86000,stage:"Won",contact:"Mar 6"},
+  {id:"stripe",name:"Stripe",category:"Payments",domain:"stripe.com",owner:"Lea Braun",value:124000,stage:"Qualified",contact:"Mar 5"},
+  {id:"shopify",name:"Shopify",category:"E-commerce",domain:"shopify.com",owner:"Jonas Weber",value:9800,stage:"New",contact:"Mar 4"},
+  {id:"vercel",name:"Vercel",category:"Developer Tools",domain:"vercel.com",owner:"Lea Braun",value:62000,stage:"Proposal",contact:"Mar 3"},
+  {id:"airtable",name:"Airtable",category:"Productivity",domain:"airtable.com",owner:"Mara Klein",value:37500,stage:"Qualified",contact:"Mar 1"},
+  {id:"hubspot",name:"HubSpot",category:"CRM",domain:"hubspot.com",owner:"Tom Fischer",value:21000,stage:"New",contact:"Feb 27"},
+  {id:"clickup",name:"ClickUp",category:"Planning",domain:"clickup.com",owner:"Tom Fischer",value:6400,stage:"Lost",contact:"Feb 25"},
+  {id:"webflow",name:"Webflow",category:"Design",domain:"webflow.com",owner:"Lea Braun",value:18900,stage:"Negotiation",contact:"Feb 24"}
+];
+var BRAND={notion:"#171717",linear:"#5E6AD2",figma:"#F24E1E",stripe:"#635BFF",shopify:"#5fc88a",airtable:"#18BFFF",hubspot:"#FF7A59",webflow:"#0190fe",vercel:"#171717",clickup:"#a651f0"};
+var VIEWS=[{label:"Company CRM",logo:"hubspot"},{label:"Deals",logo:"stripe"},{label:"Contacts",logo:"airtable"},{label:"Renewals",logo:"notion"}];
+var TONES={Productivity:"gray",Planning:"blue",Design:"pink",Payments:"violet","E-commerce":"amber","Developer Tools":"gray",CRM:"blue",New:"gray",Qualified:"blue",Proposal:"violet",Negotiation:"amber",Won:"green",Lost:"pink",Founder:"violet","Head of Ops":"gray","VP Sales":"blue",Procurement:"amber","Head of Design":"pink",Team:"gray",Business:"blue",Enterprise:"violet",Healthy:"green",Watch:"amber","At risk":"pink"};
+var CHANCE={New:10,Qualified:30,Proposal:50,Negotiation:70,Won:100,Lost:0};
+var CLOSE=["Apr 12","Apr 30","Mar 2","May 15","Jun 1","Apr 18","May 3","Jun 20","Feb 28","Apr 25"];
+var CONTACT_NAMES=["Nina Hartmann","Omar Haddad","Sofia Lind","Daniel Okafor","Clara Wenzel","Ravi Mehta","Elena Rossi","Jakob Berg","Mei Tanaka","Lucas Moreau"];
+var ROLES=["Founder","Head of Ops","VP Sales","Procurement","Head of Design"];
+var RENEWS=["May 1","Jun 14","Jul 3","Aug 22","Sep 9","Oct 1","Nov 18","Dec 5","Jan 12","Feb 2"];
+var HEALTH=["Healthy","Healthy","At risk","Healthy","Watch"];
+var COLS={
+  "Company CRM":[
+    {key:"company",label:"Company",type:"title"},{key:"category",label:"Category",type:"tag"},
+    {key:"domain",label:"Domain",type:"link"},{key:"owner",label:"Owner",type:"text"},
+    {key:"value",label:"Value",type:"number"},{key:"stage",label:"Stage",type:"tag"},
+    {key:"contact",label:"Last contact",type:"text"}
+  ],
+  "Deals":[
+    {key:"deal",label:"Deal",type:"title"},{key:"stage",label:"Stage",type:"tag"},
+    {key:"amount",label:"Amount",type:"number"},{key:"chance",label:"Probability",type:"number"},
+    {key:"close",label:"Close date",type:"text"},{key:"owner",label:"Owner",type:"text"}
+  ],
+  "Contacts":[
+    {key:"name",label:"Name",type:"title"},{key:"company",label:"Company",type:"text"},
+    {key:"role",label:"Role",type:"tag"},{key:"email",label:"Email",type:"text"},
+    {key:"owner",label:"Owner",type:"text"},{key:"contact",label:"Last contact",type:"text"}
+  ],
+  "Renewals":[
+    {key:"account",label:"Account",type:"title"},{key:"plan",label:"Plan",type:"tag"},
+    {key:"seats",label:"Seats",type:"number"},{key:"arr",label:"ARR",type:"number"},
+    {key:"renews",label:"Renews",type:"text"},{key:"health",label:"Health",type:"tag"},
+    {key:"owner",label:"Owner",type:"text"}
+  ]
+};
+function fmtUSD(n){ try{ return new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",maximumFractionDigits:0}).format(n);}catch(e){ return "$"+Math.round(n).toLocaleString("en-US"); } }
+function firstLetter(s){ s=(s||"").trim(); if(!s) return ""; try{ if(typeof Intl!=="undefined"&&Intl.Segmenter){ var seg=new Intl.Segmenter(); for(var it of seg.segment(s)){ return it.segment; } } }catch(e){} return Array.from(s)[0]; }
+function initials(name){ return name.split(" ").map(function(p){return firstLetter(p)}).join("").slice(0,2).toUpperCase(); }
+function dealRows(){ return COMPANIES.map(function(c,i){ return {id:"deal-"+c.id, logoId:c.id, logoName:c.name, deal:c.name+" – "+(c.value>=50000?"Enterprise":"Team")+" plan", stage:c.stage, amount:c.value, chance:(CHANCE[c.stage]!=null?CHANCE[c.stage]:""), close:CLOSE[i%CLOSE.length], owner:c.owner, _c:c}; }); }
+function contactRows(){ return COMPANIES.map(function(c,i){ var n=CONTACT_NAMES[i%CONTACT_NAMES.length]; return {id:"contact-"+c.id, logoName:n, avatar:initials(n), name:n, company:c.name, role:ROLES[i%ROLES.length], email:c.domain?n.split(" ")[0].toLowerCase()+"@"+String(c.domain).replace(/^https?:\/\//,""):"", owner:c.owner, contact:c.contact, _c:c}; }); }
+function renewalRows(){ return COMPANIES.map(function(c,i){ return {id:"renewal-"+c.id, logoId:c.id, logoName:c.name, account:c.name, plan:c.value>=50000?"Enterprise":c.value>=15000?"Business":"Team", seats:Number.isFinite(c.value)?Math.max(5,Math.round(c.value/900)):"", arr:c.value, renews:RENEWS[i%RENEWS.length], health:HEALTH[i%HEALTH.length], owner:c.owner, _c:c}; }); }
+function companyRows(){ return COMPANIES.map(function(c){ return {id:c.id, logoId:c.id, logoName:c.name, company:c.name, category:c.category, domain:/^https?:\/\//.test(c.domain)?c.domain:"https://"+c.domain, domainShort:c.domain, owner:c.owner, value:c.value, stage:c.stage, contact:c.contact, _c:c}; }); }
+var state={view:"Company CRM", sortKey:"", sortDir:0, filter:"", fav:false, role:"Head of Sales", selectedId:"", updatedAt:Date.now()};
+var refs={tabs:[], ths:[], trs:[], tds:[], pipePills:[], detail:null, toast:null, updated:null, searchInput:null, countPill:null, viewBtn:null};
+function el(tag, cls, text){ var d=document.createElement(tag); if(cls) d.className=cls; if(text!=null) d.textContent=text; return d; }
+function clear(node){ while(node.firstChild) node.removeChild(node.firstChild); }
+function toast(msg){ if(!refs.toast) return; refs.toast.textContent=msg; refs.toast.classList.add("show"); try{ if(toast._t) clearTimeout(toast._t);}catch(e){} try{ toast._t=setTimeout(function(){ refs.toast.classList.remove("show"); },2200);}catch(e){} }
+function setTheme(mode){ if(mode!=="dark"&&mode!=="light") return; document.documentElement.setAttribute("data-theme",mode); try{ localStorage.setItem("affectui-crm-theme",mode);}catch(e){} updateThemeBtn(); }
+function updateThemeBtn(){ var b=document.getElementById("themebtn"); if(!b) return; var cur=document.documentElement.getAttribute("data-theme")||"light"; b.setAttribute("aria-label",cur==="dark"?"Switch to light mode":"Switch to dark mode"); clear(b); b.textContent=cur==="dark"?"☀":"☾"; }
+function currentRowsRaw(){
+  if(state.view==="Deals") return dealRows();
+  if(state.view==="Contacts") return contactRows();
+  if(state.view==="Renewals") return renewalRows();
+  return companyRows();
+}
+function applyFilterSort(rows){
+  var q=state.filter.trim().toLowerCase(); var out=rows;
+  if(q){ out=out.filter(function(r){ return Object.keys(r).some(function(k){ var v=r[k]; return typeof v==="string"&&v.toLowerCase().indexOf(q)>=0; }); }); }
+  if(state.sortKey&&state.sortDir!==0){
+    var k=state.sortKey, d=state.sortDir;
+    out=out.slice().sort(function(a,b){ var x=a[k], y=b[k]; if(typeof x==="number"&&typeof y==="number") return (x-y)*d; x=String(x==null?"":x).toLowerCase(); y=String(y==null?"":y).toLowerCase(); if(x<y) return -1*d; if(x>y) return 1*d; return 0; });
+  }
+  return out;
+}
+function cellText(col,row){
+  var v=row[col.key];
+  if(col.key==="value"||col.key==="amount"||col.key==="arr"){ return (typeof v==="number")?fmtUSD(v):""; }
+  if(col.key==="chance"){ return (v===""||v==null)?"":String(v)+"%"; }
+  if(col.key==="domain") return row.domainShort||"";
+  return (v==null?"":String(v));
+}
+function buildTop(){
+  var bar=document.getElementById("topbar"); clear(bar);
+  var brand=el("span","brand"); 
+  var home=el("span",null,"Sales"); brand.appendChild(home);
+  var sep=el("i","sep","/"); sep.textContent="/"; brand.appendChild(sep);
+  var vb=el("button","viewbtn",state.role+" ▾"); vb.setAttribute("type","button"); vb.setAttribute("aria-haspopup","listbox"); vb.setAttribute("aria-label","Current view role: "+state.role);
+  vb.addEventListener("click",function(){ var order=["Head of Sales","Account executive","Partner manager"]; var i=order.indexOf(state.role); state.role=order[(i+1)%order.length]; vb.textContent=state.role+" ▾"; vb.setAttribute("aria-label","Current view role: "+state.role); toast("View: "+state.role); });
+  refs.viewBtn=vb; brand.appendChild(vb);
+  bar.appendChild(brand);
+  var cnt=el("span","countpill",COMPANIES.length+" companies · "+dealRows().length+" deals"); cnt.id="countpill"; refs.countPill=cnt; bar.appendChild(cnt);
+  var sp=el("span","spacer"); sp.setAttribute("aria-hidden","true"); bar.appendChild(sp);
+  var star=el("button","iconbtn","☆"); star.setAttribute("type","button"); star.setAttribute("aria-pressed",state.fav?"true":"false"); star.setAttribute("aria-label",state.fav?"Remove from favorites":"Add to favorites");
+  star.addEventListener("click",function(){ state.fav=!state.fav; star.setAttribute("aria-pressed",state.fav?"true":"false"); star.textContent=state.fav?"★":"☆"; star.setAttribute("aria-label",state.fav?"Remove from favorites":"Add to favorites"); toast(state.fav?"Added to favorites":"Removed from favorites"); });
+  refs.star=star; bar.appendChild(star);
+  var th=el("button","iconbtn", (document.documentElement.getAttribute("data-theme")==="dark")?"☀":"☾"); th.id="themebtn"; th.setAttribute("type","button"); th.setAttribute("aria-label","Toggle theme");
+  th.addEventListener("click",function(){ var cur=document.documentElement.getAttribute("data-theme")==="dark"?"light":"dark"; setTheme(cur); });
+  bar.appendChild(th);
+}
+function buildTabs(){
+  var nav=document.getElementById("tabs"); clear(nav); refs.tabs=[];
+  var mk=function(label,icon,aria){ var b=el("button","iconbtn",icon); b.setAttribute("type","button"); b.setAttribute("aria-label",aria); b.addEventListener("click",function(){ toast(aria==="New view"?"New views are coming soon":"All views are coming soon"); }); nav.appendChild(b); };
+  mk("","＋","New view"); mk("","☰","All views");
+  var sep=el("span","stagepill",""); sep.style.padding="0"; sep.style.width="1px"; sep.style.height="18px"; nav.appendChild(sep);
+  VIEWS.forEach(function(v){
+    var b=document.createElement("button"); b.setAttribute("type","button"); b.setAttribute("role","tab"); b.id="ui-as-crm-tab-"+v.logo; b.className="tab"; b.setAttribute("aria-selected",state.view===v.label?"true":"false"); b.setAttribute("aria-controls","ui-as-crm-panel"); b.tabIndex=state.view===v.label?0:-1;
+    var lg=el("span","tablogo",firstLetter(v.label).toUpperCase()); lg.style.background=BRAND[v.logo]||"#666"; lg.setAttribute("aria-hidden","true");
+    b.appendChild(lg);
+    b.appendChild(el("span",null,v.label));
+    b.addEventListener("click",function(){ switchTab(v.label); });
+    b.addEventListener("keydown",function(e){ if(e.key!=="ArrowLeft"&&e.key!=="ArrowRight"&&e.key!=="Home"&&e.key!=="End") return; e.preventDefault(); var idx=VIEWS.findIndex(function(x){return x.label===state.view}); var n=idx; if(e.key==="Home") n=0; else if(e.key==="End") n=VIEWS.length-1; else n=(idx+(e.key==="ArrowLeft"?-1:1)+VIEWS.length)%VIEWS.length; switchTab(VIEWS[n].label); var nb=refs.tabs[n]; if(nb&&nb.focus) try{nb.focus()}catch(_){} });
+    nav.appendChild(b); refs.tabs.push(b);
+  });
+  nav.addEventListener("keydown",function(e){ if(e.key!=="ArrowLeft"&&e.key!=="ArrowRight"&&e.key!=="Home"&&e.key!=="End") return; });
+}
+function buildPipe(){
+  var p=document.getElementById("pipe"); clear(p); refs.pipePills=[];
+  var stages=["New","Qualified","Proposal","Negotiation","Won","Lost"];
+  stages.forEach(function(s){ var pill=el("span","stagepill"); var dot=el("span","dot"); dot.style.background=s==="Won"?"#16a34a":s==="Lost"?"#f43f5e":s==="Negotiation"?"#f59e0b":s==="Proposal"?"#8b5cf6":s==="Qualified"?"#3b82f6":"#a8a29e"; pill.appendChild(dot); pill.appendChild(el("span",null,s)); var b=el("b",null,"0"); pill.appendChild(b); p.appendChild(pill); refs.pipePills.push({stage:s,countNode:b,pill:pill}); });
+  updatePipe();
+}
+function updatePipe(){
+  var counts={}; COMPANIES.forEach(function(c){ counts[c.stage]=(counts[c.stage]||0)+1; });
+  refs.pipePills.forEach(function(o){ o.countNode.textContent=String(counts[o.stage]||0); });
+}
+function buildToolbar(){
+  var t=document.getElementById("toolbar"); clear(t);
+  var s=el("label","search"); var mag=el("span",null,"⌕"); mag.setAttribute("aria-hidden","true"); s.appendChild(mag);
+  var inp=document.createElement("input"); inp.setAttribute("type","search"); inp.setAttribute("placeholder","Search companies, owners, stages…"); inp.setAttribute("aria-label","Search"); inp.value=state.filter;
+  inp.addEventListener("input",function(){ state.filter=inp.value; renderBody(); renderMeta(); });
+  s.appendChild(inp); refs.searchInput=inp; t.appendChild(s);
+  var m=el("span","meta",""); m.id="tablemeta"; t.appendChild(m);
+  var add=el("button","stagepill","＋ Add company"); add.setAttribute("type","button"); add.addEventListener("click",function(){ toast("New Company added"); });
+  t.appendChild(add);
+  renderMeta();
+}
+function renderMeta(){
+  var m=document.getElementById("tablemeta"); if(!m) return; var rows=applyFilterSort(currentRowsRaw()); m.textContent=rows.length+" of "+currentRowsRaw().length+" shown";
+}
+function buildTableShell(){
+  var cg=document.getElementById("colgroup"); clear(cg);
+  var c0=document.createElement("col"); c0.className="c-select"; cg.appendChild(c0);
+  for(var i=0;i<7;i++){ var c=document.createElement("col"); cg.appendChild(c); }
+  var hr=document.getElementById("headrow"); clear(hr); refs.ths=[];
+  var sel=document.createElement("th"); sel.setAttribute("scope","col"); sel.appendChild(el("span",null,"")); hr.appendChild(sel); refs.ths.push(sel);
+  for(var j=0;j<7;j++){ var th=document.createElement("th"); th.setAttribute("scope","col"); hr.appendChild(th); refs.ths.push(th); }
+  var tb=document.getElementById("bodyrows"); clear(tb); refs.trs=[]; refs.tds=[];
+  for(var r=0;r<10;r++){ var tr=document.createElement("tr"); tr.className="rowbtn";
+    (function(idx){ tr.addEventListener("click",function(){ openDetailByIndex(idx); }); tr.addEventListener("keydown",function(e){ if(e.key==="Enter"){ openDetailByIndex(idx); } }); });
+    tr.tabIndex=0;
+    var td0=document.createElement("td"); var cb=document.createElement("input"); cb.setAttribute("type","checkbox"); cb.setAttribute("aria-label","Select row"); cb.addEventListener("click",function(e){ e.stopPropagation(); }); td0.appendChild(cb); tr.appendChild(td0);
+    var rowCells=[];
+    for(var k=0;k<7;k++){ var td=document.createElement("td"); tr.appendChild(td); rowCells.push(td); }
+    tb.appendChild(tr); refs.trs.push(tr); refs.tds.push(rowCells);
+  }
+  var d=document.getElementById("detail"); refs.detail=d;
+  var to=document.getElementById("toast"); refs.toast=to;
+  var up=document.getElementById("updated"); refs.updated=up;
+}
+function renderHead(){
+  var cols=COLS[state.view]||COLS["Company CRM"];
+  for(var i=0;i<7;i++){
+    var th=refs.ths[i+1]; clear(th);
+    if(i>=cols.length){ th.style.display="none"; continue; }
+    th.style.display=""; var col=cols[i];
+    var b=document.createElement("button"); b.setAttribute("type","button"); b.setAttribute("aria-label","Sort by "+col.label);
+    var lab=el("span",null,col.label+(state.sortKey===col.key?(state.sortDir===1?" ▲":state.sortDir===-1?" ▼":""):" ⇅"));
+    b.appendChild(lab);
+    (function(key){ b.addEventListener("click",function(){ if(state.sortKey!==key){ state.sortKey=key; state.sortDir=1; } else { state.sortDir=state.sortDir===1?-1:state.sortDir===-1?0:1; if(state.sortDir===0) state.sortKey=""; } renderHead(); renderBody(); }); })(col.key);
+    th.appendChild(b);
+  }
+  var grid=document.getElementById("grid"); if(grid) grid.setAttribute("aria-label",state.view);
+}
+function renderBody(){
+  var cols=COLS[state.view]||COLS["Company CRM"];
+  var rows=applyFilterSort(currentRowsRaw());
+  var empty=document.getElementById("empty");
+  for(var r=0;r<10;r++){
+    var tr=refs.trs[r]; var data=rows[r];
+    if(!data){ tr.style.display="none"; tr.setAttribute("aria-hidden","true"); continue; }
+    tr.style.display=""; tr.removeAttribute("aria-hidden"); tr.dataset.id=data.id;
+    for(var cix=0;cix<7;cix++){
+      var td=refs.tds[r][cix];
+      if(cix>=cols.length){ td.style.display="none"; continue; }
+      td.style.display=""; var col=cols[cix];
+      clear(td);
+      if(col.type==="title"){
+        var wrap=el("span","celltitle");
+        var logo;
+        if(state.view==="Contacts"){ logo=el("span","celllogo avatar",data.avatar||initials(data.name||"")); }
+        else { logo=el("span","celllogo",firstLetter(data.logoName||data.company||data.deal||data.account||"?").toUpperCase()); var bid=data.logoId; logo.style.background=BRAND[bid]||"#57534e"; if(bid==="figma"){ logo.style.background="#1e1e1e"; logo.textContent="F"; } }
+        logo.setAttribute("aria-hidden","true"); wrap.appendChild(logo);
+        var nm=el("span","cellname",String(data[col.key]||"")); wrap.appendChild(nm); td.appendChild(wrap);
+        td.title=String(data[col.key]||"");
+      } else if(col.type==="tag"){
+        var pill=el("span","pill tone-"+(TONES[String(data[col.key])]||"gray"),String(data[col.key]||"")); td.appendChild(pill);
+      } else if(col.type==="link"){
+        var a=document.createElement("a"); a.className="link"; var href=String(data[col.key]||""); a.setAttribute("href",href||"#"); a.textContent=rowShortDomain(data); a.addEventListener("click",function(e){ e.stopPropagation(); }); td.appendChild(a);
+      } else if(col.type==="number"){
+        var ns=el("span","num",cellText(col,data)); td.appendChild(ns);
+      } else { var ts=el("span",null,cellText(col,data)); td.appendChild(ts); }
+      (function(colRef,rowRef,tdRef){
+        tdRef.setAttribute("data-col",colRef.key); tdRef.setAttribute("data-row",rowRef.id);
+        tdRef.addEventListener("dblclick",function(){ startEdit(tdRef,colRef,rowRef); });
+      })(col,data,td);
+    }
+  }
+  if(empty){ if(rows.length===0){ empty.hidden=false; clear(empty); empty.appendChild(el("h3",null,state.view==="Contacts"?"No contacts yet":state.view==="Deals"?"No deals yet":state.view==="Renewals"?"No renewals coming up":"No companies yet")); empty.appendChild(el("p",null,"Companies you add or import show up here with owner, stage and value.")); } else { empty.hidden=true; } }
+  updatePipe(); renderMeta(); renderUpdated();
+}
+function rowShortDomain(d){ if(d.domainShort) return d.domainShort; if(d.email) return d.email; var v=d[d.key]; return ""; var href=String((d.domain||d.email||"")); return href; }
+function startEdit(td,col,row){
+  if(td.querySelector&&td.querySelector("input.editinput")) return;
+  var cur=row[col.key]; if(col.key==="value"||col.key==="amount"||col.key==="arr"){ cur=String(cur==null?"":cur); } else cur=String(cur==null?"":cur);
+  clear(td);
+  var inp=document.createElement("input"); inp.className="editinput"; inp.value=cur; inp.setAttribute("aria-label","Edit "+col.label);
+  td.appendChild(inp); try{ inp.focus(); inp.select(); }catch(e){}
+  var done=false;
+  var commit=function(save){ if(done) return; done=true; var v=inp.value; if(save){ if(col.key==="value"||col.key==="amount"||col.key==="arr"){ var n=Number(String(v).replace(/[^0-9.\-]/g,"")); if(!isNaN(n)&&String(v).trim()!=="") row._c.value=n; } else if(col.key==="company"||col.key==="account"||col.key==="deal"||col.key==="name"){ /* keep display, update backing where sensible */ if(state.view==="Company CRM") row._c.name=v; } else if(col.key==="stage"){ row._c.stage=v; row.stage=v; } else if(col.key==="owner"){ row._c.owner=v; row.owner=v; } else if(col.key==="contact"||col.key==="close"||col.key==="renews"){ row._c.contact=v; } else if(col.key==="category"){ row._c.category=v; } toast("Saved"); state.updatedAt=Date.now(); } renderBody(); if(state.selectedId) renderDetail(); };
+  inp.addEventListener("keydown",function(e){ if(e.key==="Enter"){ e.preventDefault(); commit(true); } else if(e.key==="Escape"){ commit(false); } e.stopPropagation(); });
+  inp.addEventListener("blur",function(){ commit(true); });
+}
+function openDetailByIndex(idx){
+  var rows=applyFilterSort(currentRowsRaw()); var data=rows[idx]; if(!data) return; state.selectedId=data.id; renderDetail();
+}
+function renderDetail(){
+  var d=refs.detail; if(!d) return; clear(d);
+  var rows=applyFilterSort(currentRowsRaw()); var data=null;
+  for(var i=0;i<rows.length;i++) if(rows[i].id===state.selectedId) data=rows[i];
+  if(!data){ d.classList.remove("open"); return; }
+  d.classList.add("open");
+  var close=el("button","iconbtn","✕"); close.setAttribute("aria-label","Close details"); close.addEventListener("click",function(){ state.selectedId=""; renderDetail(); });
+  d.appendChild(close);
+  var title=data.company||data.deal||data.name||data.account||"Record";
+  d.appendChild(el("h2",null,title));
+  d.appendChild(el("p","sub",(data.category||data.role||data.plan||"")+(data.owner?" · "+data.owner:"")));
+  var dl=document.createElement("dl"); dl.className="kv";
+  var cols=COLS[state.view]||[];
+  cols.forEach(function(c){ var dt=document.createElement("dt"); dt.textContent=c.label; dl.appendChild(dt); var dd=document.createElement("dd"); dd.textContent=cellText(c,data)||String(data[c.key]||""); dl.appendChild(dd); });
+  d.appendChild(dl);
+  var hint=el("p","sub","Double-click any cell to edit. Press Enter to open, Esc to close.");
+  d.appendChild(hint);
+}
+function renderTabs(){
+  VIEWS.forEach(function(v,i){ var b=refs.tabs[i]; if(!b) return; var sel=state.view===v.label; b.setAttribute("aria-selected",sel?"true":"false"); b.tabIndex=sel?0:-1; });
+}
+function renderUpdated(){
+  if(!refs.updated) return; var s=Math.max(0,Math.round((Date.now()-state.updatedAt)/1000)); refs.updated.textContent=s<5?"Updated just now":("Updated "+s+"s ago · "+COMPANIES.length+" companies");
+}
+function switchTab(name){
+  var ok=false; for(var i=0;i<VIEWS.length;i++) if(VIEWS[i].label===name) ok=true; if(!ok) return;
+  state.view=name; state.sortKey=""; state.sortDir=0; state.selectedId="";
+  renderTabs(); renderHead(); renderBody(); renderDetail();
+}
+function tick(){ state.updatedAt=state.updatedAt; renderUpdated(); }
+function init(){
+  buildTop(); buildTabs(); buildPipe(); buildToolbar(); buildTableShell(); renderTabs(); renderHead(); renderBody(); renderDetail(); updateThemeBtn();
+  try{ setInterval(function(){ renderUpdated(); },5000);}catch(e){}
+  try{ window.__crm={switchTab:switchTab,setTheme:setTheme,getVisibleText:getVisibleText,getView:function(){return state.view},data:{companies:COMPANIES},refs:refs,tick:tick,state:state}; }catch(e){}
+  try{ window.__initDone=true; }catch(e){}
+  try{ document.dispatchEvent({type:"crm:ready"}); }catch(e){}
+}
+function getVisibleText(){
+  var parts=[];
+  try{
+    var b=document.getElementById("topbar"); if(b&&b.textContent) parts.push(b.textContent);
+    var t=document.getElementById("tabs"); if(t&&t.textContent) parts.push(t.textContent);
+    var p=document.getElementById("pipe"); if(p&&p.textContent) parts.push(p.textContent);
+    var tb=document.getElementById("toolbar"); if(tb&&tb.textContent) parts.push(tb.textContent);
+    var g=document.getElementById("grid"); if(g&&g.textContent) parts.push(g.textContent);
+    var d=document.getElementById("detail"); if(d&&d.textContent) parts.push(d.textContent);
+  }catch(e){}
+  // fallback: walk refs
+  try{
+    var extra="";
+    for(var i=0;i<refs.trs.length;i++){ var tr=refs.trs[i]; if(tr.style&&tr.style.display==="none") continue; if(tr.textContent) extra+=" "+tr.textContent; }
+    parts.push(extra);
+  }catch(e){}
+  return parts.join(" ");
+}
+if(document.readyState==="loading"){ document.addEventListener("DOMContentLoaded",init); } else { init(); }
+})();
+</script>
+</body>
+</html>
