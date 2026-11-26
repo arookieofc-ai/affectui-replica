@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<script>/*noflash*/(function(){try{var k='affectui-theme';var s=null;try{s=localStorage.getItem(k);}catch(e){}var m=null;try{m=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)');}catch(e){}var t=s==='light'||s==='dark'?s:(m&&m.matches?'dark':'light');document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<style>html{background:#fafaf9}html[data-theme="dark"]{background:#101012}</style>
+<meta name="color-scheme" content="light dark">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent workspace — Resizable</title>
+<style>
+:root{
+  --surface:#ffffff;
+  --page:#fafaf9;
+  --ink:#1c1917;
+  --ink-2:#171717;
+  --muted:#78716c;
+  --subtle:#f5f5f4;
+  --border:#e7e5e4;
+  --radius-lg:16px;
+  --radius:10px;
+  --radius-sm:6px;
+  --shadow:0 1px 2px rgba(0,0,0,.05),0 4px 16px rgba(0,0,0,.05);
+  --line:#ececec;
+  --line-active:#c4c4c8;
+  --grip:#ffffff;
+  --grip-edge:#e1e1e4;
+  --focus:rgba(0,96,226,.7);
+  --ease:cubic-bezier(.22,1,.36,1);
+  --ok:#16a34a;
+  --ok-bg:#dcfce7;
+  --bad:#dc2626;
+  --bad-bg:#fee2e2;
+  --run:#2563eb;
+  --run-bg:#dbeafe;
+  --amber:#f59e0b;
+  --amber-bg:#fef3c7;
+  --amber-tx:#92400e;
+}
+html[data-theme="dark"]{
+  --surface:#1c1c1f;
+  --page:#101012;
+  --ink:#ededed;
+  --ink-2:#ededed;
+  --muted:#a1a1aa;
+  --subtle:#26262a;
+  --border:#2e2e33;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 4px 16px rgba(0,0,0,.4);
+  --line:#26262a;
+  --line-active:#4a4a50;
+  --grip:#1c1c1e;
+  --grip-edge:#34343a;
+  --focus:rgba(77,141,255,.8);
+  --ok:#4ade80;
+  --ok-bg:#052e16;
+  --bad:#f87171;
+  --bad-bg:#450a0a;
+  --run:#60a5fa;
+  --run-bg:#172554;
+  --amber:#fbbf24;
+  --amber-bg:#451a03;
+  --amber-tx:#fde68a;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;padding:0}
+body{
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:14px;line-height:1.45;
+  background:var(--page);color:var(--ink);
+  min-height:100vh;
+}
+.page{max-width:1080px;margin:0 auto;padding:20px 16px 32px}
+.topbar{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  margin-bottom:14px;
+}
+.titlebox{min-width:0}
+.title{font-size:15px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.subtitle{font-size:12.5px;color:var(--muted);margin-top:2px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.pill{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);background:var(--surface);border-radius:999px;padding:2px 10px;font-size:12px;color:var(--muted)}
+.pill b{color:var(--ink);font-weight:650}
+.dot{width:7px;height:7px;border-radius:999px;background:var(--run);box-shadow:0 0 0 3px var(--run-bg)}
+.toggle{
+  flex:none;border:1px solid var(--border);background:var(--surface);color:var(--ink);
+  border-radius:999px;padding:7px 12px;font-size:13px;cursor:pointer;
+  box-shadow:var(--shadow);transition:transform 150ms ease,border-color 150ms ease;
+}
+.toggle:hover{border-color:var(--line-active);transform:translateY(-1px)}
+.toggle:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.frame{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);
+  box-shadow:var(--shadow);overflow:hidden;
+}
+.rsz{display:flex;width:100%;height:100%;min-width:0;min-height:0;overflow:hidden;box-sizing:border-box}
+.rsz[data-direction="vertical"]{flex-direction:column}
+.rsz[data-resizing]{user-select:none;-webkit-user-select:none}
+.rsz[data-direction="horizontal"][data-resizing]{cursor:col-resize}
+.rsz[data-direction="vertical"][data-resizing]{cursor:row-resize}
+.rsz[data-resizing]>.rsz-panel{pointer-events:none}
+.rsz-panel{position:relative;min-width:0;min-height:0;overflow:auto}
+.rsz[data-snap]>.rsz-panel{transition:flex-grow 220ms var(--ease)}
+.rsz-handle{position:relative;z-index:1;flex:none;outline:none;touch-action:none;user-select:none;border:0 solid var(--line);transition:border-color 150ms ease}
+.rsz[data-direction="horizontal"]>.rsz-handle{width:0;border-inline-start-width:1px;cursor:col-resize}
+.rsz[data-direction="vertical"]>.rsz-handle{height:0;border-top-width:1px;cursor:row-resize}
+.rsz-handle::after{content:"";position:absolute;border-radius:4px}
+.rsz[data-direction="horizontal"]>.rsz-handle::after{top:0;bottom:0;left:-6px;right:-6px}
+.rsz[data-direction="vertical"]>.rsz-handle::after{left:0;right:0;top:-6px;bottom:-6px}
+.rsz-handle:hover{border-color:var(--line-active);transition-delay:120ms}
+.rsz-handle[data-dragging],.rsz-handle:focus-visible{border-color:var(--line-active);transition-delay:0ms}
+.rsz-handle:focus-visible::after{outline:2px solid var(--focus);outline-offset:-2px}
+.grip{position:absolute;z-index:1;top:50%;left:50%;transform:translate(-50%,-50%);border-radius:999px;background:var(--grip);box-shadow:0 0 0 1px var(--grip-edge),0 1px 2px rgba(0,0,0,.06);pointer-events:none}
+.rsz[data-direction="horizontal"] .grip{width:8px;height:28px}
+.rsz[data-direction="vertical"] .grip{width:28px;height:8px}
+@media(pointer:coarse){
+  .rsz[data-direction="horizontal"]>.rsz-handle::after{left:-12px;right:-12px}
+  .rsz[data-direction="vertical"]>.rsz-handle::after{top:-12px;bottom:-12px}
+  .rsz[data-direction="horizontal"] .grip{width:10px;height:36px}
+  .rsz[data-direction="vertical"] .grip{width:36px;height:10px}
+}
+@media(prefers-reduced-motion:reduce){
+  .rsz[data-snap]>.rsz-panel{transition:none}
+  .rsz-handle{transition:none}
+}
+@media(forced-colors:active){.rsz-handle{border-color:CanvasText}}
+.outer{height:520px}
+.inner{height:100%}
+.pane{padding:0}
+.pane-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:12px 14px 10px;position:sticky;top:0;background:var(--surface);border-bottom:1px solid var(--border);z-index:2}
+.pane-label{font-size:12px;font-weight:650;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.pane-count{font-size:12px;color:var(--muted);border:1px solid var(--border);border-radius:999px;padding:0 8px;background:var(--subtle)}
+.runs{list-style:none;margin:0;padding:8px;display:flex;flex-direction:column;gap:6px}
+.run{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--border);background:var(--surface);border-radius:var(--radius);padding:10px 12px;cursor:default;transition:transform 150ms ease,border-color 150ms ease}
+.run:hover{border-color:var(--line-active);transform:translateY(-1px)}
+.run[data-selected]{border-color:var(--line-active);background:var(--subtle)}
+.mark{flex:none;width:9px;height:9px;border-radius:999px;margin-top:5px}
+.mark[data-state="running"]{background:var(--run);box-shadow:0 0 0 3px var(--run-bg);animation:pulse 1.6s ease-in-out infinite}
+.mark[data-state="done"]{background:var(--ok);box-shadow:0 0 0 3px var(--ok-bg)}
+.mark[data-state="failed"]{background:var(--bad);box-shadow:0 0 0 3px var(--bad-bg)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
+.rtext{min-width:0;display:flex;flex-direction:column;gap:2px}
+.rname{font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rmeta{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.body{padding:14px}
+.dtitle{font-size:15px;font-weight:650;margin:0 0 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dpara{margin:0;color:var(--ink);font-size:13.5px}
+.log{list-style:none;margin:0;padding:10px 14px;display:flex;flex-direction:column;gap:8px}
+.log li{display:flex;gap:10px;align-items:baseline}
+.time{flex:none;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.line{font-size:13px;min-width:0}
+.hint{margin-top:10px;font-size:12.5px;color:var(--muted);display:flex;gap:8px;flex-wrap:wrap}
+kbd{border:1px solid var(--border);border-bottom-width:2px;border-radius:6px;background:var(--surface);padding:0 6px;font-size:11.5px;font-family:inherit}
+.sizebar{font-size:11.5px;color:var(--muted);padding:8px 14px;border-top:1px dashed var(--border);display:flex;gap:10px}
+@media(max-width:700px){
+  .outer{height:auto;min-height:520px}
+  .page{padding:14px 10px 24px}
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="topbar">
+    <div class="titlebox">
+      <div class="title">Agent workspace</div>
+      <div class="subtitle"><span class="pill"><span class="dot" aria-hidden="true"></span><b>1 working</b>&nbsp;· 5 runs</span><span>Resizable panes · drag, fold, keyboard</span></div>
+    </div>
+    <button id="theme-toggle" class="toggle" type="button" aria-pressed="false" title="Switch theme">◐ Theme</button>
+  </div>
+
+  <section class="frame" aria-label="Agent workspace">
+    <div class="rsz outer" data-direction="horizontal" data-rsz="outer" id="rsz-outer">
+      <div class="rsz-panel pane" id="panel-runs" data-panel="runs" style="flex:34 1 0px">
+        <div class="pane-head"><span class="pane-label">Runs</span><span class="pane-count">5</span></div>
+        <ul class="runs" id="runs-list">
+          <li class="run" data-selected=""><span class="mark" data-state="running" aria-hidden="true"></span><span class="rtext"><span class="rname" title="Summarize churn interviews">Summarize churn interviews</span><span class="rmeta">Running · 1m 12s</span></span></li>
+          <li class="run"><span class="mark" data-state="done" aria-hidden="true"></span><span class="rtext"><span class="rname" title="Draft Q3 pricing memo">Draft Q3 pricing memo</span><span class="rmeta">Done · 3m 40s</span></span></li>
+          <li class="run"><span class="mark" data-state="done" aria-hidden="true"></span><span class="rtext"><span class="rname" title="Tag 214 support tickets">Tag 214 support tickets</span><span class="rmeta">Done · 58s</span></span></li>
+          <li class="run"><span class="mark" data-state="failed" aria-hidden="true"></span><span class="rtext"><span class="rname" title="Sync invoices to billing-api">Sync invoices to billing-api</span><span class="rmeta">Failed · 12s</span></span></li>
+          <li class="run"><span class="mark" data-state="done" aria-hidden="true"></span><span class="rtext"><span class="rname" title="Weekly usage report">Weekly usage report</span><span class="rmeta">Done · 4m 05s</span></span></li>
+        </ul>
+      </div>
+      <div class="rsz-handle" id="handle-runs" role="separator" tabindex="0" aria-orientation="vertical" aria-label="Resize the runs list" aria-controls="panel-runs" aria-valuenow="34" aria-valuemin="0" aria-valuemax="55"><span class="grip" aria-hidden="true"></span></div>
+      <div class="rsz-panel" id="panel-main" data-panel="main" style="flex:66 1 0px">
+        <div class="rsz inner" data-direction="vertical" data-rsz="inner" id="rsz-inner" style="height:100%">
+          <div class="rsz-panel pane" id="panel-output" data-panel="output" style="flex:62 1 0px">
+            <div class="pane-head"><span class="pane-label">Output</span></div>
+            <div class="body">
+              <p class="dtitle">Summarize churn interviews</p>
+              <p class="dpara">Most customers who left in Q3 did so within two weeks of a price change. Five themes came up again and again: surprise overage fees, unclear credit packs, missing annual discounts, slow support replies and seats they no longer used.</p>
+            </div>
+          </div>
+          <div class="rsz-handle" id="handle-log" role="separator" tabindex="0" aria-orientation="horizontal" aria-label="Resize the log" aria-controls="panel-output" aria-valuenow="62" aria-valuemin="30" aria-valuemax="100"></div>
+          <div class="rsz-panel pane" id="panel-log" data-panel="log" style="flex:38 1 0px">
+            <div class="pane-head"><span class="pane-label">Log</span></div>
+            <ol class="log" id="log-list">
+              <li><span class="time">14:02:07</span><span class="line">Read 18 interview notes from /research/churn</span></li>
+              <li><span class="time">14:02:19</span><span class="line">Grouped quotes into 5 themes</span></li>
+              <li><span class="time">14:02:44</span><span class="line">Asked billing-api for plan changes in Q3</span></li>
+              <li><span class="time">14:03:01</span><span class="line">Writing the summary …</span></li>
+            </ol>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+  <div class="hint"><span>Drag handles to resize.</span><span><kbd>←</kbd><kbd>→</kbd> / <kbd>↑</kbd><kbd>↓</kbd> move · <kbd>Shift</kbd> ×2 · <kbd>Enter</kbd> folds · double-click resets · <kbd>Home</kbd>/<kbd>End</kbd> limits</span><span id="size-hint" class="sizebar" style="border:0;padding:0">Runs 34% · Output 62%</span></div>
+</div>
+<script>
+(function(){
+"use strict";
+var EPS=0.01;
+var STEP=5;
+function clamp(v,lo,hi){return Math.min(hi,Math.max(lo,v));}
+function getStore(){try{return localStorage.getItem('affectui-theme');}catch(e){return null;}}
+function setStore(v){try{localStorage.setItem('affectui-theme',v);}catch(e){}}
+function currentTheme(){return document.documentElement.getAttribute('data-theme')||'light';}
+function applyToggleLabel(){
+  var b=document.getElementById('theme-toggle');
+  if(!b)return;
+  var t=currentTheme();
+  b.setAttribute('aria-pressed',t==='dark'?'true':'false');
+  b.textContent=t==='dark'?'☀ Light':'◐ Dark';
+  b.setAttribute('title',t==='dark'?'Switch to light theme':'Switch to dark theme');
+}
+var toggle=document.getElementById('theme-toggle');
+if(toggle){
+  // open/activate on pointerdown capture so real click still fires (hard-won rule parity)
+  toggle.addEventListener('pointerdown',function(){},{capture:true});
+  toggle.addEventListener('click',function(){
+    var t=currentTheme()==='dark'?'light':'dark';
+    document.documentElement.setAttribute('data-theme',t);
+    try{document.documentElement.style.colorScheme=t;}catch(e){}
+    setStore(t);
+    applyToggleLabel();
+  });
+  applyToggleLabel();
+}
+// ---- resizable state (built once, updated in place) ----
+var outer=document.getElementById('rsz-outer');
+var inner=document.getElementById('rsz-inner');
+var pRuns=document.getElementById('panel-runs');
+var pMain=document.getElementById('panel-main');
+var pOut=document.getElementById('panel-output');
+var pLog=document.getElementById('panel-log');
+var hRuns=document.getElementById('handle-runs');
+var hLog=document.getElementById('handle-log');
+var sizeHint=document.getElementById('size-hint');
+var outerCfg={
+  runs:{min:22,max:55,collapsible:true,collapsed:0,initial:34},
+  main:{min:40,max:100,collapsible:false,collapsed:0,initial:66}
+};
+var innerCfg={
+  output:{min:30,max:100,collapsible:false,collapsed:0,initial:62},
+  log:{min:20,max:100,collapsible:true,collapsed:0,initial:38}
+};
+var outerSizes={runs:34,main:66};
+var innerSizes={output:62,log:38};
+var snapTimer={outer:0,inner:0};
+function isRTL(el){
+  try{if(el&&window.getComputedStyle&&getComputedStyle(el).direction==='rtl')return true;}catch(e){}
+  return false;
+}
+// two-pane shift: sizes [a,b], cfgs [ca,cb], delta>0 grows a
+function shiftTwo(sizes,cfgs,delta,allowSnap){
+  var a=sizes[0],b=sizes[1],ca=cfgs[0],cb=cfgs[1];
+  if(Math.abs(delta)<EPS)return sizes.slice();
+  var out=[a,b];
+  if(delta>0){
+    var want=a+delta;
+    var maxGrow=Math.min(ca.max-a,b-(cb.collapsible?cb.collapsed:cb.min));
+    if(maxGrow<=EPS)return sizes.slice();
+    var take=Math.min(delta,maxGrow);
+    var nb=b-take;
+    // snap guard: shrinking collapsible below min without snap needs half-way commitment
+    if(cb.collapsible&&nb<cb.min-EPS&&nb>cb.collapsed+EPS&&!allowSnap){
+      var need=(cb.min-cb.collapsed)/2;
+      var moved=b-nb;
+      // if collapsed target far and movement small, refuse (fold needs commitment)
+      if(cb.min-nb>EPS&&moved<need&&b>cb.min-EPS){
+        // check if b was above min: require crossing half gap to start collapsing
+        return sizes.slice();
+      }
+      // if still between collapsed and min and snap not allowed, snap to collapsed only if past halfway
+      if(nb>(cb.collapsed+cb.min)/2)return sizes.slice();
+    }
+    // collapsing decision: if nb below min, fold to collapsed when allowed
+    if(cb.collapsible&&nb<cb.min-EPS){
+      if(allowSnap||nb<=(cb.collapsed+cb.min)/2){
+        out[1]=cb.collapsed;out[0]=a+(b-cb.collapsed);
+        if(out[0]>ca.max+EPS){out[0]=ca.max;out[1]=100-ca.max;}
+      }else{
+        out[1]=cb.min;out[0]=a+(b-cb.min);
+      }
+    }else{
+      out[0]=a+take;out[1]=b-take;
+    }
+    // clamp a max
+    if(out[0]>ca.max+EPS){var ex=out[0]-ca.max;out[0]=ca.max;out[1]+=ex;}
+  }else{
+    var wantB=b-delta; // delta negative => b grows
+    var grow=-delta;
+    var maxGrowB=Math.min(cb.max-b,a-(ca.collapsible?ca.collapsed:ca.min));
+    if(maxGrowB<=EPS)return sizes.slice();
+    var takeB=Math.min(grow,maxGrowB);
+    var na=a-takeB;
+    if(ca.collapsible&&na<ca.min-EPS&&na>ca.collapsed+EPS&&!allowSnap){
+      if(na>(ca.collapsed+ca.min)/2)return sizes.slice();
+    }
+    if(ca.collapsible&&na<ca.min-EPS){
+      if(allowSnap||na<=(ca.collapsed+ca.min)/2){
+        out[0]=ca.collapsed;out[1]=b+(a-ca.collapsed);
+        if(out[1]>cb.max+EPS){out[1]=cb.max;out[0]=100-cb.max;}
+      }else{
+        out[0]=ca.min;out[1]=b+(a-ca.min);
+      }
+    }else{
+      out[0]=a-takeB;out[1]=b+takeB;
+    }
+    if(out[1]>cb.max+EPS){var ex2=out[1]-cb.max;out[1]=cb.max;out[0]+=ex2;}
+  }
+  // final clamp to min/max/collapsed
+  out[0]=clamp(out[0],ca.collapsible?ca.collapsed:ca.min,ca.max);
+  out[1]=clamp(out[1],cb.collapsible?cb.collapsed:cb.min,cb.max);
+  // renormalize to 100 (tiny drift)
+  var s=out[0]+out[1];
+  if(Math.abs(s-100)>0.001&&s>0){out[0]=out[0]*100/s;out[1]=out[1]*100/s;}
+  return out;
+}
+function markSnap(box,key){
+  if(!box)return;
+  box.setAttribute('data-snap','');
+  try{window.clearTimeout(snapTimer[key]);}catch(e){}
+  snapTimer[key]=window.setTimeout(function(){try{box.removeAttribute('data-snap');}catch(e){}},240);
+}
+function applyOuter(){
+  pRuns.style.flexGrow=String(outerSizes.runs);
+  pRuns.style.flexBasis='0px';
+  pMain.style.flexGrow=String(outerSizes.main);
+  pMain.style.flexBasis='0px';
+  var c=outerCfg.runs;
+  var collapsed=c.collapsible&&outerSizes.runs<=c.collapsed+EPS;
+  if(collapsed){pRuns.setAttribute('data-collapsed','');}else{try{pRuns.removeAttribute('data-collapsed');}catch(e){}}
+  if(collapsed&&outerSizes.runs<=EPS){try{pRuns.setAttribute('inert','');}catch(e){}}else{try{pRuns.removeAttribute('inert');}catch(e){}}
+  if(hRuns){
+    hRuns.setAttribute('aria-valuenow',String(Math.round(outerSizes.runs)));
+    hRuns.setAttribute('aria-valuemin',String(Math.round(c.collapsible?c.collapsed:c.min)));
+    hRuns.setAttribute('aria-valuemax',String(Math.round(c.max)));
+  }
+  updateHint();
+}
+function applyInner(){
+  pOut.style.flexGrow=String(innerSizes.output);
+  pOut.style.flexBasis='0px';
+  pLog.style.flexGrow=String(innerSizes.log);
+  pLog.style.flexBasis='0px';
+  var c=innerCfg.log;
+  var collapsed=c.collapsible&&innerSizes.log<=c.collapsed+EPS;
+  if(collapsed){pLog.setAttribute('data-collapsed','');}else{try{pLog.removeAttribute('data-collapsed');}catch(e){}}
+  if(collapsed&&innerSizes.log<=EPS){try{pLog.setAttribute('inert','');}catch(e){}}else{try{pLog.removeAttribute('inert');}catch(e){}}
+  if(hLog){
+    hLog.setAttribute('aria-valuenow',String(Math.round(innerSizes.output)));
+    hLog.setAttribute('aria-valuemin',String(Math.round(innerCfg.output.min)));
+    hLog.setAttribute('aria-valuemax',String(Math.round(innerCfg.output.max)));
+  }
+  updateHint();
+}
+function updateHint(){
+  if(!sizeHint)return;
+  sizeHint.textContent='Runs '+Math.round(outerSizes.runs)+'% · Output '+Math.round(innerSizes.output)+'%';
+}
+function outerResize(delta,animated){
+  var next=shiftTwo([outerSizes.runs,outerSizes.main],[outerCfg.runs,outerCfg.main],delta,!!animated);
+  if(Math.abs(next[0]-outerSizes.runs)<EPS&&Math.abs(next[1]-outerSizes.main)<EPS)return;
+  outerSizes.runs=next[0];outerSizes.main=next[1];
+  if(animated)markSnap(outer,'outer');
+  applyOuter();
+}
+function innerResize(delta,animated){
+  var next=shiftTwo([innerSizes.output,innerSizes.log],[innerCfg.output,innerCfg.log],delta,!!animated);
+  if(Math.abs(next[0]-innerSizes.output)<EPS&&Math.abs(next[1]-innerSizes.log)<EPS)return;
+  innerSizes.output=next[0];innerSizes.log=next[1];
+  if(animated)markSnap(inner,'inner');
+  applyInner();
+}
+function wireHandle(handle,box,isHorizontal,getDelta,doResize,resetTo,foldToggle){
+  if(!handle||!box)return;
+  var drag=null;
+  var rtlSign=1;
+  handle.addEventListener('pointerdown',function(ev){
+    if(ev.button!==0)return;
+    try{ev.preventDefault();}catch(e){}
+    try{handle.focus({preventScroll:true});}catch(e){try{handle.focus();}catch(_){}}
+    var parent=box;
+    var rect=null;
+    try{rect=parent.getBoundingClientRect();}catch(e){rect=null;}
+    var px=100;
+    try{
+      if(rect){
+        var kids=0;
+        try{kids=parent.children?parent.children.length:0;}catch(e){kids=0;}
+        px=100;
+        if(isHorizontal()){
+          var w=rect.width||parent.offsetWidth||1;
+          px=Math.max(1,w);
+        }else{
+          var h=rect.height||parent.offsetHeight||1;
+          px=Math.max(1,h);
+        }
+      }
+    }catch(e){px=100;}
+    rtlSign=(isHorizontal()&&isRTL(handle))?-1:1;
+    var pos=isHorizontal()?ev.clientX:ev.clientY;
+    drag={pos:pos,px:px,sizes:getDelta()};
+    try{if(ev.pointerId!=null&&handle.setPointerCapture)handle.setPointerCapture(ev.pointerId);}catch(e){}
+    handle.setAttribute('data-dragging','');
+    try{box.toggleAttribute('data-resizing',true);}catch(e){box.setAttribute('data-resizing','');}
+  },{capture:true});
+  handle.addEventListener('pointermove',function(ev){
+    if(!drag)return;
+    var cur=isHorizontal()?ev.clientX:ev.clientY;
+    var delta=(cur-drag.pos)/drag.px*100*rtlSign;
+    doResize(delta,false,drag.sizes);
+  });
+  function endDrag(){
+    drag=null;
+    try{handle.removeAttribute('data-dragging');}catch(e){}
+    try{box.toggleAttribute('data-resizing',false);}catch(e){try{box.removeAttribute('data-resizing');}catch(_){}}
+  }
+  handle.addEventListener('pointerup',endDrag);
+  handle.addEventListener('pointercancel',endDrag);
+  try{handle.addEventListener('lostpointercapture',endDrag);}catch(e){}
+  handle.addEventListener('dblclick',function(){resetTo();});
+  handle.addEventListener('keydown',function(ev){
+    var horiz=isHorizontal();
+    var rtl=isRTL(handle);
+    var neg=horiz?(rtl?'ArrowRight':'ArrowLeft'):'ArrowUp';
+    var pos=horiz?(rtl?'ArrowLeft':'ArrowRight'):'ArrowDown';
+    var step=STEP*(ev.shiftKey?2:1);
+    if(ev.key===neg||ev.key===pos){
+      try{ev.preventDefault();}catch(e){}
+      var d=ev.key===pos?step:-step;
+      if(horiz&&rtl)d=-d*1*1; // rtl already encoded in neg/pos; keep sign as computed
+      // recompute without double flip: use direct step
+      d=ev.key===pos?step:-step;
+      // for RTL horizontal, arrows are swapped via neg/pos already, so d is correct
+      doResize(d,true);
+    }else if(ev.key==='Home'||ev.key==='End'){
+      try{ev.preventDefault();}catch(e){}
+      doResize(0,true, null, ev.key);
+    }else if(ev.key==='Enter'){
+      try{ev.preventDefault();}catch(e){}
+      foldToggle();
+    }
+  });
+}
+function isOuterH(){return (outer.getAttribute('data-direction')||'horizontal')==='horizontal';}
+function isInnerH(){return false;} // inner is always vertical in this demo
+function isInnerV(){return true;}
+// outer drag: delta in % of outer width
+wireHandle(hRuns,outer,isOuterH,
+  function(){return [outerSizes.runs,outerSizes.main];},
+  function(delta,animated,base,homeEnd){
+    if(homeEnd){
+      var target=homeEnd==='Home'?outerCfg.runs.min:outerCfg.runs.max;
+      outerResize(target-outerSizes.runs,true);
+      return;
+    }
+    // live drag uses base to avoid accumulation error
+    outerResize(delta,animated);
+  },
+  function(){outerResize(outerCfg.runs.initial-outerSizes.runs,true);},
+  function(){
+    // fold toggle runs pane
+    if(outerSizes.runs<=outerCfg.runs.collapsed+EPS){
+      var back=(outerCfg.runs.initial!=null?outerCfg.runs.initial:outerCfg.runs.min);
+      outerResize(back-outerSizes.runs,true);
+    }else{
+      outerResize((outerCfg.runs.collapsed-outerSizes.runs),true);
+    }
+  }
+);
+// inner drag: vertical, delta grows output
+wireHandle(hLog,inner,function(){return false;},
+  function(){return [innerSizes.output,innerSizes.log];},
+  function(delta,animated,base,homeEnd){
+    if(homeEnd){
+      var t=homeEnd==='Home'?innerCfg.output.min:innerCfg.output.max;
+      // clamp to log min
+      if(100-t<innerCfg.log.min)t=100-innerCfg.log.min;
+      innerResize(t-innerSizes.output,true);
+      return;
+    }
+    innerResize(delta,animated);
+  },
+  function(){innerResize(innerCfg.output.initial-innerSizes.output,true);},
+  function(){
+    if(innerSizes.log<=innerCfg.log.collapsed+EPS){
+      var back2=(innerCfg.log.initial!=null?innerCfg.log.initial:innerCfg.log.min);
+      var dOut=(100-back2)-innerSizes.output;
+      innerResize(dOut,true);
+    }else{
+      var dOut2=(100-innerCfg.log.collapsed)-innerSizes.output;
+      innerResize(dOut2,true);
+    }
+  }
+);
+// responsive: narrow stacks outer vertically (in place, no rebuild)
+function applyResponsive(){
+  try{
+    var mq=window.matchMedia?window.matchMedia('(max-width: 700px)'):null;
+    var narrow=mq&&mq.matches;
+    if(narrow){
+      if(outer.getAttribute('data-direction')!=='vertical'){
+        outer.setAttribute('data-direction','vertical');
+        if(hRuns)hRuns.setAttribute('aria-orientation','horizontal');
+      }
+      outer.style.height='auto';
+    }else{
+      if(outer.getAttribute('data-direction')!=='horizontal'){
+        outer.setAttribute('data-direction','horizontal');
+        if(hRuns)hRuns.setAttribute('aria-orientation','vertical');
+      }
+      outer.style.height='';
+      outer.classList.remove('stacked');
+    }
+  }catch(e){}
+}
+try{
+  if(window.matchMedia&&window.matchMedia('(max-width: 700px)').addEventListener){
+    window.matchMedia('(max-width: 700px)').addEventListener('change',applyResponsive);
+  }else if(window.matchMedia&&window.matchMedia('(max-width: 700px)').addListener){
+    window.matchMedia('(max-width: 700px)').addListener(applyResponsive);
+  }
+}catch(e){}
+applyResponsive();
+applyOuter();
+applyInner();
+// expose for harness (in-place state, no rebuild)
+try{
+  window.__rsz={
+    outerSizes:function(){return {runs:outerSizes.runs,main:outerSizes.main};},
+    innerSizes:function(){return {output:innerSizes.output,log:innerSizes.log};},
+    outerResize:outerResize,innerResize:innerResize,
+    applyOuter:applyOuter,applyInner:applyInner,
+    nodes:function(){return {outer:outer,inner:inner,pRuns:pRuns,pMain:pMain,pOut:pOut,pLog:pLog,hRuns:hRuns,hLog:hLog,hint:sizeHint};}
+  };
+}catch(e){}
+})();
+</script>
+</body>
+</html>

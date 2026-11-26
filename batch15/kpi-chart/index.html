@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>KPI Chart — Revenue</title>
+<script>/*noflash*/(function(){try{var k="kpi-theme";var t=null;try{t=localStorage.getItem(k)}catch(e){}if(!t){try{t=(window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches)?"dark":"light"}catch(e){t="light"}}if(t!=="light"&&t!=="dark")t="light";document.documentElement.setAttribute("data-theme",t)}catch(e){}})();</script>
+<style>html{background:#fafaf9}html[data-theme="dark"]{background:#101012}</style>
+<style>
+:root{color-scheme:light dark}
+:root,[data-theme="light"]{
+--page:#fafaf9;--surface:#ffffff;--ink:#171717;--ink2:#1c1917;--muted:#78716c;
+--subtle:#f5f5f4;--border:#e7e5e4;--radius-lg:16px;--radius:10px;--radius-sm:6px;
+--shadow:0 1px 2px rgba(0,0,0,.05),0 4px 16px rgba(0,0,0,.05);
+--amber:#f59e0b;--amber-bg:#fef3c7;--amber-tx:#92400e;
+--kpi-card:var(--surface);--kpi-line:var(--border);--kpi-grid:#f0f0f0;
+--kpi-ink:var(--ink);--kpi-muted:var(--muted);--kpi-up:#1e8a4f;--kpi-down:#f04438;
+--kpi-guide:#d9d9d9;--kpi-label:#525252;--kpi-focus:rgba(0,96,226,.7);
+--kpi-tip:var(--surface);
+--kpi-shadow:0 1px 2px rgba(0,0,0,.03),0 8px 24px rgba(0,0,0,.035);
+--kpi-tip-shadow:0 8px 24px -6px rgba(0,0,0,.12),0 2px 6px rgba(0,0,0,.04);
+--kpi-ease:cubic-bezier(.22,1,.36,1);
+}
+[data-theme="dark"]{
+--page:#101012;--surface:#1c1c1f;--ink:#ededed;--ink2:#ededed;--muted:#a1a1aa;
+--subtle:#26262a;--border:#2e2e33;
+--shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+--amber:#fbbf24;--amber-bg:#451a03;--amber-tx:#fde68a;
+--kpi-card:var(--surface);--kpi-line:var(--border);--kpi-grid:rgba(255,255,255,.06);
+--kpi-ink:var(--ink);--kpi-muted:var(--muted);--kpi-up:#5fc88a;--kpi-down:#ff6b5f;
+--kpi-guide:rgba(255,255,255,.2);--kpi-label:#c4c4c4;--kpi-focus:rgba(77,141,255,.8);
+--kpi-tip:#2a2a2d;
+--kpi-shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+--kpi-tip-shadow:0 8px 24px -6px rgba(0,0,0,.5),0 2px 6px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;padding:0}
+body{background:var(--page);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased}
+.page{max-width:560px;margin:0 auto;padding:20px 16px 40px}
+.page-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin:4px 0 16px}
+.head-eyebrow{margin:0;font-size:12px;color:var(--muted);letter-spacing:.02em}
+.head-title{margin:2px 0 0;font-size:16px;font-weight:600;letter-spacing:-.01em;color:var(--ink)}
+.head-meta{margin:4px 0 0;font-size:12px;color:var(--muted)}
+.theme-btn{flex:none;width:36px;height:36px;border-radius:999px;border:1px solid var(--border);background:var(--surface);color:var(--ink);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;box-shadow:var(--shadow);transition:transform 150ms ease,box-shadow 150ms ease,background 150ms ease}
+.theme-btn:hover{transform:translateY(-1px)}
+.theme-btn:focus-visible{outline:2px solid var(--kpi-focus);outline-offset:2px}
+.theme-btn svg{width:18px;height:18px}
+.stage{display:flex;justify-content:center}
+/* KPI card (clean-room, same look/behaviour as demo) */
+.ui-kpi{--ui-kpi-card:var(--kpi-card);--ui-kpi-line:var(--kpi-line);--ui-kpi-grid:var(--kpi-grid);--ui-kpi-ink:var(--kpi-ink);--ui-kpi-muted:var(--kpi-muted);box-sizing:border-box;container-type:inline-size;width:100%;max-width:460px;padding:20px 20px 18px;background:var(--ui-kpi-card);border:1px solid var(--ui-kpi-line);border-radius:20px;box-shadow:var(--kpi-shadow);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--ui-kpi-ink);font-variant-numeric:tabular-nums;transition:transform 150ms ease,box-shadow 150ms ease}
+.ui-kpi:hover{transform:translateY(-1px)}
+.ui-kpi *,.ui-kpi *::before,.ui-kpi *::after{box-sizing:border-box}
+.ui-kpi__title{margin:0;font-size:14px;font-weight:400;line-height:20px;color:var(--ui-kpi-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ui-kpi__value{display:flex;flex-wrap:wrap;align-items:baseline;gap:10px;margin:8px 0 0;font-size:28px;font-weight:500;line-height:34px;letter-spacing:-.02em}
+.ui-kpi__amount{min-width:0;overflow-wrap:anywhere}
+.ui-kpi__delta{flex:none;white-space:nowrap;font-size:14px;font-weight:450;letter-spacing:0}
+.ui-kpi__delta[data-trend="up"]{color:var(--kpi-up)}
+.ui-kpi__delta[data-trend="down"]{color:var(--kpi-down)}
+.ui-kpi__chart{display:grid;grid-template-columns:auto 1fr;grid-template-rows:116px 20px;column-gap:12px;row-gap:8px;margin-top:24px}
+.ui-kpi__yaxis{display:flex;flex-direction:column;justify-content:space-between;margin:-9px 0;font-size:12px;line-height:18px;text-align:right;color:var(--ui-kpi-muted)}
+.ui-kpi__plot{position:relative;touch-action:pan-y;border-radius:4px;outline:none;cursor:crosshair;min-width:0}
+.ui-kpi__plot:focus-visible{outline:2px solid var(--kpi-focus);outline-offset:2px}
+.ui-kpi__grid{position:absolute;left:0;right:0;height:1px;background:var(--ui-kpi-grid)}
+.ui-kpi__lines{position:absolute;inset:0;width:100%;height:100%;overflow:visible;animation:ui-kpi-draw 1100ms var(--kpi-ease) both}
+.ui-kpi__lines path{fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ui-kpi__marker{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity 160ms ease}
+.ui-kpi__marker[data-open]{opacity:1}
+.ui-kpi__guide,.ui-kpi__dot{position:absolute;transition:left 220ms var(--kpi-ease),top 220ms var(--kpi-ease)}
+.ui-kpi__guide{top:-4px;bottom:0;width:1px;margin-left:-.5px;background:var(--kpi-guide)}
+.ui-kpi__dot{width:10px;height:10px;margin:-5px 0 0 -5px;border-radius:50%;box-shadow:0 0 0 2px var(--ui-kpi-card)}
+.ui-kpi__tooltip{position:absolute;top:-12px;z-index:2;min-width:176px;max-width:calc(100cqw - 16px);padding:10px 12px 12px;background:var(--kpi-tip);border:1px solid var(--ui-kpi-line);border-radius:12px;box-shadow:var(--kpi-tip-shadow);pointer-events:none;opacity:0;transform:translateX(calc(var(--ui-kpi-shift,14px) + var(--ui-kpi-nudge,0px))) scale(.97);transition:left 220ms var(--kpi-ease),opacity 160ms ease,transform 220ms var(--kpi-ease)}
+.ui-kpi__tooltip[data-side="right"]{--ui-kpi-shift:14px;transform-origin:left top}
+.ui-kpi__tooltip[data-side="left"]{--ui-kpi-shift:calc(-100% - 14px);transform-origin:right top}
+.ui-kpi__tooltip[data-open]{opacity:1;transform:translateX(calc(var(--ui-kpi-shift) + var(--ui-kpi-nudge,0px)))}
+.ui-kpi__date{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:0 0 6px;font-size:12px;line-height:18px;color:var(--ui-kpi-muted)}
+.ui-kpi__tooltip ul{display:grid;grid-template-columns:minmax(0,1fr);gap:4px;margin:0;padding:0;list-style:none}
+.ui-kpi__tooltip li{display:flex;align-items:center;gap:8px;font-size:13px;line-height:20px}
+.ui-kpi__swatch{flex:none;width:10px;height:2px;border-radius:1px}
+.ui-kpi__label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--kpi-label)}
+.ui-kpi__num{flex:none;padding-left:16px;font-weight:500;color:var(--ui-kpi-ink)}
+.ui-kpi__xaxis{position:relative;grid-column:2;font-size:12px;line-height:20px;color:var(--ui-kpi-muted)}
+.ui-kpi__xaxis span{position:absolute;top:0;max-width:34%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;transform:translateX(-50%)}
+.ui-kpi__xaxis span[data-edge="start"]{transform:none}
+.ui-kpi__xaxis span[data-edge="end"]{transform:translateX(-100%)}
+.ui-kpi__footer{overflow-wrap:anywhere;margin:16px 0 0;font-size:13px;line-height:18px;color:var(--ui-kpi-muted)}
+@keyframes ui-kpi-draw{from{clip-path:inset(-10% 100% -10% 0)}to{clip-path:inset(-10% -2% -10% 0)}}
+@media (prefers-reduced-motion:reduce){.ui-kpi__lines{animation:none}.ui-kpi__marker,.ui-kpi__guide,.ui-kpi__dot,.ui-kpi__tooltip{transition:none}}
+@media (max-width:420px){.page{padding:14px 12px 28px}.ui-kpi{padding:16px 14px 14px}.ui-kpi__value{font-size:24px;line-height:30px}}
+</style>
+</head>
+<body>
+<div class="page">
+<header class="page-head">
+<div>
+<p class="head-eyebrow">Analytics</p>
+<h1 class="head-title">Revenue</h1>
+<p class="head-meta">5 channels · Mar 3 – Mar 9 · $96.4k total</p>
+</div>
+<button class="theme-btn" id="themeToggle" type="button" aria-label="Switch to dark theme" title="Toggle theme">
+<svg id="iconMoon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"></path></svg>
+<svg id="iconSun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg>
+</button>
+</header>
+<main class="stage">
+<section class="ui-kpi" id="kpiCard" aria-label="Revenue KPI">
+<h3 class="ui-kpi__title" title="Revenue" dir="auto">Revenue</h3>
+<p class="ui-kpi__value"><span class="ui-kpi__amount">$96.4k</span><span class="ui-kpi__delta" data-trend="up">+$7.9k</span></p>
+<div class="ui-kpi__chart">
+<div class="ui-kpi__yaxis" aria-hidden="true"><span>$6.0k</span><span>$3.0k</span><span>$0</span></div>
+<div class="ui-kpi__plot" id="kpiPlot" tabindex="0" role="group" aria-label="Revenue chart – use the arrow keys to read the values per day">
+<span class="ui-kpi__grid" style="top:0%"></span><span class="ui-kpi__grid" style="top:50%"></span><span class="ui-kpi__grid" style="top:100%"></span>
+<svg class="ui-kpi__lines" id="kpiSvg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path d="" stroke="#4fb0fe" vector-effect="non-scaling-stroke"></path><path d="" stroke="#ee3e9e" vector-effect="non-scaling-stroke"></path><path d="" stroke="#a651f0" vector-effect="non-scaling-stroke"></path><path d="" stroke="#13b3a0" vector-effect="non-scaling-stroke"></path><path d="" stroke="#a3a3a3" vector-effect="non-scaling-stroke"></path></svg>
+<div class="ui-kpi__marker" id="kpiMarker" aria-hidden="true"><span class="ui-kpi__guide" id="kpiGuide" style="left:0%"></span><span class="ui-kpi__dot" data-s="0" style="left:0%;top:30%;background:#4fb0fe"></span><span class="ui-kpi__dot" data-s="1" style="left:0%;top:40%;background:#ee3e9e"></span><span class="ui-kpi__dot" data-s="2" style="left:0%;top:70%;background:#a651f0"></span><span class="ui-kpi__dot" data-s="3" style="left:0%;top:80%;background:#13b3a0"></span><span class="ui-kpi__dot" data-s="4" style="left:0%;top:90%;background:#a3a3a3"></span></div>
+<div class="ui-kpi__tooltip" id="kpiTip" role="status" aria-live="polite" data-side="right" style="left:0%"><p class="ui-kpi__date" id="kpiDate">Mon, Mar 3</p><ul id="kpiList"><li data-key="0"><span class="ui-kpi__swatch" style="background:#4fb0fe"></span><span class="ui-kpi__label" dir="auto">Organic</span><span class="ui-kpi__num">$4.2k</span></li><li data-key="1"><span class="ui-kpi__swatch" style="background:#ee3e9e"></span><span class="ui-kpi__label" dir="auto">Paid ads</span><span class="ui-kpi__num">$3.6k</span></li><li data-key="2"><span class="ui-kpi__swatch" style="background:#a651f0"></span><span class="ui-kpi__label" dir="auto">Referral</span><span class="ui-kpi__num">$1.8k</span></li><li data-key="3"><span class="ui-kpi__swatch" style="background:#13b3a0"></span><span class="ui-kpi__label" dir="auto">Email</span><span class="ui-kpi__num">$1.2k</span></li><li data-key="4"><span class="ui-kpi__swatch" style="background:#a3a3a3"></span><span class="ui-kpi__label" dir="auto">Direct</span><span class="ui-kpi__num">$600</span></li></ul></div>
+</div>
+<div class="ui-kpi__xaxis" aria-hidden="true"><span style="left:0%" data-edge="start">Mar 3</span><span style="left:50%">Mar 6</span><span style="left:100%" data-edge="end">Mar 9</span></div>
+</div>
+<p class="ui-kpi__footer" dir="auto">Top 5 channels</p>
+</section>
+</main>
+</div>
+<script>
+(function(){
+"use strict";
+var LABELS=["Mar 3","Mar 4","Mar 5","Mar 6","Mar 7","Mar 8","Mar 9"];
+var DATES=["Mon, Mar 3","Tue, Mar 4","Wed, Mar 5","Thu, Mar 6","Fri, Mar 7","Sat, Mar 8","Sun, Mar 9"];
+var SERIES=[
+{label:"Organic",color:"#4fb0fe",values:[4200,4700,3900,4600,5400,5100,5900]},
+{label:"Paid ads",color:"#ee3e9e",values:[3600,3300,4400,4800,4000,4500,4200]},
+{label:"Referral",color:"#a651f0",values:[1800,2300,2000,1500,2400,2200,2700]},
+{label:"Email",color:"#13b3a0",values:[1200,1100,1700,2100,1600,1300,1500]},
+{label:"Direct",color:"#a3a3a3",values:[600,900,700,800,1000,1400,1100]}];
+function fmt(v){if(v==null)return "\u2014";return v>=1000?"$"+(+(v/1000).toFixed(1))+"k":"$"+Math.round(v)}
+function niceMax(v){if(!(typeof v==="number"&&isFinite(v))||v<0)v=0;var t=v/2||1;var n=Math.pow(10,Math.floor(Math.log10(t)));var steps=[1,1.5,2,2.5,3,4,5,6,8,10];for(var i=0;i<steps.length;i++){if(steps[i]*n>=t)return steps[i]*n*2}return 10*n*2}
+var v=LABELS.length;
+var flat=[];SERIES.forEach(function(s){s.values.slice(0,v).forEach(function(n){if(typeof n==="number"&&isFinite(n))flat.push(n)})});
+var max=niceMax(flat.length?Math.max.apply(null,flat):0);
+var min=0;if(flat.length){var lo=Math.min.apply(null,flat);if(lo<0)min=-niceMax(-lo)}
+function xp(i){return v>1?i/(v-1)*100:50}
+function yp(val){return (max-val)/(max-min)*100}
+function clampIdx(n){if(n==null)return null;return Math.min(v-1,Math.max(0,Math.round(n)))}
+var card=document.getElementById("kpiCard");
+var plot=document.getElementById("kpiPlot");
+var svg=document.getElementById("kpiSvg");
+var marker=document.getElementById("kpiMarker");
+var guide=document.getElementById("kpiGuide");
+var tip=document.getElementById("kpiTip");
+var tipDate=document.getElementById("kpiDate");
+var list=document.getElementById("kpiList");
+var paths=svg.getElementsByTagName("path");
+var dots=marker.getElementsByClassName("ui-kpi__dot");
+var rows=list.getElementsByTagName("li");
+function pathFor(si){var vals=SERIES[si].values.slice(0,v);var d="";for(var r=0;r<vals.length;r++){var n=vals[r];if(n!==null&&typeof n==="number"&&isFinite(n)){d+=(d&&vals[r-1]!==null&&typeof vals[r-1]==="number"?"L":"M")+xp(r)+","+yp(n)}}return d}
+for(var pi=0;pi<paths.length&&pi<SERIES.length;pi++){paths[pi].setAttribute("d",pathFor(pi))}
+var hover=null;var current=0;
+function rowVals(k){return SERIES.map(function(s,si){var vv=s.values.slice(0,v)[k];return{key:si,label:s.label,color:s.color,value:(vv==null||typeof vv!=="number"||!isFinite(vv))?null:vv}}).sort(function(a,b){return(b.value==null?-1/0:b.value)-(a.value==null?-1/0:a.value)})}
+function nudgeFor(k){try{
+var sec=card;var tipEl=tip;var plotEl=plot;
+if(!sec||!tipEl||!plotEl||!sec.getBoundingClientRect||!plotEl.getBoundingClientRect||!tipEl.offsetWidth)return 0;
+var sr=sec.getBoundingClientRect();var pr=plotEl.getBoundingClientRect();
+if(!pr.width)return 0;
+var tw=tipEl.offsetWidth;var cx=pr.left+xp(k)/100*pr.width;
+var right=k!=null&&xp(k)>50;var x=right?cx-14-tw:cx+14;
+var c=sr.left+8;var l=sr.right-8-tw;var need=x<c?c-x:x>l?Math.max(c,l)-x:0;
+return Math.round(need)}catch(e){return 0}}
+function update(){
+if(hover!==null)current=hover;
+var k=Math.min(Math.max(0,current),v-1);
+var open=hover!==null;
+var left=xp(k)+"%";
+guide.style.left=left;
+for(var di=0;di<dots.length;di++){var sIdx=+dots[di].getAttribute("data-s");var val=SERIES[sIdx].values.slice(0,v)[k];if(val==null){dots[di].style.display="none"}else{dots[di].style.display="";dots[di].style.left=left;dots[di].style.top=yp(val)+"%"}}
+tip.style.left=left;
+var side=xp(k)>50?"left":"right";
+tip.setAttribute("data-side",side);
+if(open){marker.setAttribute("data-open","");tip.setAttribute("data-open","")}else{marker.removeAttribute("data-open");tip.removeAttribute("data-open")}
+tipDate.textContent=DATES[k];
+var sorted=rowVals(k);
+for(var ri=0;ri<sorted.length;ri++){var info=sorted[ri];var li=null;
+for(var q=0;q<rows.length;q++){if(rows[q].getAttribute("data-key")===String(info.key)){li=rows[q];break}}
+if(!li)continue;
+var nums=li.getElementsByClassName("ui-kpi__num");
+if(nums.length)nums[0].textContent=info.value===null?"\u2014":fmt(info.value);
+if(li!==list.children[ri])list.appendChild(li)}
+try{tip.style.setProperty("--ui-kpi-nudge",nudgeFor(k)+"px")}catch(e){}
+}
+function idxFromEvent(e){try{var r=plot.getBoundingClientRect();if(!r.width)return null;var f=(e.clientX-r.left)/r.width;f=Math.min(1,Math.max(0,f));return clampIdx(f*(v-1))}catch(err){return null}}
+plot.addEventListener("pointermove",function(e){var i=idxFromEvent(e);if(i===null)return;if(i!==hover){hover=i;update()}});
+plot.addEventListener("pointerdown",function(e){var i=idxFromEvent(e);if(i===null)return;hover=i;update()});
+plot.addEventListener("pointerleave",function(){if(hover!==null){hover=null;update()}});
+plot.addEventListener("blur",function(){if(hover!==null){hover=null;update()}});
+plot.addEventListener("keydown",function(e){
+if(e.key==="ArrowRight"){var base=hover===null?-1:hover;hover=Math.min(v-1,base+1);update();e.preventDefault()}
+else if(e.key==="ArrowLeft"){var b2=hover===null?v:hover;hover=Math.max(0,b2-1);update();e.preventDefault()}
+else if(e.key==="Escape"){if(hover!==null){hover=null;update();e.preventDefault()}}});
+update();
+var btn=document.getElementById("themeToggle");
+var moon=document.getElementById("iconMoon");var sun=document.getElementById("iconSun");
+function paintToggle(){var dark=document.documentElement.getAttribute("data-theme")==="dark";moon.hidden=dark;sun.hidden=!dark;btn.setAttribute("aria-label",dark?"Switch to light theme":"Switch to dark theme")}
+function setTheme(t){document.documentElement.setAttribute("data-theme",t);try{localStorage.setItem("kpi-theme",t)}catch(e){}paintToggle()}
+btn.addEventListener("click",function(){setTheme(document.documentElement.getAttribute("data-theme")==="dark"?"light":"dark")});
+paintToggle();
+})();
+</script>
+</body>
+</html>

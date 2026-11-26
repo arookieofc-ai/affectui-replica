@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<script>/*noflash*/(function(){try{var k='hvc-theme';var s=null;try{s=localStorage.getItem(k)}catch(e){}var m=false;try{m=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches}catch(e){}var t=s||(m?'dark':'light');document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<style>html{background:#fafaf9}html[data-theme="dark"]{background:#101012}</style>
+<title>Activity — Hover Card</title>
+<style>
+:root{
+  --surface:#ffffff;
+  --page:#fafaf9;
+  --ink:#171717;
+  --ink-2:#1c1917;
+  --muted:#78716c;
+  --subtle:#f5f5f4;
+  --border:#e7e5e4;
+  --radius-lg:16px;
+  --radius:10px;
+  --radius-sm:6px;
+  --shadow:0 1px 2px rgba(0,0,0,.05),0 4px 16px rgba(0,0,0,.05);
+  --shadow-popover:0 0 0 1px rgba(0,0,0,.06),0 18px 40px -12px rgba(0,0,0,.18),0 4px 12px -4px rgba(0,0,0,.06);
+  --focus:rgba(0,96,226,.7);
+  --ease:cubic-bezier(.22,1,.36,1);
+  --accent:#2563eb;
+  --accent-ink:#1d4ed8;
+  --mark-on:#2563eb;
+  --mark-off:#e7e5e4;
+  --amber:#f59e0b;
+  --amber-bg:#fef3c7;
+  --amber-text:#92400e;
+}
+html[data-theme="dark"]{
+  --surface:#1c1c1f;
+  --page:#101012;
+  --ink:#ededed;
+  --ink-2:#ededed;
+  --muted:#a1a1aa;
+  --subtle:#26262a;
+  --border:#2e2e33;
+  --shadow:0 1px 2px rgba(0,0,0,.5),0 4px 16px rgba(0,0,0,.5);
+  --shadow-popover:0 0 0 1px rgba(255,255,255,.06),0 18px 40px -12px rgba(0,0,0,.6);
+  --focus:rgba(77,141,255,.8);
+  --accent:#60a5fa;
+  --accent-ink:#93c5fd;
+  --mark-on:#60a5fa;
+  --mark-off:#3a3a40;
+  --amber:#fbbf24;
+  --amber-bg:#451a03;
+  --amber-text:#fde68a;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none !important}
+html,body{margin:0;padding:0}
+body{
+  background:var(--page);
+  color:var(--ink);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:14px;
+  line-height:20px;
+  -webkit-font-smoothing:antialiased;
+  min-height:100vh;
+}
+.page{max-width:640px;margin:0 auto;padding:20px 16px 48px}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+.titleblock{display:flex;flex-direction:column;gap:2px}
+.title{font-size:16px;font-weight:650;letter-spacing:-.01em;color:var(--ink)}
+.subtitle{font-size:12.5px;color:var(--muted)}
+.subtitle strong{color:var(--ink);font-weight:600}
+.theme-btn{
+  appearance:none;border:1px solid var(--border);background:var(--surface);color:var(--ink);
+  border-radius:999px;padding:7px 12px;font-size:13px;cursor:pointer;
+  box-shadow:var(--shadow);transition:transform 150ms var(--ease),box-shadow 150ms var(--ease),background 150ms var(--ease);
+  display:inline-flex;align-items:center;gap:7px;
+}
+.theme-btn:hover{transform:translateY(-1px)}
+.theme-btn:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.card{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);
+  box-shadow:var(--shadow);padding:6px 0;overflow:hidden;
+}
+.card-head{padding:12px 16px 10px;border-bottom:1px solid var(--border)}
+.card-head h3{margin:0;font-size:15px;font-weight:650}
+.card-head p{margin:2px 0 0;font-size:12.5px;color:var(--muted)}
+.feed{list-style:none;margin:0;padding:6px 0}
+.entry{display:flex;align-items:flex-start;gap:10px;padding:10px 16px}
+.entry + .entry{border-top:1px solid var(--border)}
+.entry-text{flex:1;min-width:0;line-height:20px}
+.entry-when{font-size:12px;color:var(--muted);white-space:nowrap;padding-top:2px}
+.hvc-link{
+  color:var(--accent-ink);font-weight:600;text-decoration:underline;
+  text-decoration-thickness:1px;text-underline-offset:2px;border-radius:4px;
+}
+html[data-theme="dark"] .hvc-link{color:var(--accent)}
+.hvc-link:hover{color:var(--accent)}
+.hvc-link:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.hvc-link--file{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-weight:600;font-size:13px}
+/* pixel-mark 3x3 */
+.mark{display:inline-grid;grid-template-columns:repeat(3,7px);grid-auto-rows:7px;gap:2px;flex:none;margin-top:4px}
+.mark i{width:7px;height:7px;border-radius:2px;background:var(--mark-off);display:block}
+.mark i[data-on]{background:var(--mark-on)}
+.mark[data-busy] i[data-on]{animation:mark-pulse 1.6s ease-in-out infinite}
+@keyframes mark-pulse{0%,100%{opacity:1}50%{opacity:.35}}
+@media (prefers-reduced-motion:reduce){.mark[data-busy] i[data-on]{animation:none}}
+/* hover card popover */
+.ui-hvc{
+  position:fixed;z-index:1000;display:block;box-sizing:border-box;
+  width:288px;max-width:min(320px,calc(100vw - 16px));max-height:calc(100vh - 16px);
+  margin:0;padding:16px;border:0;border-radius:calc(10px + 6px);
+  background:var(--surface);box-shadow:var(--shadow-popover);color:var(--ink);
+  font-size:13.5px;line-height:20px;overflow:auto;overscroll-behavior:contain;
+  transform-origin:top left;animation:hvc-in 200ms var(--ease) both;
+}
+.ui-hvc[data-side="top"]{transform-origin:bottom left;animation-name:hvc-in-up}
+.ui-hvc[data-side="right"]{transform-origin:top left;animation-name:hvc-in-right}
+.ui-hvc[data-side="left"]{transform-origin:top right;animation-name:hvc-in-left}
+@keyframes hvc-in{from{opacity:0;transform:scale(.97) translateY(-4px)}}
+@keyframes hvc-in-up{from{opacity:0;transform:scale(.97) translateY(4px)}}
+@keyframes hvc-in-right{from{opacity:0;transform:scale(.97) translateX(-4px)}}
+@keyframes hvc-in-left{from{opacity:0;transform:scale(.97) translateX(4px)}}
+@media (prefers-reduced-motion:reduce){.ui-hvc{animation:none}}
+.ui-hvc :is(a,button,[tabindex]):focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.preview-who{display:flex;gap:10px;align-items:flex-start;margin-bottom:8px}
+.tile{
+  width:34px;height:34px;flex:none;border-radius:8px;background:var(--subtle);
+  border:1px solid var(--border);display:flex;align-items:center;justify-content:center;
+  font-size:13px;font-weight:700;color:var(--muted);
+}
+.tile .mark{margin-top:0}
+.names{display:flex;flex-direction:column;min-width:0}
+.name{font-size:14px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sub{font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.about{margin:0 0 10px;color:var(--ink)}
+.facts{margin:0 0 10px;display:flex;flex-direction:column;gap:6px}
+.facts > div{display:flex;gap:8px}
+.facts dt{margin:0;min-width:70px;color:var(--muted);font-size:12.5px}
+.facts dd{margin:0;font-size:13px}
+.open-link{display:inline-flex;align-items:center;gap:5px;font-weight:600;color:var(--accent-ink);text-decoration:none;font-size:13px}
+html[data-theme="dark"] .open-link{color:var(--accent)}
+.open-link:hover{text-decoration:underline}
+.line{margin:0;font-size:13px}
+.hint{margin:12px 2px 0;font-size:12.5px;color:var(--muted)}
+@media (max-width:480px){.page{padding:14px 12px 40px}.entry{padding:10px 12px}}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="topbar">
+    <div class="titleblock">
+      <div class="title" id="page-title">Activity</div>
+      <div class="subtitle" id="page-sub">billing-api · <strong id="working-count">1 working</strong> · <span id="agent-count">2 agents</span></div>
+    </div>
+    <button class="theme-btn" id="theme-toggle" type="button" aria-label="Toggle dark mode"><span id="theme-icon" aria-hidden="true">☾</span><span id="theme-label">Dark</span></button>
+  </div>
+  <section class="card" aria-label="Activity" id="activity-card">
+    <div class="card-head">
+      <h3>Activity</h3>
+      <p id="card-sub">Hover or focus a highlighted name to preview it</p>
+    </div>
+    <ul class="feed" id="feed"></ul>
+  </section>
+  <p class="hint">Preview card opens on hover or focus and stays on screen. Open delay 600ms · close delay 300ms · Esc closes.</p>
+</div>
+<script>
+(function(){
+"use strict";
+var OPEN_DELAY = 600;
+var CLOSE_DELAY = 300;
+var CARD_WIDTH = 288;
+var OFFSET = 8;
+var AGENTS = {
+  scout: { id: "scout", name: "Scout", role: "Research agent", model: "claude-sonnet-4.5", about: "Reads new issues, finds the cause and drafts a fix for the billing team.", busy: true, status: "Running \u00B7 2/3 tasks", runs: 41, cost: "$12.40" },
+  ledger: { id: "ledger", name: "Ledger", role: "Finance agent", model: "gpt-5-mini", about: "Sums up spend per model and team every Monday and flags anything unusual.", busy: false, status: "Idle \u00B7 last run 14m ago", runs: 9, cost: "$1.85" }
+};
+var FILES = {
+  export: { id: "export", name: "export.ts", path: "billing-api/src/export.ts", kind: "code", size: "3.1 KB", change: "+42 \u22127", by: "Scout" },
+  report: { id: "report", name: "cost-report-w45.csv", path: "finance/reports/cost-report-w45.csv", kind: "csv", size: "48 KB", change: "1,284 rows", by: "Ledger" }
+};
+var MARK_DELAYS = [0,120,240,120,240,360,240,360,480];
+function pixelPattern(id){
+  var h = 0;
+  var k;
+  for (k = 0; k < id.length; k++){ h = ((h * 31) + id.charCodeAt(k)) >>> 0; }
+  var attempt, n, r, on, q;
+  for (attempt = 0; attempt < 64; attempt++){
+    n = (h >>> (attempt % 26)) & 63;
+    r = [];
+    for (q = 0; q < 3; q++){
+      var b0 = (n >> (q * 2)) & 1;
+      var b1 = (n >> (q * 2 + 1)) & 1;
+      r.push(b0); r.push(b1); r.push(b0);
+    }
+    on = 0;
+    for (q = 0; q < r.length; q++){ if (r[q]) on++; }
+    if (on >= 5) return r;
+    h = ((h * 1103515245) + 12345) >>> 0;
+  }
+  return [1,0,1,0,1,0,1,0,1];
+}
+function el(tag, cls, text){
+  var n = document.createElement(tag);
+  if (cls) n.className = cls;
+  if (text != null) n.textContent = text;
+  return n;
+}
+function buildMark(id, busy){
+  var s = el("span", "mark");
+  s.setAttribute("aria-hidden", "true");
+  if (busy) s.setAttribute("data-busy", "");
+  var pat = pixelPattern(id);
+  var i, c;
+  for (i = 0; i < 9; i++){
+    c = document.createElement("i");
+    if (pat[i]) c.setAttribute("data-on", "");
+    c.style.animationDelay = MARK_DELAYS[i] + "ms";
+    s.appendChild(c);
+  }
+  return s;
+}
+function buildAgentPreview(agent){
+  var wrap = el("div", "preview");
+  var who = el("div", "preview-who");
+  var tile = el("span", "tile");
+  tile.appendChild(buildMark(agent.id, agent.busy));
+  var names = el("span", "names");
+  var nm = el("span", "name", agent.name);
+  var sub = el("span", "sub", agent.role + " \u00B7 " + agent.model);
+  names.appendChild(nm); names.appendChild(sub);
+  who.appendChild(tile); who.appendChild(names);
+  wrap.appendChild(who);
+  var about = el("p", "about", agent.about);
+  wrap.appendChild(about);
+  var dl = document.createElement("dl");
+  dl.className = "facts";
+  var row1 = document.createElement("div");
+  var dt1 = document.createElement("dt"); dt1.textContent = "Status";
+  var dd1 = document.createElement("dd"); dd1.textContent = agent.status;
+  row1.appendChild(dt1); row1.appendChild(dd1);
+  var row2 = document.createElement("div");
+  var dt2 = document.createElement("dt"); dt2.textContent = "This week";
+  var dd2 = document.createElement("dd"); dd2.textContent = agent.runs + " runs \u00B7 " + agent.cost;
+  row2.appendChild(dt2); row2.appendChild(dd2);
+  dl.appendChild(row1); dl.appendChild(row2);
+  wrap.appendChild(dl);
+  var a = el("a", "open-link", "Open agent \u2197");
+  a.setAttribute("href", "#agents/" + agent.id);
+  a.addEventListener("click", function(ev){ ev.preventDefault(); });
+  wrap.appendChild(a);
+  return wrap;
+}
+function buildFilePreview(file){
+  var wrap = el("div", "preview");
+  var who = el("div", "preview-who");
+  var tile = el("span", "tile", file.kind === "code" ? "</>" : "▦");
+  tile.setAttribute("data-kind", file.kind);
+  var names = el("span", "names");
+  var nm = el("span", "name", file.name);
+  var sub = el("span", "sub", file.path);
+  names.appendChild(nm); names.appendChild(sub);
+  who.appendChild(tile); who.appendChild(names);
+  wrap.appendChild(who);
+  var line = el("p", "line", file.change + " \u00B7 " + file.size + " \u00B7 by " + file.by);
+  wrap.appendChild(line);
+  return wrap;
+}
+var feed = document.getElementById("feed");
+var entries = [];
+var currentOpen = null;
+function positionCard(card, trigger, side){
+  var r;
+  try { r = trigger.getBoundingClientRect(); } catch(e){ r = {left:16,top:120,right:120,bottom:140,width:80,height:20}; }
+  var vw = 640, vh = 600;
+  try {
+    vw = document.documentElement.clientWidth || window.innerWidth || 640;
+    vh = window.innerHeight || 600;
+  } catch(e){}
+  var w = CARD_WIDTH;
+  try { w = card.offsetWidth || CARD_WIDTH; } catch(e){}
+  var h = 220;
+  try { h = card.offsetHeight || 220; } catch(e){}
+  var s = side || "bottom";
+  var spaceBelow = vh - r.bottom - OFFSET - 8;
+  var spaceAbove = r.top - OFFSET - 8;
+  if (s === "bottom" && spaceBelow < h && spaceAbove > spaceBelow) s = "top";
+  if (s === "top" && spaceAbove < h && spaceBelow > spaceAbove) s = "bottom";
+  var top, left;
+  if (s === "bottom"){ top = r.bottom + OFFSET; }
+  else { top = r.top - OFFSET - h; if (top < 8) top = 8; }
+  left = r.left;
+  if (left + w > vw - 8) left = vw - 8 - w;
+  if (left < 8) left = 8;
+  if (top + h > vh - 8) top = Math.max(8, vh - 8 - h);
+  if (top < 8) top = 8;
+  card.style.top = Math.round(top) + "px";
+  card.style.left = Math.round(left) + "px";
+  card.style.maxHeight = Math.min(h, vh - 16) + "px";
+  card.setAttribute("data-side", s);
+  card.setAttribute("data-align", "start");
+}
+function closeEntry(entry){
+  if (!entry) return;
+  try { window.clearTimeout(entry.openTimer); } catch(e){}
+  try { window.clearTimeout(entry.closeTimer); } catch(e){}
+  entry.openTimer = 0; entry.closeTimer = 0;
+  if (entry.card && !entry.card.hasAttribute("hidden")) entry.card.setAttribute("hidden", "");
+  entry.isOpen = false;
+  if (currentOpen === entry) currentOpen = null;
+  var had = entry.wasOpen;
+  entry.wasOpen = false;
+  if (entry.onOpenChange && had){ try { entry.onOpenChange(false); } catch(e){} }
+}
+function openEntry(entry){
+  var k;
+  for (k = 0; k < entries.length; k++){
+    if (entries[k] !== entry && entries[k].isOpen) closeEntry(entries[k]);
+  }
+  try { window.clearTimeout(entry.openTimer); } catch(e){}
+  try { window.clearTimeout(entry.closeTimer); } catch(e){}
+  entry.openTimer = 0; entry.closeTimer = 0;
+  if (entry.card.hasAttribute("hidden")) entry.card.removeAttribute("hidden");
+  positionCard(entry.card, entry.trigger, "bottom");
+  entry.isOpen = true;
+  currentOpen = entry;
+  var had2 = entry.wasOpen;
+  entry.wasOpen = true;
+  if (entry.onOpenChange && !had2){ try { entry.onOpenChange(true); } catch(e){} }
+}
+function scheduleOpen(entry){
+  try { window.clearTimeout(entry.closeTimer); } catch(e){}
+  entry.closeTimer = 0;
+  if (entry.isOpen || entry.openTimer) return;
+  entry.openTimer = window.setTimeout(function(){ entry.openTimer = 0; openEntry(entry); }, OPEN_DELAY);
+}
+function scheduleClose(entry){
+  try { window.clearTimeout(entry.openTimer); } catch(e){}
+  entry.openTimer = 0;
+  if (!entry.isOpen || entry.closeTimer) return;
+  entry.closeTimer = window.setTimeout(function(){ entry.closeTimer = 0; closeEntry(entry); }, CLOSE_DELAY);
+}
+function cancelPending(entry){
+  try { window.clearTimeout(entry.openTimer); } catch(e){}
+  try { window.clearTimeout(entry.closeTimer); } catch(e){}
+  entry.openTimer = 0; entry.closeTimer = 0;
+}
+function makeTrigger(kind, id, label, extraClass, controlledOpen, onOpenChange){
+  var a = el("a", "hvc-link" + (extraClass ? " " + extraClass : ""), label);
+  a.setAttribute("href", kind === "agent" ? "#agents/" + id : "#files/" + id);
+  a.addEventListener("click", function(ev){ ev.preventDefault(); });
+  var card = document.createElement("div");
+  card.className = "ui-hvc";
+  card.setAttribute("data-side", "bottom");
+  card.setAttribute("data-align", "start");
+  card.style.width = CARD_WIDTH + "px";
+  card.setAttribute("hidden", "");
+  var content = kind === "agent" ? buildAgentPreview(AGENTS[id]) : buildFilePreview(FILES[id]);
+  card.appendChild(content);
+  document.body.appendChild(card);
+  var entry = { kind: kind, id: id, trigger: a, card: card, isOpen: false, wasOpen: false, openTimer: 0, closeTimer: 0, onOpenChange: onOpenChange || null };
+  a.addEventListener("pointerenter", function(ev){ if (ev && ev.pointerType === "touch") return; cancelPending(entry); if (!entry.isOpen) scheduleOpen(entry); });
+  a.addEventListener("pointerleave", function(){ if (entry.isOpen) scheduleClose(entry); else cancelPending(entry); });
+  a.addEventListener("pointerdown", function(){ cancelPending(entry); closeEntry(entry); });
+  a.addEventListener("focus", function(){ scheduleOpen(entry); });
+  a.addEventListener("blur", function(){ if (entry.isOpen) closeEntry(entry); else cancelPending(entry); });
+  card.addEventListener("pointerenter", function(ev){ if (ev && ev.pointerType === "touch") return; cancelPending(entry); });
+  card.addEventListener("pointerleave", function(){ if (entry.isOpen) scheduleClose(entry); });
+  card.addEventListener("blur", function(ev){
+    var rt = null;
+    try { rt = ev.relatedTarget; } catch(e){}
+    if (rt && (card.contains(rt) || a.contains(rt))) return;
+    if (entry.isOpen) closeEntry(entry);
+  }, true);
+  entries.push(entry);
+  if (controlledOpen){ openEntry(entry); }
+  return entry;
+}
+function makeRow(agentId, whenText, nodes){
+  var li = document.createElement("li");
+  li.className = "entry";
+  li.appendChild(buildMark(agentId, AGENTS[agentId].busy));
+  var txt = el("div", "entry-text");
+  var k;
+  for (k = 0; k < nodes.length; k++){
+    var n = nodes[k];
+    if (typeof n === "string") txt.appendChild(document.createTextNode(n));
+    else txt.appendChild(n.trigger);
+  }
+  li.appendChild(txt);
+  var when = el("span", "entry-when", whenText);
+  li.appendChild(when);
+  feed.appendChild(li);
+  return li;
+}
+function initTheme(){
+  var btn = document.getElementById("theme-toggle");
+  var icon = document.getElementById("theme-icon");
+  var label = document.getElementById("theme-label");
+  function paint(){
+    var t = document.documentElement.getAttribute("data-theme") || "light";
+    if (t === "dark"){ icon.textContent = "☀"; label.textContent = "Light"; btn.setAttribute("aria-label", "Switch to light mode"); }
+    else { icon.textContent = "☾"; label.textContent = "Dark"; btn.setAttribute("aria-label", "Switch to dark mode"); }
+  }
+  paint();
+  btn.addEventListener("click", function(){
+    var cur = document.documentElement.getAttribute("data-theme") || "light";
+    var next = cur === "dark" ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", next);
+    try { localStorage.setItem("hvc-theme", next); } catch(e){}
+    paint();
+  });
+  btn.addEventListener("pointerdown", function(){}, true);
+}
+function init(){
+  initTheme();
+  var eScoutControlled = makeTrigger("agent", "scout", AGENTS.scout.name, "", false, null);
+  var eExport = makeTrigger("file", "export", FILES.export.name, "hvc-link--file", false, null);
+  var eLedger = makeTrigger("agent", "ledger", AGENTS.ledger.name, "", false, null);
+  var eReport = makeTrigger("file", "report", FILES.report.name, "hvc-link--file", false, null);
+  var eScout2 = makeTrigger("agent", "scout", AGENTS.scout.name, "", false, null);
+  eScoutControlled.onOpenChange = function(open){ if (!open){ closeEntry(eScoutControlled); } };
+  makeRow("scout", "2m", [eScoutControlled, " opened a fix for ", eExport]);
+  makeRow("ledger", "14m", [eLedger, " finished the weekly report ", eReport]);
+  makeRow("scout", "1h", [eScout2, " is drafting replies to 14 support tickets"]);
+  openEntry(eScoutControlled);
+  eScoutControlled.wasOpen = true;
+  document.addEventListener("pointerdown", function(ev){
+    var t = ev.target;
+    var k, inside = false;
+    for (k = 0; k < entries.length; k++){
+      try {
+        if (entries[k].trigger.contains(t) || entries[k].card.contains(t)) inside = true;
+      } catch(e){}
+    }
+    if (!inside && currentOpen) closeEntry(currentOpen);
+  }, true);
+  document.addEventListener("mousedown", function(ev){
+    var t = ev.target;
+    var k, inside = false;
+    for (k = 0; k < entries.length; k++){
+      try {
+        if (entries[k].trigger.contains(t) || entries[k].card.contains(t)) inside = true;
+      } catch(e){}
+    }
+    if (!inside && currentOpen) closeEntry(currentOpen);
+  }, true);
+  window.addEventListener("keydown", function(ev){
+    if (ev.key === "Escape" && currentOpen){ ev.preventDefault(); closeEntry(currentOpen); }
+  }, true);
+  function repos(){ if (currentOpen) positionCard(currentOpen.card, currentOpen.trigger, "bottom"); }
+  try { window.addEventListener("resize", repos); } catch(e){}
+  try { window.addEventListener("scroll", repos, true); } catch(e){}
+  try {
+    window.__hvc = {
+      entries: entries, AGENTS: AGENTS, FILES: FILES,
+      openDelay: OPEN_DELAY, closeDelay: CLOSE_DELAY,
+      open: openEntry, close: closeEntry, scheduleOpen: scheduleOpen, scheduleClose: scheduleClose,
+      current: function(){ return currentOpen; }
+    };
+  } catch(e){}
+}
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
+else init();
+})();
+</script>
+</body>
+</html>
