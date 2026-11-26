@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<script>/*noflash*/(function(){try{var k="notification-stack-theme";var t=null;try{t=localStorage.getItem(k)}catch(e){}if(!t){t=(window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches)?"dark":"light"}document.documentElement.setAttribute("data-theme",t)}catch(e){}})();</script>
+<meta name="color-scheme" content="light dark">
+<style>html{background:#fafaf9}html[data-theme="dark"]{background:#101012}</style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Notification Stack — affectUI replica</title>
+<style>
+:root{
+  --page:#fafaf9;
+  --surface:#ffffff;
+  --subtle:#f5f5f4;
+  --ink:#1c1917;
+  --muted:#78716c;
+  --border:#e7e5e4;
+  --radius-lg:16px;
+  --radius:10px;
+  --radius-sm:6px;
+  --card-radius:20px;
+  --shadow:0 1px 2px rgba(0,0,0,.05),0 4px 16px rgba(0,0,0,.05);
+  --shadow-card:0 1px 2px rgba(0,0,0,.03),0 8px 24px rgba(0,0,0,.06);
+  --focus:rgba(0,96,226,.7);
+  --art:#e3e3e3;
+  --dot:#d4d4d4;
+  --fill:#f5f5f5;
+  --btn-hover:#f7f7f7;
+  --ease:cubic-bezier(.22,1,.36,1);
+}
+html[data-theme="dark"]{
+  --page:#101012;
+  --surface:#1c1c1f;
+  --subtle:#26262a;
+  --ink:#ededed;
+  --muted:#a1a1aa;
+  --border:#2e2e33;
+  --shadow:0 1px 2px rgba(0,0,0,.5),0 8px 24px rgba(0,0,0,.4);
+  --shadow-card:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+  --focus:rgba(77,141,255,.8);
+  --art:rgba(255,255,255,.08);
+  --dot:rgba(255,255,255,.22);
+  --fill:rgba(255,255,255,.04);
+  --btn-hover:#313135;
+}
+html{-webkit-tap-highlight-color:transparent}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:14px;
+  font-variant-numeric:tabular-nums;
+  background:var(--page);
+  color:var(--ink);
+  min-height:100vh;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  transition:background-color 180ms ease,color 180ms ease;
+}
+.topbar{
+  width:100%;
+  max-width:720px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:20px 20px 0;
+}
+.brand{display:flex;align-items:baseline;gap:10px;min-width:0}
+.brand h1{font-size:15px;font-weight:600;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.count-pill{
+  font-size:12px;color:var(--muted);
+  border:1px solid var(--border);
+  background:var(--surface);
+  border-radius:999px;
+  padding:2px 10px;
+  white-space:nowrap;
+}
+.theme-btn{
+  flex:none;
+  display:inline-flex;align-items:center;justify-content:center;
+  width:36px;height:36px;
+  margin-right:-2px;
+  padding:0 0 0 2px;
+  border:1px solid var(--border);
+  border-radius:999px;
+  background:var(--surface);
+  color:var(--ink);
+  cursor:pointer;
+  box-shadow:var(--shadow);
+  transition:transform 160ms ease,background-color 160ms ease;
+}
+.theme-btn:active{transform:scale(.96)}
+.theme-btn:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.theme-btn svg{width:18px;height:18px}
+main{width:100%;max-width:720px;padding:28px 20px 56px;display:flex;flex-direction:column;align-items:center}
+.lede{color:var(--muted);font-size:13px;margin:0 0 22px;text-align:center;max-width:52ch}
+.stage{width:100%;max-width:380px}
+.ns{
+  position:relative;
+  width:100%;
+  max-width:380px;
+  color:var(--ink);
+  -webkit-font-smoothing:antialiased;
+  transition:height 460ms var(--ease);
+}
+.ns-card{
+  position:absolute;top:0;left:0;right:0;
+  overflow:hidden;
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--card-radius);
+  box-shadow:var(--shadow-card);
+  transform-origin:50% 100%;
+  transition:transform 460ms var(--ease),opacity 300ms ease,box-shadow 300ms ease;
+}
+.ns-card>*{transition:opacity 260ms ease}
+.ns-card:not([data-depth="0"])>*{opacity:0}
+.ns-card[data-leaving]{
+  opacity:0;
+  transform:translateX(40px) scale(.98) !important;
+  transition:transform 320ms var(--ease),opacity 240ms ease;
+}
+.ns-card.is-gone{visibility:hidden;pointer-events:none}
+.ns-pattern{
+  position:absolute;top:0;right:0;
+  width:220px;height:160px;
+  stroke:var(--art);stroke-width:1;
+  pointer-events:none;
+  -webkit-mask-image:radial-gradient(120% 110% at 100% 0%,#000 20%,transparent 70%);
+  mask-image:radial-gradient(120% 110% at 100% 0%,#000 20%,transparent 70%);
+}
+.ns-dot{fill:var(--dot);stroke:none}
+.ns-fill{fill:var(--fill)}
+.ns-body{position:relative;padding:18px 20px 20px}
+.ns-top{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:26px;margin-bottom:14px}
+.ns-badge{
+  padding:2px 9px;border-radius:999px;
+  background:var(--surface);
+  box-shadow:inset 0 0 0 1px var(--border);
+  font-size:11px;font-weight:500;line-height:18px;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--muted);
+  min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
+}
+.ns-close{
+  display:grid;place-items:center;flex:none;
+  width:28px;height:28px;
+  margin:-2px -6px 0 0;
+  padding:0 2px 0 0;
+  border:0;border-radius:calc(var(--radius-sm) + 1px);
+  background:transparent;color:var(--muted);
+  cursor:pointer;
+  transition:background-color 140ms ease,color 140ms ease;
+}
+.ns-close svg{width:16px;height:16px}
+.ns-title{
+  margin:0;font-size:16px;font-weight:500;line-height:22px;letter-spacing:-.01em;
+  overflow-wrap:anywhere;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.ns-text{margin:6px 0 0;max-width:34ch;font-size:14px;line-height:21px;color:var(--muted);overflow-wrap:anywhere}
+.ns-btn{
+  display:inline-flex;align-items:center;gap:8px;
+  min-height:32px;max-width:100%;
+  margin-top:16px;margin-bottom:2px;
+  padding:6px 10px 6px 12px;
+  border:0;border-radius:calc(var(--radius) - 1px);
+  background:var(--surface);
+  box-shadow:0 0 0 1px var(--border),0 1px 2px rgba(0,0,0,.04);
+  font:inherit;font-size:13px;font-weight:500;color:var(--ink);
+  overflow-wrap:anywhere;text-decoration:none;cursor:pointer;
+  transition:background-color 160ms ease,transform 160ms ease;
+}
+.ns-btn:active{transform:scale(.98)}
+.ns-btn svg{flex:none;color:var(--muted)}
+.ns-btn[disabled]{cursor:default;opacity:.75}
+.ns button:focus-visible,.ns a:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.ns-note{margin:10px 0 0;font-size:12px;color:var(--muted);min-height:18px}
+.empty{
+  width:100%;max-width:380px;
+  margin-top:12px;
+  border:1px dashed var(--border);
+  border-radius:var(--radius-lg);
+  background:var(--surface);
+  padding:16px;
+  text-align:center;
+  box-shadow:var(--shadow);
+}
+.empty[hidden]{display:none}
+.empty p{margin:0 0 12px;color:var(--muted);font-size:13px}
+.restore-btn{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-height:32px;padding:6px 14px 6px 12px;
+  border:1px solid var(--border);border-radius:999px;
+  background:var(--subtle);color:var(--ink);
+  font:inherit;font-size:13px;font-weight:500;cursor:pointer;
+  transition:background-color 160ms ease,transform 160ms ease;
+}
+.restore-btn:active{transform:scale(.98)}
+.restore-btn:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.hint{margin:18px 0 0;font-size:12px;color:var(--muted)}
+kbd{border:1px solid var(--border);border-bottom-width:2px;border-radius:6px;padding:0 6px;font:inherit;font-size:12px;background:var(--surface)}
+@media (prefers-reduced-motion:reduce){
+  .ns,.ns-card,.ns-card>*{transition:none}
+  body{transition:none}
+}
+@media (max-width:440px){
+  .stage,.ns,.empty{max-width:100%}
+}
+@media (hover:hover) and (pointer:fine){
+  .theme-btn:hover{background:var(--subtle)}
+  .ns-close:hover{background:var(--subtle);color:var(--ink)}
+  .ns-btn:hover{background:var(--btn-hover)}
+  .restore-btn:hover{background:var(--surface)}
+  .ns-card:hover{box-shadow:0 2px 4px rgba(0,0,0,.05),0 12px 28px rgba(0,0,0,.08)}
+}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="brand">
+    <h1>Notification Stack</h1>
+    <span class="count-pill" id="countPill">3 of 3</span>
+  </div>
+  <button class="theme-btn" id="themeToggle" type="button" aria-label="Switch to dark theme" aria-pressed="false"></button>
+</div>
+<main>
+  <p class="lede">Stacked notice cards, dismissing the front one to reveal the next.</p>
+  <div class="stage">
+    <section class="ns" id="stack" aria-label="Notifications"></section>
+    <p class="ns-note" id="liveNote" aria-live="polite"></p>
+    <div class="empty" id="emptyState" hidden>
+      <p>You&rsquo;re all caught up. The stack will replay shortly.</p>
+      <button class="restore-btn" id="restoreBtn" type="button">&#8635;&nbsp;Replay stack</button>
+    </div>
+  </div>
+  <p class="hint">Tip: press <kbd>Esc</kbd> to dismiss the front card.</p>
+</main>
+<script>
+(function(){
+"use strict";
+var NOTICES=[
+  {id:"dark-mode",badge:"New",title:"Dark mode is here",text:"Every screen now follows your system theme \u2013 or pick one yourself in settings.",action:{label:"Try it"},pattern:"orbit"},
+  {id:"maintenance",badge:"Notice",title:"Scheduled maintenance",text:"We'll be offline on Sunday from 02:00 to 03:00 UTC. Your data stays safe.",action:{label:"View status",href:"#",external:true},pattern:"grid"},
+  {id:"invite",badge:"Invite",title:"Mara invited you to Design Ops",text:"Join the workspace to see shared projects, files and comments.",action:{label:"Accept invite"},pattern:"rays"}
+];
+var PEEK=12, LEAVE_MS=320, REPLAY_MS=1200;
+var SVGNS="http://www.w3.org/2000/svg";
+var stack=document.getElementById("stack");
+var liveNote=document.getElementById("liveNote");
+var emptyState=document.getElementById("emptyState");
+var restoreBtn=document.getElementById("restoreBtn");
+var countPill=document.getElementById("countPill");
+var themeToggle=document.getElementById("themeToggle");
+var THEME_KEY="notification-stack-theme";
+var cards=[];            // persistent article nodes, built once
+var order=[];           // ids in stack order (front first)
+var visibleIds=[];      // ids currently in the stack
+var leaving={};         // id -> true while animating out
+var heights={};         // id -> measured px
+var replayTimer=null;
+var reduceMotion=false;
+try{reduceMotion=window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches;}catch(e){}
+
+/* ---------- theme toggle (built once, updated in place) ---------- */
+function currentTheme(){return document.documentElement.getAttribute("data-theme")==="dark"?"dark":"light";}
+function paintThemeButton(){
+  var dark=currentTheme()==="dark";
+  themeToggle.textContent=dark?"\u263E":"\u2600";
+  themeToggle.setAttribute("aria-label",dark?"Switch to light theme":"Switch to dark theme");
+  themeToggle.setAttribute("aria-pressed",dark?"true":"false");
+}
+function setTheme(next,persist){
+  document.documentElement.setAttribute("data-theme",next);
+  try{if(persist)localStorage.setItem(THEME_KEY,next);}catch(e){}
+  themeToggle.textContent=next==="dark"?"\u263E":"\u2600";
+  themeToggle.setAttribute("aria-label",next==="dark"?"Switch to light theme":"Switch to dark theme");
+  themeToggle.setAttribute("aria-pressed",next==="dark"?"true":"false");
+}
+themeToggle.addEventListener("click",function(){setTheme(currentTheme()==="dark"?"light":"dark",true);});
+paintThemeButton();
+try{
+  var stored=null;try{stored=localStorage.getItem(THEME_KEY);}catch(e){}
+  if(stored==="light"||stored==="dark"){setTheme(stored,false);}
+  else if(window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches){setTheme("dark",false);}
+  else{setTheme("light",false);}
+}catch(e){}
+
+/* ---------- svg helpers ---------- */
+function el(tag,cls,attrs){
+  var n=document.createElement(tag);
+  if(cls)n.className=cls;
+  if(attrs)for(var k in attrs)n.setAttribute(k,attrs[k]);
+  return n;
+}
+function svgEl(tag,attrs,cls){
+  var n=document.createElementNS(SVGNS,tag);
+  if(cls)n.setAttribute("class",cls);
+  if(attrs)for(var k in attrs)n.setAttribute(k,attrs[k]);
+  return n;
+}
+function buildPattern(kind){
+  var svg=document.createElementNS(SVGNS,"svg");
+  svg.setAttribute("class","ns-pattern");
+  svg.setAttribute("viewBox","0 0 220 160");
+  svg.setAttribute("fill","none");
+  svg.setAttribute("aria-hidden","true");
+  var i, p;
+  if(kind==="grid"){
+    var xs=[30,60,90,120,150,180,210], ys=[20,50,80,110,140];
+    for(i=0;i<xs.length;i++){p=svgEl("path",{d:"M"+xs[i]+" 0v160"});svg.appendChild(p);}
+    for(i=0;i<ys.length;i++){p=svgEl("path",{d:"M0 "+ys[i]+"h220"});svg.appendChild(p);}
+    svg.appendChild(svgEl("rect",{x:"150",y:"50",width:"30",height:"30"},"ns-fill"));
+    svg.appendChild(svgEl("circle",{cx:"180",cy:"50",r:"3.5"},"ns-dot"));
+  }else if(kind==="rays"){
+    for(i=0;i<8;i++){
+      var a=i*Math.PI/16;
+      var x2=210-Math.cos(a)*230, y2=6+Math.sin(a)*230;
+      svg.appendChild(svgEl("path",{d:"M210 6 L"+x2.toFixed(1)+" "+y2.toFixed(1)}));
+    }
+    svg.appendChild(svgEl("path",{d:"M120 6a90 90 0 0 0 90 90"}));
+    svg.appendChild(svgEl("circle",{cx:"146",cy:"70",r:"3.5"},"ns-dot"));
+  }else{
+    var rs=[46,86,128];
+    for(i=0;i<rs.length;i++)svg.appendChild(svgEl("circle",{cx:"190",cy:"10",r:String(rs[i])}));
+    var lines=["M60 160 220 0","M0 58h220","M150 0v160"];
+    for(i=0;i<lines.length;i++)svg.appendChild(svgEl("path",{d:lines[i]}));
+    svg.appendChild(svgEl("circle",{cx:"150",cy:"58",r:"3.5"},"ns-dot"));
+  }
+  return svg;
+}
+function closeIcon(){
+  var svg=document.createElementNS(SVGNS,"svg");
+  svg.setAttribute("viewBox","0 0 16 16");
+  svg.setAttribute("width","16");svg.setAttribute("height","16");
+  svg.setAttribute("fill","none");svg.setAttribute("stroke","currentColor");
+  svg.setAttribute("stroke-width","1.4");svg.setAttribute("stroke-linecap","round");
+  svg.setAttribute("aria-hidden","true");
+  var p=document.createElementNS(SVGNS,"path");
+  p.setAttribute("d","m4 4 8 8M12 4l-8 8");
+  svg.appendChild(p);
+  return svg;
+}
+function externalIcon(){
+  var svg=document.createElementNS(SVGNS,"svg");
+  svg.setAttribute("viewBox","0 0 16 16");
+  svg.setAttribute("width","14");svg.setAttribute("height","14");
+  svg.setAttribute("fill","none");svg.setAttribute("stroke","currentColor");
+  svg.setAttribute("stroke-width","1.4");svg.setAttribute("stroke-linecap","round");
+  svg.setAttribute("stroke-linejoin","round");svg.setAttribute("aria-hidden","true");
+  var p=document.createElementNS(SVGNS,"path");
+  p.setAttribute("d","M5 11 11 5M6 5h5v5");
+  svg.appendChild(p);
+  return svg;
+}
+
+/* ---------- build DOM once ---------- */
+function findNotice(id){
+  for(var i=0;i<NOTICES.length;i++)if(NOTICES[i].id===id)return NOTICES[i];
+  return null;
+}
+function measure(id,node){
+  var h=0;
+  try{
+    if(node.scrollHeight&&node.clientHeight&&node.offsetHeight){
+      h=node.scrollHeight+node.offsetHeight-node.clientHeight;
+    }else if(node.offsetHeight){h=node.offsetHeight;}
+    else if(node.getBoundingClientRect){h=Math.round(node.getBoundingClientRect().height)||0;}
+  }catch(e){}
+  if(!h)h=212;
+  heights[id]=h;
+}
+NOTICES.forEach(function(n){
+  var card=el("article","ns-card");
+  card.setAttribute("aria-labelledby",n.id+"-title");
+  card.appendChild(buildPattern(n.pattern||"orbit"));
+  var body=el("div","ns-body");
+  var top=el("div","ns-top");
+  if(n.badge){
+    var b=el("span","ns-badge");b.setAttribute("dir","auto");b.setAttribute("title",n.badge);
+    b.textContent=n.badge;top.appendChild(b);
+  }else{top.appendChild(el("span",""));}
+  var close=el("button","ns-close",{type:"button","aria-label":"Dismiss "+n.title});
+  close.appendChild(closeIcon());
+  close.addEventListener("click",function(ev){ev.stopPropagation();dismiss(n.id);});
+  top.appendChild(close);
+  body.appendChild(top);
+  var h3=el("h3","ns-title",{id:n.id+"-title",dir:"auto"});
+  h3.textContent=n.title;body.appendChild(h3);
+  var p=el("p","ns-text",{dir:"auto"});p.textContent=n.text;body.appendChild(p);
+  var actionBtn=null;
+  if(n.action){
+    if(n.action.href){
+      actionBtn=el("a","ns-btn",{dir:"auto",href:n.action.href});
+      if(n.action.external){actionBtn.setAttribute("target","_blank");actionBtn.setAttribute("rel","noreferrer");}
+      var lab=document.createElement("span");lab.textContent=n.action.label;
+      actionBtn.appendChild(lab);
+      if(n.action.external)actionBtn.appendChild(externalIcon());
+      (function(notice){
+        actionBtn.addEventListener("click",function(ev){
+          if(actionBtn.getAttribute("href")==="#")ev.preventDefault();
+          liveNote.textContent="Opening status\u2026";
+        });
+      })(n);
+    }else{
+      actionBtn=el("button","ns-btn",{type:"button",dir:"auto"});
+      var lab2=document.createElement("span");lab2.textContent=n.action.label;
+      actionBtn.appendChild(lab2);
+      (function(notice,btn,labelNode){
+        btn.addEventListener("click",function(){
+          if(notice.id==="dark-mode"){setTheme(currentTheme()==="dark"?"light":"dark",true);liveNote.textContent="Theme switched. Dismiss to continue.";}
+          else if(notice.id==="invite"){labelNode.textContent="Accepted \u2713";btn.setAttribute("disabled","");btn.setAttribute("aria-disabled","true");liveNote.textContent="Invite accepted.";}
+          else{liveNote.textContent=notice.action.label+" activated.";}
+        });
+      })(n,actionBtn,lab2);
+    }
+    body.appendChild(actionBtn);
+  }
+  card.appendChild(body);
+  card._refs={close:close,title:h3,text:p,action:actionBtn,body:body};
+  stack.appendChild(card);
+  cards.push({id:n.id,node:card});
+  order.push(n.id);
+  visibleIds.push(n.id);
+  measure(n.id,card);
+});
+visibleIds=order.slice();
+if(window.ResizeObserver){
+  try{
+    var ro=new ResizeObserver(function(){
+      cards.forEach(function(c){measure(c.id,c.node);});
+      layout();
+    });
+    cards.forEach(function(c){ro.observe(c.node);});
+  }catch(e){}
+}
+window.addEventListener("resize",layout);
+
+/* ---------- in-place layout ---------- */
+function frontHeight(){
+  if(!visibleIds.length)return 0;
+  var id=visibleIds[0];
+  return heights[id]||212;
+}
+function layout(){
+  var C=frontHeight();
+  var peekCount=Math.min(Math.max(visibleIds.length-1,0),2);
+  stack.style.height=visibleIds.length?(C+peekCount*PEEK)+"px":"0px";
+  var pos={};
+  visibleIds.forEach(function(id,idx){pos[id]=idx;});
+  cards.forEach(function(c){
+    var node=c.node, id=c.id;
+    var idx=pos.hasOwnProperty(id)?pos[id]:-1;
+    var isLeaving=!!leaving[id];
+    var depth=isLeaving?-1:idx;
+    if(idx===-1&&!isLeaving){
+      node.classList.add("is-gone");
+      node.setAttribute("aria-hidden","true");
+      node.setAttribute("inert","");
+      node.removeAttribute("data-depth");
+      node.removeAttribute("data-leaving");
+      node.style.zIndex="0";
+      node.style.opacity="0";
+      node.style.transform="translateY(0px) scale(1)";
+      return;
+    }
+    node.classList.remove("is-gone");
+    if(isLeaving){
+      node.setAttribute("data-leaving","");
+      node.removeAttribute("data-depth");
+      node.setAttribute("inert","");
+      node.removeAttribute("aria-hidden");
+      node.style.zIndex="10";
+      return;
+    }
+    node.removeAttribute("data-leaving");
+    node.setAttribute("data-depth",String(idx));
+    if(idx===0){
+      node.removeAttribute("aria-hidden");
+      node.removeAttribute("inert");
+      node.style.zIndex="10";
+      node.style.transform="translateY(0px) scale(1)";
+      node.style.opacity="";
+      node.style.maxHeight="";
+    }else{
+      var step=Math.min(idx,2);
+      var base=heights[id]||C||212;
+      var y=C-Math.min(base,C)+step*PEEK;
+      var s=1-step*0.05;
+      node.style.zIndex=String(10-idx);
+      node.style.transform="translateY("+y+"px) scale("+s+")";
+      node.style.opacity=idx>2?"0":"";
+      node.style.maxHeight=C?C+"px":"";
+      node.setAttribute("aria-hidden","true");
+      node.setAttribute("inert","");
+    }
+  });
+  var remaining=visibleIds.length;
+  countPill.textContent=remaining+" of "+NOTICES.length;
+  if(!remaining){emptyState.hidden=false;}
+  else{emptyState.hidden=true;}
+}
+
+/* ---------- dismiss + replay, all in place ---------- */
+function dismiss(id){
+  if(!id||leaving[id])return;
+  if(visibleIds.indexOf(id)===-1)return;
+  if(id!==visibleIds[0])return; /* only the front card dismisses */
+  var n=findNotice(id);
+  leaving[id]=true;
+  layout();
+  liveNote.textContent="Dismissed \u201C"+(n?n.title:id)+"\u201D.";
+  var delay=reduceMotion?0:LEAVE_MS;
+  window.setTimeout(function(){
+    delete leaving[id];
+    visibleIds=visibleIds.filter(function(v){return v!==id;});
+    layout();
+    if(!visibleIds.length) scheduleReplay();
+    else{
+      var next=findNotice(visibleIds[0]);
+      if(next){
+        try{
+          var ref=null;
+          cards.forEach(function(c){if(c.id===next.id)ref=c.node._refs.close;});
+          if(ref&&ref.focus)ref.focus({preventScroll:true});
+        }catch(e){}
+      }
+    }
+  },delay);
+}
+function resetActionLabels(){
+  cards.forEach(function(c){
+    var n=findNotice(c.id);
+    var btn=c.node._refs.action;
+    if(!btn||!n||!n.action)return;
+    if(n.id==="invite"){
+      var span=btn.querySelector("span");
+      if(span)span.textContent=n.action.label;
+      btn.removeAttribute("disabled");
+      btn.removeAttribute("aria-disabled");
+    }
+  });
+}
+function scheduleReplay(){
+  if(replayTimer)return;
+  replayTimer=window.setTimeout(function(){
+    replayTimer=null;
+    visibleIds=order.slice();
+    resetActionLabels();
+    liveNote.textContent="Stack replayed.";
+    layout();
+  },REPLAY_MS);
+}
+restoreBtn.addEventListener("click",function(){
+  if(replayTimer){window.clearTimeout(replayTimer);replayTimer=null;}
+  visibleIds=order.slice();
+  resetActionLabels();
+  liveNote.textContent="Stack replayed.";
+  layout();
+});
+document.addEventListener("keydown",function(e){
+  if(e.key==="Escape"&&visibleIds.length){dismiss(visibleIds[0]);}
+});
+layout();
+window.__ns={dismiss:dismiss,layout:layout,cards:cards,get visible(){return visibleIds.slice();},setTheme:setTheme};
+})();
+</script>
+</body>
+</html>

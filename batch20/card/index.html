@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<style>html{background:#fafaf9}html[data-theme="dark"]{background:#101012}</style>
+<script>/*noflash*/(function(){try{var k="affect-card-theme";var t=null;try{t=localStorage.getItem(k)}catch(e){}if(!t){try{t=(window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches)?"dark":"light"}catch(e){t="light"}}if(t!=="light"&&t!=="dark")t="light";document.documentElement.setAttribute("data-theme",t)}catch(e){}})();</script>
+<title>Card — Support triage</title>
+<style>
+/* Design tokens: every colour flows through custom properties. */
+:root{color-scheme:light dark}
+html[data-theme="light"]{
+  --page:#fafaf9; --surface:#ffffff; --ink:#171717; --ink-strong:#1c1917;
+  --muted:#78716c; --subtle:#f5f5f4; --border:#e7e5e4; --border-strong:#d6d3d1;
+  --tray:#f0f0f0; --tray-selected:#e6e6e6;
+  --card-ink:#404040; --card-strong:#171717; --card-muted:#6b6b6b; --card-faint:#8f8f8f;
+  --card-line:#ececec; --card-line-strong:#d9d9d9;
+  --focus:rgba(0,96,226,.7);
+  --shadow-card:0 0 0 1px var(--card-line),0 1px 2px rgba(0,0,0,.04);
+  --shadow-hover:0 0 0 1px var(--card-line-strong),0 2px 6px -1px rgba(0,0,0,.08);
+  --shadow-page:0 1px 2px rgba(0,0,0,.05),0 4px 16px rgba(0,0,0,.05);
+  --radius-lg:16px; --radius:10px; --radius-sm:6px;
+  --img-outline:rgba(0,0,0,.1);
+}
+html[data-theme="dark"]{
+  --page:#101012; --surface:#1c1c1f; --ink:#ededed; --ink-strong:#ededed;
+  --muted:#a1a1aa; --subtle:#26262a; --border:#2e2e33; --border-strong:#3a3a40;
+  --tray:#111113; --tray-selected:#26262a;
+  --card-ink:#c8c8cc; --card-strong:#ededed; --card-muted:#a1a1a6; --card-faint:#8b8b92;
+  --card-line:#2a2a2e; --card-line-strong:#3a3a40;
+  --focus:rgba(77,141,255,.8);
+  --shadow-card:0 0 0 1px var(--card-line);
+  --shadow-hover:0 0 0 1px var(--card-line-strong),0 2px 6px rgba(0,0,0,.4);
+  --shadow-page:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+  --radius-lg:16px; --radius:10px; --radius-sm:6px;
+  --img-outline:rgba(255,255,255,.1);
+}
+html{-webkit-tap-highlight-color:transparent}
+*,*::before,*::after{box-sizing:border-box}
+body{
+  margin:0; background:var(--page); color:var(--ink);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:14px; line-height:1.5; font-variant-numeric:tabular-nums;
+  -webkit-font-smoothing:antialiased;
+}
+.page{max-width:640px; margin:0 auto; padding:28px 20px 48px}
+.page-head{display:flex; align-items:center; gap:12px; margin-bottom:20px}
+.page-head .titles{flex:1; min-width:0}
+.page-head h1{margin:0; font-size:16px; font-weight:600; letter-spacing:-.01em; color:var(--ink-strong); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.page-head p{margin:2px 0 0; font-size:13px; color:var(--muted)}
+.theme-btn{
+  flex:none; display:inline-flex; align-items:center; gap:8px; height:32px; padding:4px 12px 4px 10px;
+  border:1px solid var(--border); border-radius:999px; background:var(--surface); color:var(--ink);
+  font:inherit; font-size:13px; cursor:pointer; transition:background 160ms ease,border-color 160ms ease;
+}
+.theme-btn .glyph{width:16px; height:16px; flex:none}
+.demo{display:grid; gap:16px}
+.demo-label{font-size:12px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); margin:8px 2px -8px}
+.mode-list{list-style:none; margin:0; padding:0; display:grid; gap:12px}
+/* Card: tray (outer) + white sheet (inner). Concentric radius: outer 20px = inner 16px + 4px inset. */
+.card{
+  position:relative; display:flex; flex-direction:column; margin:0; padding:4px; min-width:0;
+  border-radius:calc(var(--radius-lg) + 4px); background:var(--tray); color:var(--card-ink);
+  font-size:13px; line-height:20px; transition:background-color 160ms ease;
+}
+.card-sheet{
+  display:flex; flex-direction:column; gap:12px; min-width:0; padding:16px;
+  border-radius:var(--radius-lg); background:var(--surface); box-shadow:var(--shadow-card);
+  transition:box-shadow 160ms ease;
+}
+.card-head{display:flex; align-items:flex-start; gap:12px; min-width:0}
+.card-icon{flex:none; display:flex; align-items:center; justify-content:center; min-width:20px; min-height:20px; color:var(--card-muted)}
+.card-titles{flex:1; display:grid; gap:2px; min-width:0}
+.card-title{margin:0; font-size:14px; line-height:20px; font-weight:500; letter-spacing:-.01em; color:var(--card-strong); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.card-title a,.card-title button{margin:0; padding:0; border:0; background:none; font:inherit; color:inherit; text-align:inherit; cursor:pointer}
+.card-desc{margin:0; font-size:13px; line-height:20px; color:var(--card-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.card-action{flex:none; display:flex; align-items:center; gap:4px; height:20px}
+.card-body{min-width:0}
+.card-foot{
+  display:flex; flex-wrap:wrap; align-items:center; gap:8px; min-width:0; min-height:40px;
+  padding:4px 2px 0 16px; font-size:12.5px; line-height:18px; color:var(--card-faint);
+}
+.card-foot:only-child{padding-top:0}
+.card-foot .spacer{flex:1}
+.stats{margin:0; display:grid; grid-template-columns:repeat(3,1fr); gap:12px}
+.stats div{min-width:0}
+.stats dt{font-size:12px; line-height:18px; color:var(--card-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.stats dd{margin:2px 0 0; font-size:14px; font-weight:600; color:var(--card-strong); font-variant-numeric:tabular-nums; white-space:nowrap}
+.state-dot{display:inline-block; width:7px; height:7px; border-radius:999px; background:#22c55e; margin-right:7px; vertical-align:1px}
+/* Pixel-mark identity tile: deterministic 3x3 per id, busy ones twinkle. */
+.tile{width:28px; height:28px; border-radius:8px; background:var(--subtle); display:flex; align-items:center; justify-content:center}
+.mark{display:grid; grid-template-columns:repeat(3,5px); grid-auto-rows:5px; gap:1.5px}
+.mark i{width:5px; height:5px; border-radius:1.5px; background:transparent}
+.mark i[data-on]{background:var(--mark-c,#0ea5e9)}
+.mark[data-busy] i[data-on]{animation:tw 1.6s ease-in-out infinite}
+@keyframes tw{0%,100%{opacity:1}50%{opacity:.35}}
+.icon-btn{
+  display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px;
+  margin:-6px -4px -6px 0; border:1px solid transparent; border-radius:8px; background:transparent; color:var(--card-muted);
+  cursor:pointer; transition:background 160ms ease,color 160ms ease;
+}
+.icon-btn svg{display:block; width:16px; height:16px}
+.btn{
+  display:inline-flex; align-items:center; height:32px; padding:4px 14px 4px 12px;
+  border:1px solid var(--border); border-radius:999px; background:var(--surface); color:var(--ink);
+  font:inherit; font-size:13px; font-weight:500; cursor:pointer; transition:background 160ms ease,border-color 160ms ease;
+}
+.btn-primary{background:var(--ink-strong); border-color:transparent; color:var(--page)}
+.menu{
+  position:absolute; top:44px; right:12px; z-index:5; min-width:150px; padding:4px;
+  border:1px solid var(--border); border-radius:var(--radius); background:var(--surface); box-shadow:var(--shadow-page);
+}
+.menu[hidden]{display:none}
+.menu button{display:flex; width:100%; text-align:left; border:0; background:none; color:var(--ink); font:inherit; font-size:13px; padding:8px 10px; border-radius:6px; cursor:pointer}
+.detail{
+  border-top:1px solid var(--border); padding-top:12px; font-size:13px; color:var(--muted);
+}
+.detail[hidden]{display:none}
+.selected-note{font-size:13px; color:var(--muted)}
+.selected-note strong{color:var(--ink-strong); font-weight:600}
+/* Interactive: whole tray is the click target via stretched title control. */
+.card[data-interactive]{cursor:pointer}
+.card[data-interactive] .card-title a::after,.card[data-interactive] .card-title button::after{
+  content:""; position:absolute; inset:0; z-index:0; border-radius:calc(var(--radius-lg) + 4px);
+}
+.card[data-interactive] :is(a,button,input,select,textarea,label,summary,[tabindex]):not(.card-title *){
+  position:relative; z-index:1;
+}
+.card[data-interactive] .card-title :is(a,button):focus-visible{outline:none}
+.card[data-interactive] .card-title :is(a,button):focus-visible::after{outline:2px solid var(--focus); outline-offset:2px}
+/* Selected: darker tray + firmer edge, no coloured ring. */
+.card[data-selected]{background:var(--tray-selected)}
+.card[data-selected] .card-sheet{box-shadow:0 0 0 1px var(--card-line-strong),0 1px 2px rgba(0,0,0,.04)}
+.card:focus-visible{outline:2px solid var(--focus); outline-offset:2px}
+.icon-btn:focus-visible,.btn:focus-visible,.theme-btn:focus-visible,.menu button:focus-visible{outline:2px solid var(--focus); outline-offset:2px}
+/* Content images: structural hairline in neutral black/white, never tinted. */
+.card img{box-shadow:inset 0 0 0 1px var(--img-outline); border-radius:8px; max-width:100%}
+@media (hover:hover) and (pointer:fine){
+  .card[data-interactive]:hover .card-sheet{box-shadow:var(--shadow-hover)}
+  .icon-btn:hover{background:var(--subtle); color:var(--ink)}
+  .btn:hover{border-color:var(--border-strong)}
+  .btn-primary:hover{opacity:.92}
+  .theme-btn:hover{border-color:var(--border-strong)}
+  .menu button:hover{background:var(--subtle)}
+}
+@media (max-width:560px){
+  .page{padding:20px 14px 40px}
+  .stats{grid-template-columns:1fr; gap:8px}
+  .card-foot{padding-left:16px; padding-bottom:6px}
+}
+@media (prefers-reduced-motion:reduce){
+  .card,.card-sheet,.icon-btn,.btn,.theme-btn{transition:none}
+  .mark[data-busy] i[data-on]{animation:none}
+}
+@media (forced-colors:active){
+  .card-sheet{border:1px solid CanvasText}
+  .card[data-selected]{outline:2px solid Highlight}
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="page-head">
+    <div class="titles">
+      <h1>Card</h1>
+      <p>Basic screen card with header, content, footer, selection, and click target.</p>
+    </div>
+    <button class="theme-btn" id="theme-toggle" type="button" aria-label="Switch to dark theme">
+      <svg class="glyph" id="theme-glyph" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="3.2" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.5v1.6M8 12.9v1.6M1.5 8h1.6M12.9 8h1.6M3.4 3.4l1.1 1.1M11.5 11.5l1.1 1.1M12.6 3.4l-1.1 1.1M4.5 11.5l-1.1 1.1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      <span id="theme-label">Light</span>
+    </button>
+  </header>
+
+  <main class="demo" id="demo">
+    <section class="card" id="main-card" aria-label="Support triage">
+      <div class="card-sheet">
+        <div class="card-head">
+          <span class="card-icon" aria-hidden="true"><span class="tile"><span class="mark" id="main-mark" data-busy="" role="presentation"></span></span></span>
+          <div class="card-titles">
+            <h3 class="card-title">Support triage</h3>
+            <p class="card-desc">Sorts new tickets and drafts the first reply</p>
+          </div>
+          <div class="card-action">
+            <button class="icon-btn" id="more-btn" type="button" aria-label="More for Support triage" aria-expanded="false" aria-controls="more-menu">
+              <svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="3" cy="8" r="1.2" fill="currentColor"/><circle cx="8" cy="8" r="1.2" fill="currentColor"/><circle cx="13" cy="8" r="1.2" fill="currentColor"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="menu" id="more-menu" hidden>
+          <button type="button" id="menu-rename">Rename card</button>
+          <button type="button" id="menu-archive">Archive card</button>
+        </div>
+        <div class="card-body">
+          <dl class="stats">
+            <div><dt>Tickets</dt><dd id="stat-tickets">142</dd></div>
+            <div><dt>Resolved</dt><dd id="stat-resolved">96%</dd></div>
+            <div><dt>Spent today</dt><dd id="stat-spent">$4.20</dd></div>
+          </dl>
+          <div class="detail" id="open-detail" hidden>Queue is healthy. 4 tickets need a human review before the draft is sent. Drafts stay unsent until you approve them.</div>
+        </div>
+      </div>
+      <div class="card-foot">
+        <span id="state-line"><span class="state-dot" aria-hidden="true"></span><span id="state-text">Running · started 2 min ago</span></span>
+        <span class="spacer"></span>
+        <button class="btn" id="open-btn" type="button" aria-expanded="false" aria-controls="open-detail">Open</button>
+      </div>
+    </section>
+
+    <div class="demo-label" id="crd-demo-mode">Replies</div>
+    <ul class="mode-list" id="mode-list" aria-labelledby="crd-demo-mode">
+      <li class="card mode-card" id="mode-draft" data-interactive="" data-selected="">
+        <div class="card-sheet">
+          <div class="card-head">
+            <div class="card-titles">
+              <p class="card-title"><button type="button" class="mode-btn" id="btn-draft" aria-pressed="true">Draft only</button></p>
+              <p class="card-desc">You send every reply</p>
+            </div>
+          </div>
+        </div>
+      </li>
+      <li class="card mode-card" id="mode-send" data-interactive="">
+        <div class="card-sheet">
+          <div class="card-head">
+            <div class="card-titles">
+              <p class="card-title"><button type="button" class="mode-btn" id="btn-send" aria-pressed="false">Send for me</button></p>
+              <p class="card-desc">Asks before refunds</p>
+            </div>
+          </div>
+        </div>
+      </li>
+    </ul>
+    <p class="selected-note" id="selected-note">Selected: <strong id="selected-name">Draft only</strong> — <span id="selected-hint">You send every reply</span></p>
+  </main>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var THEME_KEY = "affect-card-theme";
+  var root = document.documentElement;
+
+  function currentTheme(){ return root.getAttribute("data-theme") === "dark" ? "dark" : "light"; }
+  var toggleBtn = document.getElementById("theme-toggle");
+  var toggleLabel = document.getElementById("theme-label");
+
+  function paintThemeButton(){
+    var t = currentTheme();
+    toggleLabel.textContent = t === "dark" ? "Dark" : "Light";
+    toggleBtn.setAttribute("aria-label", t === "dark" ? "Switch to light theme" : "Switch to dark theme");
+  }
+  function setTheme(t){
+    if(t !== "dark") t = "light";
+    root.setAttribute("data-theme", t);
+    try{ localStorage.setItem(THEME_KEY, t); }catch(e){}
+    paintThemeButton();
+  }
+  if(toggleBtn){
+    toggleBtn.addEventListener("click", function(){ setTheme(currentTheme() === "dark" ? "light" : "dark"); });
+  }
+  paintThemeButton();
+
+  /* Deterministic 3x3 identity mark (own hash, mirrored columns, >=5 cells on). */
+  function patternFor(id){
+    var h = 0;
+    for(var i = 0; i < id.length; i++){ h = ((h * 31) + id.charCodeAt(i)) >>> 0; }
+    var seed = h || 1;
+    function rnd(){ seed = (seed * 1103515245 + 12345) >>> 0; return (seed >>> 16) / 65536; }
+    var guard = 0;
+    while(guard++ < 64){
+      var left = [];
+      for(var k = 0; k < 6; k++){ left.push(rnd() > 0.45 ? 1 : 0); }
+      /* 3 rows x left(2 cols); right col mirrors left col for optical balance. */
+      var cells = [];
+      for(var r = 0; r < 3; r++){ cells.push(left[r*2], left[r*2+1], left[r*2]); }
+      var on = 0;
+      for(var j = 0; j < cells.length; j++){ if(cells[j]) on++; }
+      if(on >= 5) return cells;
+    }
+    return [1,0,1,0,1,0,1,0,1];
+  }
+  var markDelays = [0,140,280,140,280,420,280,420,560];
+  var markColors = ["#0ea5e9","#8b5cf6","#22c55e","#f59e0b","#ec4899"];
+  function paintMark(el, id, busy){
+    if(!el) return;
+    var cells = patternFor(id);
+    var h = 0;
+    for(var i = 0; i < id.length; i++){ h = ((h * 31) + id.charCodeAt(i)) >>> 0; }
+    el.style.setProperty("--mark-c", markColors[h % markColors.length]);
+    var kids = el.children;
+    /* Build the 9 cells once at init; later ticks never rebuild. */
+    while(kids.length < 9){
+      var dot = document.createElement("i");
+      el.appendChild(dot);
+    }
+    for(var j = 0; j < 9; j++){
+      if(cells[j]){ kids[j].setAttribute("data-on",""); }
+      else{ kids[j].removeAttribute("data-on"); }
+      kids[j].style.animationDelay = markDelays[j] + "ms";
+    }
+    if(busy){ el.setAttribute("data-busy",""); } else { el.removeAttribute("data-busy"); }
+  }
+  paintMark(document.getElementById("main-mark"), "support-triage", true);
+
+  /* Selection: update in place, never rebuild nodes. */
+  var MODES = [
+    { id: "draft", cardId: "mode-draft", btnId: "btn-draft", title: "Draft only", text: "You send every reply" },
+    { id: "send", cardId: "mode-send", btnId: "btn-send", title: "Send for me", text: "Asks before refunds" }
+  ];
+  var selectedId = "draft";
+  var nameEl = document.getElementById("selected-name");
+  var hintEl = document.getElementById("selected-hint");
+
+  function applySelection(){
+    for(var i = 0; i < MODES.length; i++){
+      var m = MODES[i];
+      var card = document.getElementById(m.cardId);
+      var btn = document.getElementById(m.btnId);
+      var on = (m.id === selectedId);
+      if(on){ card.setAttribute("data-selected",""); } else { card.removeAttribute("data-selected"); }
+      btn.setAttribute("aria-pressed", on ? "true" : "false");
+      if(on){
+        nameEl.textContent = m.title;
+        hintEl.textContent = m.text;
+      }
+    }
+  }
+  function select(id){
+    if(id !== "draft" && id !== "send") return;
+    if(selectedId === id) return;
+    selectedId = id;
+    applySelection();
+  }
+  for(var s = 0; s < MODES.length; s++){
+    (function(m){
+      var card = document.getElementById(m.cardId);
+      var btn = document.getElementById(m.btnId);
+      btn.addEventListener("click", function(ev){ ev.stopPropagation(); select(m.id); });
+      card.addEventListener("click", function(){ select(m.id); });
+      card.addEventListener("keydown", function(ev){
+        if(ev.key === "Enter" || ev.key === " "){ ev.preventDefault(); select(m.id); }
+      });
+    })(MODES[s]);
+  }
+
+  /* Footer live timer: in-place text updates only. */
+  var stateText = document.getElementById("state-text");
+  var baseSec = 2 * 60;
+  var elapsed = 0;
+  function fmt(sec){
+    var total = baseSec + sec;
+    var mm = Math.floor(total / 60);
+    var ss = total % 60;
+    if(sec === 0) return "Running · started 2 min ago";
+    var s2 = ss < 10 ? "0" + ss : "" + ss;
+    return "Running · " + mm + "m " + s2 + "s";
+  }
+  function tick(){
+    elapsed += 1;
+    if(elapsed >= 3600) elapsed = 0; /* loop restarts in place, nodes untouched */
+    stateText.textContent = fmt(elapsed);
+  }
+  var timer = null;
+  try{ timer = setInterval(tick, 1000); }catch(e){ timer = null; }
+
+  /* Footer Open button: toggles the detail row in place. */
+  var openBtn = document.getElementById("open-btn");
+  var detail = document.getElementById("open-detail");
+  openBtn.addEventListener("click", function(ev){
+    ev.stopPropagation();
+    var isHidden = detail.hasAttribute("hidden");
+    if(isHidden){ detail.removeAttribute("hidden"); }
+    else{ detail.setAttribute("hidden",""); }
+    openBtn.setAttribute("aria-expanded", isHidden ? "true" : "false");
+    openBtn.textContent = isHidden ? "Close" : "Open";
+  });
+
+  /* Header More button: toggles a small menu in place. */
+  var moreBtn = document.getElementById("more-btn");
+  var menu = document.getElementById("more-menu");
+  moreBtn.addEventListener("click", function(ev){
+    ev.stopPropagation();
+    var isHidden = menu.hasAttribute("hidden");
+    if(isHidden){ menu.removeAttribute("hidden"); }
+    else{ menu.setAttribute("hidden",""); }
+    moreBtn.setAttribute("aria-expanded", isHidden ? "true" : "false");
+  });
+  document.addEventListener("click", function(){
+    if(!menu.hasAttribute("hidden")){
+      menu.setAttribute("hidden","");
+      moreBtn.setAttribute("aria-expanded","false");
+    }
+  });
+  var rename = document.getElementById("menu-rename");
+  var archive = document.getElementById("menu-archive");
+  function flashMenu(msg){
+    stateText.textContent = msg;
+  }
+  rename.addEventListener("click", function(ev){ ev.stopPropagation(); menu.setAttribute("hidden",""); moreBtn.setAttribute("aria-expanded","false"); flashMenu("Renamed · " + fmt(elapsed)); });
+  archive.addEventListener("click", function(ev){ ev.stopPropagation(); menu.setAttribute("hidden",""); moreBtn.setAttribute("aria-expanded","false"); flashMenu("Archived · " + fmt(elapsed)); });
+
+  /* Test hooks: harness drives tick() and inspects live nodes without rebuilds. */
+  try{
+    window.__demo = {
+      tick: tick,
+      select: select,
+      selectedId: function(){ return selectedId; },
+      loopLength: 3600
+    };
+  }catch(e){}
+})();
+</script>
+</body>
+</html>

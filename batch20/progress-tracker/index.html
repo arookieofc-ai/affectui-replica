@@ -1,0 +1,537 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<script>/*noflash*/(function(){try{var k="progress-tracker-theme";var s=localStorage.getItem(k);if(s==="light"||s==="dark"){document.documentElement.setAttribute("data-theme",s);}else if(window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches){document.documentElement.setAttribute("data-theme","dark");}else{document.documentElement.setAttribute("data-theme","light");}}catch(e){try{if(window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches){document.documentElement.setAttribute("data-theme","dark");}}catch(_){}}})();</script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Progress Tracker — affectUI replica</title>
+<style>html{background:#fafaf9}html[data-theme="dark"]{background:#101012}</style>
+<style>
+:root{
+  --page:#fafaf9;
+  --surface:#ffffff;
+  --ink:#171717;
+  --ink-2:#1c1917;
+  --muted:#78716c;
+  --subtle:#f5f5f4;
+  --border:#e7e5e4;
+  --radius-lg:16px;
+  --radius:10px;
+  --radius-sm:6px;
+  --shadow:0 1px 2px rgba(0,0,0,.05),0 4px 16px rgba(0,0,0,.05);
+  --focus:rgba(0,96,226,.7);
+  --track:#efedec;
+  --hover:#f5f5f4;
+  --ease:cubic-bezier(.22,1,.36,1);
+  --pop:cubic-bezier(.34,1.56,.64,1);
+  --tick:#ffffff;
+}
+html[data-theme="dark"]{
+  --page:#101012;
+  --surface:#1c1c1f;
+  --ink:#ededed;
+  --ink-2:#ededed;
+  --muted:#a1a1aa;
+  --subtle:#26262a;
+  --border:#2e2e33;
+  --shadow:0 1px 2px rgba(0,0,0,.5),0 8px 24px rgba(0,0,0,.35);
+  --focus:rgba(77,141,255,.8);
+  --track:rgba(255,255,255,.1);
+  --hover:#26262a;
+  --tick:#121213;
+}
+html{-webkit-tap-highlight-color:transparent}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:var(--page);
+  color:var(--ink);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:14px;
+  line-height:1.5;
+  font-variant-numeric:tabular-nums;
+  min-height:100vh;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  transition:background-color 180ms ease,color 180ms ease;
+}
+.topbar{
+  width:100%;
+  max-width:560px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:18px 20px 6px;
+}
+.brand{font-size:12px;color:var(--muted);letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brand strong{color:var(--ink);font-weight:600}
+.theme-btn{
+  flex:none;
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:7px 12px 7px 10px;
+  border-radius:999px;
+  border:1px solid var(--border);
+  background:var(--surface);
+  color:var(--ink);
+  font:inherit;
+  font-size:13px;
+  cursor:pointer;
+  box-shadow:var(--shadow);
+  transition:transform 150ms ease,background-color 160ms ease,border-color 160ms ease;
+}
+.theme-btn .glyph{width:16px;height:16px;flex:none;display:grid;place-items:center}
+.wrap{
+  width:100%;
+  max-width:560px;
+  padding:18px 20px 40px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:14px;
+}
+/* card: outer radius = inner step radius (12px) + side padding (16px) -> ~20px ; layered shadow for elevation */
+.pg{
+  width:100%;
+  max-width:360px;
+  padding:22px 16px 14px;
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:20px;
+  box-shadow:var(--shadow),0 8px 24px rgba(0,0,0,.035);
+  color:var(--ink);
+  -webkit-font-smoothing:antialiased;
+  animation:pg-in 520ms var(--ease) both;
+}
+.pg-head{
+  display:flex;
+  align-items:baseline;
+  justify-content:space-between;
+  gap:12px;
+  padding:0 6px;
+}
+.pg-title{
+  margin:0;
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  font-size:16px;
+  font-weight:600;
+  letter-spacing:-.01em;
+}
+.pg-count{font-size:14px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.pg-digit{display:inline-block;animation:pg-roll 560ms var(--ease)}
+.pg-digit.reroll{animation:none}
+.pg-bar{
+  position:relative;
+  height:8px;
+  margin:16px 6px 12px;
+  border-radius:999px;
+  background:var(--track);
+  overflow:hidden;
+}
+.pg-fill{
+  position:absolute;
+  inset:0;
+  border-radius:inherit;
+  background:var(--ink);
+  transform-origin:0 50%;
+  transform:scaleX(0);
+  overflow:hidden;
+  transition:transform 1100ms var(--ease);
+}
+.pg-shine{
+  position:absolute;
+  inset:0;
+  background:linear-gradient(90deg,transparent 30%,rgba(255,255,255,.28) 50%,transparent 70%) 0 0/220% 100% no-repeat;
+  animation:pg-shine 1400ms ease-out both;
+}
+html[data-theme="dark"] .pg-shine{
+  background-image:linear-gradient(90deg,transparent 30%,rgba(255,255,255,.7) 50%,transparent 70%);
+}
+.pg-list{
+  display:grid;
+  grid-template-columns:minmax(0,1fr);
+  gap:2px;
+  margin:0;
+  padding:0;
+  list-style:none;
+}
+.pg-list>li{position:relative;animation:pg-row-in 640ms var(--ease) both}
+.pg-step{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  width:100%;
+  margin:0;
+  padding:9px 8px 9px 6px;
+  border:0;
+  border-radius:12px;
+  background:transparent;
+  font:inherit;
+  font-size:15px;
+  line-height:1.45;
+  color:inherit;
+  text-align:left;
+  cursor:pointer;
+  transition:background-color 160ms ease;
+}
+.pg-step:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
+.pg-check{
+  position:relative;
+  flex:none;
+  display:grid;
+  place-items:center;
+  width:20px;
+  height:20px;
+  border:1.5px solid var(--muted);
+  border-radius:50%;
+  background:transparent;
+  transition:background-color 220ms var(--ease),border-color 220ms var(--ease);
+}
+.pg-check svg{
+  width:14px;
+  height:14px;
+  fill:none;
+  stroke:var(--tick);
+  stroke-width:2.4;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+  stroke-dasharray:1;
+  stroke-dashoffset:1;
+  transition:stroke-dashoffset 120ms ease-in;
+}
+.pg-step[aria-checked="true"] .pg-check{
+  background:var(--ink);
+  border-color:var(--ink);
+  animation:pg-pop 560ms var(--ease);
+}
+.pg-step[aria-checked="true"] .pg-check svg{
+  stroke-dashoffset:0;
+  transition:stroke-dashoffset 420ms var(--ease) 160ms;
+}
+.pg-label{
+  flex:1;
+  min-width:0;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  transition:color 300ms ease;
+}
+.pg-label>span{
+  background:linear-gradient(currentColor,currentColor) 0 58%/0% 1.5px no-repeat;
+  transition:background-size 380ms var(--ease);
+}
+.pg-step[aria-checked="true"] .pg-label{color:var(--muted)}
+.pg-step[aria-checked="true"] .pg-label>span{background-size:100% 1.5px;transition:background-size 620ms var(--ease) 220ms}
+.controls{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  justify-content:center;
+}
+.btn{
+  appearance:none;
+  border:1px solid var(--border);
+  background:var(--surface);
+  color:var(--ink);
+  border-radius:999px;
+  padding:8px 14px 8px 12px;
+  font:inherit;
+  font-size:13px;
+  font-weight:600;
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  box-shadow:var(--shadow);
+  transition:transform 150ms ease,background-color 160ms ease;
+}
+.btn.secondary{font-weight:500;color:var(--muted)}
+.btn:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.hint{font-size:12px;color:var(--muted);text-align:center;max-width:360px}
+/* content images: 1px inset outline in pure black/white at 10% */
+img{outline:1px solid rgba(0,0,0,.1);outline-offset:-1px}
+html[data-theme="dark"] img{outline-color:rgba(255,255,255,.1)}
+@keyframes pg-pop{0%{transform:scale(.9)}60%{transform:scale(1.06)}100%{transform:scale(1)}}
+@keyframes pg-in{from{opacity:0;transform:translateY(8px)}}
+@keyframes pg-row-in{from{opacity:0;filter:blur(3px);transform:translateY(8px)}}
+@keyframes pg-roll{from{opacity:0;transform:translateY(60%)}to{opacity:1;transform:none}}
+@keyframes pg-shine{from{background-position:120% 0;opacity:1}to{background-position:-20% 0;opacity:0}}
+@media (prefers-reduced-motion:reduce){
+  .pg,.pg *,.pg *::before,.pg *::after{animation:none !important;transition-duration:1ms !important;transition-delay:0ms !important}
+}
+@media (hover:hover) and (pointer:fine){
+  .pg-step:hover{background:var(--hover)}
+  .theme-btn:hover{transform:translateY(-1px)}
+  .btn:hover{transform:translateY(-1px)}
+}
+@media (max-width:420px){
+  .wrap{padding:12px 14px 32px}
+  .pg{max-width:100%}
+}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><strong>Progress Tracker</strong> · Feedback · Free · progress-tracker</div>
+  <button id="themeToggle" class="theme-btn" type="button" aria-label="Toggle dark mode"><span class="glyph" id="themeGlyph" aria-hidden="true">◐</span><span id="themeLabel">Theme</span></button>
+</header>
+<main class="wrap">
+  <p class="hint">Onboarding checklist with animated progress bar and self-drawing ticks.</p>
+  <section class="pg" id="pgCard" aria-label="Progress tracker card">
+    <div class="pg-head">
+      <h3 class="pg-title" id="pgTitle">Getting started</h3>
+      <span class="pg-count" aria-hidden="true"><span class="pg-digit" id="pgDigit">1</span><span id="pgFrac"> / 5</span></span>
+    </div>
+    <div class="pg-bar" id="pgBar" role="progressbar" aria-label="Getting started" aria-valuemin="0" aria-valuemax="5" aria-valuenow="1" aria-valuetext="1 of 5 done">
+      <span class="pg-fill" id="pgFill"><span class="pg-shine" id="pgShine"></span></span>
+    </div>
+    <ul class="pg-list" id="pgList"></ul>
+  </section>
+  <div class="controls">
+    <button class="btn" id="playBtn" type="button" aria-pressed="true"><span aria-hidden="true">⏸</span><span id="playLabel">Pause tour</span></button>
+    <button class="btn secondary" id="resetBtn" type="button"><span aria-hidden="true">↺</span><span>Reset</span></button>
+  </div>
+  <p class="hint" id="statusLine">Click a row to toggle it. Any press on the card pauses the auto tour.</p>
+</main>
+<script>
+(function(){
+  "use strict";
+  /* Demo data verbatim from ./demo-original.js */
+  var TITLE = "Getting started";
+  var STEPS = [
+    { id: "tools", label: "Connect your tools" },
+    { id: "notify", label: "Turn on notifications" },
+    { id: "updates", label: "Catch up on blockers" },
+    { id: "priorities", label: "Summarize priorities" },
+    { id: "project", label: "Create a project", done: true }
+  ];
+  var INTERVAL = 2200;
+  var INITIAL_DONE = {};
+  STEPS.forEach(function(s){ if(s.done){ INITIAL_DONE[s.id] = true; } });
+
+  var done = {};
+  Object.keys(INITIAL_DONE).forEach(function(k){ done[k] = true; });
+  var autoPlay = true;
+  var timer = null;
+
+  var card = document.getElementById("pgCard");
+  var titleEl = document.getElementById("pgTitle");
+  var digitEl = document.getElementById("pgDigit");
+  var fracEl = document.getElementById("pgFrac");
+  var barEl = document.getElementById("pgBar");
+  var fillEl = document.getElementById("pgFill");
+  var shineEl = document.getElementById("pgShine");
+  var listEl = document.getElementById("pgList");
+  var playBtn = document.getElementById("playBtn");
+  var playLabel = document.getElementById("playLabel");
+  var playIcon = playBtn.querySelector("span");
+  var resetBtn = document.getElementById("resetBtn");
+  var statusLine = document.getElementById("statusLine");
+
+  var fmt = new Intl.NumberFormat("en");
+  var NS = "http://www.w3.org/2000/svg";
+
+  /* Build DOM once at init. Never rebuild after this point. */
+  var rowRefs = [];
+  function buildOnce(){
+    titleEl.textContent = TITLE;
+    titleEl.setAttribute("title", TITLE);
+    barEl.setAttribute("aria-label", TITLE);
+    STEPS.forEach(function(step, idx){
+      var li = document.createElement("li");
+      li.style.animationDelay = String(180 + Math.min(idx, 12) * 90) + "ms";
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.setAttribute("role", "checkbox");
+      btn.className = "pg-step";
+      btn.setAttribute("aria-checked", done[step.id] ? "true" : "false");
+      var check = document.createElement("span");
+      check.className = "pg-check";
+      check.setAttribute("aria-hidden", "true");
+      var svg = document.createElementNS(NS, "svg");
+      svg.setAttribute("viewBox", "0 0 24 24");
+      var path = document.createElementNS(NS, "path");
+      path.setAttribute("d", "M6.5 12.5l3.5 3.5 7.5-8");
+      path.setAttribute("pathLength", "1");
+      svg.appendChild(path);
+      check.appendChild(svg);
+      var lab = document.createElement("span");
+      lab.className = "pg-label";
+      if(step.label){ lab.setAttribute("title", step.label); }
+      var inner = document.createElement("span");
+      inner.setAttribute("dir", "auto");
+      inner.textContent = step.label || " ";
+      lab.appendChild(inner);
+      btn.appendChild(check);
+      btn.appendChild(lab);
+      /* optical nudge: check glyph is round so no extra pad needed; keep text clear of edges */
+      btn.addEventListener("click", function(){ toggleStep(step.id); stopAuto(); });
+      li.appendChild(btn);
+      listEl.appendChild(li);
+      rowRefs.push({ id: step.id, li: li, btn: btn, labelInner: inner });
+    });
+    syncProgress(true);
+    syncPlayBtn();
+  }
+
+  function doneCount(){
+    var n = 0;
+    STEPS.forEach(function(s){ if(done[s.id]){ n += 1; } });
+    return n;
+  }
+
+  function restartAnimation(el, animClass){
+    /* re-trigger a CSS animation in place without replacing the node */
+    void el.offsetWidth;
+    el.style.animation = "none";
+    void el.offsetWidth;
+    el.style.animation = "";
+    if(animClass){
+      el.classList.add(animClass);
+      void el.offsetWidth;
+    }
+  }
+
+  function syncProgress(first){
+    var c = doneCount();
+    var total = STEPS.length;
+    var ratio = total ? c / total : 0;
+    /* in-place text update */
+    var nextDigit = fmt.format(c);
+    if(digitEl.textContent !== nextDigit){
+      digitEl.textContent = nextDigit;
+      if(!first){ restartAnimation(digitEl); }
+    }
+    var fracText = " / " + fmt.format(total);
+    if(fracEl.textContent !== fracText){ fracEl.textContent = fracText; }
+    fillEl.style.transform = "scaleX(" + String(ratio) + ")";
+    barEl.setAttribute("aria-valuenow", String(c));
+    barEl.setAttribute("aria-valuemax", String(total));
+    barEl.setAttribute("aria-valuetext", fmt.format(c) + " of " + fmt.format(total) + " done");
+    if(c === total){ card.setAttribute("data-complete", ""); }
+    else{ card.removeAttribute("data-complete"); }
+    if(!first){ restartAnimation(shineEl); }
+    if(statusLine){
+      statusLine.textContent = c === total
+        ? "All done — restarting the tour shortly."
+        : String(fmt.format(c) + " of " + fmt.format(total) + " done. Click a row to toggle it.");
+    }
+  }
+
+  function syncRow(id){
+    for(var i=0;i<rowRefs.length;i++){
+      if(rowRefs[i].id === id){
+        rowRefs[i].btn.setAttribute("aria-checked", done[id] ? "true" : "false");
+        break;
+      }
+    }
+  }
+
+  function syncAllRows(){
+    rowRefs.forEach(function(r){ r.btn.setAttribute("aria-checked", done[r.id] ? "true" : "false"); });
+  }
+
+  function toggleStep(id){
+    if(done[id]){ delete done[id]; }
+    else{ done[id] = true; }
+    syncRow(id);
+    syncProgress(false);
+  }
+
+  function resetToInitial(){
+    var ids = {};
+    STEPS.forEach(function(s){ if(INITIAL_DONE[s.id]){ ids[s.id] = true; } });
+    done = ids;
+    syncAllRows();
+    syncProgress(false);
+  }
+
+  function clearTimer(){
+    if(timer !== null){ window.clearTimeout(timer); timer = null; }
+  }
+
+  function schedule(){
+    clearTimer();
+    if(!autoPlay){ return; }
+    var next = null;
+    for(var i=0;i<STEPS.length;i++){ if(!done[STEPS[i].id]){ next = STEPS[i]; break; } }
+    var wait = next ? INTERVAL : INTERVAL * 2;
+    timer = window.setTimeout(function(){
+      timer = null;
+      if(!autoPlay){ return; }
+      if(next){ done[next.id] = true; syncRow(next.id); syncProgress(false); }
+      else{ resetToInitial(); }
+      schedule();
+    }, wait);
+  }
+
+  function stopAuto(){
+    if(autoPlay){
+      autoPlay = false;
+      clearTimer();
+      syncPlayBtn();
+    }
+  }
+
+  function syncPlayBtn(){
+    playBtn.setAttribute("aria-pressed", autoPlay ? "true" : "false");
+    playLabel.textContent = autoPlay ? "Pause tour" : "Play tour";
+    if(playIcon){ playIcon.textContent = autoPlay ? "⏸" : "▶"; }
+  }
+
+  playBtn.addEventListener("click", function(){
+    autoPlay = !autoPlay;
+    syncPlayBtn();
+    schedule();
+  });
+  resetBtn.addEventListener("click", function(){ resetToInitial(); });
+  card.addEventListener("pointerdown", function(){ stopAuto(); });
+  card.addEventListener("keydown", function(){ stopAuto(); });
+
+  /* theme toggle */
+  var root = document.documentElement;
+  var tBtn = document.getElementById("themeToggle");
+  var tLabel = document.getElementById("themeLabel");
+  var tGlyph = document.getElementById("themeGlyph");
+  function syncThemeBtn(){
+    var cur = root.getAttribute("data-theme") || "light";
+    tLabel.textContent = cur === "dark" ? "Light" : "Dark";
+    if(tGlyph){ tGlyph.textContent = cur === "dark" ? "☾" : "☀"; }
+    tBtn.setAttribute("aria-label", cur === "dark" ? "Switch to light mode" : "Switch to dark mode");
+  }
+  tBtn.addEventListener("click", function(){
+    var cur = root.getAttribute("data-theme") || "light";
+    var nextTheme = cur === "dark" ? "light" : "dark";
+    root.setAttribute("data-theme", nextTheme);
+    try{ localStorage.setItem("progress-tracker-theme", nextTheme); }catch(e){}
+    syncThemeBtn();
+  });
+  syncThemeBtn();
+
+  buildOnce();
+  schedule();
+
+  /* expose tiny test hooks without rebuilding anything */
+  try{
+    window.__pg = {
+      steps: STEPS,
+      getDone: function(){ return STEPS.filter(function(s){ return !!done[s.id]; }).map(function(s){ return s.id; }); },
+      toggle: toggleStep,
+      reset: resetToInitial,
+      stop: stopAuto,
+      play: function(v){ autoPlay = !!v; syncPlayBtn(); schedule(); },
+      rows: function(){ return rowRefs.map(function(r){ return r.btn; }); },
+      count: doneCount
+    };
+  }catch(e){}
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,522 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Dialog — affectUI replica</title>
+<!--noflash--><script>(function(){try{var k="affectui-dialog-theme";var s=null;try{s=localStorage.getItem(k)}catch(e){}var t=s||(window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");document.documentElement.setAttribute("data-theme",t)}catch(e){}})();</script>
+<style>html{background:#fafaf9}html[data-theme="dark"]{background:#101012}</style>
+<style>
+:root{
+  --surface:#ffffff; --page:#fafaf9; --ink:#171717; --ink2:#1c1917;
+  --muted:#78716c; --subtle:#f5f5f4; --border:#e7e5e4;
+  --radius-lg:16px; --radius:10px; --radius-sm:6px;
+  --shadow:0 1px 2px rgba(0,0,0,.05), 0 4px 16px rgba(0,0,0,.05);
+  --pop:0 0 0 1px rgba(0,0,0,.04), 0 24px 56px -12px rgba(0,0,0,.28), 0 6px 16px -6px rgba(0,0,0,.08);
+  --amber:#f59e0b; --amber-bg:#fef3c7; --amber-tx:#92400e;
+  --danger:#c4320a; --danger-bg:#ffe9e6; --danger-bg-h:#ffdcd6;
+  --focus:rgba(0,96,226,.7);
+  --scrim:rgba(0,0,0,.18); --tray:#f0f0f0; --wash:#f0f0f0; --line:#ececec;
+  --btn:#ffffff; --btn-h:#fafafa; --btn-line:#e5e5e5;
+  --on-dark:#fafafa; --d-top:#323137; --d-bot:#201e25; --d-top-h:#3c3b42; --d-bot-h:#29272f;
+  --edge-t:#4b4951; --edge-b:#18171b; --ring:#0d0d0d;
+  --ease:cubic-bezier(.22,1,.36,1);
+}
+html[data-theme="dark"]{
+  --surface:#1c1c1f; --page:#101012; --ink:#ededed; --ink2:#ededed;
+  --muted:#a1a1aa; --subtle:#26262a; --border:#2e2e33;
+  --shadow:0 1px 2px rgba(0,0,0,.5), 0 8px 24px rgba(0,0,0,.45);
+  --pop:0 0 0 1px rgba(255,255,255,.06), 0 24px 56px -12px rgba(0,0,0,.7);
+  --amber:#fbbf24; --amber-bg:#451a03; --amber-tx:#fde68a;
+  --danger:#ff8a7a; --danger-bg:rgba(255,107,95,.16); --danger-bg-h:rgba(255,107,95,.22);
+  --focus:rgba(77,141,255,.8);
+  --scrim:rgba(0,0,0,.5); --tray:#111113; --wash:rgba(255,255,255,.06); --line:#2a2a2e;
+  --btn:#232326; --btn-h:#2a2a2d; --btn-line:rgba(255,255,255,.1);
+  --on-dark:#121213; --d-top:#f4f4f5; --d-bot:#e4e4e7; --d-top-h:#ffffff; --d-bot-h:#ececef;
+  --edge-t:#ffffff; --edge-b:#d4d4d8; --ring:rgba(0,0,0,.6);
+  color-scheme:dark;
+}
+html{-webkit-tap-highlight-color:transparent}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--page); color:var(--ink);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:14px; line-height:1.45;
+  font-variant-numeric:tabular-nums;
+  -webkit-font-smoothing:antialiased;
+}
+.page{max-width:720px;margin:0 auto;padding:28px 16px 64px}
+.topbar{display:flex;align-items:flex-start;gap:12px;margin-bottom:16px}
+.titleblock{min-width:0;flex:1}
+.eyebrow{font-size:12px;color:var(--muted);margin:0 0 4px}
+h1.page-title{font-size:16px;font-weight:600;margin:0;letter-spacing:-.01em}
+p.page-sub{font-size:13px;color:var(--muted);margin:4px 0 0}
+.theme-btn{
+  flex:none;width:36px;height:36px;border-radius:999px;border:1px solid var(--border);
+  background:var(--surface);color:var(--ink);cursor:pointer;display:grid;place-items:center;
+  box-shadow:var(--shadow);transition:background-color 160ms ease,transform 160ms var(--ease);
+}
+.theme-btn svg{width:18px;height:18px;display:block}
+.theme-btn:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.frame{
+  position:relative;background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius-lg);box-shadow:var(--shadow);overflow:hidden;
+}
+.frame-top{display:flex;align-items:center;gap:8px;padding:14px 16px 12px;border-bottom:1px solid var(--border)}
+.frame-top h2{font-size:15px;font-weight:600;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.count{
+  min-width:22px;height:22px;padding:0 7px;border-radius:999px;background:var(--subtle);
+  border:1px solid var(--border);color:var(--muted);font-size:12px;font-weight:600;
+  display:inline-flex;align-items:center;justify-content:center;
+}
+.hint{margin-left:auto;font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.agent-list{list-style:none;margin:0;padding:8px;display:grid;gap:8px;max-height:420px;overflow:auto}
+.row{
+  display:flex;align-items:center;gap:10px;padding:12px;
+  border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);
+  box-shadow:var(--shadow);transition:border-color 160ms ease,box-shadow 160ms ease,opacity 160ms ease,transform 160ms var(--ease);
+}
+.row[data-deleted]{opacity:.85}
+.mark{flex:none;width:24px;height:24px;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);gap:2px;padding:3px;border-radius:7px;background:var(--subtle);border:1px solid var(--border)}
+.mark i{border-radius:2px;background:transparent}
+.mark i[data-on]{background:currentColor}
+.mark[data-tone="blue"]{color:#2563eb}
+.mark[data-tone="purple"]{color:#7c3aed}
+html[data-theme="dark"] .mark[data-tone="blue"]{color:#60a5fa}
+html[data-theme="dark"] .mark[data-tone="purple"]{color:#a78bfa}
+.row-text{flex:1;min-width:0;display:grid;gap:1px}
+.row-name{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink)}
+.row-meta{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gone{flex:1;min-width:0;font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gone b{color:var(--ink);font-weight:600}
+.tools{flex:none;display:flex;align-items:center;gap:6px}
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  height:32px;padding:0 12px;border-radius:calc(var(--radius) - 2px);
+  border:1px solid var(--btn-line);background:var(--btn);color:var(--ink);
+  font:inherit;font-size:13px;font-weight:500;line-height:1;white-space:nowrap;cursor:pointer;
+  box-shadow:0 1px 2px rgba(0,0,0,.06);
+  transition:background-color 160ms ease,transform 160ms var(--ease),box-shadow 160ms ease;
+}
+.btn svg{width:14px;height:14px;display:block}
+.btn.has-icon{padding-left:10px}
+.btn.icon-only{width:32px;height:32px;padding:0;border-radius:999px}
+.btn:disabled{opacity:.4;cursor:default}
+.btn.primary{
+  border-color:transparent;color:var(--on-dark);
+  background:linear-gradient(var(--d-top),var(--d-bot)) padding-box,linear-gradient(var(--edge-t),var(--edge-b)) border-box;
+  box-shadow:0 0 0 1px var(--ring),0 2px 4px rgba(0,0,0,.1);
+}
+.btn.danger{border-color:transparent;background:var(--danger-bg);color:var(--danger);box-shadow:none;position:relative}
+.btn:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.btn:active:not(:disabled){transform:scale(.97)}
+.btn-label{overflow:hidden;text-overflow:ellipsis;line-height:20px}
+.btn[data-busy]{cursor:progress}
+.btn[data-busy] .btn-label{visibility:hidden}
+.spin{position:absolute;inset:0;width:14px;height:14px;margin:auto;border:1.5px solid currentColor;border-inline-end-color:transparent;border-radius:50%;animation:turn 700ms linear infinite}
+@keyframes turn{to{transform:rotate(1turn)}}
+.frame-foot{padding:10px 16px 14px;border-top:1px solid var(--border);font-size:12px;color:var(--muted)}
+/* ---- dialog layer ---- */
+.scrim{
+  position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;
+  padding:24px 16px;background:var(--scrim);overflow:hidden;overscroll-behavior:contain;
+  animation:scrim-in 180ms ease both;
+}
+.scrim.contained{position:absolute;z-index:70}
+.scrim[hidden]{display:none}
+.scrim[data-leaving]{pointer-events:none;animation:scrim-out 200ms ease both}
+.scrim[data-leaving] .panel{animation:dlg-out 150ms ease-in both}
+@keyframes scrim-in{from{background-color:transparent}}
+@keyframes scrim-out{to{background-color:transparent}}
+@keyframes dlg-in{from{opacity:0;transform:translateY(8px) scale(.97)}}
+@keyframes dlg-out{to{opacity:0;transform:scale(.98)}}
+@keyframes sheet-in{from{transform:translateY(100%)}}
+@keyframes sheet-out{to{transform:translateY(100%)}}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:scale(1.012)}50%{transform:scale(1)}75%{transform:scale(1.006)}}
+.panel{
+  position:relative;display:flex;flex-direction:column;width:var(--w,480px);
+  max-width:100%;max-height:100%;min-height:0;padding:4px;
+  border-radius:calc(var(--radius-lg) + 4px);background:var(--tray);box-shadow:var(--pop);
+  animation:dlg-in 260ms var(--ease) both;
+}
+.panel[data-size="sm"]{--w:400px}
+.panel[data-size="md"]{--w:480px}
+.panel:focus{outline:none}
+.panel.shake{animation:shake 240ms ease-out}
+.card{
+  display:flex;flex:1 1 auto;flex-direction:column;min-height:0;
+  border-radius:var(--radius-lg);background:var(--surface);
+  box-shadow:0 0 0 1px var(--line),0 1px 2px rgba(0,0,0,.04);
+  overflow:hidden auto;
+}
+.dlg-head{display:flex;flex:none;align-items:flex-start;gap:12px;padding:18px 13px 0 20px}
+.dlg-head.no-x{padding-right:20px}
+.dlg-head.last{padding-bottom:20px}
+.heading{display:grid;flex:1;gap:4px;min-width:0}
+.dlg-title{margin:0;font-size:15px;line-height:22px;font-weight:500;letter-spacing:-.01em;color:var(--ink);overflow-wrap:anywhere}
+.dlg-desc{margin:0;font-size:13.5px;line-height:20px;color:var(--muted);overflow-wrap:anywhere}
+.x{
+  position:relative;display:grid;flex:none;place-items:center;width:32px;height:32px;margin:-5px 0 0;
+  padding:0;border:0;border-radius:calc(var(--radius) - 2px);background:transparent;color:var(--muted);cursor:pointer;
+  transition:background-color 160ms ease,color 160ms ease,transform 160ms var(--ease);
+}
+.x svg{display:block;width:16px;height:16px}
+.x:active{transform:scale(.94)}
+.x:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.dlg-body{
+  flex:1 1 auto;min-height:0;padding:12px 20px 20px;overflow:auto;overscroll-behavior:contain;overflow-wrap:anywhere;
+  background:
+    linear-gradient(var(--surface) 0 0) top / 100% 2px no-repeat local,
+    linear-gradient(var(--surface) 0 0) bottom / 100% 2px no-repeat local,
+    linear-gradient(var(--line) 0 0) top / 100% 1px no-repeat scroll,
+    linear-gradient(var(--line) 0 0) bottom / 100% 1px no-repeat scroll,
+    var(--surface);
+}
+.dlg-foot{display:flex;flex:none;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:8px;padding:8px 4px 4px}
+.dlg-form{display:grid;gap:12px}
+.field{display:grid;gap:6px;font-size:13px;color:var(--ink)}
+.field>span{font-weight:500}
+.input{
+  width:100%;font:inherit;font-size:13.5px;color:var(--ink);background:var(--surface);
+  border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 10px;
+}
+.input:focus-visible{outline:2px solid var(--focus);outline-offset:1px}
+textarea.input{resize:vertical;min-height:88px;line-height:1.5}
+img{outline:1px solid rgba(0,0,0,.1);outline-offset:-1px}
+html[data-theme="dark"] img{outline-color:rgba(255,255,255,.1)}
+@media (max-width:520px){
+  .scrim{padding:24px 16px}
+  .panel{width:calc(100% + 32px);max-width:none;max-height:calc(100% + 8px);margin:auto -16px -24px;padding-bottom:max(4px, env(safe-area-inset-bottom));border-end-start-radius:0;border-end-end-radius:0;animation:sheet-in 320ms var(--ease) both}
+  .scrim[data-leaving] .panel{animation:sheet-out 200ms cubic-bezier(.4,0,1,1) both}
+  .panel[data-alert] .btn{flex:1 1 0}
+}
+@media (pointer:coarse){
+  .btn{height:40px;padding:0 16px}
+  .btn.icon-only{width:36px;height:36px}
+  .x{width:36px;height:36px;margin:-7px -2px 0 0}
+}
+@media (prefers-reduced-motion:reduce){
+  .scrim,.panel,.scrim[data-leaving],.scrim[data-leaving] .panel{animation-duration:1ms}
+  .spin{animation-duration:1.6s}
+}
+@media (hover:hover) and (pointer:fine){
+  .theme-btn:hover{background:var(--subtle)}
+  .row:hover{border-color:var(--muted);transform:translateY(-1px)}
+  .btn:hover:not(:disabled){background:var(--btn-h)}
+  .btn.primary:hover{background:linear-gradient(var(--d-top-h),var(--d-bot-h)) padding-box,linear-gradient(var(--edge-t),var(--edge-b)) border-box}
+  .btn.danger:hover{background:var(--danger-bg-h)}
+  .x:hover{background:var(--wash);color:var(--ink)}
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="topbar">
+    <div class="titleblock">
+      <p class="eyebrow">affectUI · Feedback · Free</p>
+      <h1 class="page-title">Dialog</h1>
+      <p class="page-sub">Modal on dimmed backdrop with scrolling content, focus trapping, and mobile sheet.</p>
+    </div>
+    <button class="theme-btn" id="themeBtn" type="button" aria-label="Switch to dark theme" title="Toggle theme">
+      <svg id="themeIconMoon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 13.5A8 8 0 0 1 10.5 4 6.5 6.5 0 1 0 20 13.5Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
+      <svg id="themeIconSun" viewBox="0 0 24 24" fill="none" aria-hidden="true" style="display:none"><circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="1.7"/><path d="M12 2.5v2.4M12 19.1v2.4M2.5 12h2.4M19.1 12h2.4M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7M19.1 4.9l-1.7 1.7M6.6 17.4l-1.7 1.7" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+    </button>
+  </header>
+
+  <div class="frame" id="frame">
+    <div class="frame-top">
+      <h2>Agents</h2>
+      <span class="count" id="agentCount">2</span>
+      <span class="hint">Edit opens a sheet · Delete confirms</span>
+    </div>
+    <ul class="agent-list" id="agentList" aria-label="Agents"></ul>
+    <div class="frame-foot">Contained edit dialog stays in this card. Delete confirmation is a modal alert with a busy state.</div>
+
+    <div class="scrim contained" id="editScrim" hidden>
+      <div class="panel" id="editPanel" data-size="md" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="editTitle" aria-describedby="editDesc">
+        <div class="card">
+          <div class="dlg-head">
+            <div class="heading">
+              <h2 class="dlg-title" id="editTitle">Edit agent</h2>
+              <p class="dlg-desc" id="editDesc">Changes apply from its next run.</p>
+            </div>
+            <button class="x" id="editClose" type="button" aria-label="Close" title="Close">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M18 6 6 18M18 18 6 6" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          </div>
+          <div class="dlg-body">
+            <form class="dlg-form" id="editForm">
+              <label class="field"><span>Name</span><input class="input" id="editName" maxlength="60" autocomplete="off"></label>
+              <label class="field"><span>Instructions</span><textarea class="input" id="editInstr" rows="4"></textarea></label>
+            </form>
+          </div>
+        </div>
+        <div class="dlg-foot">
+          <button class="btn" id="editCancel" type="button"><span class="btn-label">Cancel</span></button>
+          <button class="btn primary" id="editSave" type="button"><span class="btn-label">Save</span></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="scrim" id="delScrim" hidden>
+    <div class="panel" id="delPanel" data-size="sm" data-alert="" tabindex="-1" role="alertdialog" aria-modal="true" aria-labelledby="delTitle" aria-describedby="delDesc">
+      <div class="card">
+        <div class="dlg-head no-x">
+          <div class="heading">
+            <h2 class="dlg-title" id="delTitle">Delete agent?</h2>
+            <p class="dlg-desc" id="delDesc"></p>
+          </div>
+        </div>
+      </div>
+      <div class="dlg-foot">
+        <button class="btn" id="delKeep" type="button" data-autofocus><span class="btn-label">Keep it</span></button>
+        <button class="btn danger" id="delConfirm" type="button"><span class="btn-label" id="delConfirmLabel">Delete agent</span></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+var AGENTS=[
+  {id:"release-notes",name:"Release notes writer",when:"Every Monday · posts to #eng-updates",instructions:"Sum up last week's merged pull requests in plain words. Group them by area, leave out chores and dependency bumps.",runs:14,tone:"blue"},
+  {id:"inbox-triage",name:"Inbox triage",when:"On every new email · labels and drafts replies",instructions:"Label each email by team and urgency. Draft a reply when the answer is in our docs, never send it.",runs:212,tone:"purple"}
+];
+function hash9(id){
+  var h=0,i;for(i=0;i<id.length;i++){h=(h*31+id.charCodeAt(i))>>>0}
+  var out=[],tries=0;
+  while(out.length<9&&tries<64){var n=(h>>((tries%13)*2))&511;var k=tries;tries++;
+    var cell=((n>>(k%3))&1);
+    if(out.length===0&&tries<8){cell=(h>>(k%5))&1}
+    out.push(cell?1:0);
+  }
+  var ones=0,j;for(j=0;j<out.length;j++){ones+=out[j]}
+  if(ones<3){out[0]=1;out[4]=1;out[8]=1}
+  return out;
+}
+var $=function(id){return document.getElementById(id)};
+var list=$("agentList"),countEl=$("agentCount");
+var editScrim=$("editScrim"),editPanel=$("editPanel"),editName=$("editName"),editInstr=$("editInstr");
+var delScrim=$("delScrim"),delPanel=$("delPanel"),delTitle=$("delTitle"),delDesc=$("delDesc"),delKeep=$("delKeep"),delConfirm=$("delConfirm"),delConfirmLabel=$("delConfirmLabel");
+var editCancel=$("editCancel"),editSave=$("editSave"),editClose=$("editClose"),editForm=$("editForm");
+var themeBtn=$("themeBtn"),iconMoon=$("themeIconMoon"),iconSun=$("themeIconSun");
+
+/* build rows once */
+var rows=AGENTS.map(function(a){
+  var li=document.createElement("li");li.className="row";li.dataset.id=a.id;
+  var mark=document.createElement("span");mark.className="mark";mark.dataset.tone=a.tone;mark.setAttribute("aria-hidden","true");
+  var cells=hash9(a.id);
+  for(var i=0;i<9;i++){var dot=document.createElement("i");if(cells[i]){dot.setAttribute("data-on","")}mark.appendChild(dot)}
+  var wrap=document.createElement("span");wrap.className="row-text";
+  var nm=document.createElement("span");nm.className="row-name";nm.textContent=a.name;
+  var mt=document.createElement("span");mt.className="row-meta";mt.textContent=a.when;
+  wrap.appendChild(nm);wrap.appendChild(mt);
+  var gone=document.createElement("span");gone.className="gone";gone.hidden=true;
+  var gb=document.createElement("b");gb.textContent=a.name;gone.appendChild(gb);
+  gone.appendChild(document.createTextNode(" was deleted"));
+  var tools=document.createElement("span");tools.className="tools";
+  var editBtn=document.createElement("button");editBtn.className="btn has-icon";editBtn.type="button";
+  editBtn.setAttribute("aria-label","Edit "+a.name);
+  var eLab=document.createElement("span");eLab.className="btn-label";eLab.textContent="Edit";
+  var eSvg=document.createElementNS("http://www.w3.org/2000/svg","svg");
+  eSvg.setAttribute("viewBox","0 0 24 24");eSvg.setAttribute("fill","none");eSvg.setAttribute("aria-hidden","true");
+  var ePath=document.createElementNS("http://www.w3.org/2000/svg","path");
+  ePath.setAttribute("d","M15.5 4.5l4 4L8 20l-5 1 1-5L15.5 4.5Z");ePath.setAttribute("stroke","currentColor");ePath.setAttribute("stroke-width","1.6");ePath.setAttribute("stroke-linejoin","round");
+  eSvg.appendChild(ePath);editBtn.appendChild(eSvg);editBtn.appendChild(eLab);
+  var delBtn=document.createElement("button");delBtn.className="btn icon-only";delBtn.type="button";
+  delBtn.setAttribute("aria-label","Delete "+a.name);delBtn.title="Delete";
+  var dSvg=document.createElementNS("http://www.w3.org/2000/svg","svg");
+  dSvg.setAttribute("viewBox","0 0 24 24");dSvg.setAttribute("fill","none");dSvg.setAttribute("aria-hidden","true");
+  var dPath=document.createElementNS("http://www.w3.org/2000/svg","path");
+  dPath.setAttribute("d","M4 7h16M9 4h6M6.5 7l1 13h9l1-13");dPath.setAttribute("stroke","currentColor");dPath.setAttribute("stroke-width","1.6");dPath.setAttribute("stroke-linecap","round");dPath.setAttribute("stroke-linejoin","round");
+  dSvg.appendChild(dPath);delBtn.appendChild(dSvg);
+  var undoBtn=document.createElement("button");undoBtn.className="btn";undoBtn.type="button";
+  undoBtn.dataset.undo=a.id;undoBtn.hidden=true;
+  var uLab=document.createElement("span");uLab.className="btn-label";uLab.textContent="Undo";undoBtn.appendChild(uLab);
+  tools.appendChild(editBtn);tools.appendChild(delBtn);tools.appendChild(undoBtn);
+  li.appendChild(mark);li.appendChild(wrap);li.appendChild(gone);li.appendChild(tools);
+  list.appendChild(li);
+  return {data:a,li:li,mark:mark,nameEl:nm,metaEl:mt,gone:gone,goneName:gb,wrap:wrap,editBtn:editBtn,delBtn:delBtn,undoBtn:undoBtn,deleted:false};
+});
+
+function refreshCount(){
+  var n=0,i;for(i=0;i<rows.length;i++){if(!rows[i].deleted)n++}
+  countEl.textContent=String(n);
+}
+function findRow(id){for(var i=0;i<rows.length;i++){if(rows[i].data.id===id)return rows[i]}return null}
+/* in-place row updates */
+function paintRow(r){
+  if(r.deleted){
+    r.li.setAttribute("data-deleted","");
+    r.wrap.hidden=true;r.editBtn.hidden=true;r.delBtn.hidden=true;
+    r.gone.hidden=false;r.undoBtn.hidden=false;
+    r.goneName.textContent=r.data.name;
+  }else{
+    r.li.removeAttribute("data-deleted");
+    r.wrap.hidden=false;r.editBtn.hidden=false;r.delBtn.hidden=false;
+    r.gone.hidden=true;r.undoBtn.hidden=true;
+    r.nameEl.textContent=r.data.name;
+    r.metaEl.textContent=r.data.when;
+    r.editBtn.setAttribute("aria-label","Edit "+r.data.name);
+    r.delBtn.setAttribute("aria-label","Delete "+r.data.name);
+  }
+  refreshCount();
+}
+
+/* dialog plumbing: focus trap, esc, backdrop, leaving */
+var openerEdit=null,openerDel=null,busy=false,leaveMs=200;
+function focusables(panel){
+  var q=panel.querySelectorAll("input, textarea, select, button, [href], [tabindex]");
+  var out=[],i;for(i=0;i<q.length;i++){var el=q[i];if(el.hidden||el.disabled)continue;if(el.tabIndex<0)continue;
+    try{if(el.getClientRects&&el.getClientRects().length===0&&el!==document.activeElement){/* keep anyway in stub */}}catch(e){}
+    out.push(el)}
+  return out;
+}
+function trapTab(e,panel){
+  if(e.key!=="Tab")return;
+  var f=focusables(panel);if(!f.length){e.preventDefault();return}
+  var first=f[0],last=f[f.length-1],a=document.activeElement;
+  if(e.shiftKey&&(a===first||f.indexOf(a)<0)){e.preventDefault();last.focus()}
+  else if(!e.shiftKey&&(a===last||f.indexOf(a)<0)){e.preventDefault();first.focus()}
+}
+function initialFocus(panel){
+  var af=panel.querySelector("[data-autofocus]");if(af){af.focus();return}
+  var f=focusables(panel);if(f.length){f[0].focus();return}
+  panel.focus();
+}
+function lockScroll(on){
+  var de=document.documentElement;
+  if(on){if(!de.dataset.lock){de.dataset.lock="1";de.style.overflow="hidden"}}
+  else{if(!editOpen&&!delOpen){delete de.dataset.lock;de.style.overflow=""}}
+}
+var editOpen=false,delOpen=false;
+function openEdit(row){
+  openerEdit=document.activeElement;
+  editName.value=row.data.name;editInstr.value=row.data.instructions;
+  editSave.disabled=!editName.value.trim();
+  editScrim.dataset.row=row.data.id;
+  editScrim.hidden=false;editOpen=true;lockScroll(true);
+  editScrim.removeAttribute("data-leaving");
+  initialFocus(editPanel);
+  editSave.dataset.row=row.data.id;
+}
+function closeEdit(){
+  if(!editOpen||busy&&false)return;
+  editScrim.setAttribute("data-leaving","");
+  window.setTimeout(function(){
+    editScrim.hidden=true;editScrim.removeAttribute("data-leaving");editOpen=false;lockScroll(false);
+    if(openerEdit&&openerEdit.focus)try{openerEdit.focus()}catch(e){}
+  },leaveMs);
+}
+var delRow=null;
+function openDelete(row){
+  openerDel=document.activeElement;delRow=row;
+  delTitle.textContent="Delete "+row.data.name+"?";
+  delDesc.textContent="It stops running, and its "+row.data.runs+" past runs are deleted with it. This can't be undone.";
+  delConfirmLabel.textContent="Delete agent";
+  delScrim.hidden=false;delOpen=true;lockScroll(true);
+  delScrim.removeAttribute("data-leaving");
+  initialFocus(delPanel);
+}
+function closeDelete(restore){
+  if(!delOpen||busy)return;
+  delScrim.setAttribute("data-leaving","");
+  window.setTimeout(function(){
+    delScrim.hidden=true;delScrim.removeAttribute("data-leaving");delOpen=false;delRow=null;lockScroll(false);
+    if(restore!==false&&openerDel&&openerDel.focus)try{openerDel.focus()}catch(e){}
+  },leaveMs);
+}
+function shake(panel){panel.classList.remove("shake");void panel.offsetWidth;panel.classList.add("shake")}
+
+rows.forEach(function(r){
+  r.editBtn.addEventListener("click",function(){openEdit(r)});
+  r.delBtn.addEventListener("click",function(){openDelete(r)});
+  r.undoBtn.addEventListener("click",function(){r.deleted=false;paintRow(r)});
+});
+editCancel.addEventListener("click",closeEdit);
+editClose.addEventListener("click",closeEdit);
+editForm.addEventListener("submit",function(e){e.preventDefault();doSave()});
+function doSave(){
+  var id=editScrim.dataset.row;var r=findRow(id);if(!r)return;
+  var v=editName.value.trim();if(!v)return;
+  r.data.name=v;r.data.instructions=editInstr.value;
+  paintRow(r);closeEdit();
+}
+editSave.addEventListener("click",doSave);
+editName.addEventListener("input",function(){editSave.disabled=!editName.value.trim()});
+delKeep.addEventListener("click",function(){closeDelete(true)});
+function doDeleteConfirm(){
+  if(busy||!delRow)return;
+  busy=true;delConfirm.setAttribute("data-busy","");delConfirm.disabled=true;delKeep.disabled=true;
+  delConfirm.setAttribute("aria-busy","true");
+  var spin=document.createElement("span");spin.className="spin";spin.setAttribute("aria-hidden","true");spin.id="delSpin";
+  delConfirm.appendChild(spin);
+  var target=delRow;
+  window.setTimeout(function(){
+    target.deleted=true;paintRow(target);
+    busy=false;delConfirm.removeAttribute("data-busy");delConfirm.disabled=false;delKeep.disabled=false;
+    delConfirm.removeAttribute("aria-busy");
+    var s=document.getElementById("delSpin");if(s&&s.parentNode)s.parentNode.removeChild(s);
+    delScrim.setAttribute("data-leaving","");
+    window.setTimeout(function(){
+      delScrim.hidden=true;delScrim.removeAttribute("data-leaving");delOpen=false;delRow=null;lockScroll(false);
+      var u=target.undoBtn;if(u&&u.focus)try{u.focus()}catch(e){}
+    },260);
+  },700);
+}
+delConfirm.addEventListener("click",doDeleteConfirm);
+/* esc + trap per dialog */
+[["edit",editScrim,editPanel],["del",delScrim,delPanel]].forEach(function(pair){
+  var scrim=pair[1],panel=pair[2];
+  scrim.addEventListener("pointerdown",function(e){scrim._downOnBackdrop=(e.target===scrim)});
+  scrim.addEventListener("click",function(e){
+    if(e.target!==scrim)return;
+    if(!scrim._downOnBackdrop)return;scrim._downOnBackdrop=false;
+    if(pair[0]==="edit"){closeEdit()}
+    else{if(busy){shake(panel)}else{closeDelete(true)}}
+  });
+  scrim.addEventListener("keydown",function(e){
+    if(e.key==="Escape"){e.stopPropagation();if(pair[0]==="edit"){closeEdit()}else if(!busy){closeDelete(true)}}
+    else trapTab(e,panel);
+  });
+});
+document.addEventListener("keydown",function(e){
+  if(e.key!=="Escape")return;
+  if(delOpen&&!busy){closeDelete(true)}
+  else if(editOpen){closeEdit()}
+});
+/* theme */
+function paintTheme(t){
+  document.documentElement.setAttribute("data-theme",t);
+  var dark=(t==="dark");
+  iconMoon.style.display=dark?"none":"";
+  iconSun.style.display=dark?"":"none";
+  themeBtn.setAttribute("aria-label",dark?"Switch to light theme":"Switch to dark theme");
+  try{localStorage.setItem("affectui-dialog-theme",t)}catch(e){}
+}
+themeBtn.addEventListener("click",function(){
+  var cur=document.documentElement.getAttribute("data-theme")==="dark"?"dark":"light";
+  paintTheme(cur==="dark"?"light":"dark");
+});
+(function initTheme(){
+  var t=document.documentElement.getAttribute("data-theme")||"light";
+  paintTheme(t);
+})();
+refreshCount();
+
+/* test hooks (in-place identity checks) */
+window.__dlgTest={
+  rows:rows,openEdit:openEdit,closeEdit:closeEdit,openDelete:openDelete,closeDelete:closeDelete,
+  doSave:doSave,doDeleteConfirm:doDeleteConfirm,
+  get editOpen(){return editOpen},get delOpen(){return delOpen},get busy(){return busy},
+  setEdit:function(n,i){editName.value=n;editInstr.value=i;editSave.disabled=!String(n).trim()},
+  theme:function(){return document.documentElement.getAttribute("data-theme")},
+  toggleTheme:function(){themeBtn.click()}
+};
+})();
+</script>
+</body>
+</html>

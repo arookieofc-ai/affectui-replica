@@ -1,0 +1,507 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<script>/*noflash*/(function(){try{var k="affectui-code-block-theme";var s=null;try{s=window.localStorage.getItem(k);}catch(e){}var t=s;if(t!=="light"&&t!=="dark"){try{t=(window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches)?"dark":"light";}catch(e){t="light";}}document.documentElement.setAttribute("data-theme",t);}catch(e){document.documentElement.setAttribute("data-theme","light");}})();</script>
+<style>html{background:#fafaf9}html[data-theme="dark"]{background:#101012}</style>
+<meta name="color-scheme" content="light dark">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Code Block — affectUI replica</title>
+<style>
+:root{
+  --page:#fafaf9; --surface:#ffffff; --ink:#1c1917; --ink-soft:#171717;
+  --muted:#78716c; --subtle:#f5f5f4; --border:#e7e5e4;
+  --radius-lg:16px; --radius:10px; --radius-sm:6px;
+  --shadow:0 1px 2px rgba(0,0,0,.05),0 4px 16px rgba(0,0,0,.05);
+  --shadow-sm:0 1px 2px rgba(0,0,0,.05);
+  --focus:rgba(37,99,235,.65);
+  --amber:#f59e0b; --amber-bg:#fef3c7; --amber-ink:#92400e;
+  --ease:cubic-bezier(.22,1,.36,1);
+  --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+html[data-theme="dark"]{
+  --page:#101012; --surface:#1c1c1f; --ink:#ededed; --ink-soft:#ededed;
+  --muted:#a1a1aa; --subtle:#26262a; --border:#2e2e33;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 28px rgba(0,0,0,.45);
+  --shadow-sm:0 1px 2px rgba(0,0,0,.4);
+  --focus:rgba(96,165,250,.8);
+  --amber:#fbbf24; --amber-bg:#451a03; --amber-ink:#fde68a;
+}
+html{-webkit-tap-highlight-color:transparent}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--page); color:var(--ink);
+  font-family:var(--sans); font-size:14px; line-height:1.5;
+  font-variant-numeric:tabular-nums;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:880px;margin:0 auto;padding:28px 20px 64px}
+.topbar{display:flex;align-items:flex-start;gap:12px;margin-bottom:6px}
+.titles{flex:1;min-width:0}
+.kicker{display:inline-block;font-size:12px;font-weight:600;color:var(--muted);border:1px solid var(--border);background:var(--surface);border-radius:999px;padding:3px 10px;margin-bottom:10px}
+h1{font-size:16px;font-weight:600;margin:0 0 4px;letter-spacing:-.01em}
+.sub{font-size:13px;color:var(--muted);margin:0;max-width:60ch}
+.theme-btn{
+  flex:none;display:inline-flex;align-items:center;gap:8px;
+  border:1px solid var(--border);background:var(--surface);color:var(--ink);
+  border-radius:999px;padding:7px 12px 7px 9px;font:inherit;font-size:13px;font-weight:600;
+  cursor:pointer;box-shadow:var(--shadow-sm);
+  transition:transform 150ms ease,box-shadow 150ms ease,background-color 150ms ease;
+}
+.theme-btn .dot{width:22px;height:22px;border-radius:999px;display:grid;place-items:center;background:var(--subtle);border:1px solid var(--border);font-size:13px;line-height:1}
+.theme-btn:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.card{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);
+  box-shadow:var(--shadow);padding:16px;margin-top:16px;
+}
+.card h2{font-size:15px;font-weight:600;margin:0 0 4px}
+.card p.desc{font-size:13px;color:var(--muted);margin:0 0 12px}
+.controls{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}
+.chip{
+  display:inline-flex;align-items:center;gap:8px;cursor:pointer;user-select:none;
+  border:1px solid var(--border);background:var(--page);color:var(--ink);
+  border-radius:999px;padding:6px 12px 6px 8px;font-size:12.5px;font-weight:500;
+  transition:background-color 150ms ease,border-color 150ms ease;
+}
+.chip input{accent-color:#2563eb;width:15px;height:15px;margin:0}
+.chip:focus-within{outline:2px solid var(--focus);outline-offset:2px}
+.chip .n{color:var(--muted);font-size:12px}
+/* ---- code block (clean-room replica of ui-code look) ---- */
+.cb{
+  --cb-tray:var(--subtle); --cb-bg:var(--surface); --cb-line:var(--border);
+  --cb-ink:var(--ink-soft); --cb-muted:var(--muted);
+  --cb-faint:#b9b3ad; --cb-icon:#8d8680; --cb-wash:rgba(0,0,0,.05);
+  --cb-mark:rgba(37,99,235,.07); --cb-edge:rgba(37,99,235,.55);
+  --cb-focus:var(--focus); --cb-ease:var(--ease); --cb-mono:var(--mono);
+  --cb-r:12px; --cb-pad:3px;
+  --cb-com:#9a9590; --cb-str:#0b8576; --cb-kw:#8a35d6;
+  --cb-num:#b25e00; --cb-lit:#b25e00; --cb-fn:#1f63c9; --cb-key:var(--ink-soft); --cb-var:#1f63c9;
+  box-sizing:border-box;position:relative;display:flex;flex-direction:column;
+  min-width:0;margin:0;padding:var(--cb-pad);border-radius:var(--cb-r);
+  background:var(--cb-tray);color:var(--cb-ink);
+  font-family:var(--sans);font-size:13.5px;line-height:20px;
+  border:1px solid var(--border);
+}
+html[data-theme="dark"] .cb{
+  --cb-faint:#55555b; --cb-icon:#8b8b92; --cb-wash:rgba(255,255,255,.07);
+  --cb-mark:rgba(96,165,250,.12); --cb-edge:rgba(96,165,250,.6);
+  --cb-com:#6e6e75; --cb-str:#4fc3b4; --cb-kw:#cfaef5;
+  --cb-num:#f2a15c; --cb-lit:#f2a15c; --cb-fn:#7cb4ff; --cb-key:#ededed; --cb-var:#7cb4ff;
+}
+.cb-head{display:flex;flex:none;align-items:center;gap:8px;height:32px;padding:0 3px 0 13px}
+.cb-label{flex:1;min-width:0;overflow:hidden;font-size:12.5px;line-height:16px;font-weight:500;color:var(--cb-muted);white-space:nowrap;text-overflow:ellipsis}
+.cb-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.cb-copy{
+  appearance:none;border:0;background:transparent;position:relative;display:grid;flex:none;place-items:center;
+  width:26px;height:26px;border-radius:7px;color:var(--cb-icon);cursor:pointer;padding:0;
+  padding-left:2px;
+  transition:background-color 160ms ease,color 160ms ease;
+}
+.cb-copy svg{position:absolute;width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.4;stroke-linecap:round;stroke-linejoin:round;transition:opacity 200ms ease,transform 320ms var(--cb-ease),filter 200ms ease}
+.cb-copy .ok{opacity:0;transform:scale(.6);filter:blur(2px);stroke-width:1.7}
+.cb-copy[data-copied]{color:var(--cb-ink)}
+.cb-copy[data-copied] .ic{opacity:0;transform:scale(.6);filter:blur(2px)}
+.cb-copy[data-copied] .ok{opacity:1;transform:none;filter:none}
+.cb-copy:focus-visible{outline:2px solid var(--cb-focus);outline-offset:2px}
+.cb-scroll{
+  position:relative;flex:1 1 auto;min-width:0;min-height:0;overflow:auto;overscroll-behavior-x:contain;
+  border-radius:calc(var(--cb-r) - var(--cb-pad));
+  background:var(--cb-bg);border:1px solid var(--cb-line);box-shadow:var(--shadow-sm);
+  scrollbar-width:thin;
+}
+.cb-scroll:focus-visible{outline:2px solid var(--cb-focus);outline-offset:-2px}
+.cb-pre{margin:0;padding:12px 0;font-family:var(--cb-mono);font-size:12.5px;line-height:20px;color:var(--cb-ink);tab-size:2;text-align:left}
+.cb-code{display:block;width:max-content;min-width:100%;font:inherit}
+.cb[data-wrap="true"] .cb-code{width:auto}
+.cb-line{display:flex;min-height:20px;padding:0 16px}
+.cb-text{flex:1 0 auto;white-space:pre}
+.cb[data-wrap="true"] .cb-text{flex:1 1 auto;min-width:0;white-space:pre-wrap;overflow-wrap:anywhere}
+.cb-line[data-marked="true"]{background:var(--cb-mark);box-shadow:inset 2px 0 0 var(--cb-edge)}
+.cb[data-numbers="true"] .cb-line{padding-left:0}
+.cb-ln{
+  position:sticky;left:0;z-index:1;flex:none;min-width:calc(var(--cb-digits,2)*1ch + 32px);
+  padding:0 14px 0 18px;background:var(--cb-bg);color:var(--cb-faint);text-align:right;
+  font-variant-numeric:tabular-nums;user-select:none;-webkit-user-select:none;
+}
+.cb-line[data-marked="true"] .cb-ln{background:linear-gradient(var(--cb-mark),var(--cb-mark)),var(--cb-bg);box-shadow:inset 2px 0 0 var(--cb-edge);color:var(--cb-muted)}
+.t-com{color:var(--cb-com)} .t-str{color:var(--cb-str)} .t-kw{color:var(--cb-kw)}
+.t-num{color:var(--cb-num)} .t-lit{color:var(--cb-lit)} .t-fn{color:var(--cb-fn)}
+.t-key{color:var(--cb-key)} .t-var{color:var(--cb-var)}
+.stack{display:grid;gap:14px}
+.note{font-size:12.5px;color:var(--muted);margin:12px 2px 0}
+.note code{font-family:var(--mono);font-size:12px;background:var(--subtle);border:1px solid var(--border);border-radius:6px;padding:1px 6px}
+.props{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:10px}
+.props th,.props td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:top}
+.props th{font-size:12px;color:var(--muted);font-weight:600}
+.props td:first-child{font-family:var(--mono);font-size:12px;white-space:nowrap}
+footer{margin-top:18px;font-size:12.5px;color:var(--muted)}
+@media (hover:hover) and (pointer:fine){
+  .theme-btn:hover{transform:translateY(-1px);box-shadow:0 2px 4px rgba(0,0,0,.06),0 8px 20px rgba(0,0,0,.08)}
+  .chip:hover{background:var(--subtle)}
+  .cb-copy:hover{background:var(--cb-wash);color:var(--cb-ink)}
+}
+@media (pointer:coarse){
+  .cb-copy::after{content:"";position:absolute;inset:-5px}
+}
+@media (prefers-reduced-motion:reduce){
+  .cb-copy,.cb-copy svg,.theme-btn,.chip{transition:none}
+}
+@media (max-width:560px){
+  .wrap{padding:20px 14px 48px}
+  .card{padding:12px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <div class="titles">
+      <span class="kicker">Text · Free · code-block</span>
+      <h1>Code Block</h1>
+      <p class="sub">Readable code with filename, copy button, line numbers, highlights, and coloring.</p>
+    </div>
+    <button class="theme-btn" id="themeBtn" type="button" aria-label="Switch to dark mode" title="Toggle theme"><span class="dot" id="themeDot" aria-hidden="true">◐</span><span id="themeName">Light</span></button>
+  </div>
+
+  <section class="card" aria-labelledby="demoH">
+    <h2 id="demoH">Demo — reviewer agent + install command</h2>
+    <p class="desc">Verbatim demo data: <code style="font-family:var(--mono);font-size:12px">agents/reviewer.ts</code> with line numbers and highlighted lines 8–9, plus a Bash install snippet. Copy buttons show a blurred check for 1.4s.</p>
+    <div class="controls" role="group" aria-label="Playground controls for the TypeScript block">
+      <label class="chip"><input type="checkbox" id="optNumbers" checked> Line numbers <span class="n">TS</span></label>
+      <label class="chip"><input type="checkbox" id="optWrap"> Wrap <span class="n">TS</span></label>
+      <label class="chip"><input type="checkbox" id="optHi" checked> Highlight 8–9 <span class="n">TS</span></label>
+      <label class="chip"><input type="checkbox" id="optCopy" checked> Copy button <span class="n">both</span></label>
+    </div>
+    <div class="stack">
+      <figure class="cb" id="cbTs" data-numbers="true"></figure>
+      <figure class="cb" id="cbBash"></figure>
+    </div>
+    <p class="note" id="copyNote" role="status" aria-live="polite">Copy state: idle.</p>
+  </section>
+
+  <section class="card" aria-labelledby="propsH">
+    <h2 id="propsH">Props</h2>
+    <p class="desc">Same contract as the original component. All updates happen in place — toggling these never rebuilds code lines.</p>
+    <table class="props">
+      <thead><tr><th>Prop</th><th>Demo value</th><th>Behaviour</th></tr></thead>
+      <tbody>
+        <tr><td>code</td><td>reviewer source · install snippet</td><td>Rendered with token coloring, one row per line.</td></tr>
+        <tr><td>language</td><td>ts · bash</td><td>Chooses the tokenizer; unknown labels fall back to plain text.</td></tr>
+        <tr><td>filename</td><td>agents/reviewer.ts · (label Bash)</td><td>Left side of the tray header; ellipsized if long.</td></tr>
+        <tr><td>showLineNumbers</td><td>true · false</td><td>Sticky gutter; width reserves digits via --cb-digits.</td></tr>
+        <tr><td>highlightLines</td><td>[8, 9] · —</td><td>Marked rows get a wash plus a 2px edge.</td></tr>
+        <tr><td>wrap</td><td>false</td><td>Toggles horizontal scroll vs soft wrap.</td></tr>
+        <tr><td>copyable</td><td>true</td><td>Ghost copy button; keyboard-focusable with Copied feedback.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <footer>Standalone replica · open <code>index.html</code> in a browser · toggle the theme to check light and dark.</footer>
+</div>
+
+<script>
+(function(){
+"use strict";
+var THEME_KEY = "affectui-code-block-theme";
+var TS_CODE = "import { defineAgent } from \"@acme/agents\";\n\nexport const reviewer = defineAgent({\n  name: \"Code reviewer\",\n  model: \"claude-opus\",\n  tools: [\"github\", \"linear\"],\n  // Ask before anything leaves the repo\n  approval: { required: true, timeout: \"2h\" },\n  maxSteps: 24,\n});";
+var BASH_CODE = "npm install @acme/agents\nnpx acme run reviewer --watch";
+
+function norm(s){ s = String(s == null ? "" : s); s = s.replace(/\r\n?/g, "\n"); if(s.charAt(s.length-1) === "\n"){ s = s.slice(0, -1); } return s; }
+function splitLines(s){ return norm(s).split("\n"); }
+
+var JS_KW = {abstract:1,as:1,async:1,await:1,break:1,case:1,catch:1,class:1,const:1,continue:1,debugger:1,declare:1,default:1,delete:1,do:1,else:1,enum:1,export:1,extends:1,finally:1,for:1,from:1,function:1,if:1,implements:1,import:1,in:1,instanceof:1,interface:1,keyof:1,let:1,new:1,of:1,private:1,protected:1,public:1,readonly:1,return:1,satisfies:1,static:1,super:1,switch:1,this:1,throw:1,try:1,type:1,typeof:1,var:1,void:1,while:1,with:1,yield:1};
+var JS_LIT = {Fi:0};
+var LITS = {true:1,false:1,null:1,undefined:1,NaN:1,Infinity:1};
+
+function tokJsLine(line){
+  var out = []; var i = 0; var n = line.length;
+  while(i < n){
+    var c = line[i];
+    if(c === "/" && line[i+1] === "/"){ out.push(["com", line.slice(i)]); break; }
+    if(c === '"' || c === "'" || c === "`"){
+      var q = c; var j = i+1; var ok = false;
+      while(j < n){ var d = line[j]; if(d === "\\"){ j += 2; continue; } if(d === q){ j++; ok = true; break; } if(q !== "`" && d === "\n"){ break; } j++; }
+      out.push(["str", line.slice(i, j)]); i = j; continue;
+    }
+    if((c >= "0" && c <= "9") || (c === "." && line[i+1] >= "0" && line[i+1] <= "9")){
+      var m = line.slice(i).match(/^(?:0[xXbBoO][0-9a-fA-F_]+n?|\d[\d_]*(?:\.\d+)?(?:[eE][+-]?\d+)?n?)/);
+      if(m){ out.push(["num", m[0]]); i += m[0].length; continue; }
+    }
+    if((c >= "A" && c <= "Z") || (c >= "a" && c <= "z") || c === "_" || c === "$"){
+      var k = i+1; while(k < n){ var e = line[k]; if((e>="A"&&e<="Z")||(e>="a"&&e<="z")||(e>="0"&&e<="9")||e==="_"||e==="$"){k++;}else{break;} }
+      var word = line.slice(i, k);
+      var kk = k; while(kk < n && line[kk] === " "){ kk++; }
+      var isCall = line[kk] === "(";
+      if(JS_KW[word]){ out.push(["kw", word]); }
+      else if(LITS[word]){ out.push(["lit", word]); }
+      else if(isCall){ out.push(["fn", word]); }
+      else { out.push([null, word]); }
+      i = k; continue;
+    }
+    out.push([null, c]); i++;
+  }
+  return out;
+}
+
+function tokBashLine(line, isFirst){
+  var out = []; var i = 0; var n = line.length;
+  if(/^\s*#/.test(line)){ return [["com", line]]; }
+  var doneCmd = !isFirst;
+  while(i < n){
+    var c = line[i];
+    if(c === "#"){ out.push(["com", line.slice(i)]); break; }
+    if(c === '"' || c === "'"){
+      if(c === "'"){ var j = line.indexOf("'", i+1); j = j < 0 ? n : j+1; out.push(["str", line.slice(i, j)]); i = j; continue; }
+      var k2 = i+1; while(k2 < n){ if(line[k2] === "\\"){ k2 += 2; continue; } if(line[k2] === '"'){ k2++; break; } k2++; }
+      out.push(["str", line.slice(i, k2)]); i = k2; continue;
+    }
+    if(c === "$" && i+1 < n && /[A-Za-z0-9_{@#?*$!-}]/.test(line[i+1])){
+      var m2 = line.slice(i).match(/^\$\{[^}\n]*\}?|\$[A-Za-z_]\w*|\$[0-9@#?*$!-]/);
+      if(m2){ out.push(["var", m2[0]]); i += m2[0].length; continue; }
+    }
+    if(!doneCmd && (c === " " || c === "\t")){ out.push([null, c]); i++; continue; }
+    if(!doneCmd){
+      var m3 = line.slice(i).match(/^[A-Za-z_.\/~][\w.\/~+-]*/);
+      if(m3){ out.push(["fn", m3[0]]); i += m3[0].length; doneCmd = true; continue; }
+      doneCmd = true;
+    }
+    out.push([null, c]); i++;
+  }
+  return out;
+}
+
+function labelFor(lang){
+  var m = {ts:"TypeScript",typescript:"TypeScript",tsx:"TSX",js:"JavaScript",javascript:"JavaScript",jsx:"JSX",mjs:"JavaScript",cjs:"JavaScript",json:"JSON",jsonc:"JSON",bash:"Bash",sh:"Shell",shell:"Shell",zsh:"Zsh",console:"Terminal",python:"Python",py:"Python"};
+  if(!lang){ return ""; }
+  var k = String(lang).toLowerCase();
+  return m[k] || String(lang);
+}
+
+function el(tag, cls, text){
+  var e = document.createElement(tag);
+  if(cls){ e.setAttribute("class", cls); }
+  if(text != null){ e.textContent = text; }
+  return e;
+}
+function svgEl(tag, attrs){
+  var e = document.createElementNS("http://www.w3.org/2000/svg", tag);
+  for(var k in attrs){ if(Object.prototype.hasOwnProperty.call(attrs, k)){ e.setAttribute(k, attrs[k]); } }
+  return e;
+}
+
+function writeText(str){
+  try{
+    if(window.navigator && window.navigator.clipboard && window.navigator.clipboard.writeText){
+      return window.navigator.clipboard.writeText(str).then(function(){ return true; }, function(){ return legacyCopy(str); });
+    }
+  }catch(e){ /* fall through */ }
+  return Promise.resolve(legacyCopy(str));
+}
+function legacyCopy(str){
+  try{
+    var ta = document.createElement("textarea");
+    ta.value = str; ta.setAttribute("readonly", "");
+    ta.style.position = "fixed"; ta.style.opacity = "0"; ta.style.pointerEvents = "none";
+    document.body.appendChild(ta); ta.select();
+    var ok = false;
+    try{ ok = document.execCommand("copy"); }catch(e){ ok = false; }
+    if(ta.remove){ ta.remove(); } else if(ta.parentNode){ ta.parentNode.removeChild(ta); }
+    return !!ok;
+  }catch(e){ return false; }
+}
+
+function buildBlock(fig, opts){
+  var lines = splitLines(opts.code);
+  var isBash = String(opts.language || "").toLowerCase() === "bash" || String(opts.language || "").toLowerCase() === "sh";
+  var head = el("figcaption", "cb-head");
+  var label = el("span", "cb-label", opts.title);
+  label.setAttribute("dir", "auto");
+  label.setAttribute("title", opts.title);
+  head.appendChild(label);
+
+  var copyBtn = null, okIcon = null, sr = null;
+  if(opts.copyable){
+    copyBtn = el("button", "cb-copy");
+    copyBtn.setAttribute("type", "button");
+    copyBtn.setAttribute("aria-label", "Copy code");
+    copyBtn.setAttribute("title", "Copy code");
+    var s1 = svgEl("svg", {"class":"cb-copy-icon ic", viewBox:"0 0 16 16", "aria-hidden":"true"});
+    s1.appendChild(svgEl("rect", {x:"5.5", y:"5.5", width:"8.5", height:"8.5", rx:"2"}));
+    var p = svgEl("path", {d:"M10.5 3.75v-.25A1.5 1.5 0 0 0 9 2H3.5A1.5 1.5 0 0 0 2 3.5V9a1.5 1.5 0 0 0 1.5 1.5h.25"});
+    s1.appendChild(p);
+    var s2 = svgEl("svg", {"class":"cb-copy-done ok", viewBox:"0 0 16 16", "aria-hidden":"true"});
+    s2.appendChild(svgEl("path", {d:"M3.5 8.4 6.6 11.3 12.5 4.9"}));
+    copyBtn.appendChild(s1); copyBtn.appendChild(s2);
+    head.appendChild(copyBtn);
+    sr = el("span", "cb-sr"); sr.setAttribute("role", "status");
+    fig.appendChild(head); fig.appendChild(sr);
+  } else {
+    fig.appendChild(head);
+  }
+
+  var scroll = el("div", "cb-scroll");
+  var pre = el("pre", "cb-pre"); pre.setAttribute("dir", "ltr");
+  var code = el("code", "cb-code");
+  pre.appendChild(code); scroll.appendChild(pre); fig.appendChild(scroll);
+
+  var digits = String(lines.length).length;
+  fig.style.setProperty("--cb-digits", String(digits));
+
+  var block = {fig:fig, head:head, label:label, copyBtn:copyBtn, sr:sr, scroll:scroll, pre:pre, code:code,
+    lineEls:[], lnEls:[], textEls:[], lines:lines, opts:opts, copied:false, timer:null, overflow:false};
+
+  for(var li = 0; li < lines.length; li++){
+    (function(idx){
+      var row = el("span", "cb-line");
+      var ln = el("span", "cb-ln", String(idx+1));
+      ln.setAttribute("aria-hidden", "true");
+      var tx = el("span", "cb-text");
+      var toks = isBash ? tokBashLine(lines[idx], true) : tokJsLine(lines[idx]);
+      for(var ti = 0; ti < toks.length; ti++){
+        var kind = toks[ti][0], txt = toks[ti][1];
+        if(kind){ var s = el("span", "t-" + kind, txt); tx.appendChild(s); }
+        else { tx.appendChild(document.createTextNode(txt)); }
+      }
+      if(lines[idx] === ""){ tx.appendChild(document.createTextNode(" ")); }
+      row.appendChild(ln); row.appendChild(tx);
+      code.appendChild(row);
+      block.lineEls.push(row); block.lnEls.push(ln); block.textEls.push(tx);
+    })(li);
+  }
+
+  applyNumbers(block, !!opts.showNumbers);
+  applyHi(block, opts.highlight || []);
+  applyWrap(block, !!opts.wrap);
+  applyCopyable(block, !!opts.copyable);
+  wireCopy(block, opts.fullCode);
+  checkOverflow(block);
+  return block;
+}
+
+function applyNumbers(block, on){
+  block.opts.showNumbers = !!on;
+  block.fig.setAttribute("data-numbers", on ? "true" : "false");
+  for(var i = 0; i < block.lnEls.length; i++){
+    var ln = block.lnEls[i];
+    if(on){ ln.removeAttribute("hidden"); ln.style.display = ""; }
+    else { ln.setAttribute("hidden", ""); ln.style.display = "none"; }
+  }
+}
+function applyWrap(block, on){
+  block.opts.wrap = !!on;
+  block.fig.setAttribute("data-wrap", on ? "true" : "false");
+  checkOverflow(block);
+}
+function applyHi(block, list){
+  var set = {};
+  for(var i = 0; i < list.length; i++){ set[list[i]] = 1; }
+  block.opts.highlight = list.slice();
+  for(var r = 0; r < block.lineEls.length; r++){
+    if(set[r+1]){ block.lineEls[r].setAttribute("data-marked", "true"); }
+    else { block.lineEls[r].removeAttribute("data-marked"); }
+  }
+}
+function applyCopyable(block, on){
+  block.opts.copyable = !!on;
+  if(block.copyBtn){
+    if(on){ block.copyBtn.removeAttribute("hidden"); block.copyBtn.style.display = ""; }
+    else { block.copyBtn.setAttribute("hidden", ""); block.copyBtn.style.display = "none"; setCopied(block, false); }
+  }
+}
+function setCopied(block, on){
+  block.copied = !!on;
+  if(block.copyBtn){
+    if(on){ block.copyBtn.setAttribute("data-copied", "true"); block.copyBtn.setAttribute("aria-label", "Copied"); block.copyBtn.setAttribute("title", "Copied"); }
+    else { block.copyBtn.removeAttribute("data-copied"); block.copyBtn.setAttribute("aria-label", "Copy code"); block.copyBtn.setAttribute("title", "Copy code"); }
+  }
+  if(block.sr){ block.sr.textContent = on ? "Copied" : ""; }
+}
+function wireCopy(block, fullCode){
+  if(!block.copyBtn){ return; }
+  block.copyBtn.addEventListener("click", function(){
+    writeText(fullCode).then(function(ok){
+      if(!ok){ return; }
+      setCopied(block, true);
+      note("Copy state: copied " + block.opts.title + ".");
+      if(block.timer){ try{ clearTimeout(block.timer); }catch(e){} }
+      block.timer = setTimeout(function(){ setCopied(block, false); note("Copy state: idle."); }, 1400);
+      if(typeof block.opts.onCopy === "function"){ try{ block.opts.onCopy(fullCode); }catch(e){} }
+    });
+  });
+}
+function checkOverflow(block){
+  try{
+    var s = block.scroll;
+    var over = (s.scrollWidth > s.clientWidth + 1) || (s.scrollHeight > s.clientHeight + 1);
+    block.overflow = !!over;
+    if(over){ s.setAttribute("tabindex", "0"); s.setAttribute("role", "region"); s.setAttribute("aria-label", block.opts.title + ", code"); }
+    else { s.removeAttribute("tabindex"); s.removeAttribute("role"); s.removeAttribute("aria-label"); }
+  }catch(e){ /* stub DOM without layout: stay keyboard-neutral */ }
+}
+function note(msg){
+  var n = document.getElementById("copyNote");
+  if(n){ n.textContent = msg; }
+}
+
+/* theme */
+function currentTheme(){
+  return document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
+}
+function paintTheme(){
+  var t = currentTheme();
+  var name = document.getElementById("themeName");
+  var dot = document.getElementById("themeDot");
+  var btn = document.getElementById("themeBtn");
+  if(name){ name.textContent = t === "dark" ? "Dark" : "Light"; }
+  if(dot){ dot.textContent = t === "dark" ? "☾" : "◐"; }
+  if(btn){ btn.setAttribute("aria-label", t === "dark" ? "Switch to light mode" : "Switch to dark mode"); }
+}
+function setTheme(t){
+  document.documentElement.setAttribute("data-theme", t === "dark" ? "dark" : "light");
+  try{ window.localStorage.setItem(THEME_KEY, t === "dark" ? "dark" : "light"); }catch(e){}
+  paintTheme();
+}
+
+function init(){
+  var figTs = document.getElementById("cbTs");
+  var figBash = document.getElementById("cbBash");
+  var bTs = buildBlock(figTs, {code:TS_CODE, fullCode:TS_CODE, language:"ts", title:"agents/reviewer.ts", showNumbers:true, highlight:[8,9], wrap:false, copyable:true});
+  var bBash = buildBlock(figBash, {code:BASH_CODE, fullCode:BASH_CODE, language:"bash", title:labelFor("bash"), showNumbers:false, highlight:[], wrap:false, copyable:true});
+  try{
+    if(window.ResizeObserver){
+      var ro = new window.ResizeObserver(function(){ checkOverflow(bTs); checkOverflow(bBash); });
+      ro.observe(bTs.scroll); ro.observe(bBash.scroll);
+    }
+  }catch(e){}
+  window.addEventListener("resize", function(){ checkOverflow(bTs); checkOverflow(bBash); });
+
+  var n = document.getElementById("optNumbers");
+  var w = document.getElementById("optWrap");
+  var h = document.getElementById("optHi");
+  var c = document.getElementById("optCopy");
+  if(n){ n.addEventListener("change", function(){ applyNumbers(bTs, n.checked); checkOverflow(bTs); }); }
+  if(w){ w.addEventListener("change", function(){ applyWrap(bTs, w.checked); }); }
+  if(h){ h.addEventListener("change", function(){ applyHi(bTs, h.checked ? [8,9] : []); }); }
+  if(c){ c.addEventListener("change", function(){ applyCopyable(bTs, c.checked); applyCopyable(bBash, c.checked); }); }
+
+  var tb = document.getElementById("themeBtn");
+  if(tb){ tb.addEventListener("click", function(){ setTheme(currentTheme() === "dark" ? "light" : "dark"); }); }
+  paintTheme();
+
+  try{
+    window.__cb = {ts:bTs, bash:bBash, setTheme:setTheme, currentTheme:currentTheme,
+      setNumbers:function(on){ applyNumbers(bTs, on); }, setWrap:function(on){ applyWrap(bTs, on); },
+      setHi:function(l){ applyHi(bTs, l); }, setCopied:function(on){ setCopied(bTs, on); }};
+  }catch(e){}
+
+  return {ts:bTs, bash:bBash};
+}
+
+if(document.readyState === "loading"){ document.addEventListener("DOMContentLoaded", init); }
+else { init(); }
+})();
+</script>
+</body>
+</html>
