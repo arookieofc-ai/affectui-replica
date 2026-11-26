@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<script>/*noflash*/try{var __s=localStorage.getItem("affectui-theme");var __t=__s||(window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");document.documentElement.setAttribute("data-theme",__t)}catch(__e){}</script>
+<style>html{background:#fafaf9}html[data-theme="dark"]{background:#101012}</style>
+<meta name="color-scheme" content="light dark">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Number Input — affectUI replica</title>
+<style>
+:root{
+  --page:#fafaf9;
+  --surface:#ffffff;
+  --ink:#171717;
+  --ink-2:#1c1917;
+  --muted:#78716c;
+  --subtle:#f5f5f4;
+  --border:#e7e5e4;
+  --border-strong:#d4d4d8;
+  --radius-lg:16px;
+  --radius:10px;
+  --radius-sm:6px;
+  --shadow:0 1px 2px rgba(0,0,0,.05),0 4px 16px rgba(0,0,0,.05);
+  --accent:#2563eb;
+  --amber-bg:#fef3c7;
+  --amber-tx:#92400e;
+  --amber-bd:#f59e0b;
+  --danger:#c4320a;
+  --focus:rgba(0,96,226,.7);
+  --ease:cubic-bezier(.22,1,.36,1);
+}
+html[data-theme="dark"]{
+  --page:#101012;
+  --surface:#1c1c1f;
+  --ink:#ededed;
+  --ink-2:#ededed;
+  --muted:#a1a1aa;
+  --subtle:#26262a;
+  --border:#2e2e33;
+  --border-strong:#3a3a40;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 4px 16px rgba(0,0,0,.4);
+  --amber-bg:#451a03;
+  --amber-tx:#fde68a;
+  --amber-bd:#fbbf24;
+  --danger:#ff8a7a;
+  --focus:rgba(77,141,255,.8);
+}
+[hidden]{display:none!important}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--page);
+  color:var(--ink);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:14px;
+  line-height:1.45;
+  -webkit-font-smoothing:antialiased;
+  min-height:100vh;
+}
+.wrap{max-width:720px;margin:0 auto;padding:28px 20px 56px}
+.topbar{
+  display:flex;align-items:flex-start;justify-content:space-between;gap:12px;
+  margin-bottom:18px;
+}
+.brand{display:flex;gap:10px;align-items:flex-start;min-width:0}
+.brand-dot{flex:none;width:10px;height:10px;border-radius:999px;background:var(--accent);margin-top:6px;box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 15%,transparent)}
+.brand-name{font-size:16px;font-weight:650;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brand-meta{font-size:12.5px;color:var(--muted);margin-top:2px}
+.top-actions{display:flex;align-items:center;gap:10px;flex:none}
+.ctx{font-size:12px;color:var(--muted);border:1px solid var(--border);background:var(--surface);border-radius:999px;padding:4px 10px;white-space:nowrap}
+.theme-btn{
+  display:inline-grid;place-items:center;width:34px;height:34px;border-radius:999px;
+  border:1px solid var(--border);background:var(--surface);color:var(--ink);cursor:pointer;
+  box-shadow:var(--shadow);transition:transform 150ms var(--ease),box-shadow 150ms ease;
+}
+.theme-btn:hover{transform:translateY(-1px)}
+.theme-btn:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.theme-btn svg{display:block}
+.card{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);
+  box-shadow:var(--shadow);padding:18px 18px 16px;transition:transform 160ms var(--ease),box-shadow 160ms ease;
+}
+.card:hover{transform:translateY(-1px)}
+.card-title{font-size:15px;font-weight:650;margin:0}
+.card-sub{font-size:12.5px;color:var(--muted);margin:4px 0 16px}
+.nmi-form{display:flex;flex-direction:column;gap:16px}
+.nmi-row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:560px){.nmi-row{grid-template-columns:1fr}}
+.ui-nmi{
+  --h:36px;--px:12px;--fs:13.5px;--r:var(--radius);
+  --t-ink:var(--ink);--t-sub:var(--muted);--t-faint:#b5b5b5;--t-icon:var(--muted);
+  --t-surf:var(--surface);--t-wash:#f4f4f5;--t-press:#ebebed;--t-ro:#fafafa;
+  --t-line:#e6e6e8;--t-sh:0 0 0 1px var(--t-line),0 1px 2px rgba(0,0,0,.04);
+  --t-sh-h:0 0 0 1px var(--border-strong),0 1px 2px rgba(0,0,0,.04);
+  --t-sh-f:0 0 0 1px var(--border-strong),0 1px 2px rgba(0,0,0,.04);
+  display:flex;flex-direction:column;gap:7px;min-width:0;
+  font-size:13.5px;line-height:20px;color:var(--t-ink);
+}
+html[data-theme="dark"] .ui-nmi{
+  --t-sub:#8b8b92;--t-faint:#5c5c63;--t-icon:#8b8b92;--t-surf:#19191b;
+  --t-wash:#26262a;--t-press:#2e2e33;--t-ro:#151517;--t-line:#2a2a2e;
+  --t-sh:0 0 0 1px var(--t-line);--t-sh-h:0 0 0 1px #3a3a40;--t-sh-f:0 0 0 1px #4e4e55;
+}
+.ui-nmi__head{display:flex;align-items:baseline;gap:6px;min-width:0;padding:0 2px}
+.ui-nmi__label{min-width:0;font-size:13px;font-weight:500;overflow-wrap:anywhere;cursor:default;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ui-nmi__box{
+  display:flex;align-items:center;gap:4px;height:var(--h);min-width:0;
+  padding-inline:var(--px) 5px;border-radius:var(--r);background:var(--t-surf);
+  box-shadow:var(--t-sh);cursor:text;transition:box-shadow 160ms ease,background-color 160ms ease;
+}
+.ui-nmi__box:hover{box-shadow:var(--t-sh-h)}
+.ui-nmi__box:has(.ui-nmi__input:focus){box-shadow:var(--t-sh-f)}
+.ui-nmi__input{
+  flex:0 1 auto;min-width:2ch;max-width:100%;height:100%;margin:0;padding:0;border:0;outline:0;
+  background:transparent;font:inherit;font-size:var(--fs);font-variant-numeric:tabular-nums;
+  color:var(--t-ink);text-overflow:ellipsis;-webkit-appearance:none;appearance:none;
+}
+.ui-nmi__input::placeholder{color:var(--t-faint);opacity:1}
+.ui-nmi__affix{
+  display:inline-flex;flex:0 1 auto;align-items:center;min-width:0;max-width:40%;
+  font-size:var(--fs);color:var(--t-sub);white-space:nowrap;user-select:none;
+  overflow:hidden;text-overflow:ellipsis;
+}
+.ui-nmi__affix[data-side="start"]{margin-inline-end:-2px}
+.ui-nmi__steps{display:flex;flex:none;gap:2px;margin-inline-start:auto;padding-inline-start:4px}
+.ui-nmi__step{
+  display:grid;place-items:center;position:relative;
+  width:calc(var(--h) - 10px);height:calc(var(--h) - 10px);max-width:28px;max-height:28px;
+  margin:0;padding:0;border:0;border-radius:calc(var(--r) - 4px);background:transparent;
+  color:var(--t-icon);cursor:pointer;touch-action:manipulation;user-select:none;-webkit-user-select:none;
+  -webkit-tap-highlight-color:transparent;transition:background-color 140ms ease,color 140ms ease;
+}
+.ui-nmi__step:hover:not([aria-disabled="true"]){background:var(--t-wash);color:var(--t-ink)}
+.ui-nmi__step:active:not([aria-disabled="true"]){background:var(--t-press)}
+.ui-nmi__step:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
+.ui-nmi__step[aria-disabled="true"]{opacity:.35;cursor:default}
+.ui-nmi__step svg{display:block;transition:transform 120ms var(--ease)}
+.ui-nmi__step:active:not([aria-disabled="true"]) svg{transform:scale(.86)}
+.ui-nmi__message{margin:0;padding:0 2px;font-size:12.5px;line-height:17px;color:var(--t-sub);overflow-wrap:anywhere}
+.foot{margin-top:14px;font-size:12px;color:var(--muted)}
+kbd{font-family:inherit;font-size:11.5px;border:1px solid var(--border);border-bottom-width:2px;border-radius:6px;padding:1px 6px;background:var(--surface)}
+@media (pointer:coarse){
+  .ui-nmi{--fs:16px}
+  .ui-nmi__step{width:32px;height:32px;max-width:none;max-height:none}
+}
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:1ms!important;transition-duration:1ms!important}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-dot" aria-hidden="true"></span>
+      <div>
+        <div class="brand-name">Run configuration</div>
+        <div class="brand-meta">Number Input &middot; 4 fields &middot; 2 controlled &middot; steppers live</div>
+      </div>
+    </div>
+    <div class="top-actions">
+      <span class="ctx">en-US &middot; min/max &middot; keyboard</span>
+      <button class="theme-btn" id="theme-toggle" type="button" aria-label="Switch to dark theme" title="Toggle theme">
+        <span id="icon-sun"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></span>
+        <span id="icon-moon" hidden><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M20 13.5A8 8 0 0 1 10.5 4 8 8 0 1 0 20 13.5z"/></svg></span>
+      </button>
+    </div>
+  </header>
+
+  <main class="card" aria-labelledby="page-title">
+    <h1 class="card-title" id="page-title">Number Input</h1>
+    <p class="card-sub">Single-number field with repeatable steppers, arrow keys, limits, and units.</p>
+    <form class="nmi-form" id="demo-form" novalidate>
+      <div class="ui-nmi" data-size="md" id="wrap-tokens">
+        <div class="ui-nmi__head"><label class="ui-nmi__label" for="in-tokens" id="lab-tokens">Max tokens per run</label></div>
+        <div class="ui-nmi__box" id="box-tokens">
+          <input class="ui-nmi__input" id="in-tokens" type="text" autocomplete="off" autocorrect="off" spellcheck="false" role="spinbutton" aria-labelledby="lab-tokens">
+          <span class="ui-nmi__affix" data-side="end" id="unit-tokens">tokens</span>
+          <span class="ui-nmi__steps">
+            <button class="ui-nmi__step" type="button" id="dec-tokens" aria-label="Decrease" aria-controls="in-tokens" tabindex="-1"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M20 12H4"/></svg></button>
+            <button class="ui-nmi__step" type="button" id="inc-tokens" aria-label="Increase" aria-controls="in-tokens" tabindex="-1"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 4v16M20 12H4"/></svg></button>
+          </span>
+        </div>
+        <p class="ui-nmi__message" id="msg-tokens">The answer stops here &ndash; Page Up adds 10,000.</p>
+      </div>
+
+      <div class="ui-nmi" data-size="md" id="wrap-budget">
+        <div class="ui-nmi__head"><label class="ui-nmi__label" for="in-budget" id="lab-budget">Budget per run</label></div>
+        <div class="ui-nmi__box" id="box-budget">
+          <span class="ui-nmi__affix" data-side="start" id="pre-budget">$</span>
+          <input class="ui-nmi__input" id="in-budget" type="text" autocomplete="off" autocorrect="off" spellcheck="false" role="spinbutton" aria-labelledby="lab-budget">
+          <span class="ui-nmi__steps">
+            <button class="ui-nmi__step" type="button" id="dec-budget" aria-label="Decrease" aria-controls="in-budget" tabindex="-1"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M20 12H4"/></svg></button>
+            <button class="ui-nmi__step" type="button" id="inc-budget" aria-label="Increase" aria-controls="in-budget" tabindex="-1"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 4v16M20 12H4"/></svg></button>
+          </span>
+        </div>
+        <p class="ui-nmi__message" id="msg-budget">Your plan allows up to $100.</p>
+      </div>
+
+      <div class="nmi-row">
+        <div class="ui-nmi" data-size="md" id="wrap-parallel">
+          <div class="ui-nmi__head"><label class="ui-nmi__label" for="in-parallel" id="lab-parallel">Parallel agents</label></div>
+          <div class="ui-nmi__box" id="box-parallel">
+            <input class="ui-nmi__input" id="in-parallel" type="text" autocomplete="off" autocorrect="off" spellcheck="false" role="spinbutton" aria-labelledby="lab-parallel">
+            <span class="ui-nmi__steps">
+              <button class="ui-nmi__step" type="button" id="dec-parallel" aria-label="Decrease" aria-controls="in-parallel" tabindex="-1"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M20 12H4"/></svg></button>
+              <button class="ui-nmi__step" type="button" id="inc-parallel" aria-label="Increase" aria-controls="in-parallel" tabindex="-1"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 4v16M20 12H4"/></svg></button>
+            </span>
+          </div>
+          <p class="ui-nmi__message" id="msg-parallel">Up to 8</p>
+        </div>
+
+        <div class="ui-nmi" data-size="md" id="wrap-temp">
+          <div class="ui-nmi__head"><label class="ui-nmi__label" for="in-temp" id="lab-temp">Temperature</label></div>
+          <div class="ui-nmi__box" id="box-temp">
+            <input class="ui-nmi__input" id="in-temp" type="text" autocomplete="off" autocorrect="off" spellcheck="false" role="spinbutton" aria-labelledby="lab-temp">
+            <span class="ui-nmi__steps">
+              <button class="ui-nmi__step" type="button" id="dec-temp" aria-label="Decrease" aria-controls="in-temp" tabindex="-1"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M20 12H4"/></svg></button>
+              <button class="ui-nmi__step" type="button" id="inc-temp" aria-label="Increase" aria-controls="in-temp" tabindex="-1"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 4v16M20 12H4"/></svg></button>
+            </span>
+          </div>
+          <p class="ui-nmi__message" id="msg-temp">0 to 2</p>
+        </div>
+      </div>
+    </form>
+    <p class="foot"><kbd>&uarr;</kbd> <kbd>&darr;</kbd> step &middot; <kbd>PgUp</kbd> <kbd>PgDn</kbd> large step &middot; <kbd>Home</kbd> <kbd>End</kbd> limits &middot; <kbd>Enter</kbd> commit &middot; <kbd>Esc</kbd> revert. Hold &minus; / + to repeat.</p>
+  </main>
+</div>
+
+<script>
+(function(){
+"use strict";
+var THEME_KEY="affectui-theme";
+function currentTheme(){return document.documentElement.getAttribute("data-theme")||"light"}
+function paintToggle(){
+  var dark=currentTheme()==="dark";
+  var sun=document.getElementById("icon-sun");
+  var moon=document.getElementById("icon-moon");
+  var btn=document.getElementById("theme-toggle");
+  if(sun)sun.hidden=dark;
+  if(moon)moon.hidden=!dark;
+  if(btn)btn.setAttribute("aria-label",dark?"Switch to light theme":"Switch to dark theme");
+}
+var themeBtn=document.getElementById("theme-toggle");
+if(themeBtn){
+  paintToggle();
+  themeBtn.addEventListener("click",function(){
+    var next=currentTheme()==="dark"?"light":"dark";
+    document.documentElement.setAttribute("data-theme",next);
+    try{localStorage.setItem(THEME_KEY,next)}catch(e){}
+    paintToggle();
+  });
+}
+
+function tidy(n){return Number(n.toFixed(10))}
+function clamp(v,lo,hi){return Math.min(hi,Math.max(lo,v))}
+function fmtInfo(fmt){
+  var parts;
+  try{parts=fmt.formatToParts(-12345.6789)}catch(e){parts=[]}
+  var g="",d=".";
+  for(var i=0;i<parts.length;i++){
+    if(parts[i].type==="group"&&!g)g=parts[i].value;
+    if(parts[i].type==="decimal")d=parts[i].value;
+  }
+  var dec=false;
+  try{dec=(fmt.resolvedOptions().minimumFractionDigits||0)>0}catch(e){}
+  return{group:g,decimal:d,decimals:dec};
+}
+function makeParser(fmt,percent){
+  var info=fmtInfo(fmt);
+  return function(raw){
+    var t=String(raw).replace(/[\s  ]/g,"");
+    if(t==="")return null;
+    if(info.group)t=t.split(info.group).join("");
+    if(info.decimal!==".")t=t.split(info.decimal).join(".");
+    var neg=/^[-−]|[-−]$|^\(.*\)$/.test(t);
+    t=t.replace(/[^\d.]/g,"");
+    if(t===""||t==="."||(t.match(/\./g)||[]).length>1)return NaN;
+    var n=Number(t)*(neg?-1:1);
+    return percent?n/100:n;
+  };
+}
+function inputModeFor(min,step,info,percent){
+  if(min<0)return"text";
+  if(!Number.isInteger(step)||info.decimals||percent)return"decimal";
+  return"numeric";
+}
+
+var fields=[
+  {key:"tokens",label:"Max tokens per run",value:32000,min:1000,max:200000,step:1000,locale:"en-US",opts:void 0,hint:"The answer stops here \u2013 Page Up adds 10,000.",percent:false},
+  {key:"budget",label:"Budget per run",prefix:"$",value:25,min:0,max:100,step:5,locale:"en-US",opts:{minimumFractionDigits:2,maximumFractionDigits:2},hintFn:function(v){return v===null?"No limit \u2013 runs until done.":"Your plan allows up to $100."},percent:false},
+  {key:"parallel",label:"Parallel agents",value:3,min:1,max:8,step:1,locale:void 0,opts:void 0,hint:"Up to 8",percent:false},
+  {key:"temp",label:"Temperature",value:0.7,min:0,max:2,step:0.1,locale:"en-US",opts:{minimumFractionDigits:1,maximumFractionDigits:1},hint:"0 to 2",percent:false}
+];
+
+function elsFor(key){
+  return{
+    input:document.getElementById("in-"+key),
+    msg:document.getElementById("msg-"+key),
+    dec:document.getElementById("dec-"+key),
+    inc:document.getElementById("inc-"+key),
+    box:document.getElementById("box-"+key)
+  };
+}
+
+var states=fields.map(function(cfg){
+  var fmt;
+  try{fmt=new Intl.NumberFormat(cfg.locale,cfg.opts)}catch(e){fmt=new Intl.NumberFormat(void 0,cfg.opts)}
+  var st={cfg:cfg,fmt:fmt,parse:makeParser(fmt,!!cfg.percent),value:cfg.value,draft:null,repeat:null,els:elsFor(cfg.key)};
+  st.large=cfg.step*10;
+  st.info=fmtInfo(fmt);
+  return st;
+});
+function byKey(k){for(var i=0;i<states.length;i++)if(states[i].cfg.key===k)return states[i];return null}
+
+function displayOf(st){
+  if(st.draft!==null)return st.draft;
+  if(st.value===null||!Number.isFinite(st.value))return"";
+  return st.fmt.format(st.value);
+}
+function hintOf(st){
+  if(st.cfg.hintFn)return st.cfg.hintFn(st.value);
+  return st.cfg.hint;
+}
+function atMin(st){return st.value!==null&&st.value<=st.cfg.min}
+function atMax(st){return st.value!==null&&st.value>=st.cfg.max}
+
+function renderField(st){
+  var e=st.els;
+  var disp=displayOf(st);
+  if(e.input.value!==disp)e.input.value=disp;
+  var wSource=disp||e.input.getAttribute("placeholder")||"";
+  e.input.style.width="calc("+Math.max(2,wSource.length)+"ch + 2px)";
+  var vt="";
+  if(st.cfg.prefix)vt+=st.cfg.prefix;
+  if(st.value!==null&&Number.isFinite(st.value)){
+    try{vt+=st.fmt.format(st.value)}catch(x){vt+=String(st.value)}
+  }
+  if(st.cfg.unit)vt+=(vt?" ":"")+st.cfg.unit;
+  e.input.setAttribute("aria-valuenow",st.value===null?"":String(st.value));
+  if(Number.isFinite(st.cfg.min))e.input.setAttribute("aria-valuemin",String(st.cfg.min));
+  if(Number.isFinite(st.cfg.max))e.input.setAttribute("aria-valuemax",String(st.cfg.max));
+  if(vt)e.input.setAttribute("aria-valuetext",vt);else e.input.removeAttribute("aria-valuetext");
+  e.input.setAttribute("aria-describedby","msg-"+st.cfg.key);
+  var lo=atMin(st),hi=atMax(st);
+  e.dec.setAttribute("aria-disabled",lo?"true":"false");
+  e.inc.setAttribute("aria-disabled",hi?"true":"false");
+  var h=hintOf(st);
+  if(e.msg.textContent!==h)e.msg.textContent=h;
+  e.input.setAttribute("inputmode",inputModeFor(st.cfg.min,st.cfg.step,st.info,st.cfg.percent));
+}
+
+function commitDraft(st){
+  if(st.draft===null)return;
+  var p=st.parse(st.draft);
+  st.draft=null;
+  if(p===null){st.value=null}
+  else if(Number.isFinite(p)){st.value=clamp(tidy(p),st.cfg.min,st.cfg.max)}
+  renderField(st);
+}
+function pulse(input,dir){
+  try{
+    if(!input.animate)return;
+    if(window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches)return;
+    input.animate(
+      [{transform:"translateY("+(dir*5)+"px)",opacity:.35,filter:"blur(1.5px)"},{transform:"none",opacity:1,filter:"none"}],
+      {duration:220,easing:"cubic-bezier(0.22, 1, 0.36, 1)"}
+    );
+  }catch(e){}
+}
+function doStep(st,dir,size){
+  var step=size||st.cfg.step;
+  var cur;
+  if(st.draft!==null){
+    var p=st.parse(st.draft);
+    cur=(p===null||!Number.isFinite(p))?null:p;
+  }else{
+    cur=(st.value!==null&&Number.isFinite(st.value))?st.value:null;
+  }
+  var lo=st.cfg.min,hi=st.cfg.max;
+  var base=Number.isFinite(lo)?lo:0;
+  var next;
+  if(cur===null){
+    next=clamp(Number.isFinite(lo)?lo:0,lo,hi);
+  }else if(step!==st.cfg.step){
+    next=clamp(tidy(base+Math.round((cur+dir*step-base)/st.cfg.step)*st.cfg.step),lo,hi);
+  }else{
+    var n=(cur-base)/step;
+    var o=dir>0?Math.floor(n+1e-9)+1:Math.ceil(n-1e-9)-1;
+    next=clamp(tidy(base+o*step),lo,hi);
+  }
+  var changed=next!==st.value;
+  st.draft=null;
+  st.value=next;
+  renderField(st);
+  if(changed||st.draft!==null)pulse(st.els.input,dir);
+  else pulse(st.els.input,dir);
+}
+function stopRepeat(st){
+  if(st.repeat){
+    if(st.repeat.timer)window.clearTimeout(st.repeat.timer);
+    st.repeat=null;
+  }
+}
+function startRepeat(st,dir){
+  stopRepeat(st);
+  if(atMin(st)&&dir<0)return;
+  if(atMax(st)&&dir>0)return;
+  doStep(st,dir,st.cfg.step);
+  var delay=400;
+  var tick=function(prev){
+    st.repeat={dir:dir,timer:window.setTimeout(function(){
+      if(atMin(st)&&dir<0){stopRepeat(st);return}
+      if(atMax(st)&&dir>0){stopRepeat(st);return}
+      doStep(st,dir,st.cfg.step);
+      tick(prev>=400?120:Math.max(40,prev*0.9));
+    },prev)};
+  };
+  tick(delay);
+}
+
+states.forEach(function(st){
+  var e=st.els;
+  renderField(st);
+  e.input.addEventListener("input",function(){
+    var raw=e.input.value.replace(/[^\d.,'’\s  \-−%]/g,"");
+    st.draft=raw;
+    var w=raw||"";
+    e.input.style.width="calc("+Math.max(2,w.length)+"ch + 2px)";
+  });
+  e.input.addEventListener("blur",function(){commitDraft(st)});
+  e.input.addEventListener("keydown",function(ev){
+    var k=ev.key;
+    var handled=true;
+    if(k==="ArrowUp")doStep(st,1,st.cfg.step);
+    else if(k==="ArrowDown")doStep(st,-1,st.cfg.step);
+    else if(k==="PageUp")doStep(st,1,st.large);
+    else if(k==="PageDown")doStep(st,-1,st.large);
+    else if(k==="Enter")commitDraft(st);
+    else if(k==="Escape"){st.draft=null;renderField(st)}
+    else if(k==="Home"&&Number.isFinite(st.cfg.min)){st.draft=null;st.value=st.cfg.min;renderField(st);pulse(e.input,-1)}
+    else if(k==="End"&&Number.isFinite(st.cfg.max)){st.draft=null;st.value=st.cfg.max;renderField(st);pulse(e.input,1)}
+    else handled=false;
+    if(handled&&(k!=="Enter"||true)){
+      if(k!=="Escape"&&k!=="Enter")ev.preventDefault();
+      else if(k!=="Escape")ev.preventDefault();
+    }
+  });
+  e.box.addEventListener("pointerdown",function(ev){
+    if(ev.target===e.input)return;
+    var b=ev.target&&ev.target.closest?ev.target.closest("button"):null;
+    if(b)return;
+    ev.preventDefault();
+    try{e.input.focus()}catch(x){}
+  },true);
+  [[e.dec,-1],[e.inc,1]].forEach(function(pair){
+    var btn=pair[0],dir=pair[1];
+    btn.addEventListener("pointerdown",function(ev){
+      if(ev.button!==void 0&&ev.button!==0)return;
+      var dis=btn.getAttribute("aria-disabled")==="true";
+      if(dis)return;
+      ev.preventDefault();
+      startRepeat(st,dir);
+    },true);
+    btn.addEventListener("mousedown",function(ev){
+      if(ev.button!==0)return;
+      var dis=btn.getAttribute("aria-disabled")==="true";
+      if(dis)return;
+      if(ev.detail===0)startRepeat(st,dir);
+    },true);
+    btn.addEventListener("pointerup",function(){stopRepeat(st)});
+    btn.addEventListener("pointerleave",function(){stopRepeat(st)});
+    btn.addEventListener("pointercancel",function(){stopRepeat(st)});
+    btn.addEventListener("contextmenu",function(ev){ev.preventDefault()});
+    btn.addEventListener("click",function(ev){
+      if(ev.detail!==0)return;
+      var dis=btn.getAttribute("aria-disabled")==="true";
+      if(dis)return;
+      doStep(st,dir,st.cfg.step);
+    });
+  });
+});
+
+var form=document.getElementById("demo-form");
+if(form)form.addEventListener("submit",function(ev){ev.preventDefault()});
+
+try{
+  window.__nmi={states:states,byKey:byKey,renderAll:function(){states.forEach(renderField)}};
+}catch(e){}
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<script>/*noflash*/(function(){try{var k="affectui-form-field-theme";var s=null;try{s=localStorage.getItem(k)}catch(e){}var mq=null;try{mq=window.matchMedia?window.matchMedia("(prefers-color-scheme: dark)"):null}catch(e){}var t=s||(mq&&mq.matches?"dark":"light");document.documentElement.setAttribute("data-theme",t)}catch(e){}})();</script>
+<meta name="color-scheme" content="light dark">
+<style>html{background:#fafaf9}html[data-theme="dark"]{background:#101012}</style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Form Field — affectUI replica</title>
+<style>
+:root, html[data-theme="light"]{
+  --surface:#ffffff;
+  --page:#fafaf9;
+  --ink:#171717;
+  --ink-soft:#1c1917;
+  --muted:#78716c;
+  --subtle:#f5f5f4;
+  --border:#e7e5e4;
+  --radius-lg:16px;
+  --radius:10px;
+  --radius-sm:6px;
+  --shadow:0 1px 2px rgba(0,0,0,.05), 0 4px 16px rgba(0,0,0,.05);
+  --danger:#c4320a;
+  --danger-soft:#fef3c7;
+  --focus:#2563eb;
+  --input-bg:#ffffff;
+  --amber:#f59e0b;
+  --amber-bg:#fef3c7;
+  --amber-ink:#92400e;
+  --ease:cubic-bezier(.22,1,.36,1);
+}
+html[data-theme="dark"]{
+  --surface:#1c1c1f;
+  --page:#101012;
+  --ink:#ededed;
+  --ink-soft:#ededed;
+  --muted:#a1a1aa;
+  --subtle:#26262a;
+  --border:#2e2e33;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
+  --danger:#ff8a7a;
+  --danger-soft:#451a03;
+  --focus:#7aa5ff;
+  --input-bg:#1c1c1f;
+  --amber:#fbbf24;
+  --amber-bg:#451a03;
+  --amber-ink:#fde68a;
+}
+[hidden]{display:none!important}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--page);
+  color:var(--ink);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:14px;
+  line-height:20px;
+  -webkit-font-smoothing:antialiased;
+}
+.page{max-width:720px;margin:0 auto;padding:20px 16px 48px}
+.topbar{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:16px}
+.eyebrow{font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin:0 0 4px}
+.title{font-size:16px;font-weight:600;margin:0;line-height:22px;color:var(--ink)}
+.sub{font-size:13px;color:var(--muted);margin:4px 0 0;max-width:52ch}
+.theme-btn{
+  flex:none;
+  display:inline-flex;align-items:center;gap:8px;
+  border:1px solid var(--border);
+  background:var(--surface);
+  color:var(--ink);
+  border-radius:999px;
+  padding:7px 12px;
+  font-size:13px;line-height:18px;
+  cursor:pointer;
+  box-shadow:var(--shadow);
+  transition:transform 160ms ease, border-color 160ms ease, background 160ms ease;
+}
+.theme-btn:hover{transform:translateY(-1px);border-color:var(--muted)}
+.theme-btn:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.theme-btn .dot{width:14px;height:14px;border-radius:999px;background:var(--amber);flex:none}
+html[data-theme="dark"] .theme-btn .dot{background:var(--focus)}
+.fld-demo__tray{display:flex;flex-direction:column;gap:12px}
+.fld-demo__card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius-lg);
+  box-shadow:var(--shadow);
+  padding:16px;
+  display:flex;flex-direction:column;gap:16px;
+  transition:border-color 160ms ease, transform 160ms ease;
+}
+.fld-demo__card:hover{transform:translateY(-1px)}
+.card-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.card-title{font-size:15px;font-weight:600;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card-meta{font-size:12px;color:var(--muted);white-space:nowrap}
+/* ---- form-field frame (clean-room rewrite of observed behaviour) ---- */
+.ui-fld{
+  --fld-ink:var(--ink);
+  --fld-muted:var(--muted);
+  --fld-faint:var(--muted);
+  display:flex;flex-direction:column;gap:7px;min-width:0;
+  font-size:13.5px;line-height:20px;color:var(--fld-ink);
+}
+.ui-fld[data-disabled]{opacity:.55}
+.ui-fld__head{display:flex;align-items:baseline;gap:6px;min-width:0;padding:0 2px}
+.ui-fld__label{min-width:0;font-size:13px;font-weight:500;color:var(--fld-ink);overflow-wrap:anywhere}
+.ui-fld__required{margin-inline-start:2px;color:var(--fld-muted);font-weight:400;white-space:nowrap}
+.ui-fld__optional{flex:none;font-size:12px;line-height:16px;color:var(--fld-muted)}
+.ui-fld__foot{display:flex;align-items:flex-start;gap:12px;min-width:0;padding:0 2px}
+.ui-fld__message{
+  flex:1;min-width:0;margin:0;font-size:12.5px;line-height:17px;color:var(--fld-muted);
+  overflow-wrap:anywhere;
+  animation:fld-msg-in 260ms var(--ease);
+}
+.ui-fld[data-invalid] .ui-fld__message{color:var(--danger)}
+.ui-fld__count{
+  flex:none;margin-inline-start:auto;font-size:12px;line-height:17px;
+  font-variant-numeric:tabular-nums;color:var(--fld-muted);white-space:nowrap;
+}
+@keyframes fld-msg-in{from{opacity:0;transform:translateY(-3px);filter:blur(2px)}}
+@media (prefers-reduced-motion:reduce){.ui-fld__message{animation-duration:1ms}}
+:where(.dark,[data-theme="dark"]) .ui-fld{--fld-ink:var(--ink);--fld-muted:var(--muted)}
+/* ---- demo controls ---- */
+.fld-demo__input{
+  width:100%;
+  appearance:none;
+  background:var(--input-bg);
+  color:var(--ink);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:8px 10px;
+  font:inherit;
+  font-size:13.5px;line-height:20px;
+  transition:border-color 150ms ease, box-shadow 150ms ease;
+}
+textarea.fld-demo__input{resize:vertical;min-height:56px}
+.fld-demo__input:hover{border-color:var(--muted)}
+.fld-demo__input:focus-visible{outline:2px solid var(--focus);outline-offset:1px;border-color:var(--focus)}
+.ui-fld[data-invalid] .fld-demo__input{border-color:var(--danger)}
+.ui-fld[data-invalid] .fld-demo__input:focus-visible{outline-color:var(--danger)}
+.fld-demo__select{
+  background-repeat:no-repeat;
+  background-position:right 10px center;
+  background-size:12px;
+  padding-right:30px;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' fill='none' stroke='%2378716c' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+.foot-note{font-size:12px;color:var(--muted);margin:0;padding:0 2px}
+@media (max-width:560px){
+  .page{padding:14px 12px 40px}
+  .fld-demo__card{padding:14px}
+  .topbar{flex-direction:column}
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">affectUI &middot; Form Field</p>
+      <h1 class="title">Run settings</h1>
+      <p class="sub">Frame around any control with label, hint, error, count, and accessibility wiring.</p>
+    </div>
+    <button id="themeToggle" class="theme-btn" type="button" aria-label="Switch to dark theme"><span class="dot" aria-hidden="true"></span><span id="themeLabel">Dark</span></button>
+  </header>
+  <main>
+    <div class="fld-demo">
+      <div class="fld-demo__tray">
+        <form id="demoForm" class="fld-demo__card" novalidate>
+          <div class="card-head">
+            <h2 class="card-title">New run</h2>
+            <span class="card-meta">4 fields &middot; live validation</span>
+          </div>
+          <div class="ui-fld" id="ff-name">
+            <div class="ui-fld__head">
+              <label class="ui-fld__label" id="ff-name-label" for="ff-name-control">Agent name<span class="ui-fld__required" aria-hidden="true">*</span></label>
+            </div>
+            <input class="fld-demo__input" id="ff-name-control" value="Release notes writer" maxlength="40" aria-describedby="ff-name-count" aria-required="true" required>
+            <div class="ui-fld__foot">
+              <span class="ui-fld__count" id="ff-name-count">20/40</span>
+            </div>
+          </div>
+          <div class="ui-fld" id="ff-model">
+            <div class="ui-fld__head">
+              <label class="ui-fld__label" id="ff-model-label" for="ff-model-control">Model</label>
+            </div>
+            <select class="fld-demo__input fld-demo__select" id="ff-model-control" aria-describedby="ff-model-message">
+              <option selected>Claude Sonnet</option>
+              <option>Claude Opus</option>
+              <option>Claude Haiku</option>
+            </select>
+            <div class="ui-fld__foot">
+              <p class="ui-fld__message" id="ff-model-message" dir="auto">Opus thinks longer and costs more.</p>
+            </div>
+          </div>
+          <div class="ui-fld" id="ff-budget" data-invalid="true">
+            <div class="ui-fld__head">
+              <label class="ui-fld__label" id="ff-budget-label" for="ff-budget-control">Budget per run</label>
+            </div>
+            <input class="fld-demo__input" id="ff-budget-control" inputmode="decimal" value="140" aria-describedby="ff-budget-message" aria-invalid="true" aria-live="off">
+            <div class="ui-fld__foot">
+              <p class="ui-fld__message" id="ff-budget-message" dir="auto" aria-live="polite">Your plan allows up to $100 per run.</p>
+            </div>
+          </div>
+          <div class="ui-fld" id="ff-brief">
+            <div class="ui-fld__head">
+              <label class="ui-fld__label" id="ff-brief-label" for="ff-brief-control">Brief</label>
+              <span class="ui-fld__optional">Optional</span>
+            </div>
+            <textarea class="fld-demo__input fld-demo__area" id="ff-brief-control" rows="2" maxlength="280" aria-describedby="ff-brief-count">Summarise merged pull requests for the changelog.</textarea>
+            <div class="ui-fld__foot">
+              <span class="ui-fld__count" id="ff-brief-count">49/280</span>
+            </div>
+          </div>
+          <p class="foot-note">Counters update as you type. Budget validates live: empty, non-numeric, and over-limit states.</p>
+        </form>
+      </div>
+    </div>
+  </main>
+</div>
+<script>
+(function(){
+  "use strict";
+  var THEME_KEY = "affectui-form-field-theme";
+  var HINT_BUDGET = "In US dollars \u2013 the run stops once it's spent.";
+  function getDoc(){ return typeof document !== "undefined" ? document : null; }
+  function readStored(){
+    try{ return localStorage.getItem(THEME_KEY); }catch(e){ return null; }
+  }
+  function storeTheme(t){ try{ localStorage.setItem(THEME_KEY, t); }catch(e){} }
+  function prefersDark(){
+    try{ return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches; }catch(e){ return false; }
+  }
+  function currentTheme(){
+    var d = getDoc(); if(!d) return "light";
+    return d.documentElement.getAttribute("data-theme") || "light";
+  }
+  function applyTheme(t){
+    var d = getDoc(); if(!d) return;
+    d.documentElement.setAttribute("data-theme", t);
+    var btn = d.getElementById("themeToggle");
+    var lab = d.getElementById("themeLabel");
+    if(btn && lab){
+      var next = t === "dark" ? "Light" : "Dark";
+      lab.textContent = next;
+      btn.setAttribute("aria-label", "Switch to " + next.toLowerCase() + " theme");
+    }
+  }
+  function validateBudget(raw){
+    var s = String(raw == null ? "" : raw);
+    if(s.trim() === "") return "Enter an amount.";
+    var n = Number(s);
+    if(!Number.isFinite(n) || n < 0) return "Use a number, like 40.";
+    if(n > 100) return "Your plan allows up to $100 per run.";
+    return undefined;
+  }
+  function setBudgetState(err){
+    var d = getDoc(); if(!d) return;
+    var wrap = d.getElementById("ff-budget");
+    var input = d.getElementById("ff-budget-control");
+    var msg = d.getElementById("ff-budget-message");
+    if(!wrap || !input || !msg) return;
+    if(err){
+      wrap.setAttribute("data-invalid", "true");
+      input.setAttribute("aria-invalid", "true");
+      if(msg.textContent !== err) msg.textContent = err;
+      if(msg.getAttribute("aria-live") !== "polite") msg.setAttribute("aria-live", "polite");
+    }else{
+      wrap.removeAttribute("data-invalid");
+      input.removeAttribute("aria-invalid");
+      if(msg.textContent !== HINT_BUDGET) msg.textContent = HINT_BUDGET;
+      msg.removeAttribute("aria-live");
+    }
+  }
+  function setCount(id, text){
+    var d = getDoc(); if(!d) return;
+    var n = d.getElementById(id);
+    if(n && n.textContent !== text) n.textContent = text;
+  }
+  function init(){
+    var d = getDoc(); if(!d) return;
+    var stored = readStored();
+    if(stored === "light" || stored === "dark"){ applyTheme(stored); }
+    else { applyTheme(prefersDark() ? "dark" : currentTheme()); }
+    var toggle = d.getElementById("themeToggle");
+    if(toggle && !toggle.__ffWired){
+      toggle.__ffWired = true;
+      toggle.addEventListener("click", function(){
+        var next = currentTheme() === "dark" ? "light" : "dark";
+        applyTheme(next);
+        storeTheme(next);
+      });
+    }
+    var form = d.getElementById("demoForm");
+    if(form && !form.__ffWired){
+      form.__ffWired = true;
+      form.addEventListener("submit", function(ev){ if(ev && ev.preventDefault) ev.preventDefault(); });
+    }
+    var name = d.getElementById("ff-name-control");
+    if(name && !name.__ffWired){
+      name.__ffWired = true;
+      name.addEventListener("input", function(){
+        setCount("ff-name-count", String(name.value.length) + "/40");
+      });
+    }
+    var budget = d.getElementById("ff-budget-control");
+    if(budget && !budget.__ffWired){
+      budget.__ffWired = true;
+      budget.addEventListener("input", function(){
+        setBudgetState(validateBudget(budget.value));
+      });
+    }
+    var brief = d.getElementById("ff-brief-control");
+    if(brief && !brief.__ffWired){
+      brief.__ffWired = true;
+      brief.addEventListener("input", function(){
+        setCount("ff-brief-count", String(brief.value.length) + "/280");
+      });
+    }
+    try{
+      if(typeof window !== "undefined"){
+        window.__formField = {
+          validateBudget: validateBudget,
+          hintBudget: HINT_BUDGET,
+          applyTheme: applyTheme,
+          currentTheme: currentTheme,
+          setBudgetState: setBudgetState
+        };
+      }
+    }catch(e){}
+  }
+  if(typeof document !== "undefined"){
+    if(document.readyState === "loading"){
+      document.addEventListener("DOMContentLoaded", init);
+    }else{
+      init();
+    }
+  }
+  if(typeof module !== "undefined" && module.exports){
+    module.exports = { validateBudget: validateBudget, HINT_BUDGET: HINT_BUDGET };
+  }
+})();
+</script>
+</body>
+</html>
