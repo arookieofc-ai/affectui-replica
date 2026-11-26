@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<style>html{background:#fafaf9}html[data-theme="dark"]{background:#101012}</style>
+<script>/*noflash*/(function(){try{var k="separator-theme";var t=null;try{t=localStorage.getItem(k)}catch(e){}if(!t){try{if(window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches){t="dark"}else{t="light"}}catch(e){t="light"}}document.documentElement.setAttribute("data-theme",t==="dark"?"dark":"light")}catch(e){document.documentElement.setAttribute("data-theme","light")}})();</script>
+<title>Separator — Run history</title>
+<style>
+:root{
+  --surface:#ffffff;
+  --page:#fafaf9;
+  --ink:#171717;
+  --ink-soft:#1c1917;
+  --muted:#78716c;
+  --subtle:#f5f5f4;
+  --border:#e7e5e4;
+  --radius-lg:16px;
+  --radius:10px;
+  --radius-sm:6px;
+  --shadow:0 1px 2px rgba(0,0,0,.05),0 4px 16px rgba(0,0,0,.05);
+  --accent:#2563eb;
+  --accent-ink:#1d4ed8;
+  --waiting:#f59e0b;
+  --waiting-bg:#fef3c7;
+  --waiting-ink:#92400e;
+  --failed:#dc2626;
+  --failed-bg:#fee2e2;
+  --failed-ink:#991b1b;
+  --sep-line:var(--border);
+  --sep-text:var(--muted);
+  --sep-weight:1px;
+  --ease:cubic-bezier(.2,.7,.3,1);
+}
+html[data-theme="dark"]{
+  --surface:#1c1c1f;
+  --page:#101012;
+  --ink:#ededed;
+  --ink-soft:#e7e5e4;
+  --muted:#a1a1aa;
+  --subtle:#26262a;
+  --border:#2e2e33;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+  --accent:#60a5fa;
+  --accent-ink:#93c5fd;
+  --waiting:#fbbf24;
+  --waiting-bg:#451a03;
+  --waiting-ink:#fde68a;
+  --failed:#f87171;
+  --failed-bg:#450a0a;
+  --failed-ink:#fecaca;
+  --sep-line:var(--border);
+  --sep-text:var(--muted);
+}
+[hidden]{display:none !important}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--page);
+  color:var(--ink);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:14px;
+  line-height:1.45;
+  -webkit-font-smoothing:antialiased;
+  min-height:100vh;
+}
+.page{max-width:680px;margin:0 auto;padding:28px 20px 56px}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px}
+.eyebrow{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.eyebrow b{color:var(--ink);font-weight:700}
+.theme-toggle{
+  appearance:none;border:1px solid var(--border);background:var(--surface);color:var(--ink);
+  width:38px;height:38px;border-radius:999px;cursor:pointer;font-size:17px;line-height:1;
+  display:inline-flex;align-items:center;justify-content:center;
+  box-shadow:var(--shadow);transition:transform 150ms var(--ease),border-color 150ms var(--ease),background 150ms var(--ease);
+}
+.theme-toggle:hover{transform:translateY(-1px);border-color:var(--muted)}
+.theme-toggle:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.card{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);
+  box-shadow:var(--shadow);padding:6px 0;overflow:hidden;
+  transition:border-color 180ms var(--ease),background 180ms var(--ease);
+}
+.card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px 12px}
+.card-title{font-size:15px;font-weight:650;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card-stats{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--muted);white-space:nowrap}
+.card-stats .stat{white-space:nowrap}
+.group{padding:2px 0 4px}
+.runs{list-style:none;margin:2px 0 0;padding:0}
+.row{
+  display:flex;align-items:baseline;justify-content:space-between;gap:12px;
+  padding:9px 16px;border-radius:var(--radius-sm);
+  transition:background 150ms var(--ease);
+}
+.row:hover{background:var(--subtle)}
+.row:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.row-name{font-size:14px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.row-meta{font-size:12.5px;color:var(--muted);white-space:nowrap;flex:none}
+.row-meta.is-failed{color:var(--failed-ink);background:var(--failed-bg);border:1px solid transparent;border-radius:999px;padding:1px 8px;font-size:12px;font-weight:600}
+/* ---- Separator (clean-room, same behaviour as observed demo) ---- */
+.sep{
+  --sep-line:var(--border);
+  --sep-text:var(--muted);
+  --sep-weight:1px;
+  flex:none;box-sizing:border-box;
+}
+.sep[data-orientation="horizontal"]:not([data-label]){
+  width:100%;height:0;border-top:var(--sep-weight) solid var(--sep-line);
+}
+.sep[data-orientation="vertical"]{
+  display:inline-block;align-self:center;width:0;height:18px;vertical-align:middle;
+  border-inline-start:var(--sep-weight) solid var(--sep-line);
+}
+.sep[data-label]{
+  display:flex;align-items:center;gap:12px;width:100%;min-width:0;
+  font-size:12.5px;line-height:18px;color:var(--sep-text);
+  padding:10px 16px 4px;
+}
+.sep-line{flex:1 1 0;min-width:12px;height:0;border-top:var(--sep-weight) solid var(--sep-line)}
+.sep-label{flex:0 1 auto;min-width:0;max-width:80%;text-align:center;overflow-wrap:anywhere}
+.card-head + .sep[data-orientation="horizontal"]:not([data-label]){margin:0}
+@media (forced-colors: active){
+  .sep{--sep-line:CanvasText}
+}
+.note{margin-top:16px;font-size:12.5px;color:var(--muted);padding:0 4px}
+.note code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;background:var(--subtle);border:1px solid var(--border);border-radius:6px;padding:1px 6px;color:var(--ink)}
+.variants{margin-top:14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow);padding:14px 16px}
+.variants h2{font-size:13px;margin:0 0 4px;color:var(--ink)}
+.variants p{font-size:12.5px;color:var(--muted);margin:0 0 10px}
+.toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px;color:var(--ink)}
+.toolbtn{border:1px solid var(--border);background:var(--subtle);color:var(--ink);border-radius:999px;padding:5px 12px;font-size:12.5px;cursor:pointer;transition:background 150ms var(--ease),transform 150ms var(--ease)}
+.toolbtn:hover{background:var(--surface);transform:translateY(-1px)}
+.toolbtn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.toolbtn[aria-pressed="true"]{background:var(--ink);color:var(--page);border-color:var(--ink)}
+@media (max-width:520px){
+  .page{padding:18px 12px 40px}
+  .card-head{flex-direction:column;align-items:flex-start;gap:6px}
+  .row{flex-direction:column;align-items:flex-start;gap:2px}
+  .row-meta{white-space:normal}
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="topbar">
+    <div class="eyebrow"><b>Separator</b> &nbsp;·&nbsp; Run history</div>
+    <button id="themeToggle" class="theme-toggle" type="button" aria-label="Switch to dark theme" aria-pressed="false" title="Toggle theme">&#9789;</button>
+  </div>
+  <main>
+    <div id="demoRoot"></div>
+    <noscript>
+      <section aria-label="Run history">
+        <div><span>Run history</span><span>12 runs · 1 failed · 41 min</span></div>
+        <div>Today: Sync invoices to billing-api (14:02 · 3m 12s), Draft replies for 14 tickets (11:40 · 58s). Earlier: Weekly usage report (Mon · 4m 05s), Migrate webhooks to v2 (Sun · failed).</div>
+      </section>
+    </noscript>
+    <section class="variants" aria-label="Separator variants">
+      <h2>Variants</h2>
+      <p>Plain, labelled and vertical separators. The <code>decorative</code> toggle below flips the labelled dividers between <code>role="none"</code> and <code>role="separator"</code> in place.</p>
+      <div class="toolbar" id="variantBar"></div>
+    </section>
+    <p class="note">Clean-room replica of the <code>Separator</code> primitive: thin line between groups, horizontal or vertical, optionally labelled or decorative. Demo data matches the original verbatim.</p>
+  </main>
+</div>
+<script>
+(function(){
+"use strict";
+var STORE_KEY="separator-theme";
+var DATA=[
+  {label:"Today",runs:[
+    {title:"Sync invoices to billing-api",meta:"14:02 \u00B7 3m 12s"},
+    {title:"Draft replies for 14 tickets",meta:"11:40 \u00B7 58s"}
+  ]},
+  {label:"Earlier",runs:[
+    {title:"Weekly usage report",meta:"Mon \u00B7 4m 05s"},
+    {title:"Migrate webhooks to v2",meta:"Sun \u00B7 failed"}
+  ]}
+];
+var STATS=["12 runs","1 failed","41 min"];
+function el(tag,cls,text){
+  var n=document.createElement(tag);
+  if(cls)n.className=cls;
+  if(text!=null)n.textContent=text;
+  return n;
+}
+/* Separator factory — mirrors observed behaviour:
+   labelled only when horizontal with a non-empty label;
+   decorative labelled -> no role; decorative plain -> role none;
+   semantic -> role separator + optional aria-orientation/label. */
+function makeSeparator(opts){
+  opts=opts||{};
+  var orientation=opts.orientation||"horizontal";
+  var decorative=("decorative" in opts)?!!opts.decorative:true;
+  var label=("label" in opts)?opts.label:undefined;
+  var vertical=(orientation==="vertical");
+  var hasLabel=!vertical&&label!=null&&label!==false&&label!=="";
+  var node=document.createElement("div");
+  node.className="sep";
+  node.setAttribute("data-orientation",vertical?"vertical":"horizontal");
+  if(hasLabel)node.setAttribute("data-label","");
+  if(decorative){
+    if(!hasLabel)node.setAttribute("role","none");
+  }else{
+    node.setAttribute("role","separator");
+    if(vertical)node.setAttribute("aria-orientation","vertical");
+    if(hasLabel&&(typeof label==="string"||typeof label==="number"))node.setAttribute("aria-label",String(label));
+  }
+  if(hasLabel){
+    var a=document.createElement("span");a.className="sep-line";a.setAttribute("aria-hidden","true");
+    var b=document.createElement("span");b.className="sep-label";b.textContent=String(label);
+    var c=document.createElement("span");c.className="sep-line";c.setAttribute("aria-hidden","true");
+    node.appendChild(a);node.appendChild(b);node.appendChild(c);
+  }
+  return node;
+}
+function isFailedMeta(meta){return /(^|\s)failed\s*$/i.test(meta);}
+var refs={labelSeps:[],toggleBtn:null,toggleWrap:null};
+function buildDemo(){
+  var root=document.getElementById("demoRoot");
+  while(root.firstChild)root.removeChild(root.firstChild);
+  refs.labelSeps=[];
+  var card=el("section","card");
+  card.setAttribute("aria-label","Run history");
+  var head=el("div","card-head");
+  var title=el("span","card-title","Run history");
+  var stats=el("span","card-stats");
+  for(var i=0;i<STATS.length;i++){
+    if(i>0)stats.appendChild(makeSeparator({orientation:"vertical"}));
+    stats.appendChild(el("span","stat",STATS[i]));
+  }
+  head.appendChild(title);head.appendChild(stats);
+  card.appendChild(head);
+  card.appendChild(makeSeparator({}));
+  for(var g=0;g<DATA.length;g++){
+    (function(group){
+      var box=el("div","group");
+      var lab=makeSeparator({label:group.label,decorative:false});
+      refs.labelSeps.push(lab);
+      box.appendChild(lab);
+      var ul=el("ul","runs");
+      for(var r=0;r<group.runs.length;r++){
+        (function(run){
+          var li=el("li","row");
+          li.tabIndex=0;
+          var nm=el("span","row-name",run.title);
+          var mt=el("span","row-meta"+(isFailedMeta(run.meta)?" is-failed":""),run.meta);
+          li.appendChild(nm);li.appendChild(mt);
+          ul.appendChild(li);
+        })(group.runs[r]);
+      }
+      box.appendChild(ul);
+      card.appendChild(box);
+    })(DATA[g]);
+  }
+  root.appendChild(card);
+}
+function setDecorativeAll(decorative){
+  for(var i=0;i<refs.labelSeps.length;i++){
+    (function(node){
+      if(decorative){
+        if(node.hasAttribute("role"))node.removeAttribute("role");
+        if(node.hasAttribute("aria-label"))node.removeAttribute("aria-label");
+        if(node.hasAttribute("aria-orientation"))node.removeAttribute("aria-orientation");
+      }else{
+        node.setAttribute("role","separator");
+        var labEl=node.querySelector(".sep-label");
+        var lab=labEl?labEl.textContent:"";
+        if(lab)node.setAttribute("aria-label",lab);
+      }
+    })(refs.labelSeps[i]);
+  }
+  if(refs.toggleBtn)refs.toggleBtn.setAttribute("aria-pressed",decorative?"false":"true");
+  if(refs.toggleLabel)refs.toggleLabel.textContent=decorative?"Decorative: on":"Decorative: off";
+}
+function buildVariants(){
+  var bar=document.getElementById("variantBar");
+  while(bar.firstChild)bar.removeChild(bar.firstChild);
+  var t1=el("span",null,"Labels:");
+  bar.appendChild(t1);
+  var btn=el("button","toolbtn","Decorative: off");
+  btn.type="button";
+  btn.setAttribute("aria-pressed","true");
+  refs.toggleBtn=btn;
+  var state={decorative:false};
+  refs.toggleLabel=btn;
+  function flip(){
+    state.decorative=!state.decorative;
+    setDecorativeAll(state.decorative);
+  }
+  /* capture-phase pointerdown so the toggle survives even if focus/hover handlers are added later */
+  btn.addEventListener("pointerdown",function(){flip();},{capture:true});
+  btn.addEventListener("click",function(ev){if(ev&&ev.detail===0)return;});
+  btn.addEventListener("keydown",function(ev){
+    if(ev.key===" "||ev.key==="Enter"){ev.preventDefault();flip();}
+  });
+  bar.appendChild(btn);
+  bar.appendChild(makeSeparator({orientation:"vertical"}));
+  var t2=el("span",null,"plain");
+  bar.appendChild(t2);
+  bar.appendChild(makeSeparator({orientation:"vertical"}));
+  var t3=el("span",null,"labelled");
+  bar.appendChild(t3);
+}
+/* Theme: single in-place update, no re-render. */
+function currentTheme(){return document.documentElement.getAttribute("data-theme")==="dark"?"dark":"light";}
+function paintToggle(){
+  var b=document.getElementById("themeToggle");
+  if(!b)return;
+  var dark=(currentTheme()==="dark");
+  b.textContent=dark?"\u2600":"\u263E";
+  b.setAttribute("aria-label",dark?"Switch to light theme":"Switch to dark theme");
+  b.setAttribute("aria-pressed",dark?"true":"false");
+  b.title=dark?"Switch to light theme":"Switch to dark theme";
+}
+function setTheme(t){
+  document.documentElement.setAttribute("data-theme",t==="dark"?"dark":"light");
+  try{localStorage.setItem(STORE_KEY,currentTheme());}catch(e){}
+  paintToggle();
+}
+function initTheme(){
+  var b=document.getElementById("themeToggle");
+  if(b){
+    b.addEventListener("click",function(){setTheme(currentTheme()==="dark"?"light":"dark");});
+  }
+  paintToggle();
+}
+/* init once; no timers, no full re-renders anywhere after this point */
+buildDemo();
+buildVariants();
+initTheme();
+window.__sep={setTheme:setTheme,currentTheme:currentTheme,refs:refs,DATA:DATA,STATS:STATS,makeSeparator:makeSeparator};
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<script>/*noflash*/(function(){try{var k='chk-theme';var t=null;try{t=localStorage.getItem(k);}catch(e){}if(!t){try{t=(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light';}catch(e){t='light';}}document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<style>html{background:#fafaf9}html[data-theme="dark"]{background:#101012}</style>
+<meta name="color-scheme" content="light dark">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Checkbox — affectUI replica</title>
+<style>
+:root, html[data-theme="light"]{
+  --surface:#ffffff;
+  --page:#fafaf9;
+  --ink:#171717;
+  --muted:#78716c;
+  --subtle:#f5f5f4;
+  --border:#e7e5e4;
+  --edge:#d4d4d8;
+  --edge-hover:#a1a1aa;
+  --fill:#171717;
+  --on-fill:#ffffff;
+  --wash:#f7f7f8;
+  --danger:#c4320a;
+  --focus:rgba(0,96,226,.7);
+  --radius-lg:16px;
+  --radius:10px;
+  --radius-sm:6px;
+  --shadow:0 1px 2px rgba(0,0,0,.05),0 4px 16px rgba(0,0,0,.05);
+  --card-shadow:0 0 0 1px #e6e6e8,0 1px 2px rgba(0,0,0,.04);
+  --card-shadow-hover:0 0 0 1px #e6e6e8,0 4px 12px -6px rgba(0,0,0,.09),0 1px 2px rgba(0,0,0,.04);
+}
+html[data-theme="dark"]{
+  --surface:#1c1c1f;
+  --page:#101012;
+  --ink:#ededed;
+  --muted:#a1a1aa;
+  --subtle:#26262a;
+  --border:#2e2e33;
+  --edge:#3a3a40;
+  --edge-hover:#55555c;
+  --fill:#ededed;
+  --on-fill:#161618;
+  --wash:#1f1f22;
+  --danger:#ff8a7a;
+  --focus:rgba(77,141,255,.8);
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.4);
+  --card-shadow:0 0 0 1px #2a2a2e,0 1px 2px rgba(0,0,0,.2);
+  --card-shadow-hover:0 0 0 1px #2a2a2e,0 6px 14px -6px rgba(0,0,0,.45);
+}
+[hidden]{display:none!important}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--page);
+  color:var(--ink);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:14px;
+  line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+  min-height:100vh;
+}
+.topbar{
+  display:flex;align-items:center;justify-content:space-between;
+  gap:12px;max-width:640px;margin:0 auto;padding:20px 20px 0;
+}
+.brand{display:grid;gap:2px;min-width:0}
+.brand h1{
+  margin:0;font-size:16px;font-weight:600;letter-spacing:-.01em;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.brand p{margin:0;font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.theme-btn{
+  flex:none;display:inline-flex;align-items:center;gap:8px;
+  border:1px solid var(--border);background:var(--surface);color:var(--ink);
+  border-radius:999px;padding:7px 12px;font-size:13px;cursor:pointer;
+  box-shadow:var(--shadow);
+  transition:transform 160ms ease,box-shadow 160ms ease,background-color 160ms ease;
+}
+.theme-btn:hover{transform:translateY(-1px)}
+.theme-btn:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.theme-btn .dot{width:14px;height:14px;border-radius:999px;background:var(--ink);display:inline-block}
+.wrap{max-width:640px;margin:0 auto;padding:16px 20px 40px}
+.demo-card{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);
+  box-shadow:var(--shadow);padding:16px;
+}
+.demo-card form{margin:0}
+.group{border:0;margin:0 0 14px;padding:0;min-width:0}
+.group legend{
+  padding:0;margin:0 0 8px;font-size:15px;font-weight:600;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;
+}
+.children{margin-top:6px;margin-left:26px;display:grid;gap:10px}
+.chk{display:flex;flex-direction:column;gap:4px;min-width:0;font-size:13.5px;line-height:20px;color:var(--ink)}
+.chk-row{display:flex;align-items:flex-start;gap:10px;min-width:0;cursor:pointer;-webkit-tap-highlight-color:transparent;border-radius:var(--radius-sm)}
+.chk[data-disabled] .chk-row{cursor:not-allowed;opacity:.5}
+.chk-control{position:relative;display:grid;flex:none;place-items:center;width:16px;height:20px}
+.chk-input{position:absolute;inset:-6px;width:calc(100% + 12px);height:calc(100% + 12px);margin:0;opacity:0;cursor:inherit}
+.chk-box{
+  display:grid;place-items:center;width:16px;height:16px;
+  border-radius:5px;background:var(--surface);
+  box-shadow:inset 0 0 0 1px var(--edge),0 1px 1px rgba(0,0,0,.04);
+  color:var(--on-fill);pointer-events:none;
+  transition:background-color 160ms ease,box-shadow 160ms ease,transform 160ms cubic-bezier(.22,1,.36,1);
+}
+.chk-row:hover .chk-input:not(:checked):not(:indeterminate):not(:disabled)+.chk-box{box-shadow:inset 0 0 0 1px var(--edge-hover),0 1px 1px rgba(0,0,0,.04)}
+.chk-input:active:not(:disabled)+.chk-box{transform:scale(.9)}
+.chk-input:checked+.chk-box,.chk-input:indeterminate+.chk-box{background:var(--fill);box-shadow:none}
+.chk[data-checked="true"] .chk-box{background:var(--fill);box-shadow:none}
+.chk-input:focus-visible+.chk-box{outline:2px solid var(--focus);outline-offset:2px}
+.chk[data-invalid="true"] .chk-input:not(:checked)+.chk-box{box-shadow:inset 0 0 0 1px var(--danger)}
+.chk-mark{display:block;width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.chk-tick,.chk-dash{stroke-dasharray:1;stroke-dashoffset:1}
+.chk[data-checked="true"]:not([data-ind="true"]) .chk-tick{stroke-dashoffset:0;transition:stroke-dashoffset 260ms 40ms cubic-bezier(.22,1,.36,1)}
+.chk[data-ind="true"] .chk-dash{stroke-dashoffset:0;transition:stroke-dashoffset 200ms cubic-bezier(.22,1,.36,1)}
+.chk-input:checked:not(:indeterminate)+.chk-box .chk-tick{stroke-dashoffset:0}
+.chk-text{display:grid;min-width:0}
+.chk-label{color:var(--ink);overflow-wrap:anywhere}
+.chk-desc{font-size:12.5px;line-height:17px;color:var(--muted);overflow-wrap:anywhere}
+.chk-error{margin:0 0 0 26px;font-size:12px;line-height:16px;color:var(--danger);overflow-wrap:anywhere;animation:chk-in 260ms cubic-bezier(.22,1,.36,1)}
+.chk[data-variant="card"] .chk-row{padding:12px 14px;border-radius:12px;background:var(--surface);box-shadow:var(--card-shadow);transition:box-shadow 200ms ease,background-color 200ms ease}
+.chk[data-variant="card"]:not([data-disabled]) .chk-row:hover{box-shadow:var(--card-shadow-hover)}
+.chk[data-variant="card"][data-checked="true"] .chk-row{background:var(--wash)}
+.chk[data-variant="card"] .chk-label{font-weight:500}
+.chk[data-variant="card"] .chk-error{margin-left:2px}
+.divider{height:1px;background:var(--border);margin:12px 0}
+.hint{font-size:12px;color:var(--muted);margin:12px 0 0}
+@keyframes chk-in{from{opacity:0;transform:translateY(-3px);filter:blur(2px)}}
+@media (pointer:coarse){
+  .chk{font-size:15px;line-height:22px}
+  .chk-control{width:20px;height:22px}
+  .chk-box{width:20px;height:20px;border-radius:5.5px}
+  .chk-mark{width:18px;height:18px}
+}
+@media (max-width:520px){
+  .topbar,.wrap{padding-left:14px;padding-right:14px}
+  .demo-card{padding:14px}
+  .children{margin-left:20px}
+  .brand h1,.brand p,.group legend{white-space:normal}
+}
+@media (prefers-reduced-motion:reduce){
+  .chk *,.chk-row,.theme-btn{transition-duration:1ms!important;animation-duration:1ms!important}
+}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <h1>Checkbox</h1>
+    <p>Label, description, indeterminate, error and card row</p>
+  </div>
+  <button id="theme-toggle" class="theme-btn" type="button" aria-label="Toggle theme"><span class="dot" aria-hidden="true"></span><span id="theme-label">Dark</span></button>
+</header>
+<main class="wrap">
+  <div class="demo-card" id="demo-card">
+    <div id="chk-root"></div>
+    <p class="hint" id="state-line" aria-live="polite"></p>
+  </div>
+</main>
+<script>
+(function(){
+  "use strict";
+  var ITEMS=[
+    {id:"mentions",label:"Mentions",description:"Someone mentions you in a chat or a file"},
+    {id:"approvals",label:"Approvals",description:"An agent waits for your OK before it acts"},
+    {id:"summary",label:"Weekly summary"}
+  ];
+  var CARD_LABEL="Keep a copy of every run";
+  var CARD_DESC="Inputs and outputs stay for 30 days, so you can replay a run.";
+  var TERMS_LABEL="I agree to the terms of service";
+  var TERMS_ERROR="Agree to the terms to continue.";
+  var GROUP_TITLE="Email me about";
+  var PARENT_LABEL="Everything";
+
+  var selected=["mentions"];
+  var keepCopy=true;
+  var agreed=false;
+
+  var root=document.getElementById("chk-root");
+  var stateLine=document.getElementById("state-line");
+
+  function el(tag,cls,text){
+    var n=document.createElement(tag);
+    if(cls)n.className=cls;
+    if(text!=null)n.textContent=text;
+    return n;
+  }
+  function mkSvg(){
+    var svg=document.createElementNS("http://www.w3.org/2000/svg","svg");
+    svg.setAttribute("class","chk-mark");
+    svg.setAttribute("viewBox","0 0 16 16");
+    svg.setAttribute("width","16");
+    svg.setAttribute("height","16");
+    svg.setAttribute("aria-hidden","true");
+    var tick=document.createElementNS("http://www.w3.org/2000/svg","path");
+    tick.setAttribute("class","chk-tick");
+    tick.setAttribute("d","M4 8.5 6.75 11.25 12 5");
+    tick.setAttribute("pathLength","1");
+    var dash=document.createElementNS("http://www.w3.org/2000/svg","path");
+    dash.setAttribute("class","chk-dash");
+    dash.setAttribute("d","M4.5 8h7");
+    dash.setAttribute("pathLength","1");
+    svg.appendChild(tick);
+    svg.appendChild(dash);
+    return svg;
+  }
+  // Build one checkbox row once; returns handles for in-place updates.
+  function makeCheck(opts){
+    var wrap=el("div","chk");
+    wrap.setAttribute("data-variant",opts.variant==="card"?"card":"plain");
+    var row=el("label","chk-row");
+    var uid="chk-"+opts.key;
+    row.setAttribute("for",uid);
+    var ctl=el("span","chk-control");
+    var input=document.createElement("input");
+    input.className="chk-input";
+    input.setAttribute("type","checkbox");
+    input.setAttribute("id",uid);
+    var box=el("span","chk-box");
+    box.appendChild(mkSvg());
+    ctl.appendChild(input);
+    ctl.appendChild(box);
+    row.appendChild(ctl);
+    var txt=null,labelEl=null,descEl=null;
+    if(opts.label!=null||opts.desc!=null){
+      txt=el("span","chk-text");
+      if(opts.label!=null){labelEl=el("span","chk-label",opts.label);txt.appendChild(labelEl);}
+      if(opts.desc!=null){descEl=el("span","chk-desc",opts.desc);txt.appendChild(descEl);}
+      row.appendChild(txt);
+    }
+    wrap.appendChild(row);
+    var err=null;
+    if(opts.withError){
+      err=el("p","chk-error");
+      err.setAttribute("aria-live","polite");
+      wrap.appendChild(err);
+    }
+    // open/close n/a; use pointerdown capture no-op to keep click parity with dialogs pattern
+    row.addEventListener("pointerdown",function(){},{capture:true});
+    return {wrap:wrap,row:row,input:input,labelEl:labelEl,descEl:descEl,err:err,key:opts.key};
+  }
+
+  // ---- build DOM once at init ----
+  var form=document.createElement("form");
+  form.setAttribute("novalidate","");
+  form.addEventListener("submit",function(e){e.preventDefault();});
+
+  var fieldset=document.createElement("fieldset");
+  fieldset.className="group";
+  var legend=document.createElement("legend");
+  legend.textContent=GROUP_TITLE;
+  fieldset.appendChild(legend);
+
+  var parent=makeCheck({key:"all",label:PARENT_LABEL,variant:"plain"});
+  fieldset.appendChild(parent.wrap);
+
+  var kidsBox=el("div","children");
+  var kids=ITEMS.map(function(it){
+    var h=makeCheck({key:it.id,label:it.label,desc:it.description,variant:"plain"});
+    h.itemId=it.id;
+    kidsBox.appendChild(h.wrap);
+    return h;
+  });
+  fieldset.appendChild(kidsBox);
+  form.appendChild(fieldset);
+
+  var card=makeCheck({key:"keep",label:CARD_LABEL,desc:CARD_DESC,variant:"card"});
+  form.appendChild(card.wrap);
+
+  var div=el("div","divider");
+  form.appendChild(div);
+
+  var terms=makeCheck({key:"terms",label:TERMS_LABEL,variant:"plain",withError:true});
+  form.appendChild(terms.wrap);
+
+  root.appendChild(form);
+
+  function isAll(){return selected.length===ITEMS.length;}
+  function isSome(){return selected.length>0&&!isAll();}
+
+  function refreshStateLine(){
+    var n=selected.length;
+    stateLine.textContent=n+" of "+ITEMS.length+" selected";
+  }
+
+  function refresh(){
+    var all=isAll(), some=isSome();
+    parent.input.checked=all;
+    try{parent.input.indeterminate=some;}catch(e){}
+    if(some){parent.wrap.setAttribute("data-ind","true");}else{parent.wrap.removeAttribute("data-ind");}
+    if(all){parent.wrap.setAttribute("data-checked","true");}else{parent.wrap.removeAttribute("data-checked");}
+    parent.input.setAttribute("aria-checked",some?"mixed":(all?"true":"false"));
+    kids.forEach(function(h){
+      var on=selected.indexOf(h.itemId)!==-1;
+      h.input.checked=on;
+      if(on){h.wrap.setAttribute("data-checked","true");}else{h.wrap.removeAttribute("data-checked");}
+      h.wrap.removeAttribute("data-ind");
+    });
+    card.input.checked=keepCopy;
+    if(keepCopy){card.wrap.setAttribute("data-checked","true");}else{card.wrap.removeAttribute("data-checked");}
+    terms.input.checked=agreed;
+    if(agreed){terms.wrap.setAttribute("data-checked","true");}else{terms.wrap.removeAttribute("data-checked");}
+    var bad=!agreed;
+    if(bad){
+      terms.wrap.setAttribute("data-invalid","true");
+      terms.input.setAttribute("aria-invalid","true");
+      terms.err.textContent=TERMS_ERROR;
+      terms.err.removeAttribute("hidden");
+    }else{
+      terms.wrap.removeAttribute("data-invalid");
+      terms.input.removeAttribute("aria-invalid");
+      terms.err.textContent="";
+      terms.err.setAttribute("hidden","");
+    }
+    refreshStateLine();
+  }
+
+  parent.input.addEventListener("change",function(){
+    if(isAll()){selected=[];}else{selected=ITEMS.map(function(x){return x.id;});}
+    refresh();
+  });
+  kids.forEach(function(h){
+    h.input.addEventListener("change",function(e){
+      var on=e.target.checked;
+      if(on){if(selected.indexOf(h.itemId)===-1)selected.push(h.itemId);}
+      else{selected=selected.filter(function(id){return id!==h.itemId;});}
+      refresh();
+    });
+  });
+  card.input.addEventListener("change",function(e){keepCopy=e.target.checked;refresh();});
+  terms.input.addEventListener("change",function(e){agreed=e.target.checked;refresh();});
+
+  refresh();
+
+  // theme toggle (in-place label update only)
+  var toggle=document.getElementById("theme-toggle");
+  var themeLabel=document.getElementById("theme-label");
+  function currentTheme(){return document.documentElement.getAttribute("data-theme")||"light";}
+  function paintToggle(){
+    var t=currentTheme();
+    themeLabel.textContent=(t==="dark")?"Light":"Dark";
+    toggle.setAttribute("aria-label",(t==="dark")?"Switch to light theme":"Switch to dark theme");
+  }
+  toggle.addEventListener("pointerdown",function(){},{capture:true});
+  toggle.addEventListener("click",function(){
+    var next=currentTheme()==="dark"?"light":"dark";
+    document.documentElement.setAttribute("data-theme",next);
+    try{localStorage.setItem("chk-theme",next);}catch(e){}
+    paintToggle();
+  });
+  paintToggle();
+
+  // test hook (no render here; exposes live nodes)
+  try{
+    window.__chk={
+      items:ITEMS,parent:parent,kids:kids,card:card,terms:terms,
+      getSelected:function(){return selected.slice();},
+      isAll:isAll,isSome:isSome,
+      setSelected:function(a){selected=a.slice();refresh();},
+      setAgreed:function(v){agreed=!!v;refresh();},
+      setKeep:function(v){keepCopy=!!v;refresh();}
+    };
+  }catch(e){}
+})();
+</script>
+</body>
+</html>
