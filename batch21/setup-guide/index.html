@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script>/*noflash*/(function(){try{var k='sgd-theme';var s=null;try{s=localStorage.getItem(k)}catch(e){}var t=s;if(!t){try{t=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}catch(e){t='light'}}if(t!=='light'&&t!=='dark'){t='light'}document.documentElement.setAttribute('data-theme',t)}catch(e){}})();</script>
+<style>html{background:#fafaf9}html[data-theme="dark"]{background:#101012}</style>
+<meta name="color-scheme" content="light dark">
+<title>Setup Guide — affectUI replica</title>
+<style>
+:root{
+  --surface:#ffffff;
+  --page:#fafaf9;
+  --ink:#171717;
+  --ink-2:#262626;
+  --muted:#78716c;
+  --muted-2:#a3a3a3;
+  --icon:#737373;
+  --subtle:#f5f5f4;
+  --subtle-2:#f2f2f2;
+  --border:#e7e5e4;
+  --line:#ececec;
+  --track:#ececec;
+  --accent:#4fb0fe;
+  --focus:rgba(0,96,226,.7);
+  --open:#f6f6f7;
+  --dot:#e1e3e8;
+  --dot-hover:#d3d7de;
+  --placeholder:#d4d4d4;
+  --radius-lg:16px;
+  --radius:10px;
+  --radius-sm:6px;
+  --shadow:0 1px 2px rgba(0,0,0,.05),0 4px 16px rgba(0,0,0,.05);
+  --shadow-card:0 1px 2px rgba(0,0,0,.03),0 8px 24px rgba(0,0,0,.035);
+  --ease:cubic-bezier(.22,1,.36,1);
+  --amber-bg:#fef3c7;
+  --amber-ink:#92400e;
+  --amber-dot:#f59e0b;
+}
+html[data-theme="dark"]{
+  --surface:#1c1c1f;
+  --page:#101012;
+  --ink:#ededed;
+  --ink-2:#dcdcdc;
+  --muted:#a1a1aa;
+  --muted-2:#8f8f8f;
+  --icon:#8f8f8f;
+  --subtle:#26262a;
+  --subtle-2:rgba(255,255,255,.06);
+  --border:#2e2e33;
+  --line:rgba(255,255,255,.08);
+  --track:rgba(255,255,255,.1);
+  --accent:#4fb0fe;
+  --focus:rgba(77,141,255,.8);
+  --open:#2a2a2d;
+  --dot:#3a3a3f;
+  --dot-hover:#4a4a50;
+  --placeholder:#4a4a50;
+  --shadow:0 1px 2px rgba(0,0,0,.5),0 8px 24px rgba(0,0,0,.4);
+  --shadow-card:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+  --amber-bg:#451a03;
+  --amber-ink:#fde68a;
+  --amber-dot:#fbbf24;
+}
+html{-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:var(--page);
+  color:var(--ink);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:14px;
+  line-height:1.45;
+  font-variant-numeric:tabular-nums;
+  -webkit-font-smoothing:antialiased;
+}
+.page{max-width:760px;margin:0 auto;padding:24px 20px 56px}
+.page-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:6px}
+.page-title{margin:0;font-size:15px;font-weight:650;line-height:22px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.page-sub{margin:2px 0 0;font-size:12.5px;color:var(--muted);line-height:18px}
+.theme-btn{
+  flex:none;display:inline-flex;align-items:center;gap:8px;
+  min-height:32px;padding:5px 12px 5px 10px;border:1px solid var(--border);border-radius:999px;
+  background:var(--surface);color:var(--ink);font:inherit;font-size:13px;line-height:20px;cursor:pointer;
+  box-shadow:var(--shadow);
+  transition:transform 160ms ease,background-color 160ms ease,border-color 160ms ease;
+}
+.theme-btn svg{width:16px;height:16px;flex:none}
+.theme-btn .theme-knob{font-weight:600}
+.stage{display:flex;justify-content:center;padding:18px 0 8px}
+.demo-note{max-width:560px;margin:14px auto 0;color:var(--muted);font-size:12.5px;line-height:18px;text-align:center}
+.demo-note code{font:inherit;color:var(--ink-2);background:var(--subtle);border:1px solid var(--border);border-radius:6px;padding:0 5px}
+/* ---- Setup Guide card (clean-room, behaviour-matched) ---- */
+.sgd{
+  box-sizing:border-box;width:100%;max-width:320px;
+  padding:16px 8px 8px;
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:20px;
+  box-shadow:var(--shadow-card);
+  color:var(--ink);
+  transition:background-color 200ms ease,border-color 200ms ease;
+}
+.sgd *,.sgd *::before,.sgd *::after{box-sizing:border-box}
+.sgd button{margin:0;border:0;background:none;font:inherit;color:inherit;cursor:pointer;padding:0}
+.sgd button:focus-visible,.theme-btn:focus-visible,.reopen-btn:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.sgd-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 8px}
+.sgd-title{min-width:0;margin:0;text-align:start;overflow-wrap:anywhere;font-size:15px;font-weight:600;line-height:22px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sgd-actions{display:flex;flex:none;align-items:center;gap:4px;margin-right:-4px}
+.sgd-edit{padding:2px 6px;border-radius:5px;font-size:14px;line-height:20px;color:var(--accent);transition:opacity 160ms ease}
+.sgd-iconbtn{display:grid;place-items:center;width:26px;height:26px;border-radius:7px;color:var(--icon);transition:background-color 160ms ease,color 160ms ease}
+.sgd-iconbtn svg{width:16px;height:16px;display:block}
+.sgd-track{display:block;height:5px;margin:10px 8px 8px;overflow:hidden;border-radius:3px;background:var(--track)}
+.sgd-fill{display:block;height:100%;border-radius:inherit;background:var(--accent);transform-origin:left center;transition:transform 700ms var(--ease)}
+.sgd-body{display:grid;grid-template-rows:1fr;transition:grid-template-rows 420ms var(--ease),opacity 260ms ease}
+.sgd-body[data-hidden]{grid-template-rows:0fr;opacity:0}
+.sgd-groups{min-height:0;overflow:hidden}
+.sgd-group{border-radius:12px;transition:background-color 260ms ease}
+.sgd-group[data-open]{background:var(--open)}
+.sgd-grouphead{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;width:100%;padding:11px 10px 11px 12px;border-radius:12px;text-align:left}
+.sgd-grouptitle{position:relative;min-width:0;text-align:start;overflow-wrap:anywhere;font-size:14px;font-weight:600;line-height:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:color 300ms ease}
+.sgd-grouptitle::after{content:"";position:absolute;left:0;right:0;top:52%;height:1.5px;border-radius:1px;background:currentColor;transform:scaleX(0);transform-origin:left center;transition:transform 420ms var(--ease)}
+.sgd-grouptitle[data-done]::after{transform:scaleX(1)}
+.sgd-chev{flex:none;width:16px;height:16px;margin-top:2px;color:var(--icon);transition:transform 320ms var(--ease)}
+.sgd-group[data-open] .sgd-chev{transform:rotate(180deg)}
+.sgd-panel{display:grid;grid-template-rows:0fr;transition:grid-template-rows 380ms var(--ease)}
+.sgd-group[data-open] .sgd-panel{grid-template-rows:1fr}
+.sgd-tasks{min-height:0;overflow:hidden;margin:0;padding:0;list-style:none}
+.sgd-tasks li:last-child{padding-bottom:8px}
+.sgd-task{display:flex;align-items:flex-start;gap:12px;width:100%;padding:7px 12px;border-radius:10px;text-align:left;opacity:0;transform:translateY(-4px);transition:opacity 260ms ease,transform 320ms var(--ease),color 260ms ease,background-color 160ms ease}
+.sgd-group[data-open] .sgd-task{opacity:1;transform:none;transition-delay:80ms}
+.sgd-task[data-state="current"]{color:var(--ink-2)}
+.sgd-task[data-state="locked"]{color:var(--muted-2);cursor:default}
+.sgd-task[data-state="done"]{color:var(--muted-2)}
+.sgd-mark{display:grid;place-items:center;flex:none;width:16px;height:16px;margin-top:2px;border-radius:50%;transition:background-color 200ms ease}
+.sgd-task[data-state="current"] .sgd-mark{background:var(--dot)}
+.sgd-task[data-state="locked"] .sgd-mark{color:var(--placeholder)}
+.sgd-task[data-state="done"] .sgd-mark{color:var(--accent)}
+.sgd-mark svg{width:16px;height:16px;display:block}
+.sgd-task[data-state="done"] .sgd-mark svg{animation:sgd-pop 420ms var(--ease)}
+.sgd-label{min-width:0;text-align:start;white-space:pre-line;overflow-wrap:anywhere;font-size:14px;line-height:20px;text-decoration-line:line-through;text-decoration-color:transparent;text-decoration-thickness:1.5px;transition:text-decoration-color 260ms ease}
+.sgd-task[data-state="done"] .sgd-label{text-decoration-color:currentColor}
+@keyframes sgd-pop{from{transform:scale(.5);opacity:0}}
+.reopen-wrap{display:flex;justify-content:center;padding:18px 0 8px}
+.reopen-btn{display:inline-flex;align-items:center;min-height:32px;padding:6px 14px;border:1px solid var(--border);border-radius:999px;background:var(--surface);color:var(--ink);font:inherit;font-size:13px;box-shadow:var(--shadow);cursor:pointer}
+.count-pill{display:inline-block;min-width:44px;padding:1px 9px;border:1px solid var(--border);border-radius:999px;background:var(--subtle);color:var(--muted);font-size:12px;line-height:18px;text-align:center}
+@media (prefers-reduced-motion:reduce){
+  .sgd-fill,.sgd-body,.sgd-panel,.sgd-task,.sgd-chev,.sgd-grouptitle::after{transition:none}
+  .sgd-mark svg{animation:none!important}
+}
+@media (hover:hover) and (pointer:fine){
+  .theme-btn:hover{transform:translateY(-1px)}
+  .reopen-btn:hover{background:var(--subtle)}
+  .sgd-edit:hover{opacity:.75}
+  .sgd-iconbtn:hover{background:var(--subtle-2);color:var(--ink)}
+  .sgd-task[data-state="current"]:hover .sgd-mark{background:var(--dot-hover)}
+  .sgd-grouphead:hover .sgd-grouptitle{color:var(--ink)}
+}
+@media (max-width:420px){
+  .page{padding:16px 12px 40px}
+  .stage{padding:10px 0 4px}
+  .sgd{max-width:none}
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="page-head">
+    <div>
+      <h1 class="page-title">Acme Inc · Setup Guide</h1>
+      <p class="page-sub"><span id="headCount">3 groups · 6 tasks · 5 left</span></p>
+    </div>
+    <button class="theme-btn" id="themeBtn" type="button" aria-label="Switch to dark theme">
+      <svg id="themeIcon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="3.2"></circle><path d="M8 1.5v1.6M8 12.9v1.6M1.5 8h1.6M12.9 8h1.6M3.4 3.4l1.1 1.1M11.5 11.5l1.1 1.1M12.6 3.4l-1.1 1.1M4.5 11.5l-1.1 1.1"></path></svg>
+      <span class="theme-knob" id="themeLabel">Light</span>
+    </button>
+  </div>
+  <div class="stage" id="stage"></div>
+  <div class="reopen-wrap" id="reopenWrap" hidden>
+    <button class="reopen-btn" id="reopenBtn" type="button">Show setup guide</button>
+  </div>
+  <p class="demo-note">Clean-room replica of the <code>Setup guide</code> onboarding panel. Click the current task in each group to complete it — groups strike through when done and the next group opens after 420ms. Header, progress bar, Edit, minimise and close all match the demo.</p>
+</div>
+<script>
+(function(){
+"use strict";
+var GROUPS=[
+  {id:"workspace",title:"Set up your workspace",tasks:[
+    {id:"name",label:"Choose a workspace name"},
+    {id:"invite",label:"Invite your teammates to collaborate"},
+    {id:"calendar",label:"Connect your calendar"}
+  ]},
+  {id:"billing",title:"Set up billing",tasks:[
+    {id:"card",label:"Add a payment method"},
+    {id:"plan",label:"Choose a plan"}
+  ]},
+  {id:"verify",title:"Verify your account",tasks:[
+    {id:"email",label:"Confirm your email address",done:true}
+  ]}
+];
+var TITLE="Setup guide";
+var doneSet=new Set();
+GROUPS.forEach(function(g){g.tasks.forEach(function(t){if(t.done){doneSet.add(t.id)}})});
+function firstOpen(){
+  for(var i=0;i<GROUPS.length;i++){
+    var g=GROUPS[i];
+    for(var j=0;j<g.tasks.length;j++){if(!doneSet.has(g.tasks[j].id)){return g.id}}
+  }
+  return null;
+}
+var openId=firstOpen();
+var collapsed=false;
+var advanceTimer=null;
+var NS="http://www.w3.org/2000/svg";
+function svgEl(paths,circle){
+  var s=document.createElementNS(NS,"svg");
+  s.setAttribute("viewBox","0 0 16 16");
+  s.setAttribute("aria-hidden","true");
+  if(circle&&circle.fill){
+    s.setAttribute("fill","none");
+    s.setAttribute("stroke","currentColor");
+  }
+  return s;
+}
+function mkIcon(kind){
+  var s=document.createElementNS(NS,"svg");
+  s.setAttribute("viewBox","0 0 16 16");
+  s.setAttribute("aria-hidden","true");
+  if(kind==="chev"){
+    s.setAttribute("fill","none");s.setAttribute("stroke","currentColor");
+    s.setAttribute("stroke-width","1.6");s.setAttribute("stroke-linecap","round");s.setAttribute("stroke-linejoin","round");
+    s.setAttribute("class","sgd-chev");
+    var p=document.createElementNS(NS,"path");
+    p.setAttribute("d","m4.5 6.25 3.5 3.5 3.5-3.5");
+    s.appendChild(p);
+  }else if(kind==="min"){
+    s.setAttribute("fill","none");s.setAttribute("stroke","currentColor");
+    s.setAttribute("stroke-width","1.5");s.setAttribute("stroke-linecap","round");s.setAttribute("stroke-linejoin","round");
+    var p2=document.createElementNS(NS,"path");
+    p2.setAttribute("d","M9.5 2.5v4h4M9.5 6.5l4.5-4.5M6.5 13.5v-4h-4M6.5 9.5 2 14");
+    s.appendChild(p2);
+  }else if(kind==="exp"){
+    s.setAttribute("fill","none");s.setAttribute("stroke","currentColor");
+    s.setAttribute("stroke-width","1.5");s.setAttribute("stroke-linecap","round");s.setAttribute("stroke-linejoin","round");
+    var p3=document.createElementNS(NS,"path");
+    p3.setAttribute("d","M10 2h4v4M14 2 9.5 6.5M6 14H2v-4M2 14l4.5-4.5");
+    s.appendChild(p3);
+  }else if(kind==="x"){
+    s.setAttribute("fill","none");s.setAttribute("stroke","currentColor");
+    s.setAttribute("stroke-width","1.5");s.setAttribute("stroke-linecap","round");
+    var p4=document.createElementNS(NS,"path");
+    p4.setAttribute("d","m3.5 3.5 9 9M12.5 3.5l-9 9");
+    s.appendChild(p4);
+  }else if(kind==="check"){
+    var c=document.createElementNS(NS,"circle");
+    c.setAttribute("cx","8");c.setAttribute("cy","8");c.setAttribute("r","7");
+    c.setAttribute("fill","currentColor");
+    var p5=document.createElementNS(NS,"path");
+    p5.setAttribute("d","m5 8.2 2 2 4-4.2");
+    p5.setAttribute("fill","none");p5.setAttribute("stroke","#fff");
+    p5.setAttribute("stroke-width","1.6");p5.setAttribute("stroke-linecap","round");p5.setAttribute("stroke-linejoin","round");
+    s.appendChild(c);s.appendChild(p5);
+  }else if(kind==="lock"){
+    s.setAttribute("fill","none");s.setAttribute("stroke","currentColor");
+    s.setAttribute("stroke-width","1.5");
+    var c2=document.createElementNS(NS,"circle");
+    c2.setAttribute("cx","8");c2.setAttribute("cy","8");c2.setAttribute("r","6");
+    var p6=document.createElementNS(NS,"path");
+    p6.setAttribute("d","m4 12 8-8");
+    s.appendChild(c2);s.appendChild(p6);
+  }
+  return s;
+}
+function totalTasks(){var n=0;GROUPS.forEach(function(g){n+=g.tasks.length});return n}
+function doneCount(){var n=0;GROUPS.forEach(function(g){g.tasks.forEach(function(t){if(doneSet.has(t.id)){n++}})});return n}
+function groupDone(g){return g.tasks.every(function(t){return doneSet.has(t.id)})}
+function firstUndoneIdx(g){
+  for(var i=0;i<g.tasks.length;i++){if(!doneSet.has(g.tasks[i].id)){return i}}
+  return -1;
+}
+/* ---- build DOM once ---- */
+var stage=document.getElementById("stage");
+var headCount=document.getElementById("headCount");
+var section=document.createElement("section");
+section.setAttribute("class","sgd");
+section.setAttribute("aria-label",TITLE);
+var head=document.createElement("header");
+head.setAttribute("class","sgd-head");
+var h3=document.createElement("h3");
+h3.setAttribute("class","sgd-title");
+h3.setAttribute("title",TITLE);
+h3.setAttribute("dir","auto");
+h3.textContent=TITLE;
+var actions=document.createElement("div");
+actions.setAttribute("class","sgd-actions");
+var editBtn=document.createElement("button");
+editBtn.setAttribute("type","button");
+editBtn.setAttribute("class","sgd-edit");
+editBtn.textContent="Edit";
+editBtn.addEventListener("click",function(){});
+var minBtn=document.createElement("button");
+minBtn.setAttribute("type","button");
+minBtn.setAttribute("class","sgd-iconbtn");
+minBtn.setAttribute("aria-label","Minimize setup guide");
+minBtn.setAttribute("aria-expanded","true");
+minBtn.appendChild(mkIcon("min"));
+minBtn.addEventListener("click",function(){
+  collapsed=!collapsed;
+  applyCollapsed();
+});
+var closeBtn=document.createElement("button");
+closeBtn.setAttribute("type","button");
+closeBtn.setAttribute("class","sgd-iconbtn");
+closeBtn.setAttribute("aria-label","Close setup guide");
+closeBtn.appendChild(mkIcon("x"));
+closeBtn.addEventListener("click",function(){
+  section.setAttribute("hidden","");
+  document.getElementById("reopenWrap").removeAttribute("hidden");
+});
+actions.appendChild(editBtn);
+actions.appendChild(minBtn);
+actions.appendChild(closeBtn);
+head.appendChild(h3);
+head.appendChild(actions);
+var track=document.createElement("span");
+track.setAttribute("class","sgd-track");
+track.setAttribute("role","progressbar");
+track.setAttribute("aria-label",TITLE+" progress");
+track.setAttribute("aria-valuemin","0");
+track.setAttribute("aria-valuemax","100");
+var fill=document.createElement("span");
+fill.setAttribute("class","sgd-fill");
+track.appendChild(fill);
+var bodyEl=document.createElement("div");
+bodyEl.setAttribute("class","sgd-body");
+var groupsEl=document.createElement("div");
+groupsEl.setAttribute("class","sgd-groups");
+bodyEl.appendChild(groupsEl);
+section.appendChild(head);
+section.appendChild(track);
+section.appendChild(bodyEl);
+stage.appendChild(section);
+document.getElementById("reopenBtn").addEventListener("click",function(){
+  section.removeAttribute("hidden");
+  document.getElementById("reopenWrap").setAttribute("hidden","");
+});
+var groupRefs={};
+GROUPS.forEach(function(g){
+  var gEl=document.createElement("div");
+  gEl.setAttribute("class","sgd-group");
+  var panelId="sgd-"+g.id;
+  var headBtn=document.createElement("button");
+  headBtn.setAttribute("type","button");
+  headBtn.setAttribute("class","sgd-grouphead");
+  headBtn.setAttribute("aria-controls",panelId);
+  headBtn.addEventListener("click",(function(gid){
+    return function(){openId=(openId===gid)?null:gid;applyOpen()};
+  })(g.id));
+  var titleEl=document.createElement("span");
+  titleEl.setAttribute("class","sgd-grouptitle");
+  titleEl.setAttribute("dir","auto");
+  titleEl.textContent=g.title;
+  headBtn.appendChild(titleEl);
+  headBtn.appendChild(mkIcon("chev"));
+  var panel=document.createElement("div");
+  panel.setAttribute("class","sgd-panel");
+  panel.setAttribute("id",panelId);
+  var ul=document.createElement("ul");
+  ul.setAttribute("class","sgd-tasks");
+  panel.appendChild(ul);
+  gEl.appendChild(headBtn);
+  gEl.appendChild(panel);
+  groupsEl.appendChild(gEl);
+  var taskRefs=[];
+  g.tasks.forEach(function(t,idx){
+    var li=document.createElement("li");
+    var b=document.createElement("button");
+    b.setAttribute("type","button");
+    b.setAttribute("class","sgd-task");
+    b.addEventListener("click",(function(gg,tt){
+      return function(){toggleTask(gg,tt)};
+    })(g,t));
+    var mark=document.createElement("span");
+    mark.setAttribute("class","sgd-mark");
+    mark.setAttribute("aria-hidden","true");
+    var lab=document.createElement("span");
+    lab.setAttribute("class","sgd-label");
+    lab.setAttribute("dir","auto");
+    lab.textContent=t.label;
+    b.appendChild(mark);
+    b.appendChild(lab);
+    li.appendChild(b);
+    ul.appendChild(li);
+    taskRefs.push({task:t,li:li,btn:b,mark:mark,label:lab});
+  });
+  groupRefs[g.id]={group:g,el:gEl,headBtn:headBtn,titleEl:titleEl,panel:panel,tasks:taskRefs};
+});
+function setMarkIcon(mark,state){
+  while(mark.firstChild){mark.removeChild(mark.firstChild)}
+  if(state==="done"){mark.appendChild(mkIcon("check"))}
+  else if(state==="locked"){mark.appendChild(mkIcon("lock"))}
+}
+function stateOf(g,idx){
+  var t=g.tasks[idx];
+  if(doneSet.has(t.id)){return "done"}
+  var f=firstUndoneIdx(g);
+  if(f!==-1&&idx>f){return "locked"}
+  return "current";
+}
+function applyProgress(){
+  var total=totalTasks(),done=doneCount();
+  var w=total?Math.min(1,done/total):0;
+  fill.style.transform="scaleX("+w+")";
+  track.setAttribute("aria-valuenow",String(Math.round(w*100)));
+  var left=total-done;
+  headCount.textContent=GROUPS.length+" groups · "+total+" tasks · "+left+" left";
+}
+function applyOpen(){
+  GROUPS.forEach(function(g){
+    var r=groupRefs[g.id];
+    var isOpen=(openId===g.id);
+    if(isOpen){r.el.setAttribute("data-open","")}else{r.el.removeAttribute("data-open")}
+    r.headBtn.setAttribute("aria-expanded",isOpen?"true":"false");
+    if(isOpen){r.panel.removeAttribute("inert")}else{r.panel.setAttribute("inert","")}
+    try{if(isOpen){r.panel.removeAttribute("inert")}else{r.panel.inert=true}}catch(e){}
+  });
+}
+function applyGroups(){
+  GROUPS.forEach(function(g){
+    var r=groupRefs[g.id];
+    var done=groupDone(g);
+    if(done){r.titleEl.setAttribute("data-done","")}else{r.titleEl.removeAttribute("data-done")}
+    r.tasks.forEach(function(tr,idx){
+      var st=stateOf(g,idx);
+      tr.btn.setAttribute("data-state",st);
+      if(st==="locked"){tr.btn.setAttribute("disabled","");tr.btn.disabled=true}
+      else{tr.btn.removeAttribute("disabled");tr.btn.disabled=false}
+      tr.btn.setAttribute("aria-pressed",doneSet.has(tr.task.id)?"true":"false");
+      setMarkIcon(tr.mark,st);
+    });
+  });
+}
+function applyCollapsed(){
+  if(collapsed){bodyEl.setAttribute("data-hidden","")}else{bodyEl.removeAttribute("data-hidden")}
+  minBtn.setAttribute("aria-label",collapsed?"Expand setup guide":"Minimize setup guide");
+  minBtn.setAttribute("aria-expanded",collapsed?"false":"true");
+  while(minBtn.firstChild){minBtn.removeChild(minBtn.firstChild)}
+  minBtn.appendChild(mkIcon(collapsed?"exp":"min"));
+}
+function refresh(){applyProgress();applyGroups();applyOpen()}
+function toggleTask(g,t){
+  var st=null;
+  var idx=g.tasks.findIndex(function(x){return x.id===t.id});
+  var f=firstUndoneIdx(g);
+  if(doneSet.has(t.id)){st="done"}
+  else if(f!==-1&&idx>f){return}
+  if(doneSet.has(t.id)){doneSet.delete(t.id)}
+  else{doneSet.add(t.id)}
+  if(advanceTimer){clearTimeout(advanceTimer);advanceTimer=null}
+  refresh();
+  if(groupDone(g)){
+    var next=null;
+    for(var i=0;i<GROUPS.length;i++){
+      var gg=GROUPS[i];
+      var undone=false;
+      for(var j=0;j<gg.tasks.length;j++){if(!doneSet.has(gg.tasks[j].id)){undone=true;break}}
+      if(undone){next=gg.id;break}
+    }
+    advanceTimer=setTimeout(function(){openId=next;applyOpen();advanceTimer=null},420);
+  }
+}
+refresh();
+applyCollapsed();
+/* ---- theme toggle (in-place, no re-render) ---- */
+var themeBtn=document.getElementById("themeBtn");
+var themeLabel=document.getElementById("themeLabel");
+function paintTheme(){
+  var cur=document.documentElement.getAttribute("data-theme")||"light";
+  themeLabel.textContent=cur==="dark"?"Dark":"Light";
+  themeBtn.setAttribute("aria-label",cur==="dark"?"Switch to light theme":"Switch to dark theme");
+}
+themeBtn.addEventListener("pointerdown",function(){}, {capture:true});
+themeBtn.addEventListener("click",function(){
+  var cur=document.documentElement.getAttribute("data-theme")||"light";
+  var nxt=cur==="dark"?"light":"dark";
+  document.documentElement.setAttribute("data-theme",nxt);
+  try{localStorage.setItem("sgd-theme",nxt)}catch(e){}
+  paintTheme();
+});
+paintTheme();
+/* test hooks (no DOM rebuild) */
+try{
+  window.__sgd={
+    groups:GROUPS,title:TITLE,
+    refs:{section:section,track:track,fill:fill,body:bodyEl,headCount:headCount,groups:groupRefs,minBtn:minBtn,editBtn:editBtn,closeBtn:closeBtn},
+    state:function(){return{done:Array.from(doneSet),open:openId,collapsed:collapsed,valuenow:track.getAttribute("aria-valuenow")}},
+    clickTask:function(gid,tid){
+      var r=groupRefs[gid];
+      for(var i=0;i<r.tasks.length;i++){if(r.tasks[i].task.id===tid){r.tasks[i].btn.click();return true}}
+      return false;
+    },
+    clickGroup:function(gid){groupRefs[gid].headBtn.click()},
+    toggleMin:function(){minBtn.click()},
+    theme:function(){return document.documentElement.getAttribute("data-theme")}
+  };
+}catch(e){}
+})();
+</script>
+</body>
+</html>

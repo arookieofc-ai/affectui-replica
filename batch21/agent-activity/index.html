@@ -1,0 +1,445 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<script>/*noflash*/try{var __t=localStorage.getItem("theme");if(!__t){__t=(window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches)?"dark":"light";}document.documentElement.setAttribute("data-theme",__t);}catch(__e){document.documentElement.setAttribute("data-theme","light");}</script>
+<style>html{background:#fafaf9}html[data-theme="dark"]{background:#101012}</style>
+<meta name="color-scheme" content="light dark">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Atlas Launch — Agent Activity</title>
+<style>
+:root{
+  --surface:#ffffff;
+  --page:#fafaf9;
+  --ink:#171717;
+  --ink2:#1c1917;
+  --muted:#78716c;
+  --subtle:#f5f5f4;
+  --border:#e7e5e4;
+  --radius-lg:16px;
+  --radius:10px;
+  --radius-sm:6px;
+  --shadow:0 1px 2px rgba(0,0,0,.05),0 4px 16px rgba(0,0,0,.05);
+  --shadow-lift:0 2px 4px rgba(0,0,0,.06),0 8px 24px rgba(0,0,0,.08);
+  --blue:#2563eb;
+  --blue-bg:#eff6ff;
+  --green:#15803d;
+  --green-bg:#f0fdf4;
+  --amber:#f59e0b;
+  --amber-bg:#fef3c7;
+  --amber-text:#92400e;
+  --red:#dc2626;
+  --red-bg:#fef2f2;
+  --grey-bg:#f5f5f4;
+  --grey-text:#57534e;
+  --focus:#2563eb;
+}
+html[data-theme="dark"]{
+  --surface:#1c1c1f;
+  --page:#101012;
+  --ink:#ededed;
+  --ink2:#ededed;
+  --muted:#a1a1aa;
+  --subtle:#26262a;
+  --border:#2e2e33;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 4px 16px rgba(0,0,0,.4);
+  --shadow-lift:0 2px 6px rgba(0,0,0,.5),0 10px 28px rgba(0,0,0,.5);
+  --blue:#60a5fa;
+  --blue-bg:#172554;
+  --green:#4ade80;
+  --green-bg:#052e16;
+  --amber:#fbbf24;
+  --amber-bg:#451a03;
+  --amber-text:#fde68a;
+  --red:#f87171;
+  --red-bg:#450a0a;
+  --grey-bg:#26262a;
+  --grey-text:#d4d4d8;
+  --focus:#93c5fd;
+}
+html{-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:var(--page);
+  color:var(--ink);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:14px;
+  line-height:1.45;
+  font-variant-numeric:tabular-nums;
+}
+.wrap{max-width:760px;margin:0 auto;padding:20px 16px 48px}
+.topbar{
+  display:flex;align-items:flex-start;justify-content:space-between;gap:12px;
+  padding:14px 16px;background:var(--surface);
+  border:1px solid var(--border);border-radius:var(--radius-lg);
+  box-shadow:var(--shadow);
+}
+.proj-name{font-size:16px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.proj-sub{font-size:12.5px;color:var(--muted);margin-top:2px}
+.proj-sub strong{color:var(--ink);font-weight:600}
+.ctx{text-align:right;min-width:150px}
+.ctx-label{font-size:12.5px;color:var(--muted);white-space:nowrap}
+.ctx-label strong{color:var(--ink)}
+.ctxbar{height:3px;background:var(--subtle);border-radius:999px;margin-top:6px;overflow:hidden;border:1px solid var(--border)}
+.ctxfill{height:100%;width:22%;background:var(--blue);border-radius:999px;transition:width 180ms ease}
+.themebtn{
+  flex:none;width:34px;height:34px;border-radius:999px;
+  border:1px solid var(--border);background:var(--surface);color:var(--ink);
+  display:inline-flex;align-items:center;justify-content:center;cursor:pointer;
+  transition:transform 160ms ease,box-shadow 160ms ease,background 160ms ease;
+  padding:0;
+}
+/* concentric: outer 16 = inner 10 + 6 pad; icon well 10 = 6 + 4 */
+.dayhead{
+  margin:22px 0 0;padding:14px 4px 8px;
+  font-size:12.5px;font-weight:650;letter-spacing:.02em;text-transform:uppercase;color:var(--muted);
+  display:flex;justify-content:space-between;align-items:baseline;gap:8px;
+}
+.dayhead .count{font-weight:500;text-transform:none;letter-spacing:0}
+.list{display:flex;flex-direction:column;gap:10px}
+.entry{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);
+  box-shadow:var(--shadow);padding:6px;transition:box-shadow 180ms ease,transform 180ms ease,border-color 180ms ease;
+}
+.entry-inner{background:transparent;border-radius:var(--radius);padding:8px 10px 12px}
+.entry-row{display:flex;gap:10px;align-items:flex-start}
+.pxmark{
+  flex:none;width:27px;height:27px;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);
+  gap:1px;padding:3px;background:var(--subtle);border:1px solid var(--border);border-radius:var(--radius-sm);
+  outline:1px solid rgba(0,0,0,.10);
+}
+html[data-theme="dark"] .pxmark{outline-color:rgba(255,255,255,.10)}
+.pxmark i{display:block;width:100%;height:100%;border-radius:1px;min-width:0;min-height:0}
+.pxmark.is-working i.tw{background:var(--blue)!important;animation:tw 1.6s ease-in-out infinite}
+@keyframes tw{0%,100%{opacity:1}50%{opacity:.25}}
+.entry-main{min-width:0;flex:1}
+.entry-title{font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.entry-meta{font-size:12.5px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.entry-reason{font-size:13px;margin-top:6px;color:var(--ink2)}
+.entry-reason span.lbl{color:var(--muted)}
+.entry-appr{font-size:12.5px;margin-top:4px;color:var(--muted)}
+.entry-appr strong{color:var(--ink);font-weight:600}
+.entry-side{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex:none}
+.pill{
+  font-size:12px;font-weight:600;border-radius:999px;padding:3px 10px;border:1px solid transparent;white-space:nowrap;
+}
+.pill.approved{color:var(--green);background:var(--green-bg);border-color:var(--green)}
+.pill.waiting{color:var(--amber-text);background:var(--amber-bg);border-color:var(--amber)}
+.pill.failed{color:var(--red);background:var(--red-bg);border-color:var(--red)}
+.pill.undone{color:var(--grey-text);background:var(--grey-bg);border-color:var(--border)}
+.toolrow{display:flex;gap:6px;align-items:center}
+.tool{
+  width:22px;height:22px;border-radius:999px;border:1px solid var(--border);background:var(--subtle);
+  display:inline-flex;align-items:center;justify-content:center;color:var(--muted);flex:none;
+}
+.tool svg{display:block;width:12px;height:12px}
+.entry-actions{display:flex;gap:8px;margin-top:8px;align-items:center}
+.btn{
+  font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;
+  border:1px solid var(--border);background:var(--surface);color:var(--ink);
+  border-radius:999px;padding:5px 12px 5px 10px;
+  display:inline-flex;align-items:center;gap:6px;
+  transition:box-shadow 170ms ease,transform 170ms ease,background 170ms ease;
+}
+.btn.primary{background:var(--ink);color:var(--surface);border-color:var(--ink);padding-left:10px}
+.btn svg{display:block;width:12px;height:12px}
+.detail{
+  margin-top:8px;font-size:12.5px;color:var(--muted);
+  border-top:1px solid var(--border);padding-top:8px;
+}
+.entry.is-undone .entry-title,.entry.is-undone .entry-reason{opacity:.8}
+.entry.is-undone{opacity:.92}
+.entry.is-undone{opacity:.92}
+.foot{margin-top:26px;font-size:12.5px;color:var(--muted);text-align:center}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+@media (max-width:560px){
+  .topbar{flex-direction:column}
+  .ctx{text-align:left;min-width:0;width:100%}
+  .entry-row{flex-direction:column}
+  .entry-side{flex-direction:row;align-items:center}
+}
+@media (hover: hover) and (pointer: fine){
+  .entry:hover{box-shadow:var(--shadow-lift);transform:translateY(-1px)}
+  .btn:hover{background:var(--subtle);box-shadow:var(--shadow)}
+  .btn.primary:hover{filter:brightness(1.08)}
+  .themebtn:hover{box-shadow:var(--shadow-lift);transform:translateY(-1px)}
+  .tool:hover{color:var(--ink);border-color:var(--muted)}
+}
+@media (prefers-reduced-motion: reduce){
+  *{animation:none!important;transition:none!important}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="topbar">
+    <div style="min-width:0">
+      <div class="proj-name" id="projName">Atlas Launch</div>
+      <div class="proj-sub"><strong id="workingCount">2 working</strong> &middot; <span id="agentCount">4 agents</span> &middot; <span id="liveNote">live demo loop</span></div>
+    </div>
+    <div class="ctx">
+      <div class="ctx-label"><strong id="tokLabel">44k / 200k</strong> <span>context</span></div>
+      <div class="ctxbar" role="progressbar" aria-label="Context usage" aria-valuemin="0" aria-valuemax="200" aria-valuenow="44" id="ctxBar"><div class="ctxfill" id="ctxFill"></div></div>
+    </div>
+    <button class="themebtn" id="themeToggle" aria-label="Toggle theme" title="Toggle light / dark">
+      <svg id="themeIconSun" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="3.2" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.5v1.6M8 12.9v1.6M1.5 8h1.6M12.9 8h1.6M3.4 3.4l1.1 1.1M11.5 11.5l1.1 1.1M12.6 3.4l-1.1 1.1M4.5 11.5l-1.1 1.1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      <svg id="themeIconMoon" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true" hidden><path d="M13.5 9.5A5.5 5.5 0 0 1 6.5 2.5a5.5 5.5 0 1 0 7 7Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+    </button>
+  </header>
+
+  <h2 class="dayhead"><span>Today &middot; Tue Nov 25</span><span class="count" id="todayCount">4 items</span></h2>
+  <div class="list" id="todayList"></div>
+
+  <h2 class="dayhead"><span>Yesterday &middot; Mon Nov 24</span><span class="count" id="yestCount">3 items</span></h2>
+  <div class="list" id="yestList"></div>
+
+  <h2 class="dayhead"><span>Last week &middot; Fri Nov 21</span><span class="count" id="weekCount">2 items</span></h2>
+  <div class="list" id="weekList"></div>
+
+  <p class="foot" id="footNote">Demo loop adds a live entry every 3s, then restarts in place &middot; Undo is reversible &middot; open index.html in a browser</p>
+</div>
+<script>
+(function(){
+"use strict";
+var LS_KEY="theme";
+var AGENTS=[
+  {id:"scout",name:"Scout",working:true,hue:217},
+  {id:"patch",name:"Patch",working:true,hue:152},
+  {id:"relay",name:"Relay",working:false,hue:32},
+  {id:"scribe",name:"Scribe",working:false,hue:272}
+];
+function agentById(id){for(var i=0;i<AGENTS.length;i++){if(AGENTS[i].id===id)return AGENTS[i];}return AGENTS[0];}
+/* Plausible demo data (demo-original.js was a 404 page with no data). Shape: daily grouped log
+   with approval source, reason, reversible undo. Noted in REPORT.md. */
+var ENTRIES=[
+  {id:"e1",day:"today",agent:"scout",title:"Merged PR #482 \u2014 auth refresh",time:"2m ago",approval:"Maya Chen via Slack #ship",reason:"Fixes token expiry on iOS sign-in",status:"approved",tool:"github",detail:"Policy deploy-safe \u00b7 duration 48s \u00b7 reversible"},
+  {id:"e2",day:"today",agent:"patch",title:"Deployed preview to staging",time:"18m ago",approval:"Auto-approved \u00b7 low-risk",reason:"Only copy + CSS, no migrations",status:"approved",tool:"linear",detail:"Policy low-risk auto \u00b7 duration 1m 12s \u00b7 reversible"},
+  {id:"e3",day:"today",agent:"relay",title:"Edited billing copy \u201cper seat\u201d \u2192 \u201cper member\u201d",time:"1h ago",approval:"Waiting \u00b7 needs Priya review",reason:"Legal flagged wording before invoice run",status:"waiting",tool:"slack",detail:"Policy billing-copy \u00b7 blocked on review \u00b7 reversible"},
+  {id:"e4",day:"today",agent:"scribe",title:"Summarized 12 Linear tickets",time:"3h ago",approval:"Jonas via Dashboard",reason:"Nightly digest for standup",status:"approved",tool:"linear",detail:"Policy digest \u00b7 duration 36s \u00b7 reversible"},
+  {id:"e5",day:"yesterday",agent:"scout",title:"Rolled back migration 042",time:"Yesterday 16:40",approval:"Maya Chen via Dashboard",reason:"Slow query on org_members index",status:"approved",tool:"github",detail:"Policy rollback-safe \u00b7 duration 54s \u00b7 reversible"},
+  {id:"e6",day:"yesterday",agent:"patch",title:"Updated checkout error states",time:"Yesterday 11:02",approval:"Auto-approved \u00b7 low-risk",reason:"Empty-state copy for failed 3DS",status:"approved",tool:"github",detail:"Policy low-risk auto \u00b7 duration 44s \u00b7 reversible"},
+  {id:"e7",day:"yesterday",agent:"relay",title:"Flagged PII in debug logs",time:"Yesterday 09:15",approval:"Failed checks \u00b7 quarantined",reason:"Email addresses in error payloads",status:"failed",tool:"slack",detail:"Policy pii-guard \u00b7 quarantined, reversible after redact"},
+  {id:"e8",day:"week",agent:"scribe",title:"Drafted changelog v2.4",time:"Fri 15:20",approval:"Undone by Jonas",reason:"Superseded by v2.4.1 notes",status:"undone",tool:"linear",detail:"Policy docs \u00b7 undone, can restore"},
+  {id:"e9",day:"week",agent:"scout",title:"Cleared 340MB build cache",time:"Fri 10:05",approval:"Auto-approved \u00b7 maintenance",reason:"Stale preview artifacts",status:"approved",tool:"github",detail:"Policy maintenance \u00b7 duration 22s \u00b7 reversible"}
+];
+var LIVE=[
+  {id:"live1",agent:"scout",title:"Pushed edge config \u2014 cache TTL 60s",approval:"Auto-approved \u00b7 low-risk",reason:"Cuts P95 on pricing page",tool:"github",detail:"Policy low-risk auto \u00b7 duration 31s \u00b7 reversible"},
+  {id:"live2",agent:"patch",title:"Regenerated API types from OpenAPI",approval:"Maya Chen via Slack #ship",reason:"Keeps SDK in sync with deploy",tool:"linear",detail:"Policy deploy-safe \u00b7 duration 40s \u00b7 reversible"},
+  {id:"live3",agent:"relay",title:"Queued refund holding email",approval:"Waiting \u00b7 needs Priya review",reason:"Support macro before send",tool:"slack",detail:"Policy comms \u00b7 blocked on review \u00b7 reversible"},
+  {id:"live4",agent:"scribe",title:"Logged decision ADR-118: session TTL",approval:"Jonas via Dashboard",reason:"Paper trail for auth change",tool:"linear",detail:"Policy docs \u00b7 duration 18s \u00b7 reversible"}
+];
+var state={used:44,total:200,liveStep:0,working:2};
+var entryNodes={};
+var liveIds=[];
+function el(tag,cls,text){
+  var n=document.createElement(tag);
+  if(cls)n.setAttribute("class",cls);
+  if(text!=null)n.textContent=text;
+  return n;
+}
+function svgTool(kind){
+  var NS="http://www.w3.org/2000/svg";
+  var s=document.createElementNS(NS,"svg");
+  s.setAttribute("class","tool-svg");
+  s.setAttribute("viewBox","0 0 12 12");
+  s.setAttribute("aria-hidden","true");
+  var p=document.createElementNS(NS,"path");
+  if(kind==="github"){p.setAttribute("d","M6 1.2a4.8 4.8 0 0 0-1.5 9.4c.2 0 .3-.1.3-.2v-.8c-1.2.3-1.5-.5-1.5-.5-.2-.5-.5-.6-.5-.6-.4-.3 0-.3 0-.3.5 0 .7.5.7.5.4.7 1.1.5 1.4.4.1-.3.2-.5.3-.6-.9-.1-1.9-.5-1.9-2.1 0-.5.2-.9.4-1.2 0-.1-.2-.5 0-1.1 0 0 .4-.1 1.2.5a4 4 0 0 1 2.2 0c.8-.6 1.2-.5 1.2-.5.2.6.1 1 0 1.1.3.3.4.7.4 1.2 0 1.6-1 2-1.9 2.1.2.2.4.5.4 1v1.5c0 .1.1.2.3.2A4.8 4.8 0 0 0 6 1.2Z");}
+  else if(kind==="slack"){p.setAttribute("d","M2.5 7.5a1.2 1.2 0 1 0 0-.1ZM3.7 7.6h2.6V5a1.2 1.2 0 0 0-2.6 0v2.6ZM4.5 2.5a1.2 1.2 0 1 0 .1 0ZM4.4 3.7v2.6H7a1.2 1.2 0 0 0 0-2.6H4.4ZM9.5 4.5a1.2 1.2 0 1 0 0 .1ZM8.3 4.4H5.7V7a1.2 1.2 0 0 0 2.6 0V4.4ZM7.5 9.5a1.2 1.2 0 1 0-.1 0ZM7.6 8.3V5.7H5a1.2 1.2 0 0 0 0 2.6h2.6Z");}
+  else{p.setAttribute("d","M2 6h8M6 2v8");}
+  p.setAttribute("fill","none");
+  p.setAttribute("stroke","currentColor");
+  p.setAttribute("stroke-width","1.2");
+  p.setAttribute("stroke-linecap","round");
+  s.appendChild(p);
+  return s;
+}
+function pxHash(id){
+  var h=0;for(var i=0;i<id.length;i++){h=(h*31+id.charCodeAt(i))>>>0;}
+  return h;
+}
+function buildMark(agent){
+  var w=el("span","pxmark"+(agent.working?" is-working":""));
+  w.setAttribute("data-agent",agent.id);
+  w.setAttribute("aria-hidden","true");
+  var h=pxHash(agent.id);
+  var base="hsl("+(agent.hue%360)+" 55% 55%)";
+  var soft="hsl("+(agent.hue%360)+" 45% 82%)";
+  for(var c=0;c<9;c++){
+    var cell=document.createElement("i");
+    var on=((h>>(c%8))&1)===1||c===4;
+    if(on){cell.style.background=base;if(c===4&&agent.working){cell.setAttribute("class","tw");}}
+    else{cell.style.background=soft;cell.style.opacity=".55";}
+    w.appendChild(cell);
+  }
+  return w;
+}
+function statusLabel(s){
+  if(s==="approved")return"Approved";
+  if(s==="waiting")return"Waiting";
+  if(s==="failed")return"Failed";
+  return"Undone";
+}
+function buildEntry(d){
+  var root=el("article","entry");
+  root.setAttribute("data-id",d.id);
+  var inner=el("div","entry-inner");
+  var row=el("div","entry-row");
+  var agent=agentById(d.agent);
+  var mark=buildMark(agent);
+  var main=el("div","entry-main");
+  var title=el("div","entry-title",d.title);
+  title.setAttribute("title",d.title);
+  var meta=el("div","entry-meta",agent.name+" \u00b7 "+d.time);
+  var reason=el("div","entry-reason");
+  var lbl=el("span","lbl","Reason: ");
+  reason.appendChild(lbl);
+  reason.appendChild(document.createTextNode(d.reason));
+  var appr=el("div","entry-appr");
+  var pre=document.createTextNode("Approval: ");
+  appr.appendChild(pre);
+  var strong=el("strong",null,d.approval);
+  appr.appendChild(strong);
+  var actions=el("div","entry-actions");
+  var toggle=el("button","btn",null);
+  toggle.setAttribute("aria-expanded","false");
+  var dot=document.createElement("span");
+  dot.textContent="\u25BE Why?";
+  toggle.appendChild(dot);
+  var undo=el("button","btn"+(d.status==="waiting"?" primary":""),d.status==="undone"?"Restore":"Undo");
+  undo.setAttribute("data-act",d.status==="undone"?"restore":"undo");
+  undo.setAttribute("aria-label",(d.status==="undone"?"Restore ":"Undo ")+d.title);
+  actions.appendChild(toggle);
+  actions.appendChild(undo);
+  var detail=el("div","detail",d.detail);
+  detail.setAttribute("hidden","");
+  main.appendChild(title);
+  main.appendChild(meta);
+  main.appendChild(reason);
+  main.appendChild(appr);
+  main.appendChild(actions);
+  main.appendChild(detail);
+  var side=el("div","entry-side");
+  var pill=el("span","pill "+d.status,statusLabel(d.status));
+  var tools=el("span","toolrow");
+  var t=el("span","tool");
+  t.setAttribute("title",d.tool);
+  t.appendChild(svgTool(d.tool));
+  tools.appendChild(t);
+  side.appendChild(pill);
+  side.appendChild(tools);
+  row.appendChild(mark);
+  row.appendChild(main);
+  row.appendChild(side);
+  inner.appendChild(row);
+  root.appendChild(inner);
+  if(d.status==="undone"){root.setAttribute("class","entry is-undone");}
+  var rec={root:root,pill:pill,undo:undo,toggle:toggle,detail:detail,meta:meta,time:d.time,data:d};
+  toggle.addEventListener("pointerdown",function(ev){toggleDetail(rec);},{capture:true});
+  toggle.addEventListener("click",function(ev){if(ev.detail===0){toggleDetail(rec);}});
+  undo.addEventListener("click",function(){flipStatus(rec);});
+  return rec;
+}
+function toggleDetail(rec){
+  var open=rec.detail.hasAttribute("hidden");
+  if(open){rec.detail.removeAttribute("hidden");rec.toggle.setAttribute("aria-expanded","true");}
+  else{rec.detail.setAttribute("hidden","");rec.toggle.setAttribute("aria-expanded","false");}
+}
+function flipStatus(rec){
+  var cur=rec.data.status;
+  var next=(cur==="undone")?"approved":"undone";
+  rec.data.status=next;
+  rec.pill.textContent=statusLabel(next);
+  rec.pill.setAttribute("class","pill "+next);
+  rec.undo.textContent=(next==="undone")?"Restore":"Undo";
+  rec.undo.setAttribute("data-act",(next==="undone")?"restore":"undo");
+  rec.undo.setAttribute("aria-label",((next==="undone")?"Restore ":"Undo ")+rec.data.title);
+  rec.undo.setAttribute("class","btn"+(next==="waiting"?" primary":""));
+  if(next==="undone"){rec.root.setAttribute("class","entry is-undone");}
+  else{rec.root.setAttribute("class","entry");}
+}
+var refs={};
+function buildOnce(){
+  refs.today=document.getElementById("todayList");
+  refs.yest=document.getElementById("yestList");
+  refs.week=document.getElementById("weekList");
+  refs.tok=document.getElementById("tokLabel");
+  refs.fill=document.getElementById("ctxFill");
+  refs.bar=document.getElementById("ctxBar");
+  refs.working=document.getElementById("workingCount");
+  refs.todayCount=document.getElementById("todayCount");
+  refs.toggle=document.getElementById("themeToggle");
+  refs.sun=document.getElementById("themeIconSun");
+  refs.moon=document.getElementById("themeIconMoon");
+  for(var i=0;i<ENTRIES.length;i++){
+    var rec=buildEntry(ENTRIES[i]);
+    entryNodes[ENTRIES[i].id]=rec;
+    if(ENTRIES[i].day==="today")refs.today.appendChild(rec.root);
+    else if(ENTRIES[i].day==="yesterday")refs.yest.appendChild(rec.root);
+    else refs.week.appendChild(rec.root);
+  }
+  syncThemeIcon();
+  refs.toggle.addEventListener("click",function(){
+    var cur=document.documentElement.getAttribute("data-theme")==="dark"?"dark":"light";
+    var next=cur==="dark"?"light":"dark";
+    document.documentElement.setAttribute("data-theme",next);
+    try{localStorage.setItem(LS_KEY,next);}catch(e){}
+    syncThemeIcon();
+  });
+}
+function syncThemeIcon(){
+  var dark=document.documentElement.getAttribute("data-theme")==="dark";
+  if(!refs.sun||!refs.moon)return;
+  if(dark){refs.sun.setAttribute("hidden","");refs.moon.removeAttribute("hidden");}
+  else{refs.moon.setAttribute("hidden","");refs.sun.removeAttribute("hidden");}
+}
+function paintHeader(){
+  var label=Math.round(state.used)+"k / "+state.total+"k";
+  if(refs.tok.textContent!==label)refs.tok.textContent=label;
+  var pct=Math.max(4,Math.min(100,Math.round(state.used/state.total*100)));
+  refs.fill.style.width=pct+"%";
+  refs.bar.setAttribute("aria-valuenow",String(Math.round(state.used)));
+  var w=state.working+" working";
+  if(refs.working.textContent!==w)refs.working.textContent=w;
+  var n=(4+liveIds.length)+" items";
+  if(refs.todayCount.textContent!==n)refs.todayCount.textContent=n;
+}
+function tick(){
+  if(state.liveStep<LIVE.length){
+    var t=LIVE[state.liveStep];
+    var d={id:t.id+"-r",day:"today",agent:t.agent,title:t.title,time:"just now",approval:t.approval,reason:t.reason,status:(t.approval.indexOf("Waiting")===0?"waiting":"approved"),tool:t.tool,detail:t.detail};
+    var rec=buildEntry(d);
+    entryNodes[d.id]=rec;
+    refs.today.insertBefore(rec.root,refs.today.firstChild);
+    liveIds.push(d.id);
+    state.used=Math.min(state.total,state.used+0.4);
+    state.working=(state.liveStep%2===0)?1:2;
+    state.liveStep++;
+    paintHeader();
+    return"added";
+  }
+  resetLoop();
+  return"reset";
+}
+function resetLoop(){
+  for(var i=0;i<liveIds.length;i++){
+    var rec=entryNodes[liveIds[i]];
+    if(rec&&rec.root.parentNode===refs.today){refs.today.removeChild(rec.root);}
+    delete entryNodes[liveIds[i]];
+  }
+  liveIds=[];
+  state.liveStep=0;
+  state.used=44;
+  state.working=2;
+  paintHeader();
+}
+buildOnce();
+paintHeader();
+var timer=setInterval(tick,3000);
+if(window){window.__activity={state:state,tick:tick,reset:resetLoop,entryNodes:entryNodes,refs:refs,getLive:function(){return liveIds.slice();},stop:function(){clearInterval(timer);},timer:timer};}
+})();
+</script>
+</body>
+</html>

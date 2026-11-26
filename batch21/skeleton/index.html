@@ -1,0 +1,374 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<script>/*noflash*/(function(){try{var k="skd-theme";var s=null;try{s=localStorage.getItem(k)}catch(e){}var t=s;if(t!=="light"&&t!=="dark"){var m=null;try{m=window.matchMedia("(prefers-color-scheme: dark)")}catch(e){}t=(m&&m.matches)?"dark":"light"}document.documentElement.setAttribute("data-theme",t)}catch(e){}})();</script>
+<style>html{background:#fafaf9}html[data-theme="dark"]{background:#101012}</style>
+<title>Skeleton &mdash; Recent runs</title>
+<style>
+:root{
+  --surface:#ffffff;
+  --page:#fafaf9;
+  --ink:#171717;
+  --ink-2:#1c1917;
+  --muted:#78716c;
+  --subtle:#f5f5f4;
+  --border:#e7e5e4;
+  --radius-lg:16px;
+  --radius:10px;
+  --radius-sm:6px;
+  --shadow:0 1px 2px rgba(0,0,0,.05),0 4px 16px rgba(0,0,0,.05);
+  --amber:#f59e0b;
+  --amber-bg:#fef3c7;
+  --amber-tx:#92400e;
+  --fail:#dc2626;
+  --ok:#059669;
+  --focus:#2563eb;
+  --ui-skl-fill:#efefef;
+  --ui-skl-sheen:rgba(255,255,255,0.8);
+  --ui-skl-speed:1.6s;
+  --ui-skl-ease:cubic-bezier(0.22,1,0.36,1);
+}
+html[data-theme="dark"]{
+  --surface:#1c1c1f;
+  --page:#101012;
+  --ink:#ededed;
+  --ink-2:#ededed;
+  --muted:#a1a1aa;
+  --subtle:#26262a;
+  --border:#2e2e33;
+  --shadow:0 1px 2px rgba(0,0,0,.45),0 8px 28px rgba(0,0,0,.38);
+  --amber:#fbbf24;
+  --amber-bg:#451a03;
+  --amber-tx:#fde68a;
+  --fail:#f87171;
+  --ok:#34d399;
+  --focus:#60a5fa;
+  --ui-skl-fill:#242428;
+  --ui-skl-sheen:rgba(255,255,255,0.05);
+}
+html{-webkit-tap-highlight-color:transparent}
+*{box-sizing:border-box}
+[hidden]{display:none !important}
+body{
+  margin:0;
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:14px;
+  line-height:1.45;
+  color:var(--ink);
+  background:var(--page);
+  font-variant-numeric:tabular-nums;
+  transition:background-color 180ms ease,color 180ms ease;
+}
+.page{max-width:640px;margin:0 auto;padding:20px 16px 40px}
+.topbar{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px}
+.eyebrow{display:block;font-size:12px;color:var(--muted);letter-spacing:.02em;margin-bottom:4px}
+.topbar h1{margin:0;font-size:16px;font-weight:650}
+.topbar .sub{margin:4px 0 0;font-size:13px;color:var(--muted)}
+.theme-btn{
+  flex:none;display:inline-flex;align-items:center;gap:7px;
+  border:1px solid var(--border);background:var(--surface);color:var(--ink);
+  border-radius:999px;padding:6px 12px 6px 10px;font:inherit;font-size:13px;cursor:pointer;
+  box-shadow:var(--shadow);
+  transition:transform 160ms ease,background-color 160ms ease,border-color 160ms ease;
+}
+/* optical alignment: icon side gets ~2px less padding */
+.theme-btn .ti{width:16px;text-align:center}
+.tray{display:block}
+.card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius-lg);
+  box-shadow:var(--shadow);
+  padding:12px 12px 14px;
+  transition:transform 170ms ease,box-shadow 170ms ease,background-color 170ms ease,border-color 170ms ease;
+}
+/* concentric radius note: card (16px outer) holds rows as separate surfaces
+   (no shared inset bg, so treated as separate layers per v5); pill toggle is
+   concentric: container 999px + 2px padding, options 999px inner. */
+.card__head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:2px 2px 8px}
+.card__head h2{margin:0;font-size:15px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.toggle{
+  display:inline-flex;gap:2px;padding:2px;border-radius:999px;
+  background:var(--subtle);border:1px solid var(--border);
+}
+.toggle button{
+  border:0;border-radius:999px;background:transparent;color:var(--muted);
+  font:inherit;font-size:12.5px;padding:5px 12px;cursor:pointer;white-space:nowrap;
+  transition:background-color 160ms ease,color 160ms ease;
+}
+.toggle button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.toggle button:focus-visible,.theme-btn:focus-visible,.row:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.list{display:flex;flex-direction:column}
+.row{
+  display:flex;align-items:center;gap:10px;
+  padding:10px 4px;border-radius:var(--radius);
+  border-top:1px solid var(--border);
+  transition:background-color 160ms ease;
+}
+.row:first-child{border-top:0}
+.row__mark{flex:none;width:16px;height:16px;display:flex;align-items:center;justify-content:center}
+.row__text{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
+.row__title{display:block;font-size:14px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row__meta{display:block;font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row__time{flex:none;font-size:12px;color:var(--muted)}
+/* skeleton shapes: clean-room implementation of the observed behaviour */
+.ui-skl{
+  --sk-fill:var(--ui-skl-fill);
+  --sk-sheen:var(--ui-skl-sheen);
+  position:relative;display:block;flex:none;box-sizing:border-box;max-width:100%;
+  overflow:hidden;border-radius:var(--radius-sm,6px);background:var(--sk-fill);
+}
+.ui-skl::after{
+  content:"";position:absolute;inset:0;
+  background:linear-gradient(90deg,transparent,var(--sk-sheen),transparent);
+  translate:-100% 0;
+  animation:sk-sweep var(--ui-skl-speed) var(--ui-skl-ease) infinite;
+}
+@keyframes sk-sweep{60%,100%{translate:100% 0}}
+.ui-skl__line{display:flex;align-items:center;min-width:0;max-width:100%}
+.skl-loading{animation:sk-in 300ms ease 150ms both}
+@keyframes sk-in{from{opacity:0}}
+@media (prefers-reduced-motion:reduce){
+  .ui-skl::after{display:none}
+  .skl-loading{animation:none}
+  .card,.toggle button,.theme-btn,.row{transition:none}
+}
+/* deterministic 3x3 agent pixel-mark, exactly 9 cells */
+.mark{width:16px;height:16px;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);gap:1px}
+.mark i{display:block;border-radius:1px;background:transparent;min-width:0;min-height:0}
+.mark i[data-on]{background:var(--mk,var(--muted))}
+.hint{margin:10px 2px 0;font-size:12.5px;color:var(--muted)}
+.hint code{font:inherit;background:var(--subtle);border:1px solid var(--border);border-radius:6px;padding:0 5px}
+.live{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+@media (max-width:520px){
+  .page{padding:14px 10px 30px}
+  .topbar h1{font-size:15px}
+  .card{padding:10px 10px 12px}
+}
+@media (hover:hover) and (pointer:fine){
+  .card:hover{transform:translateY(-1px)}
+  .toggle button:hover{color:var(--ink);background:var(--surface)}
+  .theme-btn:hover{transform:translateY(-1px)}
+  .row:hover{background:var(--subtle)}
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="topbar">
+    <div>
+      <span class="eyebrow">affectUI &middot; Skeleton</span>
+      <h1>Gray placeholder shapes</h1>
+      <p class="sub">Sweeping sheen &middot; screen-reader loading</p>
+    </div>
+    <button id="themeBtn" class="theme-btn" type="button" aria-label="Switch to dark theme"><span id="themeIcon" class="ti" aria-hidden="true">&#9790;</span><span id="themeLabel">Dark</span></button>
+  </header>
+  <main class="tray">
+    <section class="card" aria-label="Recent runs">
+      <header class="card__head">
+        <h2>Recent runs</h2>
+        <div class="toggle" role="group" aria-label="Preview state">
+          <button id="btnData" type="button" aria-pressed="false">Data</button>
+          <button id="btnLoading" type="button" aria-pressed="true">Loading</button>
+        </div>
+      </header>
+      <div id="list" class="list"></div>
+      <p class="hint">Auto-cycles every 4s for demo &middot; choose <code>Data</code> / <code>Loading</code> to inspect &middot; sheen 1.6s, announce delay 150ms.</p>
+      <p id="live" class="live" role="status"></p>
+    </section>
+  </main>
+</div>
+<script>
+(function(){
+  "use strict";
+  var RUNS=[
+    {id:"research",title:"Summarize competitor pricing pages",meta:"Research agent \u00B7 14 sources",time:"2m",color:"rgba(0, 96, 226, 0.78)"},
+    {id:"triage",title:"Triage new support tickets",meta:"Support agent \u00B7 23 tickets",time:"8m",color:"rgba(166, 81, 240, 0.85)"},
+    {id:"review",title:"Review pull request #482",meta:"Code agent \u00B7 6 files",time:"21m",color:"rgba(19, 179, 160, 0.9)"},
+    {id:"digest",title:"Draft the weekly product digest",meta:"Writer agent \u00B7 1 draft",time:"1h",color:"rgba(242, 138, 46, 0.9)"},
+    {id:"sync",title:"Sync CRM contacts",meta:"Ops agent \u00B7 312 records",time:"3h",color:"rgba(95, 200, 138, 0.95)"}
+  ];
+  var WIDTHS=[[212,136],[164,124],[176,104],[196,112],[128,128]];
+  var MARK=16, TITLE_H=10, META_H=8, TIME_W=20, TIME_H=8, MARK_R=4;
+  function patternFor(key){
+    var h=0,k;
+    for(k=0;k<key.length;k++){h=(h*31+key.charCodeAt(k))>>>0}
+    var attempt,cell,bits,r,c,filled;
+    for(attempt=0;attempt<64;attempt++){
+      bits=(h>>((attempt*7)%26))&63;
+      cell=[];
+      for(r=0;r<3;r++){
+        var a=(bits>>(r*2))&1;
+        var b=(bits>>((r*2)+1))&1;
+        cell.push(a,b,a);
+      }
+      filled=0;
+      for(c=0;c<cell.length;c++){if(cell[c])filled++}
+      if(filled>=5)return cell;
+      h=((h*1103515245+12345)>>>0);
+    }
+    return [1,0,1,0,1,0,1,0,1];
+  }
+  var listEl=document.getElementById("list");
+  var btnData=document.getElementById("btnData");
+  var btnLoading=document.getElementById("btnLoading");
+  var themeBtn=document.getElementById("themeBtn");
+  var themeIcon=document.getElementById("themeIcon");
+  var themeLabel=document.getElementById("themeLabel");
+  var live=document.getElementById("live");
+  var loading=true;
+  var rows=[];
+  var cycle=null;
+  function el(tag,cls,txt){
+    var n=document.createElement(tag);
+    if(cls)n.setAttribute("class",cls);
+    if(txt!==undefined&&txt!==null)n.textContent=txt;
+    return n;
+  }
+  function skelShape(w,h,r){
+    var s=el("span","ui-skl",null);
+    s.setAttribute("aria-hidden","true");
+    s.style.width=(typeof w==="number"?w+"px":w);
+    s.style.height=(typeof h==="number"?h+"px":h);
+    if(r!==undefined&&r!==null)s.style.borderRadius=r+"px";
+    return s;
+  }
+  function skelLine(w,h){
+    var wrap=el("span","ui-skl__line",null);
+    wrap.setAttribute("aria-hidden","true");
+    wrap.style.height="1lh";
+    var s=skelShape(w,h,null);
+    wrap.appendChild(s);
+    return wrap;
+  }
+  function markNode(id,color){
+    var m=el("span","mark",null);
+    m.setAttribute("aria-hidden","true");
+    m.style.setProperty("--mk",color);
+    var pat=patternFor(id);
+    var i,n;
+    for(i=0;i<9;i++){
+      n=document.createElement("i");
+      if(pat[i])n.setAttribute("data-on","");
+      m.appendChild(n);
+    }
+    return m;
+  }
+  function buildOnce(){
+    var i,pair,row,markCell,textCell,timeCell;
+    var skMark,skTitle,skMeta,skTime;
+    var dataMark,dataTitle,dataMeta,dataTime;
+    for(i=0;i<RUNS.length;i++){
+      pair=WIDTHS[i];
+      row=el("div","row",null);
+      markCell=el("span","row__mark",null);
+      skMark=skelShape(MARK,MARK,MARK_R);
+      dataMark=el("span",null,null);
+      dataMark.appendChild(markNode(RUNS[i].id,RUNS[i].color));
+      dataMark.setAttribute("aria-hidden","true");
+      markCell.appendChild(skMark);
+      markCell.appendChild(dataMark);
+      textCell=el("span","row__text",null);
+      skTitle=el("span","row__title",null);
+      skTitle.appendChild(skelLine(pair[0],TITLE_H));
+      dataTitle=el("span","row__title",RUNS[i].title);
+      skMeta=el("span","row__meta",null);
+      skMeta.appendChild(skelLine(pair[1],META_H));
+      dataMeta=el("span","row__meta",RUNS[i].meta);
+      textCell.appendChild(skTitle);
+      textCell.appendChild(dataTitle);
+      textCell.appendChild(skMeta);
+      textCell.appendChild(dataMeta);
+      timeCell=el("span","row__time",null);
+      skTime=skelLine(TIME_W,TIME_H);
+      dataTime=el("span",null,RUNS[i].time);
+      timeCell.appendChild(skTime);
+      timeCell.appendChild(dataTime);
+      row.appendChild(markCell);
+      row.appendChild(textCell);
+      row.appendChild(timeCell);
+      listEl.appendChild(row);
+      rows.push({row:row,sk:[skMark,skTitle,skMeta,skTime],dt:[dataMark,dataTitle,dataMeta,dataTime]});
+    }
+  }
+  function applyState(next){
+    var changed=(next!==loading);
+    loading=next;
+    var i,r;
+    if(loading){
+      listEl.setAttribute("class","list skl-loading");
+      listEl.setAttribute("role","status");
+      listEl.setAttribute("aria-busy","true");
+      listEl.setAttribute("aria-label","Loading runs");
+    }else{
+      listEl.setAttribute("class","list");
+      listEl.removeAttribute("role");
+      listEl.setAttribute("aria-busy","false");
+      listEl.removeAttribute("aria-label");
+    }
+    btnData.setAttribute("aria-pressed",loading?"false":"true");
+    btnLoading.setAttribute("aria-pressed",loading?"true":"false");
+    for(i=0;i<rows.length;i++){
+      r=rows[i];
+      r.sk[0].hidden=!loading;
+      r.sk[1].hidden=!loading;
+      r.sk[2].hidden=!loading;
+      r.sk[3].hidden=!loading;
+      r.dt[0].hidden=loading;
+      r.dt[1].hidden=loading;
+      r.dt[2].hidden=loading;
+      r.dt[3].hidden=loading;
+    }
+    if(live)live.textContent=loading?"Loading runs":"Recent runs loaded";
+    return changed;
+  }
+  function restartCycle(){
+    if(cycle)clearInterval(cycle);
+    cycle=setInterval(function(){applyState(!loading)},4000);
+  }
+  function currentTheme(){
+    return document.documentElement.getAttribute("data-theme")==="dark"?"dark":"light";
+  }
+  function applyTheme(mode){
+    document.documentElement.setAttribute("data-theme",mode);
+    try{localStorage.setItem("skd-theme",mode)}catch(e){}
+    if(mode==="dark"){
+      themeIcon.textContent="\u2600";
+      themeLabel.textContent="Light";
+      themeBtn.setAttribute("aria-label","Switch to light theme");
+    }else{
+      themeIcon.textContent="\u263E";
+      themeLabel.textContent="Dark";
+      themeBtn.setAttribute("aria-label","Switch to dark theme");
+    }
+  }
+  btnData.addEventListener("click",function(){applyState(false);restartCycle()});
+  btnLoading.addEventListener("click",function(){applyState(true);restartCycle()});
+  themeBtn.addEventListener("click",function(){applyTheme(currentTheme()==="dark"?"light":"dark")});
+  buildOnce();
+  applyState(true);
+  try{
+    var stored=null;
+    try{stored=localStorage.getItem("skd-theme")}catch(e){}
+    if(stored==="light"||stored==="dark")applyTheme(stored);
+    else applyTheme(currentTheme());
+  }catch(e){}
+  restartCycle();
+  window.__skd={
+    get loading(){return loading},
+    rows:rows,
+    list:listEl,
+    data:RUNS,
+    widths:WIDTHS,
+    setLoading:function(v){return applyState(!!v)},
+    toggle:function(){return applyState(!loading)},
+    setTheme:function(m){applyTheme(m)},
+    theme:function(){return currentTheme()}
+  };
+})();
+</script>
+</body>
+</html>
