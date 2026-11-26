@@ -1,0 +1,492 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<script>/*noflash*/
+try{var __k='thinking-loader-theme';var __t=null;try{__t=localStorage.getItem(__k);}catch(e){__t=null;}if(!__t){try{__t=(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light';}catch(e){__t='light';}}document.documentElement.setAttribute('data-theme',__t);}catch(e){try{document.documentElement.setAttribute('data-theme','light');}catch(_){}}
+</script>
+<style>html{background:#fafaf9}html[data-theme="dark"]{background:#101012}</style>
+<meta name="color-scheme" content="light dark">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Thinking Loader — affectUI replica</title>
+<style>
+/* Design tokens (required). Every colour flows through these. */
+:root, html[data-theme="light"]{
+  --page:#fafaf9;
+  --surface:#ffffff;
+  --ink:#171717;
+  --ink-2:#1c1917;
+  --muted:#78716c;
+  --subtle:#f5f5f4;
+  --border:#e7e5e4;
+  --radius-lg:16px;
+  --radius:10px;
+  --radius-sm:6px;
+  --shadow:0 1px 2px rgba(0,0,0,.05), 0 4px 16px rgba(0,0,0,.05);
+  --shadow-lift:0 2px 6px rgba(0,0,0,.06), 0 10px 28px rgba(0,0,0,.08);
+  --working:#2563eb;
+  --working-bg:#dbeafe;
+  --waiting:#92400e;
+  --waiting-bg:#fef3c7;
+  --waiting-line:#f59e0b;
+  --failed:#b91c1c;
+  --failed-bg:#fee2e2;
+  --idle:#78716c;
+  /* pill maps onto the same tokens */
+  --tl-ink:var(--ink);
+  --tl-text:#6b6b6b;
+  --tl-ray:#171717;
+  --tl-bg:var(--surface);
+  --tl-line:var(--border);
+  --tl-shine:rgba(255,255,255,.82);
+  --tl-done:#171717;
+  --tl-ease:cubic-bezier(.22,1,.36,1);
+  --ease:cubic-bezier(.22,1,.36,1);
+}
+html[data-theme="dark"]{
+  --page:#101012;
+  --surface:#1c1c1f;
+  --ink:#ededed;
+  --ink-2:#ededed;
+  --muted:#a1a1aa;
+  --subtle:#26262a;
+  --border:#2e2e33;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
+  --shadow-lift:0 2px 8px rgba(0,0,0,.5), 0 14px 34px rgba(0,0,0,.45);
+  --working:#93c5fd;
+  --working-bg:#1e3a8a;
+  --waiting:#fde68a;
+  --waiting-bg:#451a03;
+  --waiting-line:#fbbf24;
+  --failed:#fca5a5;
+  --failed-bg:#450a0a;
+  --idle:#a1a1aa;
+  --tl-ink:#ededed;
+  --tl-text:#8f8f8f;
+  --tl-ray:#ededed;
+  --tl-bg:#161618;
+  --tl-line:rgba(255,255,255,.1);
+  --tl-shine:rgba(255,255,255,.95);
+  --tl-done:#ededed;
+}
+html{-webkit-tap-highlight-color:transparent;}
+[hidden]{display:none !important;}
+*,*::before,*::after{box-sizing:border-box;}
+body{
+  margin:0;
+  background:var(--page);
+  color:var(--ink);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:14px;
+  line-height:1.5;
+  font-variant-numeric:tabular-nums;
+  -webkit-font-smoothing:antialiased;
+  transition:background 180ms ease,color 180ms ease;
+}
+img{outline:1px inset rgba(0,0,0,.1);outline-offset:-1px;}
+html[data-theme="dark"] img{outline-color:rgba(255,255,255,.1);}
+.wrap{max-width:720px;margin:0 auto;padding:20px 16px 48px;}
+/* Top bar: project name + working/agent counts + theme toggle (v3 header pattern) */
+.topbar{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px;}
+.proj{min-width:0;}
+.proj__name{font-size:15px;font-weight:650;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.proj__sub{font-size:12.5px;color:var(--muted);margin-top:2px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.dotlive{display:inline-block;width:7px;height:7px;border-radius:999px;background:var(--working);box-shadow:0 0 0 3px color-mix(in srgb, var(--working) 18%, transparent);}
+.ctx{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:12px;color:var(--muted);}
+.ctx__bar{width:120px;height:3px;border-radius:999px;background:var(--subtle);box-shadow:inset 0 0 0 1px var(--border);overflow:hidden;flex:none;}
+.ctx__fill{display:block;height:100%;width:22%;border-radius:999px;background:var(--working);}
+.ctx__label{white-space:nowrap;}
+.themebtn{
+  flex:none;display:inline-flex;align-items:center;gap:8px;
+  min-height:34px;padding:7px 12px 7px 10px; /* optical: icon side 2px tighter */
+  border-radius:999px;border:1px solid var(--border);background:var(--surface);color:var(--ink);
+  box-shadow:var(--shadow);cursor:pointer;font:inherit;font-size:13px;
+  transition:box-shadow 160ms ease,transform 160ms ease,background 160ms ease;
+}
+.themebtn:focus-visible{outline:2px solid var(--working);outline-offset:2px;}
+.themebtn__glyph{width:16px;height:16px;flex:none;display:inline-flex;}
+/* Cards: border for structure, layered shadow for elevation (v5) */
+.card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius-lg); /* outer = inner 10px + 6px padding feel (concentric) */
+  box-shadow:var(--shadow);
+  padding:16px;
+  margin-bottom:12px;
+  transition:box-shadow 180ms ease,transform 180ms ease,background 180ms ease,border-color 180ms ease;
+}
+.card__title{font-size:13px;font-weight:650;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:0 0 12px;}
+.chat{display:flex;flex-direction:column;gap:12px;}
+.bubble-you{
+  align-self:flex-end;max-width:min(480px,92%);
+  background:var(--subtle);border:1px solid var(--border);border-radius:var(--radius); /* inner surface */
+  border-bottom-right-radius:4px;
+  padding:9px 12px;font-size:14px;color:var(--ink-2);
+}
+.bubble-note{font-size:12.5px;color:var(--muted);}
+.pillrow{display:flex;align-items:center;min-height:44px;padding:2px 0;}
+.meta{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);border-top:1px solid var(--border);padding-top:10px;margin-top:2px;}
+.meta__phase{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+/* ===== Thinking pill (clean-room replica of "Thinking Loader") ===== */
+.pill{
+  --h:34px;--f:14px;--ic:15px;
+  display:inline-flex;align-items:center;gap:8px;
+  height:var(--h);padding:0 15px 0 12px; /* optical: glyph side 3px tighter */
+  border-radius:999px;max-width:100%;vertical-align:middle;
+  background:var(--tl-bg);color:var(--tl-text);
+  box-shadow:inset 0 0 0 1px var(--tl-line), 0 1px 2px rgba(0,0,0,.04);
+  font-size:var(--f);font-weight:450;letter-spacing:-.006em;line-height:1;
+  transition:background 180ms ease,color 180ms ease;
+}
+.pill[data-size="sm"]{--h:28px;--f:13px;--ic:13px;gap:7px;padding:0 12px 0 10px;}
+.pill[data-variant="plain"]{padding-left:0;padding-right:0;background:none;box-shadow:none;}
+.pill__icon{position:relative;flex:none;width:var(--ic);height:var(--ic);}
+.pill__icon svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;transition:opacity 240ms ease,transform 420ms var(--tl-ease);}
+.spin line{stroke:var(--tl-ray);stroke-width:1.6;stroke-linecap:round;opacity:.18;animation:tl-ray 800ms linear infinite;}
+.tick{opacity:0;transform:scale(.6);fill:none;stroke:var(--tl-done);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+.tick path{stroke-dasharray:1;stroke-dashoffset:1;}
+.pill[data-done] .spin{opacity:0;transform:scale(.6) rotate(-45deg);}
+.pill[data-done] .tick{opacity:1;transform:none;}
+.pill[data-done] .tick path{animation:tl-draw 360ms var(--tl-ease) 120ms forwards;}
+.pill__text{position:relative;display:block;min-width:0;height:1.3em;overflow:hidden;transition:width 460ms var(--tl-ease);}
+.pill__label{position:absolute;top:0;left:0;line-height:1.3em;white-space:nowrap;}
+.pill[data-cut] .pill__label{max-width:100%;overflow:hidden;text-overflow:ellipsis;}
+.pill[data-done] .pill__label{color:var(--tl-ink);}
+.lbl-in{animation:tl-in 460ms var(--tl-ease) both;}
+.lbl-out{animation:tl-out 320ms var(--tl-ease) both;}
+.shine::after{
+  content:attr(data-text);content:attr(data-text) / "";
+  position:absolute;inset:0;white-space:nowrap;color:transparent;pointer-events:none;
+  background:linear-gradient(90deg,transparent 38%,var(--tl-shine) 50%,transparent 62%) 100% 0 / 300% 100% no-repeat;
+  -webkit-background-clip:text;background-clip:text;
+  animation:tl-sweep 1.8s linear infinite;
+}
+@keyframes tl-ray{0%{opacity:1;}100%{opacity:.18;}}
+@keyframes tl-in{from{opacity:0;transform:translateY(70%);filter:blur(3px);}to{opacity:1;transform:none;filter:none;}}
+@keyframes tl-out{from{opacity:1;transform:none;filter:none;}to{opacity:0;transform:translateY(-70%);filter:blur(3px);}}
+@keyframes tl-draw{to{stroke-dashoffset:0;}}
+@keyframes tl-sweep{from{background-position:100% 0;}to{background-position:0% 0;}}
+@media (prefers-reduced-motion:reduce){
+  .pill *,.pill *::after{animation-duration:1ms !important;animation-delay:0ms !important;animation-iteration-count:1 !important;transition-duration:1ms !important;}
+  .spin line{opacity:.6;}
+  .shine::after{display:none;}
+  .tick path{stroke-dashoffset:0;}
+}
+/* Controls */
+.controls__row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+.btn{
+  appearance:none;border:1px solid var(--border);background:var(--subtle);color:var(--ink);
+  border-radius:999px;padding:7px 13px 7px 11px;font:inherit;font-size:13px;font-weight:550;cursor:pointer;
+  transition:background 160ms ease,box-shadow 160ms ease,transform 160ms ease;
+}
+.btn:focus-visible{outline:2px solid var(--working);outline-offset:2px;}
+.btn[aria-pressed="true"]{background:var(--ink);color:var(--page);border-color:var(--ink);}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:999px;padding:2px;background:var(--subtle);gap:2px;}
+.seg .btn{border-color:transparent;background:transparent;box-shadow:none;padding:5px 11px 5px 9px;}
+.seg .btn[aria-pressed="true"]{background:var(--surface);color:var(--ink);border-color:var(--border);box-shadow:var(--shadow);}
+.hint{font-size:12.5px;color:var(--muted);margin:10px 0 0;}
+/* Phase checklist (updated in place, never rebuilt) */
+.phases{list-style:none;margin:4px 0 0;padding:0;display:flex;flex-direction:column;gap:6px;}
+.phases li{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius);font-size:13.5px;color:var(--muted);transition:background 160ms ease,color 160ms ease,border-color 160ms ease,opacity 160ms ease;}
+.phases li .n{flex:none;width:20px;height:20px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;font-size:11.5px;border:1px solid var(--border);background:var(--subtle);}
+.phases li[data-state="active"]{color:var(--ink);border-color:var(--waiting-line);}
+.phases li[data-state="active"] .n{background:var(--waiting-bg);border-color:var(--waiting-line);color:var(--waiting);}
+.phases li[data-state="done"]{color:var(--ink);opacity:.9;}
+.phases li[data-state="done"] .n{background:var(--working-bg);border-color:transparent;color:var(--working);}
+.phases li[data-state="todo"]{opacity:.75;} /* v3: dimmed stays legible (>=0.75) */
+.colhead{font-size:12px;font-weight:650;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:0 0 8px;min-height:18px;} /* reserved space, never overlapped */
+.foot{font-size:12.5px;color:var(--muted);margin-top:14px;}
+code.k{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;background:var(--subtle);border:1px solid var(--border);border-radius:6px;padding:1px 6px;}
+/* v5: hover only on devices that truly hover */
+@media (hover:hover) and (pointer:fine){
+  .card:hover{box-shadow:var(--shadow-lift);transform:translateY(-1px);}
+  .btn:hover{background:var(--surface);box-shadow:var(--shadow);}
+  .seg .btn:hover{background:var(--surface);}
+  .themebtn:hover{box-shadow:var(--shadow-lift);transform:translateY(-1px);}
+  .phases li[data-state="todo"]:hover{border-color:var(--muted);}
+}
+@media (max-width:560px){
+  .wrap{padding:14px 12px 40px;}
+  .card{padding:12px;}
+  .bubble-you{max-width:100%;}
+  .ctx__bar{width:84px;}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="topbar">
+    <div class="proj">
+      <div class="proj__name">CRM picker — sales helper</div>
+      <div class="proj__sub"><span class="dotlive" aria-hidden="true"></span><span id="projWorking">1 working</span><span aria-hidden="true">·</span><span id="projAgents">1 agent</span><span aria-hidden="true">·</span><span>Chat · Free</span></div>
+      <div class="ctx" aria-label="Context usage">
+        <span>Context</span>
+        <span class="ctx__bar" aria-hidden="true"><span class="ctx__fill" id="ctxFill"></span></span>
+        <span class="ctx__label" id="ctxLabel">12k / 200k</span>
+      </div>
+    </div>
+    <button class="themebtn" id="themeBtn" type="button" aria-pressed="false" aria-label="Switch to dark theme">
+      <span class="themebtn__glyph" aria-hidden="true"><svg id="themeGlyph" viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="8" cy="8" r="3.2"/><path d="M8 1.5v1.6M8 12.9v1.6M1.5 8h1.6M12.9 8h1.6M3.4 3.4l1.1 1.1M11.5 11.5l1.1 1.1M12.6 3.4l-1.1 1.1M4.5 11.5l-1.1 1.1"/></svg></span>
+      <span id="themeLabel">Light</span>
+    </button>
+  </header>
+
+  <main>
+    <section class="card chat" aria-label="Chat demo">
+      <p class="colhead">Conversation</p>
+      <div class="bubble-you">Which CRM fits a 10-person sales team best?</div>
+      <div class="pillrow">
+        <span class="pill" id="pill" data-size="md" data-variant="pill" role="status" aria-live="polite" aria-label="Assistant is working">
+          <span class="pill__icon" aria-hidden="true">
+            <svg class="spin" id="pillSpin" viewBox="0 0 16 16" aria-hidden="true">
+              <line x1="8" y1="1.75" x2="8" y2="4.75" transform="rotate(0 8 8)" style="animation-delay:-800ms"></line>
+              <line x1="8" y1="1.75" x2="8" y2="4.75" transform="rotate(45 8 8)" style="animation-delay:-700ms"></line>
+              <line x1="8" y1="1.75" x2="8" y2="4.75" transform="rotate(90 8 8)" style="animation-delay:-600ms"></line>
+              <line x1="8" y1="1.75" x2="8" y2="4.75" transform="rotate(135 8 8)" style="animation-delay:-500ms"></line>
+              <line x1="8" y1="1.75" x2="8" y2="4.75" transform="rotate(180 8 8)" style="animation-delay:-400ms"></line>
+              <line x1="8" y1="1.75" x2="8" y2="4.75" transform="rotate(225 8 8)" style="animation-delay:-300ms"></line>
+              <line x1="8" y1="1.75" x2="8" y2="4.75" transform="rotate(270 8 8)" style="animation-delay:-200ms"></line>
+              <line x1="8" y1="1.75" x2="8" y2="4.75" transform="rotate(315 8 8)" style="animation-delay:-100ms"></line>
+            </svg>
+            <svg class="tick" id="pillCheck" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.4 6.6 11.3 12.5 4.9" pathLength="1"></path></svg>
+          </span>
+          <span class="pill__text" id="pillText">
+            <span class="pill__label shine" id="labelA" dir="auto" data-text="Thinking" title="Thinking">Thinking</span>
+            <span class="pill__label" id="labelB" dir="auto" data-text="" title="" style="opacity:0"> </span>
+          </span>
+        </span>
+      </div>
+      <div class="bubble-note" id="doneNote">Working through the research steps…</div>
+      <div class="meta"><span class="meta__phase" id="metaPhase">Step 1 of 5</span><span aria-hidden="true">·</span><span id="metaElapsed">0s elapsed</span></div>
+    </section>
+
+    <section class="card" aria-label="Controls">
+      <p class="colhead">Demo controls</p>
+      <div class="controls__row">
+        <button class="btn" id="replayBtn" type="button">Replay loop</button>
+        <span class="seg" role="group" aria-label="Size">
+          <button class="btn" id="sizeSm" type="button" aria-pressed="false">sm</button>
+          <button class="btn" id="sizeMd" type="button" aria-pressed="true">md</button>
+        </span>
+        <span class="seg" role="group" aria-label="Variant">
+          <button class="btn" id="varPill" type="button" aria-pressed="true">pill</button>
+          <button class="btn" id="varPlain" type="button" aria-pressed="false">plain</button>
+        </span>
+        <button class="btn" id="loopBtn" type="button" aria-pressed="true">loop: on</button>
+      </div>
+      <p class="hint">Phases advance every <code class="k">2.0s</code>, then the pill settles on <code class="k">Thought for …</code> for <code class="k">2.6s</code> before looping. All updates patch existing nodes in place.</p>
+    </section>
+
+    <section class="card" aria-label="Phase detail">
+      <p class="colhead">Steps</p>
+      <ul class="phases" id="phaseList">
+        <li data-state="active"><span class="n">1</span><span>Thinking</span></li>
+        <li data-state="todo"><span class="n">2</span><span>Searching the web</span></li>
+        <li data-state="todo"><span class="n">3</span><span>Reading 12 sources</span></li>
+        <li data-state="todo"><span class="n">4</span><span>Comparing pricing</span></li>
+        <li data-state="todo"><span class="n">5</span><span>Writing response</span></li>
+      </ul>
+    </section>
+  </main>
+  <footer class="foot">Standalone clean-room replica · open <code class="k">index.html</code> in a browser · toggle the sun/moon button to check dark mode.</footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var PHASES=["Thinking","Searching the web","Reading 12 sources","Comparing pricing","Writing response"];
+  var INTERVAL=2000, DONE_PAUSE=2600;
+  function formatDur(sec){
+    sec=Math.max(0,Math.floor(sec));
+    if(sec<60)return sec+"s";
+    var m=Math.floor(sec/60);
+    if(m<60)return m+"m "+(sec%60)+"s";
+    var h=Math.floor(m/60);
+    if(h<24)return h+"h "+String(m%60).padStart(2,"0")+"m";
+    return Math.floor(h/24)+"d "+(h%24)+"h";
+  }
+  function $(id){return document.getElementById(id);}
+  var root=document.documentElement;
+  var pill=$("pill"), pillText=$("pillText"), labelA=$("labelA"), labelB=$("labelB");
+  var metaPhase=$("metaPhase"), metaElapsed=$("metaElapsed"), doneNote=$("doneNote");
+  var projWorking=$("projWorking"), ctxLabel=$("ctxLabel"), ctxFill=$("ctxFill");
+  var themeBtn=$("themeBtn"), themeLabel=$("themeLabel");
+  var replayBtn=$("replayBtn"), sizeSm=$("sizeSm"), sizeMd=$("sizeMd");
+  var varPill=$("varPill"), varPlain=$("varPlain"), loopBtn=$("loopBtn");
+  var phaseList=$("phaseList");
+  var rows=phaseList?phaseList.querySelectorAll("li"):[];
+  var state={idx:0,done:false,loop:true,start:Date.now(),finalSecs:0,tickId:0,doneId:0,elapsedId:0,incoming:labelA,outgoing:labelB,ctx:12};
+  function visibleLabel(){return state.incoming;}
+  function paintLabel(el,text,withShine,withAnim){
+    el.textContent=text;
+    el.setAttribute("data-text",text);
+    el.setAttribute("title",text);
+    if(withShine){el.classList.add("shine");}else{el.classList.remove("shine");}
+    el.classList.remove("lbl-in","lbl-out");
+    void el.offsetWidth;
+    if(withAnim){el.classList.add("lbl-in");}
+    el.style.opacity="1";
+  }
+  function paintOutgoing(el){
+    el.classList.remove("lbl-in");
+    el.classList.add("lbl-out");
+    el.classList.remove("shine");
+  }
+  function fitWidth(){
+    try{
+      var need=0;
+      var inc=state.incoming;
+      if(inc&&typeof inc.scrollWidth==="number"&&inc.scrollWidth>0){need=inc.scrollWidth+1;}
+      else{need=(inc.textContent||"").length*7.4+4;}
+      need=Math.min(Math.max(need,40),560);
+      pillText.style.width=need+"px";
+      var holder=pill.parentElement;
+      var avail=0;
+      if(holder&&holder.clientWidth>0){avail=holder.clientWidth-4;}
+      var tooNarrow=avail>0&&need>avail;
+      if(tooNarrow){pill.setAttribute("data-cut","");pillText.style.width=Math.max(avail,48)+"px";}
+      else{pill.removeAttribute("data-cut");}
+    }catch(e){}
+  }
+  function paintMeta(){
+    var total=PHASES.length;
+    if(state.done){
+      metaPhase.textContent="Done · Thought for "+formatDur(state.finalSecs);
+      doneNote.textContent="Done in "+formatDur(state.finalSecs)+" — replaying shortly…";
+      projWorking.textContent="0 working";
+      pill.setAttribute("data-done","");
+      pill.setAttribute("aria-label","Finished: Thought for "+formatDur(state.finalSecs));
+    }else{
+      metaPhase.textContent="Step "+(state.idx+1)+" of "+total;
+      doneNote.textContent="Working through the research steps…";
+      projWorking.textContent="1 working";
+      pill.removeAttribute("data-done");
+      pill.setAttribute("aria-label","Assistant is working: "+PHASES[state.idx]);
+    }
+    for(var i=0;i<rows.length;i++){
+      var r=rows[i];
+      if(state.done||i<state.idx){r.setAttribute("data-state","done");}
+      else if(i===state.idx&&!state.done){r.setAttribute("data-state","active");}
+      else{r.setAttribute("data-state","todo");}
+    }
+  }
+  function showIndex(i){
+    if(state.done)return;
+    i=Math.min(Math.max(i,0),PHASES.length-1);
+    if(i===state.idx&&state.incoming.textContent===PHASES[i]){paintMeta();return;}
+    state.idx=i;
+    var next=(state.incoming===labelA)?labelB:labelA;
+    var prev=state.incoming;
+    paintOutgoing(prev);
+    (function(old){window.setTimeout(function(){try{old.style.opacity="0";}catch(e){}},330);})(prev);
+    state.outgoing=prev;
+    state.incoming=next;
+    paintLabel(next,PHASES[i],true,true);
+    paintMeta();
+    fitWidth();
+  }
+  function showDone(){
+    state.done=true;
+    var elapsed=Math.max(1,Math.round((Date.now()-state.start)/1000));
+    state.finalSecs=elapsed;
+    var text="Thought for "+formatDur(elapsed);
+    var next=(state.incoming===labelA)?labelB:labelA;
+    var prev=state.incoming;
+    paintOutgoing(prev);
+    (function(old){window.setTimeout(function(){try{old.style.opacity="0";}catch(e){}},330);})(prev);
+    state.outgoing=prev;
+    state.incoming=next;
+    paintLabel(next,text,false,true);
+    paintMeta();
+    fitWidth();
+  }
+  function restart(){
+    if(state.tickId){window.clearInterval(state.tickId);state.tickId=0;}
+    if(state.doneId){window.clearTimeout(state.doneId);state.doneId=0;}
+    state.done=false;state.idx=0;state.start=Date.now();state.finalSecs=0;
+    var next=labelA, prev=labelB;
+    state.incoming=next;state.outgoing=prev;
+    try{prev.style.opacity="0";prev.classList.remove("lbl-in","lbl-out","shine");}catch(e){}
+    paintLabel(next,PHASES[0],true,true);
+    paintMeta();
+    fitWidth();
+    schedule();
+  }
+  function schedule(){
+    if(state.tickId){window.clearInterval(state.tickId);state.tickId=0;}
+    if(state.doneId){window.clearTimeout(state.doneId);state.doneId=0;}
+    state.tickId=window.setInterval(function(){
+      if(state.done)return;
+      if(state.idx+1<PHASES.length){showIndex(state.idx+1);}
+      else{
+        window.clearInterval(state.tickId);state.tickId=0;
+        showDone();
+        state.doneId=window.setTimeout(function(){
+          if(state.loop){restart();}
+        },DONE_PAUSE);
+      }
+    },INTERVAL);
+  }
+  function tickElapsed(){
+    try{
+      var s=state.done?state.finalSecs:Math.max(0,Math.round((Date.now()-state.start)/1000));
+      metaElapsed.textContent=formatDur(s)+" elapsed";
+      var k=Math.min(199,(12+Math.floor(s/2)));
+      ctxLabel.textContent=k+"k / 200k";
+      if(ctxFill){ctxFill.style.width=Math.max(4,Math.min(96,(k/200)*100))+"%";}
+    }catch(e){}
+  }
+  function setSize(sm){
+    pill.setAttribute("data-size",sm?"sm":"md");
+    sizeSm.setAttribute("aria-pressed",sm?"true":"false");
+    sizeMd.setAttribute("aria-pressed",sm?"false":"true");
+    fitWidth();
+  }
+  function setVariant(plain){
+    pill.setAttribute("data-variant",plain?"plain":"pill");
+    varPill.setAttribute("aria-pressed",plain?"false":"true");
+    varPlain.setAttribute("aria-pressed",plain?"true":"false");
+    fitWidth();
+  }
+  function currentTheme(){return root.getAttribute("data-theme")==="dark"?"dark":"light";}
+  function applyTheme(t){
+    root.setAttribute("data-theme",t);
+    try{localStorage.setItem("thinking-loader-theme",t);}catch(e){}
+    var dark=t==="dark";
+    themeBtn.setAttribute("aria-pressed",dark?"true":"false");
+    themeBtn.setAttribute("aria-label",dark?"Switch to light theme":"Switch to dark theme");
+    themeLabel.textContent=dark?"Dark":"Light";
+  }
+  function toggleTheme(){applyTheme(currentTheme()==="dark"?"light":"dark");}
+  replayBtn.addEventListener("click",restart);
+  sizeSm.addEventListener("click",function(){setSize(true);});
+  sizeMd.addEventListener("click",function(){setSize(false);});
+  varPill.addEventListener("click",function(){setVariant(false);});
+  varPlain.addEventListener("click",function(){setVariant(true);});
+  loopBtn.addEventListener("click",function(){
+    state.loop=!state.loop;
+    loopBtn.setAttribute("aria-pressed",state.loop?"true":"false");
+    loopBtn.textContent="loop: "+(state.loop?"on":"off");
+  });
+  themeBtn.addEventListener("click",toggleTheme);
+  if(window.addEventListener){window.addEventListener("resize",fitWidth);}
+  document.addEventListener("keydown",function(e){
+    if(e.key==="r"&&!e.metaKey&&!e.ctrlKey&&document.activeElement===document.body){restart();}
+  });
+  try{
+    var stored=null;try{stored=localStorage.getItem("thinking-loader-theme");}catch(e){}
+    if(stored==="light"||stored==="dark"){applyTheme(stored);}
+    else{themeLabel.textContent=currentTheme()==="dark"?"Dark":"Light";}
+  }catch(e){}
+  paintLabel(labelA,PHASES[0],true,false);
+  try{labelB.style.opacity="0";}catch(e){}
+  paintMeta();
+  fitWidth();
+  schedule();
+  state.elapsedId=window.setInterval(tickElapsed,500);
+  tickElapsed();
+  window.__tl={phases:PHASES.slice(),format:formatDur,state:state,nodes:{pill:pill,text:pillText,a:labelA,b:labelB,spin:$("pillSpin"),check:$("pillCheck")},visibleText:function(){return visibleLabel().textContent;},visibleNode:function(){return visibleLabel();},showIndex:showIndex,showDone:showDone,restart:restart,toggleTheme:toggleTheme,theme:function(){return currentTheme();}};
+})();
+</script>
+</body>
+</html>
