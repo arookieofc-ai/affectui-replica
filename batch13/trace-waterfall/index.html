@@ -149,9 +149,9 @@ main{max-width:1020px; margin:0 auto; padding:0 20px 48px}
 .tw-row[data-status="running"] .px i[data-on]{animation:tw-twinkle 1200ms ease-in-out infinite; animation-delay:var(--px-d, 0ms)}
 .tool-dot{display:grid; place-items:center; width:14px; height:14px; border-radius:50%; background:var(--k-bg, var(--tool-bg)); box-shadow:inset 0 0 0 1px var(--k-edge, var(--tool-edge)); font-size:9px; font-weight:700; line-height:1; color:var(--k-ink, var(--tool-ink))}
 .tw-label{display:flex; align-items:baseline; gap:6px; flex:1; min-width:0; overflow:hidden; white-space:nowrap}
-.tw-title{flex:none; max-width:100%; overflow:hidden; font-size:13px; color:var(--ink); text-overflow:ellipsis}
+.tw-title{flex:none; max-width:100%; overflow:hidden; white-space:nowrap; font-size:13px; color:var(--ink); text-overflow:ellipsis}
 .tw-row[data-parent] .tw-title{font-weight:500}
-.tw-detail{min-width:0; overflow:hidden; font-size:12px; color:var(--muted); text-overflow:ellipsis}
+.tw-detail{min-width:0; overflow:hidden; white-space:nowrap; font-size:12px; color:var(--muted); text-overflow:ellipsis}
 .tw-more{flex:none; height:18px; margin-left:6px; padding:0 6px; border-radius:999px; background:var(--chip); font-size:11px; font-weight:500; line-height:18px; color:var(--text); font-variant-numeric:tabular-nums}
 .tw-state{display:grid; flex:none; place-items:center; width:16px; margin-left:4px}
 .tw-state[data-status="running"]{color:var(--brand)}
@@ -542,138 +542,189 @@ function tagSide(st, W, w){
   if (sx >= label+6) return 'before';
   return 'inside';
 }
-function render(){
-  var m = currentModel();
-  var rowsBox = document.getElementById('twRows');
+var lastW = null;
+function buildRow(r, m){
+  var sp = r.st.sp;
+  var row = el('div', 'tw-row');
+  row.setAttribute('role', 'treeitem');
+  var kids = kidsOf(sp.id);
+  /* chevron toggles on pointerdown capture so the click survives */
+  var name = el('div', 'tw-name');
+  var chev = el('span', 'tw-chev');
+  chev.setAttribute('aria-hidden', 'true');
+  if (!kids.length) chev.setAttribute('data-leaf', '');
+  else {
+    var cv = svgEl('svg', {viewBox:'0 0 24 24', fill:'none', 'aria-hidden':'true'});
+    cv.setAttribute('class', 'tw-chev-ic');
+    cv.appendChild(svgEl('path', {d:'M18 9C18 9 13.58 15 12 15 10.42 15 6 9 6 9', stroke:'currentColor', 'stroke-width':'1.8', 'stroke-linecap':'round', 'stroke-linejoin':'round'}));
+    chev.appendChild(cv);
+  }
+  chev.addEventListener('pointerdown', function(e){
+    if (!kidsOf(sp.id).length) return;
+    e.stopPropagation();
+    toggleFold(sp.id);
+  }, true);
+  var icon = iconFor(sp);
+  var lab = el('span', 'tw-label');
+  lab.appendChild(el('span', 'tw-title', sp.name));
+  if (sp.detail) lab.appendChild(el('span', 'tw-detail', sp.detail));
+  var meta = el('span', 'tw-meta');
+  var metaAmt = el('span', 'tw-amount', '');
+  meta.appendChild(metaAmt);
+  var track = el('div', 'tw-track');
+  var bar = el('span', 'tw-bar');
+  bar.setAttribute('data-kind', sp.kind);
+  track.appendChild(bar);
+  var tag = el('span', 'tw-tag');
+  var tagAmt = el('span', 'tw-amount', '');
+  tag.appendChild(tagAmt);
+  track.appendChild(tag);
+  /* interactions: open on pointerdown capture; keyboard on treeitem */
+  row.addEventListener('pointerdown', function(e){
+    if (e.target === chev || (chev.contains && chev.contains(e.target))) return;
+    openToggle(sp.id);
+  }, true);
+  row.addEventListener('focus', function(e){
+    if (e.target !== row) return;
+    setFocus(sp.id); /* direct tabindex updates only — no re-render */
+  });
+  row.addEventListener('keydown', function(e){ onRowKey(e, sp.id); });
+  var ref = {row:row, name:name, chev:chev, bar:bar, tag:tag, tagAmt:tagAmt,
+    meta:meta, metaAmt:metaAmt, icon:icon, lab:lab, track:track,
+    st:r.st, depth:r.depth, hidden:r.hidden, folded:null, status:null, slow:null, open:null};
+  row.appendChild(name);
+  row.appendChild(track);
+  updateRow(ref, r, m);
+  return ref;
+}
+function updateRow(ref, r, m){
+  var sp = r.st.sp;
+  var row = ref.row;
+  var kids = kidsOf(sp.id);
+  ref.st = r.st; ref.depth = r.depth; ref.hidden = r.hidden;
+  row.setAttribute('aria-level', String(r.depth+1));
+  row.setAttribute('data-kind', sp.kind);
+  if (ref.status !== r.st.status){
+    row.setAttribute('data-status', r.st.status);
+    ref.bar.setAttribute('data-status', r.st.status);
+    ref.status = r.st.status;
+    row.setAttribute('aria-label', sp.name + ', ' + KIND_LABEL[sp.kind] + ', ' + STATUS_LABEL[r.st.status]);
+  }
+  row.setAttribute('tabindex', (S.focusId === sp.id && !r.hidden) ? '0' : '-1');
+  if (kids.length){
+    row.setAttribute('data-parent', '');
+    row.setAttribute('aria-expanded', S.collapsed.has(sp.id) ? 'false' : 'true');
+  } else { row.removeAttribute('data-parent'); row.removeAttribute('aria-expanded'); }
+  var folded = S.collapsed.has(sp.id);
+  if (folded) row.setAttribute('data-folded', ''); else row.removeAttribute('data-folded');
+  if (S.openId === sp.id) row.setAttribute('data-open', ''); else row.removeAttribute('data-open');
+  var slow = (m.slow === sp.id);
+  if (slow) row.setAttribute('data-slowest', ''); else row.removeAttribute('data-slowest');
+  row.hidden = !!r.hidden;
+  /* name cell: rebuild only the cheap dynamic tail (guides/state/more/slow), keep label nodes stable */
+  var name = ref.name;
+  while (name.firstChild) name.removeChild(name.firstChild);
+  if (r.depth > 0){
+    var g = el('span', 'tw-guides');
+    g.setAttribute('aria-hidden', 'true');
+    g.style.width = 'calc(min(' + r.depth + ', var(--tw-depth)) * var(--tw-indent))';
+    name.appendChild(g);
+  }
+  name.appendChild(ref.chev);
+  name.appendChild(ref.icon);
+  name.appendChild(ref.lab);
+  var desc = kids.length ? countDesc(sp.id) : 0;
+  if (folded && desc > 0) name.appendChild(el('span', 'tw-more', '+' + fmtNum(desc)));
+  if (r.st.status === 'running' && !kids.length){
+    var stEl = el('span', 'tw-state');
+    stEl.setAttribute('data-status', 'running');
+    stEl.appendChild(spinnerSvg());
+    name.appendChild(stEl);
+  } else if (r.st.status === 'failed'){
+    var stF = el('span', 'tw-state');
+    stF.setAttribute('data-status', 'failed');
+    stF.appendChild(svgIcon('tool', 'failed'));
+    name.appendChild(stF);
+  }
+  while (ref.meta.firstChild) ref.meta.removeChild(ref.meta.firstChild);
+  ref.meta.appendChild(ref.metaAmt);
+  if (slow) ref.meta.appendChild(el('span', 'tw-slow', 'Slowest'));
+  name.appendChild(ref.meta);
+  /* track cell: folded marks only change on fold; rebuild marks in place */
+  var track = ref.track;
+  var keepBar = ref.bar, keepTag = ref.tag;
+  while (track.firstChild) track.removeChild(track.firstChild);
+  track.appendChild(keepBar);
+  if (folded){
+    collectMarks(sp, t_now()).forEach(function(mk){
+      var mkEl = el('span', 'tw-mark');
+      mkEl.setAttribute('data-kind', mk.kind);
+      mkEl.style.setProperty('--s', String(mk.s));
+      mkEl.style.setProperty('--d', String(mk.d));
+      track.appendChild(mkEl);
+    });
+  }
+  while (ref.tag.firstChild) ref.tag.removeChild(ref.tag.firstChild);
+  ref.tag.appendChild(ref.tagAmt);
+  if (slow) ref.tag.appendChild(el('span', 'tw-slow', 'Slowest'));
+  track.appendChild(ref.tag);
+  ref.folded = folded; ref.slow = slow; ref.open = (S.openId === sp.id);
+}
+function renderTicks(W, w){
+  if (W === lastW) return;
+  lastW = W;
   var layer = document.getElementById('twLayer');
-  var W = m.W, w = trackW();
   var tickInfo = ticksFor(W, w);
-  counters.render++;
-  refs.clear();
-  while (rowsBox.firstChild) rowsBox.removeChild(rowsBox.firstChild);
   while (layer.firstChild) layer.removeChild(layer.firstChild);
-  var tw = document.getElementById('tw');
-  tw.style.setProperty('--tw-range', String(W));
-  /* ticks */
   tickInfo.ticks.forEach(function(v){
     var tk = el('span', 'tw-tick');
     if (v === 0) tk.setAttribute('data-zero', '');
     tk.style.setProperty('--v', String(v));
-    var lab = el('span', null, fmtAxis(v/1000));
-    tk.appendChild(lab);
+    tk.appendChild(el('span', null, fmtAxis(v/1000)));
     layer.appendChild(tk);
   });
   var now = el('span', 'tw-now');
   now.setAttribute('id', 'twNow');
   layer.appendChild(now);
-  /* rows */
+}
+function render(){
+  var m = currentModel();
+  var rowsBox = document.getElementById('twRows');
+  var W = m.W, w = trackW();
+  counters.render++;
+  var tw = document.getElementById('tw');
+  tw.style.setProperty('--tw-range', String(W));
+  renderTicks(W, w);
+  /* reconcile rows in place: reuse persisting nodes so entry animation
+   * never restarts and the loop wrap never blanks (root stays mounted) */
+  var seen = {};
   var focusables = [];
   m.rows.forEach(function(r){
-    var sp = r.st.sp;
-    var row = el('div', 'tw-row');
-    row.setAttribute('role', 'treeitem');
-    row.setAttribute('aria-level', String(r.depth+1));
-    row.setAttribute('data-kind', sp.kind);
-    row.setAttribute('data-status', r.st.status);
-    row.setAttribute('tabindex', (S.focusId === sp.id && !r.hidden) ? '0' : '-1');
-    var kids = kidsOf(sp.id);
-    if (kids.length){
-      row.setAttribute('data-parent', '');
-      row.setAttribute('aria-expanded', S.collapsed.has(sp.id) ? 'false' : 'true');
+    var id = r.st.sp.id;
+    seen[id] = true;
+    var ref = refs.get(id);
+    if (ref && ref.row.parentNode === rowsBox){
+      updateRow(ref, r, m);
+    } else {
+      ref = buildRow(r, m);
+      refs.set(id, ref);
     }
-    if (S.collapsed.has(sp.id)) row.setAttribute('data-folded', '');
-    if (S.openId === sp.id) row.setAttribute('data-open', '');
-    if (m.slow === sp.id) row.setAttribute('data-slowest', '');
-    if (r.hidden) row.hidden = true;
-    var label = sp.name + ', ' + KIND_LABEL[sp.kind] + ', ' + STATUS_LABEL[r.st.status];
-    row.setAttribute('aria-label', label);
-    /* name cell */
-    var name = el('div', 'tw-name');
-    if (r.depth > 0){
-      var g = el('span', 'tw-guides');
-      g.setAttribute('aria-hidden', 'true');
-      g.style.width = 'calc(min(' + r.depth + ', var(--tw-depth)) * var(--tw-indent))';
-      name.appendChild(g);
+    rowsBox.appendChild(ref.row); /* moves into tree order without rebuild */
+    if (!r.hidden) focusables.push(id);
+  });
+  /* remove only rows that left the model (loop wrap); persisting rows stay */
+  Array.from(refs.keys()).forEach(function(id){
+    if (!seen[id]){
+      var ref = refs.get(id);
+      if (ref && ref.row.parentNode === rowsBox) rowsBox.removeChild(ref.row);
+      refs.delete(id);
     }
-    var chev = el('span', 'tw-chev');
-    chev.setAttribute('aria-hidden', 'true');
-    if (!kids.length) chev.setAttribute('data-leaf', '');
-    else {
-      var cv = svgEl('svg', {viewBox:'0 0 24 24', fill:'none', 'aria-hidden':'true'});
-      cv.setAttribute('class', 'tw-chev-ic');
-      cv.appendChild(svgEl('path', {d:'M18 9C18 9 13.58 15 12 15 10.42 15 6 9 6 9', stroke:'currentColor', 'stroke-width':'1.8', 'stroke-linecap':'round', 'stroke-linejoin':'round'}));
-      chev.appendChild(cv);
-    }
-    /* chevron toggles on pointerdown capture so the click survives */
-    chev.addEventListener('pointerdown', function(e){
-      if (!kids.length) return;
-      e.stopPropagation();
-      toggleFold(sp.id);
-    }, true);
-    name.appendChild(chev);
-    var icon = iconFor(sp);
-    name.appendChild(icon);
-    var lab = el('span', 'tw-label');
-    lab.appendChild(el('span', 'tw-title', sp.name));
-    if (sp.detail) lab.appendChild(el('span', 'tw-detail', sp.detail));
-    name.appendChild(lab);
-    var desc = kidsOf(sp.id).length ? countDesc(sp.id) : 0;
-    if (S.collapsed.has(sp.id) && desc > 0){
-      name.appendChild(el('span', 'tw-more', '+' + fmtNum(desc)));
-    }
-    if (r.st.status === 'running' && !kids.length){
-      var stEl = el('span', 'tw-state');
-      stEl.setAttribute('data-status', 'running');
-      stEl.appendChild(spinnerSvg());
-      name.appendChild(stEl);
-    } else if (r.st.status === 'failed'){
-      var stF = el('span', 'tw-state');
-      stF.setAttribute('data-status', 'failed');
-      stF.appendChild(svgIcon('tool', 'failed'));
-      name.appendChild(stF);
-    }
-    var meta = el('span', 'tw-meta');
-    var metaAmt = el('span', 'tw-amount', '');
-    meta.appendChild(metaAmt);
-    if (m.slow === sp.id) meta.appendChild(el('span', 'tw-slow', 'Slowest'));
-    name.appendChild(meta);
-    row.appendChild(name);
-    /* track cell */
-    var track = el('div', 'tw-track');
-    var bar = el('span', 'tw-bar');
-    bar.setAttribute('data-kind', sp.kind);
-    bar.setAttribute('data-status', r.st.status);
-    track.appendChild(bar);
-    if (S.collapsed.has(sp.id)){
-      collectMarks(sp, t_now()).forEach(function(mk){
-        var mkEl = el('span', 'tw-mark');
-        mkEl.setAttribute('data-kind', mk.kind);
-        mkEl.style.setProperty('--s', String(mk.s));
-        mkEl.style.setProperty('--d', String(mk.d));
-        track.appendChild(mkEl);
-      });
-    }
-    var tag = el('span', 'tw-tag');
-    var tagAmt = el('span', 'tw-amount', '');
-    tag.appendChild(tagAmt);
-    if (m.slow === sp.id) tag.appendChild(el('span', 'tw-slow', 'Slowest'));
-    track.appendChild(tag);
-    row.appendChild(track);
-    /* interactions: open on pointerdown capture; keyboard on treeitem */
-    row.addEventListener('pointerdown', function(e){
-      if (e.target === chev || (chev.contains && chev.contains(e.target))) return;
-      openToggle(sp.id);
-    }, true);
-    row.addEventListener('focus', function(e){
-      if (e.target !== row) return;
-      setFocus(sp.id); /* direct tabindex updates only — no re-render */
-    });
-    row.addEventListener('keydown', function(e){ onRowKey(e, sp.id); });
-    rowsBox.appendChild(row);
-    refs.set(sp.id, {row:row, bar:bar, tag:tag, tagAmt:tagAmt, metaAmt:metaAmt, icon:icon, st:r.st, depth:r.depth, hidden:r.hidden});
-    if (!r.hidden) focusables.push(sp.id);
   });
   if (focusables.indexOf(S.focusId) < 0 && focusables.length) S.focusId = focusables[0];
+  /* keep roving tabindex consistent without remount */
+  refs.forEach(function(ref, id){
+    ref.row.setAttribute('tabindex', (S.focusId === id && !ref.hidden) ? '0' : '-1');
+  });
   renderStats(m);
   renderHeader(m);
   renderPop(m);
@@ -727,6 +778,7 @@ function sync(m, w){
   var lr = document.getElementById('loopRead');
   if (lr) lr.textContent = S.t.toFixed(1) + 's of ' + LOOP + 's loop';
 }
+var statRefs = null;
 function renderStats(m){
   var box = document.getElementById('twStats');
   var items = [
@@ -737,17 +789,30 @@ function renderStats(m){
     {label:'Tool calls', value:fmtNum(m.tot.tools)},
     {label:'Errors', value:fmtNum(m.tot.failed), kind:m.tot.failed ? 'failed' : null}
   ];
-  while (box.firstChild) box.removeChild(box.firstChild);
-  items.forEach(function(it){
-    var d = el('div', 'tw-stat');
-    if (it.kind) d.setAttribute('data-kind', it.kind);
-    d.appendChild(el('dt', null, it.label));
-    var dd = el('dd', null, null);
-    var v = el('span', 'tw-stat-v', it.value);
-    if (it.live) v.setAttribute('data-live', '');
-    dd.appendChild(v);
-    d.appendChild(dd);
-    box.appendChild(d);
+  if (!statRefs || !box.firstChild){
+    while (box.firstChild) box.removeChild(box.firstChild);
+    statRefs = items.map(function(it){
+      var d = el('div', 'tw-stat');
+      if (it.kind) d.setAttribute('data-kind', it.kind);
+      d.appendChild(el('dt', null, it.label));
+      var dd = el('dd', null, null);
+      var v = el('span', 'tw-stat-v', it.value);
+      if (it.live) v.setAttribute('data-live', '');
+      dd.appendChild(v);
+      d.appendChild(dd);
+      box.appendChild(d);
+      return {box:d, val:v};
+    });
+    return;
+  }
+  items.forEach(function(it, i){
+    var ref = statRefs[i];
+    if (!ref) return;
+    if (it.kind) ref.box.setAttribute('data-kind', it.kind);
+    else ref.box.removeAttribute('data-kind');
+    if (ref.val.textContent !== it.value) ref.val.textContent = it.value;
+    if (it.live) ref.val.setAttribute('data-live', '');
+    else ref.val.removeAttribute('data-live');
   });
 }
 function renderHeader(m){
@@ -1047,6 +1112,8 @@ if (typeof window !== 'undefined'){
   window.__trace.step = step;
   window.__trace.counters = counters;
   window.__trace.state = function(){ return S; };
+  window.__trace.rowEls = function(){ var out = {}; refs.forEach(function(v, k){ out[k] = v.row; }); return out; };
+  window.__trace.rowsBox = function(){ return document.getElementById('twRows'); };
 }
 if (typeof document !== 'undefined' && document.getElementById && document.getElementById('twRows')){
   if (document.readyState === 'loading' && document.addEventListener){

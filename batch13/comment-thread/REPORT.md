@@ -39,6 +39,38 @@ indicator, and reply composer. Demo chrome adds a page header
   use `setAttribute`; close hides the thread behind a Reopen button
   (original passed a no-op `onClose`).
 
+## Browser-QA fixes (2026-11-26, ground truth checked in `demo-original.js` first)
+- (1) Disabled Send arrow invisible in light — root cause: `.ct-send:disabled`
+  was only `opacity:.3`, copied from the original `.ui-ct__send:disabled`. That
+  fades the dark disc (`#323137`) and the white arrow together, leaving a plain
+  grey disc with a faint white arrow on the light tray (visible only in dark
+  where the light disc still contrasts). Fix: disabled is now opaque
+  (`opacity:1`) with token colours — `background:var(--subtle)`,
+  `color:var(--muted)`, `box-shadow:0 0 0 1px var(--border)` — plus an explicit
+  `html[data-theme="dark"] .ct-send:disabled` override, so the arrow stays
+  legible in both themes. Enabled gradients untouched.
+- (2) `/Edit` token had no visible tint — root cause: `.ct-command` set only
+  `color:var(--muted)`, matching the original `.ui-ct__command`, which reads as
+  plain grey text although the page-note promises an `/edit command tint`.
+  Fix: token pill restored with `background-color:var(--subtle)`,
+  `border:1px solid var(--border)`, `border-radius:var(--radius-sm)`,
+  `padding:0 5px`, `inline-block`, semibold 12.5px — visible tint in light
+  (`#78716c` on `#f5f5f4`) and dark (`#a1a1aa` on `#26262a`), tokens only.
+- (3) Blank-then-fade on first load — root cause: `.ct-msg > *` used
+  `animation:ct-in 420ms both` with `--ct-d:700ms` on the initial assistant
+  message (same as the original `.ui-ct__msg`), so `both` fill holds `opacity:0`
+  through the delay and the card paints blank white before fading. Fix: entrance
+  is now gated behind `[data-anim]` (`.ct-msg[data-anim] > *` + nth-child
+  staggers); `buildThread` initial messages carry no `data-anim` and paint
+  immediately, while `appendMessage` and `buildThinking` set `data-anim=""` so
+  later sends/replies keep the staggered entrance. Timings preserved: 700ms /
+  420ms / 320ms entrance, 1400ms reply, 30s clock (verified against original;
+  `30000` vs original `3e4` is the same).
+- Hard rules preserved: 30s tick touches only `<time>` text nodes (no rebuild),
+  details open on `pointerdown` capture with click swallowed, `[hidden]` keeps
+  explicit `[hidden]{display:none!important}`, SVG classes only via
+  `setAttribute`, no DOM rebuild in tick, no browser used.
+
 ## Verification (node only, no browser — all files in this directory)
 - `node --check page-script.check.js` (script extracted from `index.html`): passes.
 - `node verify-harness.js` — stub DOM + mocked timers, advances the full loop:
@@ -49,6 +81,15 @@ indicator, and reply composer. Demo chrome adds a page header
   or hover/focus, dark→light toggle, close/reopen, and a CSS scan proving no
   rule sets `display:none`/`visibility:hidden`/`color:transparent`/`font-size:0`
   on anything but `[hidden]`).
+- Plus VISIBLE-painted-text asserts in light AND dark and per-fix asserts:
+  (1) disabled-send CSS has `opacity:1` + `--subtle` disc + `--muted` arrow in
+  both themes and no `opacity:.3` fade, send button `chainVisible` in both;
+  (2) `.ct-command` has `--subtle` background + border + radius + padding,
+  `/Edit` + remainder `VISIBLE` in light, dark, and back-to-light;
+  (3) no ungated `.ct-msg > *` animation remains, initial articles have no
+  `data-anim` (paint immediately, asserted before any timer advance), later
+  messages do carry `data-anim`, and 700ms/420ms + 1400ms/30s timings asserted
+  present. No `/tmp` use; `page-script.check.js` regenerated in-dir by the harness.
 - Light AND dark checked: default `data-theme="light"` (the original demo's
   appearance); toggle switches to `dark` (surface `#1c1c1f`, page `#101012`,
   adjusted amber/placeholder/borders) and back; key texts asserted visible in

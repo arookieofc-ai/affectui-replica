@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en" data-theme="light">
-<head><script>/*noflash*/(function(){try{var t=null;if(t==="dark"||t==="light")document.documentElement.setAttribute("data-theme",t);}catch(e){}})();</script><style>/*noflash*/html{background:#fafaf9}html[data-theme="dark"]{background:#101012}</style><meta name="color-scheme" content="light dark">
+<head><script>/*noflash*/(function(){try{var t=null;var k="vsn-theme";try{t=localStorage.getItem(k);}catch(e){}if(t==="dark"||t==="light")document.documentElement.setAttribute("data-theme",t);}catch(e){}})();</script><style>/*noflash*/html{background:#fafaf9}html[data-theme="dark"]{background:#101012}</style><meta name="color-scheme" content="light dark">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Voice Session — Atlas · Billing support</title>
@@ -1154,7 +1154,8 @@ function wireMenu(){
   });
 }
 
-/* ============ theme ============ */
+/* ============ theme (theme-only: never touches S/ctl/cols/runDemo) ============ */
+var THEME_KEY="vsn-theme";
 var SUN=["M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10z","M12 2v2.5M12 19.5V22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M2 12h2.5M19.5 12H22M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"];
 var MOON=["M20 13.5A8 8 0 0 1 10.5 4 8 8 0 1 0 20 13.5z"];
 function renderThemeBtn(){
@@ -1222,9 +1223,16 @@ function init(){
   });
   $("themeToggle").addEventListener("click",function(){
     var dark=document.documentElement.getAttribute("data-theme")==="dark";
-    document.documentElement.setAttribute("data-theme",dark?"light":"dark");
+    var next=dark?"light":"dark";
+    document.documentElement.setAttribute("data-theme",next);
+    try{localStorage.setItem(THEME_KEY,next);}catch(e){}
     renderThemeBtn();
   });
+  try{
+    var stored=null;
+    try{stored=localStorage.getItem(THEME_KEY);}catch(e){}
+    if(stored==="dark"||stored==="light")document.documentElement.setAttribute("data-theme",stored);
+  }catch(e){}
   renderThemeBtn();
   setInterval(tickClock,1000);
   lastPush=performance.now();

@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Thinking State — affectUI replica</title>
+<script>/*noflash*/(function(){try{var k='affectui-thinking-state-theme';var t=null;try{t=localStorage.getItem(k);}catch(e){}if(!t){try{t=(window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light';}catch(e){t='light';}}if(t!=='light'&&t!=='dark'){t='light';}document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<style>html{background:#fafaf9}html[data-theme="dark"]{background:#101012}</style>
+<style>
+:root{
+  --surface:#ffffff;
+  --page:#fafaf9;
+  --ink:#171717;
+  --ink-soft:#525252;
+  --muted:#78716c;
+  --subtle:#f5f5f4;
+  --chip:#f0f0f0;
+  --chip-hover:#e6e6e6;
+  --border:#e7e5e4;
+  --line:#e5e5e5;
+  --dot:#b5b5b5;
+  --done:#4fb0fe;
+  --shine:rgba(255,255,255,0.82);
+  --tip-text:#fff;
+  --focus:rgba(0,96,226,0.7);
+  --radius-lg:16px;
+  --radius:10px;
+  --radius-sm:6px;
+  --shadow:0 1px 2px rgba(0,0,0,.05), 0 4px 16px rgba(0,0,0,.05);
+  --ease:cubic-bezier(0.22,1,0.36,1);
+  --amber:#f59e0b;
+}
+html[data-theme="dark"]{
+  --surface:#1c1c1f;
+  --page:#101012;
+  --ink:#ededed;
+  --ink-soft:#c4c4c4;
+  --muted:#a1a1aa;
+  --subtle:#26262a;
+  --chip:#2a2a2d;
+  --chip-hover:#313135;
+  --border:#2e2e33;
+  --line:rgba(255,255,255,0.1);
+  --dot:#5c5c61;
+  --shine:rgba(255,255,255,0.95);
+  --tip-text:#121213;
+  --focus:rgba(77,141,255,0.8);
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.4);
+}
+*{box-sizing:border-box}
+[hidden]{display:none !important}
+html,body{margin:0;padding:0}
+body{
+  background:var(--page);
+  color:var(--ink-soft);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:14px;line-height:1.45;
+  -webkit-font-smoothing:antialiased;
+  min-height:100vh;
+}
+.page{max-width:560px;margin:0 auto;padding:20px 16px 48px}
+.topbar{
+  display:flex;align-items:center;gap:12px;
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius-lg);box-shadow:var(--shadow);
+  padding:12px 12px 12px 16px;margin-bottom:14px;
+}
+.topbar-text{min-width:0;flex:1}
+.topbar-title{font-size:15px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.topbar-sub{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+.topbar-sub .sep{margin:0 6px;opacity:.6}
+.theme-btn{
+  flex:none;width:36px;height:36px;border-radius:999px;
+  border:1px solid var(--border);background:var(--subtle);color:var(--ink);
+  cursor:pointer;display:grid;place-items:center;
+  transition:background-color 160ms ease,transform 160ms ease;
+}
+.theme-btn:hover{background:var(--chip-hover)}
+.theme-btn:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.theme-btn svg{width:18px;height:18px}
+.card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius-lg);box-shadow:var(--shadow);
+  padding:14px 16px 16px;
+  transition:box-shadow 180ms ease;
+}
+.card:hover{box-shadow:0 1px 2px rgba(0,0,0,.06),0 8px 24px rgba(0,0,0,.08)}
+.hint{font-size:12px;color:var(--muted);margin:12px 2px 0}
+
+/* ---- thinking component (clean-room, behaviour-matched) ---- */
+.ui-think{width:100%;max-width:440px;font-size:14px;line-height:1.45;color:var(--ink-soft)}
+.ui-think svg{display:block;width:100%;height:100%}
+.ui-think__head{
+  display:inline-flex;align-items:center;gap:10px;
+  margin:0 0 0 -4px;padding:4px 8px 4px 4px;border:0;border-radius:8px;
+  background:none;font:inherit;font-size:15px;color:var(--muted);cursor:pointer;
+  transition:background-color 160ms ease,color 160ms ease;
+}
+.ui-think__head:hover{background:var(--chip);color:var(--ink-soft)}
+.ui-think__head:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.ui-think__chevron{width:18px;height:18px;flex:none}
+.ui-think__chevron svg{fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.ui-think__head[aria-expanded="false"] .ui-think__chevron{transform:rotate(-90deg)}
+.ui-think__chevron{transition:transform 260ms var(--ease)}
+.ui-think__title{display:inline-flex;gap:8px;align-items:baseline;animation:ui-think-in 420ms var(--ease) both}
+.ui-think__time{font-variant-numeric:tabular-nums}
+.ui-think__status{
+  font-size:12px;color:var(--muted);border:1px solid var(--border);
+  background:var(--subtle);border-radius:999px;padding:1px 8px;
+}
+.ui-think[data-done] .ui-think__status{color:#92400e;background:#fef3c7;border-color:#fde68a}
+html[data-theme="dark"] .ui-think[data-done] .ui-think__status{color:#fde68a;background:#451a03;border-color:#78350f}
+.ui-think__body{display:grid;grid-template-rows:1fr;transition:grid-template-rows 360ms var(--ease),opacity 260ms ease}
+.ui-think__body[data-open="false"]{grid-template-rows:0fr;opacity:0}
+.ui-think__body[data-open="false"] .ui-think__list{overflow:hidden}
+.ui-think__list{min-height:0;overflow:visible;margin:0;padding:10px 0 0;list-style:none}
+.ui-think__item{position:relative;display:grid;grid-template-columns:20px minmax(0,1fr);gap:12px;padding-bottom:12px;animation:ui-think-in 520ms var(--ease) both}
+.ui-think__item:not(:last-child)::before{
+  content:"";position:absolute;left:9.5px;top:24px;bottom:2px;width:1px;
+  background:var(--line);transform-origin:top;animation:ui-think-line 520ms var(--ease) both;
+}
+.ui-think__node{display:grid;place-items:center;width:20px;height:21px}
+.ui-think__globe{width:18px;height:18px;fill:none;stroke:var(--muted);stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.ui-think__dot{width:7px;height:7px;border-radius:50%;background:var(--dot);transition:background-color 300ms ease,transform 300ms ease}
+.ui-think__item[data-active] .ui-think__dot{background:var(--ink);animation:ui-think-pulse 1.2s ease-in-out infinite}
+.ui-think__check{width:18px;height:18px;animation:ui-think-pop 460ms cubic-bezier(0.34,1.56,0.64,1) both}
+.ui-think__check .ring{fill:var(--done)}
+.ui-think__check .tick{fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:14;stroke-dashoffset:14;animation:ui-think-draw 360ms var(--ease) 180ms forwards}
+.ui-think__content{min-width:0;padding-top:0.5px}
+.ui-think__label{display:inline-block;max-width:100%;overflow-wrap:anywhere;white-space:pre-line;text-align:start;color:var(--muted);transition:color 300ms ease}
+.ui-think__item[data-active] .ui-think__label,.ui-think__item[data-kind="done"] .ui-think__label{color:var(--ink-soft)}
+.ui-think__sources{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.ui-think__source{
+  display:inline-flex;align-items:center;gap:6px;max-width:100%;height:28px;
+  padding:0 10px 0 6px;border-radius:8px;background:var(--chip);
+  font-size:13px;color:var(--ink);animation:ui-think-chip 420ms var(--ease) both;
+  border:0;font:inherit;text-decoration:none;
+}
+a.ui-think__source{cursor:pointer;transition:background-color 160ms ease}
+a.ui-think__source:hover{background:var(--chip-hover)}
+a.ui-think__source:focus-visible,.ui-think__more:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.ui-think__more{position:relative;padding:0 10px;background:none;color:var(--muted);cursor:pointer}
+.ui-think__more:hover{background:var(--chip);color:var(--ink)}
+.ui-think__tip{
+  position:absolute;left:50%;bottom:calc(100% + 6px);z-index:2;
+  padding:4px 8px;border-radius:6px;background:var(--ink);color:var(--tip-text);
+  font-size:12px;line-height:1.3;width:max-content;max-width:min(320px,80vw);
+  overflow-wrap:anywhere;pointer-events:none;opacity:0;transform:translate(-50%,4px);
+  transition:opacity 140ms ease,transform 200ms var(--ease);
+}
+.ui-think__source:hover .ui-think__tip,.ui-think__source:focus-visible .ui-think__tip{opacity:1;transform:translate(-50%,0);transition-delay:250ms}
+.ui-think__source[data-count]{padding:0 10px;background:none;color:var(--muted)}
+.ui-think__source-label{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.ui-think__favicon{display:grid;place-items:center;flex:none;width:18px;height:18px;border-radius:5px;overflow:hidden;font-size:10px;font-weight:700;color:#fff}
+.ui-think__shimmer{position:relative}
+.ui-think__shimmer::after{
+  content:attr(data-text);position:absolute;inset:0;white-space:inherit;overflow-wrap:inherit;
+  color:transparent;background:linear-gradient(90deg,transparent 38%,var(--shine) 50%,transparent 62%) 100% 0/300% 100% no-repeat;
+  -webkit-background-clip:text;background-clip:text;
+  animation:ui-think-sweep 1.6s linear infinite;pointer-events:none;
+}
+@keyframes ui-think-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes ui-think-line{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+@keyframes ui-think-chip{from{opacity:0;transform:translateY(4px) scale(0.92)}to{opacity:1;transform:none}}
+@keyframes ui-think-pulse{50%{transform:scale(0.7);opacity:0.5}}
+@keyframes ui-think-pop{0%{transform:scale(0.5)}60%{transform:scale(1.12)}100%{transform:scale(1)}}
+@keyframes ui-think-draw{to{stroke-dashoffset:0}}
+@keyframes ui-think-sweep{from{background-position:100% 0}to{background-position:0% 0}}
+@media (prefers-reduced-motion:reduce){
+  .ui-think *,.ui-think *::before,.ui-think *::after{animation-duration:1ms !important;animation-delay:0ms !important;animation-iteration-count:1 !important;transition-duration:1ms !important}
+  .ui-think__shimmer::after{display:none}
+  .ui-think__check .tick{stroke-dashoffset:0}
+}
+@media (max-width:520px){
+  .page{padding:12px 10px 32px}
+  .ui-think{max-width:none}
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="topbar">
+    <div class="topbar-text">
+      <div class="topbar-title">Team Offsite · Lisbon</div>
+      <div class="topbar-sub"><span id="crumbState">1 working</span><span class="sep">·</span><span>Thinking State</span></div>
+    </div>
+    <button class="theme-btn" id="themeToggle" type="button" aria-label="Switch to dark theme" title="Toggle theme">
+      <svg id="themeIconSun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"></circle><path d="M12 2.5v2.4M12 19.1v2.4M2.5 12h2.4M19.1 12h2.4M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7M19.1 4.9l-1.7 1.7M6.6 17.4l-1.7 1.7"></path></svg>
+      <svg id="themeIconMoon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden><path d="M20 13.2A8 8 0 0 1 10.8 4 8 8 0 1 0 20 13.2Z"></path></svg>
+    </button>
+  </header>
+
+  <main class="card" aria-label="Thinking state demo">
+    <div class="ui-think" id="think">
+      <button type="button" class="ui-think__head" id="thinkHead" aria-expanded="true">
+        <span class="ui-think__chevron" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M18 9s-4.419 6-6 6c-1.581 0-6-6-6-6"></path></svg></span>
+        <span class="ui-think__title" id="thinkTitle">
+          <span class="ui-think__shimmer" id="thinkMain" data-text="Thinking">Thinking</span>
+          <span class="ui-think__time" id="thinkTime">0s</span>
+        </span>
+        <span class="ui-think__status" id="thinkStatus">busy</span>
+      </button>
+      <div class="ui-think__body" id="thinkBody" data-open="true">
+        <ol class="ui-think__list" id="thinkList" aria-live="polite"></ol>
+      </div>
+    </div>
+  </main>
+  <p class="hint">Sequential run: search + 4 research steps, then “Finished thinking”. Expand “+3 more” to pin the panel open (stops auto-loop). Header collapses the list.</p>
+</div>
+
+<script>
+(function(){
+"use strict";
+var THEME_KEY = 'affectui-thinking-state-theme';
+var INIT_DELAY = 700;
+var STEP_MS = 1300;
+var SOURCE_STAGGER = 160;
+var MORE_STAGGER = 70;
+var SOURCE_CAP = 12;
+var LOOP_PAUSE = 4000;
+var DONE_LABEL = 'Finished thinking';
+
+/* Verbatim demo data (labels + hrefs from demo-original.js). Icons are simplified. */
+var STEPS = [
+  { kind:'search', label:'Searched', activeLabel:'Searching', sources:[
+    { label:'Slack – #team-offsite', href:'https://slack.com', tip:'slack.com', badge:'S', bg:'#36c5f0' },
+    { label:'X – @lisbonguide', href:'https://x.com', tip:'x.com', badge:'X', bg:'#000000' },
+    { label:'Notion – Offsite plan', href:'https://www.notion.so', tip:'www.notion.so', badge:'N', bg:'#111111' },
+    { label:'Wikipedia – Lisbon', href:'https://en.wikipedia.org/wiki/Lisbon', tip:'en.wikipedia.org/wiki/Lisbon', badge:'W', bg:'#ffffff', fg:'#000000' }
+  ], moreSources:[
+    { label:'Google Flights – LIS', href:'https://www.google.com/travel/flights', tip:'www.google.com/travel/flights', badge:'G', bg:'#4285F4' },
+    { label:'Booking.com – Lisbon', href:'https://www.booking.com', tip:'www.booking.com', badge:'B', bg:'#003A9A' },
+    { label:'Airbnb – Alfama', href:'https://www.airbnb.com', tip:'www.airbnb.com', badge:'A', bg:'#e0565b' }
+  ]},
+  { kind:'step', label:'Reading 7 sources about the trip' },
+  { kind:'step', label:'Comparing flights and hotels' },
+  { kind:'step', label:'Checking dates against the team calendar' },
+  { kind:'step', label:'Drafting the offsite agenda' }
+];
+
+function fmtElapsed(sec){
+  var t = (typeof sec === 'number' && isFinite(sec)) ? Math.max(0, Math.floor(sec)) : 0;
+  if (t < 60) return t + 's';
+  var m = Math.floor(t / 60);
+  if (m < 60){
+    var s = String(t % 60);
+    if (s.length < 2) s = '0' + s;
+    return m + 'm ' + s + 's';
+  }
+  var h = Math.floor(m / 60);
+  if (h < 24){
+    var mm = String(m % 60);
+    if (mm.length < 2) mm = '0' + mm;
+    return h + 'h ' + mm + 'm';
+  }
+  return Math.floor(h / 24) + 'd ' + (h % 24) + 'h';
+}
+
+function svgEl(name, attrs){
+  var el = document.createElementNS('http://www.w3.org/2000/svg', name);
+  if (attrs) for (var k in attrs) el.setAttribute(k, attrs[k]);
+  return el;
+}
+
+var root = document.getElementById('think');
+var headBtn = document.getElementById('thinkHead');
+var titleEl = document.getElementById('thinkTitle');
+var mainEl = document.getElementById('thinkMain');
+var timeEl = document.getElementById('thinkTime');
+var statusEl = document.getElementById('thinkStatus');
+var bodyEl = document.getElementById('thinkBody');
+var listEl = document.getElementById('thinkList');
+var crumbEl = document.getElementById('crumbState');
+
+/* ---- theme toggle ---- */
+var themeBtn = document.getElementById('themeToggle');
+var iconSun = document.getElementById('themeIconSun');
+var iconMoon = document.getElementById('themeIconMoon');
+function currentTheme(){ return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light'; }
+function paintThemeButton(){
+  var dark = currentTheme() === 'dark';
+  iconSun.hidden = dark;
+  iconMoon.hidden = !dark;
+  themeBtn.setAttribute('aria-label', dark ? 'Switch to light theme' : 'Switch to dark theme');
+}
+function setTheme(t){
+  document.documentElement.setAttribute('data-theme', t);
+  try { localStorage.setItem(THEME_KEY, t); } catch(e){}
+  paintThemeButton();
+}
+themeBtn.addEventListener('click', function(){ setTheme(currentTheme() === 'dark' ? 'light' : 'dark'); });
+paintThemeButton();
+
+/* ---- build DOM once ---- */
+var stepNodes = [];   /* {li, label, kind} */
+var searchRefs = null;/* {li, label, chips[], moreBtn, moreWrap} */
+var doneNode = null;  /* {li, label} */
+
+function makeGlobe(){
+  var svg = svgEl('svg', { viewBox:'0 0 24 24' });
+  svg.setAttribute('class', 'ui-think__globe');
+  svg.setAttribute('aria-hidden', 'true');
+  var p1 = svgEl('path', { d:'M12 3a9 9 0 1 0 9 9' });
+  var p2 = svgEl('path', { d:'M12 3c2.5 2.4 3.8 5.6 3.8 9S14.5 18.6 12 21c-2.5-2.4-3.8-5.6-3.8-9S9.5 5.4 12 3Z' });
+  var p3 = svgEl('path', { d:'M3.5 9h17M3.5 15h17' });
+  svg.appendChild(p1); svg.appendChild(p2); svg.appendChild(p3);
+  return svg;
+}
+function makeCheck(){
+  var svg = svgEl('svg', { viewBox:'0 0 24 24' });
+  svg.setAttribute('class', 'ui-think__check');
+  svg.setAttribute('aria-hidden', 'true');
+  var c = svgEl('circle', { cx:'12', cy:'12', r:'10' });
+  c.setAttribute('class', 'ring');
+  var p = svgEl('path', { d:'M8 12.5l2.5 2.5L16 9' });
+  p.setAttribute('class', 'tick');
+  svg.appendChild(c); svg.appendChild(p);
+  return svg;
+}
+function makeSourceChip(src, delayMs, withTip){
+  var isLink = !!src.href;
+  var el = document.createElement(isLink ? 'a' : 'span');
+  el.setAttribute('class', 'ui-think__source');
+  el.style.animationDelay = delayMs + 'ms';
+  if (isLink){
+    el.setAttribute('href', src.href);
+    el.setAttribute('target', '_blank');
+    el.setAttribute('rel', 'noreferrer');
+  }
+  var fav = document.createElement('span');
+  fav.setAttribute('class', 'ui-think__favicon');
+  fav.style.background = src.bg || '#888';
+  if (src.fg) fav.style.color = src.fg;
+  fav.textContent = src.badge || '•';
+  el.appendChild(fav);
+  var lab = document.createElement('span');
+  lab.setAttribute('class', 'ui-think__source-label');
+  lab.setAttribute('dir', 'auto');
+  if (!withTip) lab.setAttribute('title', src.label);
+  lab.textContent = src.label;
+  el.appendChild(lab);
+  if (withTip){
+    var tip = document.createElement('span');
+    tip.setAttribute('class', 'ui-think__tip');
+    tip.setAttribute('aria-hidden', 'true');
+    tip.textContent = src.tip;
+    el.appendChild(tip);
+  }
+  return el;
+}
+
+function buildOnce(){
+  for (var i = 0; i < STEPS.length; i++){
+    (function(idx){
+      var st = STEPS[idx];
+      var li = document.createElement('li');
+      li.setAttribute('class', 'ui-think__item');
+      li.setAttribute('data-kind', st.kind);
+      li.hidden = true;
+      var node = document.createElement('span');
+      node.setAttribute('class', 'ui-think__node');
+      node.setAttribute('aria-hidden', 'true');
+      if (st.kind === 'search'){ node.appendChild(makeGlobe()); }
+      else {
+        var dot = document.createElement('span');
+        dot.setAttribute('class', 'ui-think__dot');
+        node.appendChild(dot);
+      }
+      li.appendChild(node);
+      var content = document.createElement('div');
+      content.setAttribute('class', 'ui-think__content');
+      var label = document.createElement('span');
+      label.setAttribute('class', 'ui-think__label');
+      label.setAttribute('dir', 'auto');
+      label.textContent = st.label;
+      content.appendChild(label);
+      li.appendChild(content);
+      listEl.appendChild(li);
+      var rec = { li: li, label: label, kind: st.kind };
+      stepNodes.push(rec);
+      if (st.kind === 'search'){
+        var wrap = document.createElement('div');
+        wrap.setAttribute('class', 'ui-think__sources');
+        wrap.hidden = true;
+        content.appendChild(wrap);
+        var chips = [];
+        for (var k = 0; k < st.sources.length; k++){
+          var delay = 120 + Math.min(k, SOURCE_CAP) * SOURCE_STAGGER;
+          var chip = makeSourceChip(st.sources[k], delay, true);
+          chip.hidden = true;
+          wrap.appendChild(chip);
+          chips.push(chip);
+        }
+        var moreChips = [];
+        for (var m = 0; m < st.moreSources.length; m++){
+          var d2 = Math.min(m, SOURCE_CAP) * MORE_STAGGER;
+          var mc = makeSourceChip(st.moreSources[m], d2, true);
+          mc.hidden = true;
+          wrap.appendChild(mc);
+          moreChips.push(mc);
+        }
+        var moreBtn = document.createElement('button');
+        moreBtn.setAttribute('type', 'button');
+        moreBtn.setAttribute('class', 'ui-think__source ui-think__more');
+        moreBtn.setAttribute('aria-expanded', 'false');
+        moreBtn.style.animationDelay = (120 + Math.min(st.sources.length, SOURCE_CAP) * SOURCE_STAGGER) + 'ms';
+        moreBtn.textContent = '+' + st.moreSources.length.toLocaleString('en-US') + ' more';
+        moreBtn.hidden = true;
+        wrap.appendChild(moreBtn);
+        /* capture pointerdown so the click survives even while timers run */
+        moreBtn.addEventListener('pointerdown', function(){}, { capture:true });
+        moreBtn.addEventListener('mousedown', function(){}, { capture:true });
+        moreBtn.addEventListener('click', function(){
+          userHeld = true;
+          expanded = !expanded;
+          paintSources();
+        });
+        searchRefs = { li: li, label: label, chips: chips, moreChips: moreChips, moreBtn: moreBtn, moreWrap: wrap };
+      }
+    })(i);
+  }
+  var dli = document.createElement('li');
+  dli.setAttribute('class', 'ui-think__item');
+  dli.setAttribute('data-kind', 'done');
+  dli.hidden = true;
+  var dnode = document.createElement('span');
+  dnode.setAttribute('class', 'ui-think__node');
+  dnode.setAttribute('aria-hidden', 'true');
+  dnode.appendChild(makeCheck());
+  dli.appendChild(dnode);
+  var dcontent = document.createElement('div');
+  dcontent.setAttribute('class', 'ui-think__content');
+  var dlabel = document.createElement('span');
+  dlabel.setAttribute('class', 'ui-think__label');
+  dlabel.setAttribute('dir', 'auto');
+  dlabel.textContent = DONE_LABEL;
+  dcontent.appendChild(dlabel);
+  dli.appendChild(dcontent);
+  listEl.appendChild(dli);
+  doneNode = { li: dli, label: dlabel };
+}
+
+/* ---- state + in-place painters ---- */
+var visibleCount = 0;
+var done = false;
+var finalSecs = 0;
+var startStamp = Date.now();
+var open = true;
+var expanded = false;
+var userHeld = false;
+var timers = [];
+var tickId = null;
+var gen = 0;
+
+function paintHeader(){
+  if (done){
+    mainEl.textContent = 'Worked for ' + fmtElapsed(finalSecs);
+    mainEl.setAttribute('data-text', 'Worked for ' + fmtElapsed(finalSecs));
+    mainEl.setAttribute('class', 'ui-think__label');
+    timeEl.hidden = true;
+    statusEl.textContent = 'done';
+    if (root.hasAttribute('data-done') === false) root.setAttribute('data-done', '');
+    if (crumbEl) crumbEl.textContent = 'done in ' + fmtElapsed(finalSecs);
+  } else {
+    mainEl.textContent = 'Thinking';
+    mainEl.setAttribute('data-text', 'Thinking');
+    mainEl.setAttribute('class', 'ui-think__shimmer');
+    timeEl.hidden = false;
+    statusEl.textContent = 'busy';
+    root.removeAttribute('data-done');
+    if (crumbEl) crumbEl.textContent = '1 working';
+  }
+  headBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  bodyEl.setAttribute('data-open', open ? 'true' : 'false');
+}
+
+function paintSources(){
+  if (!searchRefs) return;
+  var st = STEPS[0];
+  var showBase = visibleCount >= 1;
+  searchRefs.moreWrap.hidden = !showBase;
+  var n;
+  for (n = 0; n < searchRefs.chips.length; n++){
+    searchRefs.chips[n].hidden = !showBase;
+  }
+  var showMore = showBase && expanded;
+  for (n = 0; n < searchRefs.moreChips.length; n++){
+    searchRefs.moreChips[n].hidden = !showMore;
+  }
+  searchRefs.moreBtn.hidden = !showBase;
+  if (showBase){
+    searchRefs.moreBtn.textContent = expanded ? 'Show less' : '+' + st.moreSources.length.toLocaleString('en-US') + ' more';
+    searchRefs.moreBtn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+  }
+}
+
+function paintList(){
+  var activeIdx = done ? -1 : visibleCount - 1;
+  var i, rec;
+  for (i = 0; i < stepNodes.length; i++){
+    rec = stepNodes[i];
+    var show = i < visibleCount;
+    rec.li.hidden = !show;
+    if (!show) continue;
+    var isActive = i === activeIdx;
+    if (isActive) rec.li.setAttribute('data-active', '');
+    else rec.li.removeAttribute('data-active');
+    var st = STEPS[i];
+    var want = (st.kind === 'search' && isActive) ? (st.activeLabel || st.label) : st.label;
+    if (rec.label.textContent !== want) rec.label.textContent = want;
+    /* keep data-text in sync only when shimmering (active row) */
+    if (st.kind === 'search' || isActive){
+      if (isActive){
+        rec.label.setAttribute('class', 'ui-think__label ui-think__shimmer');
+        rec.label.setAttribute('data-text', want);
+      } else {
+        rec.label.setAttribute('class', 'ui-think__label');
+        rec.label.removeAttribute('data-text');
+      }
+    } else if (rec.label.getAttribute('class') !== 'ui-think__label'){
+      rec.label.setAttribute('class', 'ui-think__label');
+      rec.label.removeAttribute('data-text');
+    }
+  }
+  doneNode.li.hidden = !done;
+  paintSources();
+  paintHeader();
+}
+
+function clearTimers(){
+  var t;
+  for (var i = 0; i < timers.length; i++){ clearTimeout(timers[i]); }
+  timers = [];
+  if (tickId !== null){ clearInterval(tickId); tickId = null; }
+}
+
+function tickClock(){
+  if (done) return;
+  timeEl.textContent = fmtElapsed((Date.now() - startStamp) / 1000);
+}
+
+function scheduleLoop(){
+  var myGen = gen;
+  clearTimers();
+  startStamp = Date.now();
+  timeEl.textContent = '0s';
+  tickId = setInterval(function(){ if (myGen === gen) tickClock(); }, 250);
+  var t = INIT_DELAY;
+  for (var k = 0; k < STEPS.length; k++){
+    (function(idx, at){
+      timers.push(setTimeout(function(){ if (myGen !== gen) return; visibleCount = idx + 1; paintList(); }, at));
+    })(k, t);
+    t += STEP_MS + (STEPS[k].kind === 'search' ? (Math.min(STEPS[k].sources.length, SOURCE_CAP) + 1) * SOURCE_STAGGER : 0);
+  }
+  timers.push(setTimeout(function(){
+    if (myGen !== gen) return;
+    finalSecs = Math.max(1, Math.round((Date.now() - startStamp) / 1000));
+    done = true;
+    if (tickId !== null){ clearInterval(tickId); tickId = null; }
+    paintList();
+  }, t));
+  timers.push(setTimeout(function(){
+    if (myGen !== gen) return;
+    if (!userHeld){ restart(); }
+  }, t + LOOP_PAUSE));
+}
+function stepExtra(st){
+  if (st.kind === 'search') return (Math.min(st.sources.length, SOURCE_CAP) + 1) * SOURCE_STAGGER;
+  return 0;
+}
+
+function restart(){
+  gen++;
+  visibleCount = 0;
+  done = false;
+  finalSecs = 0;
+  open = true;
+  expanded = false;
+  paintList();
+  scheduleLoop();
+}
+
+headBtn.addEventListener('click', function(){
+  open = !open;
+  paintHeader();
+});
+
+buildOnce();
+paintList();
+scheduleLoop();
+
+/* test hooks (no visual effect) */
+window.__think = {
+  steps: STEPS,
+  get visible(){ return visibleCount; },
+  get isDone(){ return done; },
+  get secs(){ return done ? finalSecs : (Date.now() - startStamp) / 1000; },
+  get isOpen(){ return open; },
+  get isExpanded(){ return expanded; },
+  nodes: function(){
+    return { items: stepNodes.map(function(r){ return r.li; }), chips: searchRefs ? searchRefs.chips.concat(searchRefs.moreChips) : [], moreBtn: searchRefs && searchRefs.moreBtn, done: doneNode.li, title: titleEl, time: timeEl, status: statusEl };
+  },
+  restart: restart
+};
+})();
+</script>
+</body>
+</html>

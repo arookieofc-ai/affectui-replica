@@ -166,19 +166,21 @@ html[data-theme="dark"] .tfl-logo{background:#f2f2f4}
 .tfl-tag-meta{font-size:12px;line-height:16px;color:var(--tip-muted);font-variant-numeric:tabular-nums}
 .tfl-tag-meta b{font-weight:600;color:var(--tip-ink)}
 .tfl-detail{
-  position:absolute;z-index:4;display:grid;gap:10px;overflow-y:auto;
+  position:absolute;z-index:4;display:grid;gap:10px;overflow:auto;
+  min-width:0;max-width:calc(100% - 8px);
   padding:0 12px 10px;border-radius:12px;background:var(--surface);color:var(--ink);
   border:1px solid var(--border);box-shadow:var(--lift);
 }
+.tfl-detail > *{min-width:0;max-width:100%}
 .tfl-detail-head{display:flex;align-items:center;gap:8px;min-width:0;height:44px;margin:0 -12px;padding:0 12px;border-bottom:1px solid var(--border);background:var(--subtle)}
 .tfl-detail-title{min-width:0;overflow:hidden;font-size:13px;font-weight:600;line-height:20px;color:var(--ink-strong);white-space:nowrap;text-overflow:ellipsis}
-.tfl-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin:0;padding:0}
-.tfl-stats > div{padding:6px 8px;border-radius:8px;background:var(--subtle)}
+.tfl-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin:0;padding:0;min-width:0}
+.tfl-stats > div{padding:6px 8px;border-radius:8px;background:var(--subtle);min-width:0;overflow:hidden}
 .tfl-stats dt{font-size:10px;font-weight:600;line-height:16px;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);white-space:nowrap}
-.tfl-stats dd{margin:0;font-size:13px;font-weight:600;line-height:20px;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap}
-.tfl-list{display:grid;gap:2px}
+.tfl-stats dd{margin:0;font-size:13px;font-weight:600;line-height:20px;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tfl-list{display:grid;gap:2px;min-width:0;max-width:100%}
 .tfl-list-title{font-size:10px;font-weight:500;line-height:16px;letter-spacing:.5px;text-transform:uppercase;color:var(--muted)}
-.tfl-list ul{display:grid;gap:2px;margin:0;padding:0;list-style:none}
+.tfl-list ul{display:grid;gap:2px;margin:0;padding:0;list-style:none;min-width:0;max-width:100%}
 .tfl-list li{display:flex;align-items:center;gap:8px;min-width:0;height:24px;font-size:12px;line-height:16px}
 .tfl-list-name{flex:1 1 auto;min-width:0;overflow:hidden;color:var(--ink);white-space:nowrap;text-overflow:ellipsis}
 .tfl-bar{flex:none;width:44px;height:4px;overflow:hidden;border-radius:2px;background:var(--subtle)}
@@ -491,7 +493,7 @@ try{ document.getElementById('tflTitle').textContent = TITLE; }catch(e){}
 /* ---------- layout (fixed geometry, computed once) ---------- */
 var CHW = 760;
 var COLX = [0, 290, 590], COLW = [170, 180, 170];
-var CARDH = [40, 76, 52], GAP = 8, CAPH = 28;
+var CARDH = [68, 76, 68], GAP = 8, CAPH = 28;
 var colNodes = [[], [], []];
 nodes.forEach(function(n){ colNodes[n.col].push(n); });
 var chartH = CAPH + 12;
@@ -914,11 +916,14 @@ function openDetail(key){
   if(n.col === 1 && left + wpx > CHW - 8) left = r.x - 12 - wpx;
   if(left < 4) left = 4;
   if(left + wpx > CHW - 4) left = CHW - 4 - wpx;
-  var top = Math.max(4, Math.min(chartH - 60, r.y + r.h/2 - 60));
+  var estH = 104 + (n.col === 1 ? 44 : 0) + lists.length*26;
+  lists.forEach(function(L){ estH += Math.min(3, L.rows.length)*26 + (L.rows.length > 3 ? 26 : 0); });
+  estH = Math.min(estH, chartH - 8);
+  var top = Math.max(4, Math.min(chartH - estH - 4, r.y + r.h/2 - estH/2));
   d.style.left = Math.round(left)+'px';
   d.style.top = Math.round(top)+'px';
   d.style.width = wpx+'px';
-  d.style.maxHeight = (chartH - 8)+'px';
+  d.style.maxHeight = (chartH - Math.round(top) - 4)+'px';
   /* capture-phase guard so inner clicks survive */
   d.addEventListener('pointerdown', function(ev){ ev.stopPropagation(); }, true);
   chart.appendChild(d);
@@ -930,6 +935,7 @@ document.addEventListener('pointerdown', function(ev){
   if(!state.open || !detail) return;
   var t = ev.target;
   try{
+    if(t && t.closest && t.closest('#themeToggle,#tflSwitch')) return;
     if(detail.contains(t)) return;
     var card = cardEls[state.open];
     if(card && (card === t || card.contains(t))) return;
@@ -1189,7 +1195,7 @@ try{
     fmt:{tok:fmtTok, short:fmtShort, cost:fmtCost, perK:fmtPerK, pct:fmtPct},
     setUnit:setUnit, toggleOpen:toggleOpen, setHover:setHover,
     targetsFor:targetsFor, nodeVals:nodeVals, grandTotals:grandTotals,
-    tick:onTick, render:render
+    applyTargets:applyTargets, tick:onTick, render:render
   };
 }catch(e){}
 /* default theme: original demo appearance is light; honour saved + system prefs */

@@ -505,9 +505,13 @@ body {
   var WAIT_RESULT = 'Waiting for result\u2026';
   var NO_DATA = 'No arguments or result.';
 
-  /* original demo timings: steps then loop restart */
+  /* original demo timings: steps then loop restart (demo-original.js: b=[0,1500,2700,4300,5400,6700,8000], x=11500).
+     Original error window is 2700->4300 (1600ms) — too short for a real mouse, so we hold/pause on error. */
   var STEP_AT = [1500, 2700, 4300, 5400, 6700, 8000];
   var LOOP_MS = 11500;
+  /* error hold: pause auto-advance on the error state so Retry can be clicked.
+     Original auto-advances after 1600ms; we hold up to 10s (fallback auto-recovers for unattended loops). */
+  var ERROR_HOLD_MS = 10000;
   var CODE_CAP = 220;
   var CODE_MAX = 640;
 
@@ -694,6 +698,7 @@ body {
   var groupOpen = true;
   var userTouchedGroup = false;
   var timers = [];
+  var errorHolding = false;   /* true while paused on the error state (step 2) */
   var cards = [];             /* live card objects in order */
   var group = null;
   var header = null;
@@ -937,8 +942,7 @@ body {
           rb.appendChild(iconRetry());
           rb.appendChild(document.createTextNode('Retry'));
           rb.addEventListener('click', function () {
-            step = Math.max(step, 3);
-            render();
+            resumeFromError(true);
           });
           box.appendChild(rb);
         }
@@ -1240,24 +1244,76 @@ body {
     for (var i = 0; i < timers.length; i++) clearTimeout(timers[i]);
     timers = [];
   }
+  /* Pause on the error state: clear pending auto-advance timers and wait for
+     Retry (or the fallback auto-recovery) so a real mouse can land on Retry. */
+  function holdOnError() {
+    if (errorHolding) return;
+    errorHolding = true;
+    clearTimers();
+    timers.push(setTimeout(function () {
+      resumeFromError(false);
+    }, ERROR_HOLD_MS));
+  }
+  /* Retry (manual) or fallback (automatic) recovery: step 2 -> 3, then replay
+     the remaining original gaps (1100/1300/1300/3700/7200ms) so the 11.5s loop
+     choreography is preserved after the hold. */
+  function resumeFromError(manual) {
+    void manual;
+    if (step !== 2 && !errorHolding) return;
+    errorHolding = false;
+    clearTimers();
+    step = Math.max(step, 3);
+    render();
+    var gaps = [
+      { to: 4, at: 1100 },   /* 5400-4300: fetch succeeds */
+      { to: 5, at: 2400 },   /* 6700-4300: deals succeed */
+      { to: 6, at: 3700 }    /* 8000-4300: done */
+    ];
+    for (var i = 0; i < gaps.length; i++) {
+      (function (g) {
+        timers.push(setTimeout(function () {
+          if (g.to > step) { step = g.to; render(); }
+          if (g.to === 6) holdCollapse();
+        }, g.at));
+      })(gaps[i]);
+    }
+    timers.push(setTimeout(function () {
+      restartLoop();
+    }, 7200));               /* 11500-4300: loop restarts */
+  }
+  function holdCollapse() {
+    if (!userTouchedGroup) { groupOpen = false; renderGroup(); }
+  }
+  /* Fresh loop start (matches the original remount on generation change:
+     clocks reset so the elapsed timer never runs past one loop). */
+  function restartLoop() {
+    step = 0;
+    errorHolding = false;
+    userTouchedGroup = false;
+    groupOpen = true;
+    if (group) { group.clock.base = 0; group.clock.start = null; group.lastTime = null; }
+    render();
+    schedule();
+  }
   function schedule() {
     clearTimers();
+    errorHolding = false;
     for (var i = 0; i < STEP_AT.length; i++) {
       (function (n) {
         timers.push(setTimeout(function () {
-          if (n + 1 > step) { step = n + 1; render(); }
+          if (n + 1 > step) {
+            step = n + 1;
+            render();
+            if (step === 2) holdOnError();
+          }
         }, STEP_AT[n]));
       })(i);
     }
     timers.push(setTimeout(function () {
-      if (!userTouchedGroup) { groupOpen = false; renderGroup(); }
+      holdCollapse();
     }, STEP_AT[STEP_AT.length - 1]));
     timers.push(setTimeout(function () {
-      step = 0;
-      userTouchedGroup = false;
-      groupOpen = true;
-      render();
-      schedule();
+      restartLoop();
     }, LOOP_MS));
   }
 

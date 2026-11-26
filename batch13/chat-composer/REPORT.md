@@ -46,3 +46,39 @@ are adjusted for dark (`#fbbf24` on `#451a03`, text `#fde68a`).
   in both; dark token set present in CSS. Page not screenshot-checked in a real
   browser (headless Chrome unavailable here) — open `index.html` in a browser
   to review visually.
+
+## Browser-QA fix 2026-11-26 — model-menu descriptions cut off
+- QA finding (confirmed, not one of the two prior false positives): model menu
+  opened with Auto (checked), Claude, ChatGPT, but descriptions painted
+  truncated mid-word (`Picks the best model for each t…`,
+  `Quick answers for everyday ta…`).
+- Ground truth checked first in `demo-original.js` (in-dir): verbatim
+  descriptions match (`Picks the best model for each task`,
+  `Thoughtful writing and code`, `Quick answers for everyday tasks`); timings
+  match (`1300ms` approval, `320ms` word, `120ms` trace, 16 bars). Original CSS
+  also uses `white-space:nowrap;overflow:hidden;text-overflow:ellipsis` for
+  `.ui-chat-composer__option-desc`, but its menu is `1100*u` (~297px at
+  `u=0.27px`) giving ~776u text width, enough for the ~704u longest desc to
+  fit single-line. Replica used `width:280px` with larger chrome (22px logo +
+  17px check + 24px opt padding + 12px panel padding), leaving only ~185px for
+  12px text (~192px needed) — so ellipsis triggered where the original fits.
+  Real defect, not a QA false alarm.
+- Root causes: (1) menu too narrow (280px vs ~297px original); (2) `.opt-desc`
+  hard single-line ellipsis with no wrap fallback, so any font-metric
+  difference clips mid-word.
+- Fix in `index.html` (CSS-only, no JS/DOM change): `.menu{width:340px}`
+  (mobile `min(340px,calc(100vw - 40px))`); `.opt-desc` now
+  `white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:break-word;line-height:1.35`
+  so every description paints in full (single-line at desktop, wrapped fallback
+  when narrow). Same tokens in both themes; hard-won rules untouched (no tick
+  rebuild, pointerdown-capture open, `[hidden]{display:none}`, SVG
+  `setAttribute`).
+- Harness (`verify.cjs`, node-only, in-dir): fixed script extraction to use the
+  last `<script>` block (first is noflash; greedy match previously pulled HTML
+  and threw `Unexpected token '<'`). Added static FIX asserts (`.opt-desc`
+  wraps, no nowrap/ellipsis, menu >=320px) plus VISIBLE painted asserts in
+  LIGHT and DARK: open model menu (unhidden) and require full strings
+  `Picks the best model for each task`, `Thoughtful writing and code`,
+  `Quick answers for everyday tasks` in visible text in each theme.
+- Result: `node verify.cjs` → **ALL CHECKS PASSED** (light + dark painted
+  descs pass, specific fix asserts pass).

@@ -75,7 +75,7 @@ body{
 .q-switch button{
   border:1px solid var(--border); background:var(--surface); color:var(--muted);
   border-radius:999px; padding:5px 12px; font:inherit; font-size:12.5px; cursor:pointer;
-  transition:all 160ms ease; max-width:100%; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;
+  transition:all 160ms ease; max-width:100%; white-space:normal; overflow:visible; text-overflow:clip; text-align:start; overflow-wrap:anywhere;
 }
 .q-switch button:hover{color:var(--ink); border-color:var(--faint)}
 .q-switch button[aria-current="true"]{background:var(--ink); border-color:var(--ink); color:var(--page)}
@@ -415,6 +415,7 @@ var state = {
   shown: 0, shownFloat: 0, rafId: 0, timers: [],
   entries: [], caret: null, elapsed: 0, t0: 0,
   feedback: null, thanked: null, copied: false, popIds: null, popTimer: 0,
+  popOpenedAt: 0, popWasOpenOnPointer: false,
   reduced: false, done: false
 };
 var refs = {};
@@ -483,6 +484,11 @@ function buildShell(){
   });
   reasons.appendChild(rdiv);
   var pop = el('div', 'ai__pop'); pop.setAttribute('role', 'tooltip'); pop.setAttribute('hidden', ''); refs.pop = pop;
+  // Click-pinned popover stays while the pointer is over it (matches original
+  // onMouseEnter-clear / onMouseLeave-close); Escape dismisses.
+  pop.addEventListener('mouseenter', function(){ if (state.popTimer){ clearTimeout(state.popTimer); state.popTimer = 0; } });
+  pop.addEventListener('mouseleave', schedulePopClose);
+  pop.addEventListener('keydown', function(e){ if (e && e.key === 'Escape') closePop(); });
   inner.appendChild(q); inner.appendChild(src); inner.appendChild(lab); inner.appendChild(ans);
   inner.appendChild(fol); inner.appendChild(foot); inner.appendChild(reasons);
   card.appendChild(inner); tray.appendChild(card); root.appendChild(tray); root.appendChild(pop);
@@ -551,12 +557,29 @@ function tokenNode(tok){
   nm = el('span', 'ai__cite-name', first.name);
   b.appendChild(nm);
   if (tok.ids.length > 1){ more = el('span', 'ai__cite-more', '+' + (tok.ids.length - 1)); b.appendChild(more); }
-  b.addEventListener('pointerdown', function(e){ openPop(tok.ids, b); }, true);
+  b.addEventListener('pointerdown', function(e){
+    // Capture open (replica rule). Do not reset the open timestamp when the
+    // same pop is already open, so a second click can still toggle it closed.
+    var already = !refs.pop.hasAttribute('hidden') && sameIds(state.popIds, tok.ids);
+    state.popWasOpenOnPointer = already;
+    if (!already) openPop(tok.ids, b);
+    else { if (state.popTimer){ clearTimeout(state.popTimer); state.popTimer = 0; } setLit(tok.ids); }
+  }, true);
   b.addEventListener('mouseenter', function(e){ openPop(tok.ids, b); });
   b.addEventListener('mouseleave', schedulePopClose);
   b.addEventListener('focus', function(){ openPop(tok.ids, b); });
   b.addEventListener('blur', schedulePopClose);
-  b.addEventListener('click', function(e){ togglePop(tok.ids, b); });
+  b.addEventListener('click', function(e){
+    // A real click is pointerdown + click. When pointerdown just opened a
+    // closed pop, the click must keep it open (not instantly toggle closed).
+    if (!state.popWasOpenOnPointer){
+      state.popWasOpenOnPointer = false;
+      openPop(tok.ids, b);
+      return;
+    }
+    state.popWasOpenOnPointer = false;
+    togglePop(tok.ids, b);
+  });
   b.addEventListener('keydown', function(e){ if (e && e.key === 'Escape') closePop(); });
   b._citeIds = tok.ids;
   return b;
@@ -585,9 +608,15 @@ function setLit(ids){
     if (h2) cc.setAttribute('data-lit', ''); else cc.removeAttribute('data-lit');
   }
 }
+function sameIds(a, b){
+  if (!a || !b || a.length !== b.length) return false;
+  for (var k = 0; k < a.length; k++) if (a[k] !== b[k]) return false;
+  return true;
+}
 function openPop(ids, anchor){
   if (state.popTimer){ clearTimeout(state.popTimer); state.popTimer = 0; }
   state.popIds = ids.slice();
+  try { state.popOpenedAt = nowMs(); } catch (e){ state.popOpenedAt = 0; }
   setLit(ids);
   var pop = refs.pop;
   pop.innerHTML = '';
@@ -621,8 +650,15 @@ function schedulePopClose(){
   state.popTimer = setTimeout(function(){ closePop(); }, POP_CLOSE_MS);
 }
 function togglePop(ids, anchor){
-  var same = state.popIds && state.popIds.length === ids.length && state.popIds.every(function(v, i){ return v === ids[i]; });
-  if (same && !refs.pop.hasAttribute('hidden')) closePop(); else openPop(ids, anchor);
+  var same = sameIds(state.popIds, ids);
+  if (same && !refs.pop.hasAttribute('hidden')){
+    // Guard: a click that immediately follows a pointerdown-open of the same
+    // pop (same gesture, <600ms) must keep it open, not flash closed.
+    try {
+      if (state.popOpenedAt && (nowMs() - state.popOpenedAt) < 600){ openPop(ids, anchor); return; }
+    } catch (e){}
+    closePop();
+  } else openPop(ids, anchor);
 }
 function closePop(){
   if (state.popTimer){ clearTimeout(state.popTimer); state.popTimer = 0; }
@@ -638,6 +674,7 @@ function startCycle(){
   state.phase = 'reading'; state.shown = 0; state.shownFloat = 0;
   state.entries = []; state.caret = null; state.elapsed = 0;
   state.feedback = null; state.thanked = null; state.copied = false;
+  state.popOpenedAt = 0; state.popWasOpenOnPointer = false;
   refs.caretPh = null; refs.citeList = [];
   state.t0 = nowMs(); state.done = false;
   buildShell();
@@ -796,9 +833,13 @@ function renderFoot(){
   refreshFoot();
 }
 function refreshFoot(){
+  // Original display condition: reasons paint only after Bad answer (down)
+  // and hide again once a reason is chosen (thanked). Matches demo-original.js
+  // data-open = feedback==='down' && !thanked.
   var open = state.feedback === 'down' && !state.thanked;
   refs.reasons.setAttribute('data-open', open ? 'true' : 'false');
-  var btns = refs.reasons.firstChild ? refs.reasons.firstChild.childNodes : [];
+  var holder = refs.reasons.firstChild;
+  var btns = holder ? (holder.children || holder.childNodes || []) : [];
   for (var i = 0; i < btns.length; i++){
     if (btns[i].setAttribute) btns[i].setAttribute('tabindex', open ? '0' : '-1');
   }
@@ -818,7 +859,7 @@ function syncQSwitch(){
   if (!box) return;
   box.innerHTML = '';
   ORDER.forEach(function(k){
-    var b = el('button', null, k.length > 42 ? k.slice(0, 42) + '\u2026' : k);
+    var b = el('button', null, k);
     b.setAttribute('type', 'button'); b.setAttribute('title', k);
     if (k === state.question) b.setAttribute('aria-current', 'true');
     b.addEventListener('click', function(){ if (state.question !== k){ state.question = k; syncQSwitch(); startCycle(); } });
@@ -848,6 +889,8 @@ function boot(){
   initTheme();
   var tg = document.getElementById('themeToggle');
   if (tg) tg.addEventListener('click', function(){
+    // Theme switch must never replay/restart the answer: only flip the
+    // data-theme attribute + icons, never touch state.timers/raf/phase.
     var cur = rootEl ? rootEl.getAttribute('data-theme') : 'light';
     applyTheme(cur === 'dark' ? 'light' : 'dark');
   });

@@ -53,17 +53,50 @@ latency breakdown panel.
   via `setAttribute`, no browser launched (node-only verification).
 
 ## Verification
-- `node --check` on the extracted page script: **passes**.
+- `node --check` on the extracted page script: **passes** (extracted as the
+  longest `<script>` block, since `<head>` now also holds the tiny `/*noflash*/`
+  guard — the old greedy first-to-last `match` broke after the guard was added).
 - `node harness.cjs` (in-dir DOM-stub harness with virtual timers + fake DOM,
   advances through the **full loop**: turns 1–4, interrupt, pause-freeze,
   barge-in, ended, restart, menu, budget switch, dark/light toggle):
-  **71 passed, 0 failed**. Assertions check *visible* text (hidden ancestors and
+  **97 passed, 0 failed**. Assertions check *visible* text (hidden ancestors and
   `display:none`/`visibility:hidden` excluded) plus a CSS audit (no text-bearing
   class hidden by author CSS outside responsive queries; required tokens and
   `[hidden]` rule present; no network references).
 - Light **and** dark checked: theme toggle flips `data-theme`, transcript/badge/
   big-number stay visible in dark, dark token values asserted.
+- Browser-QA note regression (theme must not reset demo): mid-loop (Turn 8,
+  speaking) the harness clicks the toggle light→dark and dark→light and asserts
+  synchronously that `S.repl` / `ctl.run` / `S.turns.length` / words / status are
+  untouched, that `vsn-theme` persists (`dark`/`light`), and that after +3 s in
+  each theme the generation/turn-count never shrink and the turn label moves
+  forward (never back to `Waiting`/prehistory) with transcript/badge/big-number
+  still visibly painted.
+
+## Browser-QA fix (2026-11-26) — theme toggle must not reset demo state
+- Ground truth first (`demo-original.js`): the original ships **no theme-toggle
+  JS at all** — only 2 `data-theme` hits, both CSS `:where(.dark,
+  [data-theme="dark"])` overrides. Theme is an external shell concern and is
+  CSS-only, so it can never restart the demo; the loop (`useEffect(…, [p])`,
+  ending with `a("ended")`, 3200 ms outro, then replay-key increment) has zero
+  theme dependency, and its timers are pause-aware. So the QA requirement is
+  valid: theme changes must be pure `data-theme` flips.
+- Root causes in the replica: (1) the theme click handler never persisted the
+  choice (`localStorage` never written, so a reload always lost the theme), and
+  (2) the `/*noflash*/` guard injected later was generated with an empty key
+  (`var t=null`, no `localStorage.getItem`) because there was no `*-theme` key
+  to detect — first paint could never restore a stored theme. Neither path
+  touched demo state (`S`/`ctl`/`cols`/`runDemo`), but without persistence and
+  without a continuity assertion the QA note could not be proven fixed.
+- Fix (theme-only, demo untouched): added `THEME_KEY="vsn-theme"`; the toggle
+  now only flips `document.documentElement[data-theme]`, persists it, and
+  repaints the sun/moon icon — zero references to demo state; `init()` restores
+  a stored theme (if any) before first paint logic runs, keeping the PASSED
+  default (**light**, the original demo's appearance) for first-time visitors.
+  No timer/loop/render code was changed.
+- Harness also repaired: script/style extraction now takes the longest
+  `<script>` block and joins all `<style>` blocks (head-guard-safe).
 
 ## How to test
 Open `index.html` in a browser. To re-run the automated checks:
-`node -e "const r=require('fs').readFileSync('index.html','utf8').match(/<script>([\s\S]*)<\/script>/);require('fs').writeFileSync('verify-script.js',r[1])" && node --check verify-script.js && node harness.cjs`
+`node -e "const fs=require('fs'),html=fs.readFileSync('index.html','utf8');const src=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m=>m[1]).reduce((a,b)=>a.length>=b.length?a:b);fs.writeFileSync('verify-script.js',src)" && node --check verify-script.js && node harness.cjs`
