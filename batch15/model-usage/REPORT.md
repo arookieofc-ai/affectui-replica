@@ -20,6 +20,37 @@
 - Loop: 14s display → 400ms fade (`data-fading`, opacity .55) → replay rise (760ms) + continue; pause on hover (`pointerenter/leave`) or focus (`contains(activeElement)` → retry 500ms); roll animation 520ms; tab stagger 60ms; keyboard Arrow/Home/End/Escape with roving tabindex; tight-values hide via ResizeObserver guard.
 - No agent identities in this component, so 3×3 pixel-marks (EXACTLY 9 cells) do not apply — noted, not invented.
 
+## QA fix — stacked bars / task fills painted nothing (2026-11-26)
+- Symptom (browser QA, painted pixels): the stacked bars for all four companies
+  NEVER PAINTED in either theme — the chart area showed only the 5M/2.5M/0
+  gridlines and the numeric totals; the Tasks row showed only the light track
+  with no fill. Hover hotspots worked (tooltip identified models), so bar
+  hit-areas existed but the segments rendered nothing.
+- Root cause: JS/CSS custom-property NAME MISMATCH. The stylesheet reads short
+  names — `.ui-mu__stack{height:var(--h)}`,
+  `.ui-mu__value{bottom:calc(var(--h) + 6px)}`,
+  `.ui-mu__stack>i{background:color-mix(in srgb,var(--c) calc(var(--s)*100%),var(--card))}`,
+  `.ui-mu__tip li>i` (same), `.ui-mu__task-bar>i{background:var(--k)}`,
+  `.ui-mu__icon{color:var(--k);background:color-mix(...var(--k)...)}`,
+  `.ui-mu__tip{left:var(--x,50%)}` — but the script wrote prefixed names
+  `--ui-mu-h/--ui-mu-c/--ui-mu-s/--ui-mu-x/--ui-mu-k` (12 sites). Every one of
+  those `var()` lookups resolved to unset → `height` invalid (zero-height
+  stacks), `color-mix`/`background` invalid (no fill), tooltip `--x` fell back
+  to the 50% default. Track (`--tag`) and grid/text still painted, exactly
+  matching the report.
+- Fix (index.html JS only, 12 `setProperty` names, no CSS/markup change):
+  `--ui-mu-c→--c`, `--ui-mu-s→--s`, `--ui-mu-h→--h`, `--ui-mu-x→--x`,
+  `--ui-mu-k→--k`. Now every stack segment PAINTS with its company colour at
+  its opacity step and correct proportional flex-basis share (Anthropic
+  81.2%/53.7-30.5-15.8, OpenAI 55.2%, Google 39.6%, xAI 19.2% over the 5M
+  ceiling; segments sum 100%), task fills paint at 39.9/24.1/22.7/13.3%
+  (sum 100%), in BOTH themes (vars are inline, theme-independent).
+- Preserved: light AND dark tokens/toggle, `/*noflash*/` guard first in head,
+  in-place updates only (zero innerHTML writes, node identity across loop +
+  metric switch), v5 polish (both `:hover` rules remain inside
+  `@media (hover:hover) and (pointer:fine)`, tap-highlight transparent,
+  tabular-nums) — all re-asserted by the harness.
+
 ## Verification (node only, no browser)
 - `node --check` on extracted main script: OK. `node --check` on noflash: OK. `node --check harness.js`: OK.
 - In-dir stub `harness.js` loads page script with fake DOM, advances timers through full loop (14s+400ms), asserts:
@@ -27,7 +58,10 @@
   - Node identity: 4 column + value nodes `===` before/after full loop and after tab switch.
   - `innerHTMLWrites===0` after init.
   - Light + dark: toggle flips `data-theme`, totals/companies/tasks stay visible in both.
-- Result: all harness checks passed.
+- Result: all harness checks passed (incl. per-segment non-zero flexBasis +
+  resolved --c/--s, per-column non-zero --h + resolved --c, per-task non-zero
+  fill width + resolved --k, tooltip dots --c/--s + --x in-chart, same paint
+  assertions re-run under data-theme="dark").
 
 ## How to test
 - `node --check` extracted script, `node ./harness.js` in this directory.

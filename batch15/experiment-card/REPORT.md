@@ -16,6 +16,19 @@ Layout matches the original: header (mini bar chart + title/status/note + leader
 ## In-place updates
 DOM built once (`buildOnce`); timers only mutate text/`data-*`/`aria-*`/styles on existing nodes. No `innerHTML`/`outerHTML` anywhere. Hover/focus only updates dims + caption.
 
+## QA fix (2026-11-26) — theme toggle must preserve pinned/expanded state
+Failure: Browser QA FAILED (minor, painted pixels): hover expands, click pins, A/B/C rows, amounts, winner badge all paint EXCEPT pinned/expanded state is LOST on theme toggle — card collapses, must be re-hovered/clicked.
+
+Root cause: page-level sun/moon toggle lives outside the card. The card outside-close handler (document pointerdown capture: if not root.contains(target) then setOpen(false)) treated a click on #themeToggle as an outside click and collapsed the card. setTheme itself was already theme-only, but the click path reset interaction state.
+
+Fix (in-place, theme-only toggle):
+- state gains pinned:false. Toggle click is now pause(); setOpen(n); state.pinned=n — click-pin is explicit.
+- scheduleClose() early-returns when pinned, and the delayed close re-checks pinned — pinned cards survive pointerleave (e.g. moving mouse to top-right toggle).
+- document pointerdown outside handler now ignores #themeToggle (self or descendant): theme clicks return early, never clear pinned nor call setOpen(false). True outside clicks still clear pinned and close.
+- Escape clears pinned then closes.
+- setTheme(t) is explicitly theme-only: sets documentElement data-theme + localStorage xc-theme + paintToggle() (aria-label + sun/moon hidden). No writes to state.open/pinned/winner/metric/hover, no render calls.
+- Preserved: light AND dark themes, /*noflash*/ guard, in-place updates only (no innerHTML/outerHTML), v5 polish (hover only inside @media (hover:hover) and (pointer:fine), -webkit-tap-highlight-color transparent, tabular-nums).
+
 ## Verification (node only, in-dir)
 - `node --check .extracted.js` → OK.
 - `node verify.cjs` (in-dir DOM stub, mock timers) → **ALL CHECKS PASSED**:
@@ -25,6 +38,7 @@ DOM built once (`buildOnce`); timers only mutate text/`data-*`/`aria-*`/styles o
   - Identity: root/toggle/lead/caption/cols/rows/value nodes `===` across full loop; `__innerHTMLWrites===0` after init and after loop.
   - Hover `B · 4,812 visitors · 96% confidence`, control `baseline`, winner `Ship B` shows/hides.
   - Light AND dark: `setTheme('dark'/'light')` flips `data-theme`, toggle icon/aria updates, dark tokens present.
+  - Pinned-theme regression (VISIBLE PAINTED only): pin via real toggle click, winner B on Revenue, assert data-open present + aria-expanded true + painted revenue A 18.40 / C 21.60 + leader C +17.4% + Ship B + Try it free picked in light, then setTheme(dark) same painted, then fire captured document pointerdown with target #themeToggle still open/pinned + same painted, then setTheme(light) same painted (full light->dark->light with zero collapse). setTheme source has no state.open/pinned/setOpen writes.
 
 ## How to test
 Open `index.html` in a browser. Watch auto-loop (opens, cycles Revenue→Bounce→Conversion, closes); hover chart/rows for confidence captions; click card to pin; click a row to pick winner → `Ship X` appears; toggle sun/moon for dark mode. No server needed.

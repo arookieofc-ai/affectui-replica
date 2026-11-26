@@ -183,7 +183,7 @@ function bestVar(m){var best=null,bs=-Infinity;for(var i=0;i<VARIANTS.length;i++
 function leaderVar(m){var f=bestVar(m);var b=baseVar();if(!f||f===b)return null;var a=adjLift(f,m);if(a===null||a<=0)return null;return f}
 function normSize(v,m){var vals=[];for(var i=0;i<VARIANTS.length;i++){if(hasVal(VARIANTS[i],m))vals.push(VARIANTS[i].values[m])}if(!vals.length)return 0.1;var L=Math.max.apply(null,vals),R=Math.min.apply(null,vals);if(!hasVal(v,m))return 0.1;if(!(L>R))return 0.7;return 0.38+0.62*((v.values[m]-R)/(L-R))}
 function maxVal(m){var vals=[];for(var i=0;i<VARIANTS.length;i++){if(hasVal(VARIANTS[i],m))vals.push(VARIANTS[i].values[m])}return vals.length?Math.max.apply(null,vals):1}
-var state={open:false,metric:"conversion",winner:null,hover:null,paused:false};
+var state={open:false,metric:"conversion",winner:null,hover:null,paused:false,pinned:false};
 var displayed={};
 for(var di=0;di<VARIANTS.length;di++){displayed[VARIANTS[di].id]=VARIANTS[di].values[state.metric]}
 var root=$("xc"),demo=$("demo"),toggle=$("xcToggle"),chart=$("xcChart"),lead=$("xcLead"),leadKey=$("xcLeadKey"),leadNum=$("xcLeadNum"),leadArrow=$("xcLeadArrow"),cap=$("xcCap"),action=$("xcAction"),actionText=$("xcActionText"),sw=$("xcSwitch"),thumb=$("xcThumb"),rowsBox=$("xcRows"),foldBody=$("xcFoldBody"),foldFoot=$("xcFoldFoot");
@@ -315,7 +315,7 @@ try{action.setAttribute("title","Ship "+win.key)}catch(e){}}
 else{try{action.hidden=true}catch(e){action.setAttribute("hidden","")}}}
 var openT=null,closeT=null;
 function scheduleOpen(){try{window.clearTimeout(closeT)}catch(e){}try{window.clearTimeout(openT)}catch(e){}openT=window.setTimeout(function(){setOpen(true)},90)}
-function scheduleClose(){try{window.clearTimeout(openT)}catch(e){}try{window.clearTimeout(closeT)}catch(e){}closeT=window.setTimeout(function(){setOpen(false)},220)}
+function scheduleClose(){if(state.pinned)return;try{window.clearTimeout(openT)}catch(e){}try{window.clearTimeout(closeT)}catch(e){}closeT=window.setTimeout(function(){if(state.pinned)return;setOpen(false)},220)}
 /* demo auto-loop exactly like original: 700ms then every 2200ms cycle 5 */
 var step=0,iv=null,to=null;
 function tick(){if(state.paused)return;step=(step+1)%5;
@@ -328,13 +328,13 @@ function pause(){state.paused=true}
 buildOnce();renderAll();
 try{foldBody.setAttribute("inert","")}catch(e){}
 try{foldFoot.setAttribute("inert","")}catch(e){}
-try{toggle.addEventListener("click",function(){pause();setOpen(!state.open)})}catch(e){}
+try{toggle.addEventListener("click",function(){pause();var n=!state.open;setOpen(n);state.pinned=n})}catch(e){}
 try{root.addEventListener("pointerenter",function(e){if(e&&e.pointerType&&e.pointerType!=="mouse")return;scheduleOpen()})}catch(e){}
 try{root.addEventListener("pointerleave",function(e){if(e&&e.pointerType&&e.pointerType!=="mouse")return;scheduleClose()})}catch(e){}
 try{chart.addEventListener("pointerleave",function(){setHover(null)})}catch(e){}
 try{rowsBox.addEventListener("pointerleave",function(){setHover(null)})}catch(e){}
-try{document.addEventListener("pointerdown",function(e){if(!state.open)return;try{if(root.contains(e.target))return}catch(err){return}setOpen(false)},true)}catch(e){}
-try{root.addEventListener("keydown",function(e){if(e&&e.key==="Escape"&&state.open){if(e.stopPropagation)e.stopPropagation();setOpen(false);try{toggle.focus({preventScroll:true})}catch(_){try{toggle.focus()}catch(__){}}}})}catch(e){}
+try{document.addEventListener("pointerdown",function(e){if(!state.open)return;try{if(root.contains(e.target))return}catch(err){return}try{var tt0=$("themeToggle");if(tt0&&(e.target===tt0||(tt0.contains&&tt0.contains(e.target))))return}catch(_){}state.pinned=false;setOpen(false)},true)}catch(e){}
+try{root.addEventListener("keydown",function(e){if(e&&e.key==="Escape"&&state.open){if(e.stopPropagation)e.stopPropagation();state.pinned=false;setOpen(false);try{toggle.focus({preventScroll:true})}catch(_){try{toggle.focus()}catch(__){}}}})}catch(e){}
 try{sw.addEventListener("keydown",function(e){var idx=-1;for(var i=0;i<METRICS.length;i++)if(METRICS[i].id===state.metric)idx=i;var n=null;
 if(e.key==="ArrowRight")n=idx+1;else if(e.key==="ArrowLeft")n=idx-1;else if(e.key==="Home")n=0;else if(e.key==="End")n=METRICS.length-1;else return;
 if(e.preventDefault)e.preventDefault();var m=METRICS[(n+METRICS.length)%METRICS.length];setMetric(m.id);
@@ -349,7 +349,7 @@ var tt=$("themeToggle"),isun=$("iconSun"),imoon=$("iconMoon");
 function curTheme(){try{return document.documentElement.getAttribute("data-theme")||"light"}catch(e){return "light"}}
 function paintToggle(){var t=curTheme();try{tt.setAttribute("aria-label",t==="dark"?"Switch to light theme":"Switch to dark theme")}catch(e){}
 try{if(isun&&imoon){if(t==="dark"){isun.hidden=true;imoon.hidden=false}else{isun.hidden=false;imoon.hidden=true}}}catch(e){}}
-function setTheme(t){try{document.documentElement.setAttribute("data-theme",t)}catch(e){}try{localStorage.setItem("xc-theme",t)}catch(e){}paintToggle()}
+function setTheme(t){/* theme-only: never touches state.open/pinned/winner/metric/hover */try{document.documentElement.setAttribute("data-theme",t)}catch(e){}try{localStorage.setItem("xc-theme",t)}catch(e){}paintToggle()}
 try{tt.addEventListener("click",function(){setTheme(curTheme()==="dark"?"light":"dark")})}catch(e){}
 try{tt.addEventListener("pointerdown",function(){},true)}catch(e){}
 paintToggle();
