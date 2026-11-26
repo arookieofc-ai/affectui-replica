@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script>/*noflash*/try{var __k='tf-theme';var __t=null;try{__t=localStorage.getItem(__k);}catch(e){}if(!__t){try{__t=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}catch(e){__t='light';}}if(__t!=='light'&&__t!=='dark'){__t='light';}document.documentElement.setAttribute('data-theme',__t);}catch(e){document.documentElement.setAttribute('data-theme','light');}</script>
+<style>html{background:#fafaf9}html[data-theme="dark"]{background:#101012}</style>
+<meta name="color-scheme" content="light dark">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Text Field — affectUI</title>
+<style>
+:root{
+  --surface:#ffffff;
+  --page:#fafaf9;
+  --ink:#171717;
+  --ink-2:#1c1917;
+  --muted:#78716c;
+  --subtle:#f5f5f4;
+  --border:#e7e5e4;
+  --radius-lg:16px;
+  --radius:10px;
+  --radius-sm:6px;
+  --shadow:0 1px 2px rgba(0,0,0,.05),0 4px 16px rgba(0,0,0,.05);
+  --danger:#c4320a;
+  --danger-edge:#ff8a7a;
+  --danger-focus:#f04438;
+  --danger-wash:rgba(240,68,56,.06);
+  --success:#1e8a4f;
+  --focus:rgba(0,96,226,.7);
+  --waiting:#f59e0b;
+  --waiting-bg:#fef3c7;
+  --waiting-text:#92400e;
+  --tf-h:36px;
+  --tf-px:12px;
+  --tf-fs:13.5px;
+  --font:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+html[data-theme="dark"]{
+  --surface:#1c1c1f;
+  --page:#101012;
+  --ink:#ededed;
+  --ink-2:#ededed;
+  --muted:#a1a1aa;
+  --subtle:#26262a;
+  --border:#2e2e33;
+  --shadow:0 1px 2px rgba(0,0,0,.5),0 8px 24px rgba(0,0,0,.45);
+  --danger:#ff8a7a;
+  --danger-edge:rgba(255,107,95,.55);
+  --danger-focus:rgba(255,99,105,.75);
+  --danger-wash:rgba(255,107,95,.08);
+  --success:#7dcf9f;
+  --focus:rgba(77,141,255,.8);
+  --waiting:#fbbf24;
+  --waiting-bg:#451a03;
+  --waiting-text:#fde68a;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  font-family:var(--font);
+  font-size:14px;
+  line-height:20px;
+  background:var(--page);
+  color:var(--ink);
+  -webkit-font-smoothing:antialiased;
+  min-height:100vh;
+}
+[hidden]{display:none!important}
+.page{max-width:680px;margin:0 auto;padding:20px 16px 48px}
+.topbar{display:flex;align-items:flex-start;gap:12px;margin:6px 0 14px}
+.topbar__titles{flex:1;min-width:0}
+.eyebrow{font-size:12px;color:var(--muted);letter-spacing:.02em;margin:0 0 4px}
+h1{font-size:16px;line-height:22px;font-weight:600;margin:0;color:var(--ink)}
+.sub{font-size:13px;color:var(--muted);margin:4px 0 0;max-width:52ch}
+.theme-btn{
+  flex:none;display:inline-flex;align-items:center;gap:8px;
+  border:1px solid var(--border);background:var(--surface);color:var(--ink);
+  border-radius:999px;padding:7px 12px;font:inherit;font-size:13px;cursor:pointer;
+  box-shadow:var(--shadow);transition:transform 160ms ease,background-color 160ms ease,border-color 160ms ease;
+}
+@media (hover: hover) and (pointer: fine) {
+.theme-btn:hover{transform:translateY(-1px)}
+}
+.theme-btn:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.theme-btn svg{display:block}
+.card{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);
+  box-shadow:var(--shadow);padding:16px;transition:border-color 170ms ease,transform 170ms ease;
+}
+@media (hover: hover) and (pointer: fine) {
+.card:hover{transform:translateY(-1px)}
+}
+.card__head{display:flex;align-items:baseline;gap:10px;margin:0 0 4px;padding:0 2px}
+.card__title{font-size:15px;font-weight:600;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card__meta{margin-left:auto;font-size:12px;color:var(--muted);flex:none}
+.demo-form{display:flex;flex-direction:column;gap:18px;margin-top:12px}
+/* ---- text field (clean-room styles, same behaviour as demo) ---- */
+.ui-tf{display:flex;flex-direction:column;gap:7px;min-width:0;font-size:13.5px;line-height:20px;color:var(--ink)}
+.ui-tf__head{display:flex;align-items:baseline;gap:6px;min-width:0;padding:0 2px}
+.ui-tf__label{font-size:13px;font-weight:500;color:var(--ink);min-width:0;overflow-wrap:anywhere}
+.ui-tf__optional{flex:none;font-size:12px;line-height:16px;color:var(--muted)}
+.ui-tf__box{
+  display:flex;align-items:center;gap:6px;
+  height:var(--tf-h);min-width:0;
+  padding-left:var(--tf-px);padding-right:calc(var(--tf-px) - 6px);
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  box-shadow:0 1px 2px rgba(0,0,0,.04);
+  cursor:text;transition:border-color 160ms ease,background-color 160ms ease,box-shadow 160ms ease;
+}
+.ui-tf__box.no-actions{padding-right:var(--tf-px)}
+@media (hover: hover) and (pointer: fine) {
+.ui-tf__box:hover{border-color:var(--muted)}
+}
+.ui-tf__box:focus-within{border-color:var(--muted);outline:2px solid var(--focus);outline-offset:-1px}
+.ui-tf[data-invalid="true"] .ui-tf__box{background:var(--danger-wash);border-color:var(--danger-edge)}
+.ui-tf[data-invalid="true"] .ui-tf__box:focus-within{border-color:var(--danger-focus);outline-color:var(--danger-focus)}
+.ui-tf[data-readonly="true"] .ui-tf__box{background:var(--subtle);cursor:default}
+.ui-tf[data-disabled="true"]{opacity:.55}
+.ui-tf__input{
+  flex:1 1 auto;min-width:0;height:100%;margin:0;padding:0;border:0;outline:0;
+  background:transparent;font:inherit;font-size:var(--tf-fs);color:var(--ink);text-overflow:ellipsis;
+}
+.ui-tf__box.has-affix .ui-tf__input{flex-basis:6em}
+.ui-tf__input::placeholder{color:var(--muted);opacity:.75}
+.ui-tf__affix{
+  display:inline-flex;align-items:center;min-width:0;max-width:70%;
+  font-size:var(--tf-fs);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;user-select:none;flex:0 1 auto;
+}
+.ui-tf__affix[data-side="end"]{max-width:40%}
+.ui-tf__affix-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ui-tf__action{
+  display:grid;place-items:center;flex:none;
+  width:26px;height:26px;padding:0;margin:0;border:0;border-radius:7px;
+  background:transparent;color:var(--muted);cursor:pointer;
+  transition:background-color 140ms ease,color 140ms ease;
+}
+@media (hover: hover) and (pointer: fine) {
+.ui-tf__action:hover:not(:disabled){background:var(--subtle);color:var(--ink)}
+}
+.ui-tf__action:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
+.ui-tf__action:disabled{opacity:.4;cursor:default}
+.ui-tf__action[data-copied="true"]{color:var(--success)}
+.ui-tf__action svg{display:block}
+.ui-tf__foot{display:flex;align-items:flex-start;gap:12px;min-width:0;padding:0 2px}
+.ui-tf__message{flex:1;min-width:0;margin:0;font-size:12.5px;line-height:17px;color:var(--muted);overflow-wrap:anywhere}
+.ui-tf[data-invalid="true"] .ui-tf__message{color:var(--danger)}
+.ui-tf__count{flex:none;margin-left:auto;font-size:12px;line-height:17px;font-variant-numeric:tabular-nums;color:var(--muted)}
+.ui-tf__count[data-full="true"]{color:var(--ink)}
+.ui-tf__count[data-over="true"]{color:var(--danger)}
+.ui-tf__sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.tf-mono{font-family:var(--mono);font-size:12.5px}
+.hint-row{margin:14px 2px 0;font-size:12px;color:var(--muted)}
+code.kbd{font-family:var(--mono);font-size:11.5px;background:var(--subtle);border:1px solid var(--border);border-radius:6px;padding:1px 5px}
+@media(max-width:560px){.page{padding:14px 12px 36px}.card{padding:14px}.sub{max-width:none}}
+@media(prefers-reduced-motion:reduce){*{transition-duration:1ms!important;animation-duration:1ms!important}}
+</style>
+<style>/*polish*/html{-webkit-tap-highlight-color:transparent}</style></head>
+<body>
+<div class="page">
+  <div class="topbar">
+    <div class="topbar__titles">
+      <p class="eyebrow">affectUI · Text Field</p>
+      <h1>Text Field</h1>
+      <p class="sub">Single-line form input with label, hints, errors, affixes, clear and copy.</p>
+    </div>
+    <button id="theme-toggle" class="theme-btn" type="button" aria-pressed="false" aria-label="Switch to dark theme">
+      <svg id="icon-sun" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.4M12 19.1v2.4M2.5 12h2.4M19.1 12h2.4M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7M19.1 4.9l-1.7 1.7M6.6 17.4l-1.7 1.7"/></svg>
+      <svg id="icon-moon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5Z"/></svg>
+      <span id="theme-label">Dark</span>
+    </button>
+  </div>
+
+  <div class="card">
+    <div class="card__head">
+      <p class="card__title">Workspace settings</p>
+      <span class="card__meta">5 fields · live validation</span>
+    </div>
+    <form id="demo-form" class="demo-form" novalidate>
+      <!-- 1 Workspace name -->
+      <div class="ui-tf" id="tf-name" data-size="md">
+        <div class="ui-tf__head"><label class="ui-tf__label" for="f-name-input">Workspace name</label></div>
+        <div class="ui-tf__box" id="f-name-box">
+          <input class="ui-tf__input" id="f-name-input" type="text" value="Maya Labs" maxlength="32" dir="auto" aria-describedby="f-name-msg f-name-count">
+          <button class="ui-tf__action" id="f-name-clear" type="button" aria-label="Clear" tabindex="-1">
+            <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6.2"/><path d="M5.8 5.8l4.4 4.4M10.2 5.8l-4.4 4.4"/></svg>
+          </button>
+        </div>
+        <div class="ui-tf__foot"><p class="ui-tf__message" id="f-name-msg" hidden></p><span class="ui-tf__count" id="f-name-count">9/32</span></div>
+      </div>
+      <!-- 2 Workspace URL -->
+      <div class="ui-tf" id="tf-url" data-size="md">
+        <div class="ui-tf__head"><label class="ui-tf__label" for="f-url-input">Workspace URL</label></div>
+        <div class="ui-tf__box has-affix" id="f-url-box">
+          <span class="ui-tf__affix" data-side="start"><span class="ui-tf__affix-text">acme.app/</span></span>
+          <input class="ui-tf__input" id="f-url-input" type="text" value="maya-labs" spellcheck="false" autocapitalize="none" dir="auto" aria-describedby="f-url-msg">
+        </div>
+        <div class="ui-tf__foot"><p class="ui-tf__message" id="f-url-msg">Lowercase letters, numbers and dashes.</p></div>
+      </div>
+      <!-- 3 Billing email -->
+      <div class="ui-tf" id="tf-email" data-size="md" data-invalid="true">
+        <div class="ui-tf__head"><label class="ui-tf__label" for="f-email-input">Billing email</label><span class="ui-tf__optional">Optional</span></div>
+        <div class="ui-tf__box" id="f-email-box">
+          <input class="ui-tf__input" id="f-email-input" type="email" value="maya@acme" dir="auto" aria-describedby="f-email-msg" aria-invalid="true">
+        </div>
+        <div class="ui-tf__foot"><p class="ui-tf__message" id="f-email-msg" aria-live="polite">Enter a full email, like maya@acme.com</p></div>
+      </div>
+      <!-- 4 Password -->
+      <div class="ui-tf" id="tf-pass" data-size="md">
+        <div class="ui-tf__head"><label class="ui-tf__label" for="f-pass-input">Password</label></div>
+        <div class="ui-tf__box" id="f-pass-box">
+          <input class="ui-tf__input" id="f-pass-input" type="password" value="orbit-lantern-42" autocomplete="new-password" dir="auto">
+          <button class="ui-tf__action" id="f-pass-reveal" type="button" aria-label="Show password" aria-pressed="false">
+            <svg id="f-pass-eye" viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 8S3.8 3.8 8 3.8 14.5 8 14.5 8 12.2 12.2 8 12.2 1.5 8 1.5 8Z"/><circle cx="8" cy="8" r="2"/></svg>
+            <svg id="f-pass-eyeoff" viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden><path d="M3 3.5C4.6 2.4 6.3 1.8 8 1.8c4.2 0 6.5 4.2 6.5 4.2a12 12 0 0 1-1.6 2.2M6 6.2A2 2 0 0 0 9.8 9M1.5 1.5l13 13"/></svg>
+          </button>
+        </div>
+      </div>
+      <!-- 5 API key -->
+      <div class="ui-tf" id="tf-key" data-size="md" data-readonly="true">
+        <div class="ui-tf__head"><label class="ui-tf__label" for="f-key-input">API key</label></div>
+        <div class="ui-tf__box" id="f-key-box">
+          <input class="ui-tf__input tf-mono" id="f-key-input" type="text" value="aui_demo_4f9a2c71e8b3" readonly dir="auto">
+          <button class="ui-tf__action" id="f-key-copy" type="button" aria-label="Copy">
+            <svg id="f-key-icon-copy" viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="5" width="8" height="8" rx="1.6"/><path d="M11 5V4a1.5 1.5 0 0 0-1.5-1.5H4A1.5 1.5 0 0 0 2.5 4v5A1.5 1.5 0 0 0 4 10.5h1"/></svg>
+            <svg id="f-key-icon-done" viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden><path d="M3 8.5l3.2 3L13 4.5"/></svg>
+          </button>
+          <span class="ui-tf__sr" id="f-key-status" role="status"></span>
+        </div>
+      </div>
+    </form>
+    <p class="hint-row">Tips: click a box to focus · <code class="kbd">Esc</code> clears the name · copy shows “Copied” for 1.6s · try “Bad_URL!” or “maya@acme”.</p>
+  </div>
+</div>
+<script>
+(()=>{ // in-place only: query once, patch nodes, no innerHTML
+var d=document, root=d.documentElement;
+var KEY='tf-theme';
+var toggle=d.getElementById('theme-toggle');
+var tLabel=d.getElementById('theme-label');
+var iSun=d.getElementById('icon-sun');
+var iMoon=d.getElementById('icon-moon');
+function currentTheme(){return root.getAttribute('data-theme')==='dark'?'dark':'light';}
+function paintToggle(){
+  var t=currentTheme();
+  var dark=t==='dark';
+  toggle.setAttribute('aria-pressed',dark?'true':'false');
+  toggle.setAttribute('aria-label',dark?'Switch to light theme':'Switch to dark theme');
+  tLabel.textContent=dark?'Light':'Dark';
+  if(iSun&&iMoon){iSun.hidden=dark;iMoon.hidden=!dark;}
+}
+function setTheme(t){
+  if(t!=='light'&&t!=='dark'){t='light';}
+  root.setAttribute('data-theme',t);
+  try{localStorage.setItem(KEY,t);}catch(e){}
+  paintToggle();
+}
+if(toggle){
+  toggle.addEventListener('click',function(){setTheme(currentTheme()==='dark'?'light':'dark');});
+  paintToggle();
+}
+// focus a box on pointerdown (capture so the real click still lands)
+function wireBoxFocus(boxId,inputId){
+  var box=d.getElementById(boxId), inp=d.getElementById(inputId);
+  if(!box||!inp){return null;}
+  box.addEventListener('pointerdown',function(e){
+    var t=e.target;
+    if(t===inp){return;}
+    if(t&&t.closest&&t.closest('button')){return;}
+    try{e.preventDefault();}catch(_){}
+    try{inp.focus();}catch(_){}
+  },true);
+  box.addEventListener('mousedown',function(e){
+    var t=e.target;
+    if(t===inp){return;}
+    if(t&&t.closest&&t.closest('button')){return;}
+    try{e.preventDefault();}catch(_){}
+    try{inp.focus();}catch(_){}
+  },true);
+  return {box:box,input:inp};
+}
+var slugRe=/^[a-z0-9-]*$/;
+var emailRe=/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+// field 1: name + counter + clear
+var nameWrap=d.getElementById('tf-name');
+var nameInput=d.getElementById('f-name-input');
+var nameCount=d.getElementById('f-name-count');
+var nameMsg=d.getElementById('f-name-msg');
+var nameClear=d.getElementById('f-name-clear');
+var MAXN=32;
+function paintName(){
+  var v=nameInput.value||'';
+  var n=String(v.length);
+  var txt=n+'/'+MAXN;
+  if(nameCount.textContent!==txt){nameCount.textContent=txt;}
+  var full=v.length===MAXN;
+  if(full){nameCount.setAttribute('data-full','true');}else{nameCount.removeAttribute('data-full');}
+  var show=v.length>0&&!nameInput.disabled&&!nameInput.readOnly;
+  nameClear.hidden=!show;
+  var box=d.getElementById('f-name-box');
+  if(box){if(show){box.classList.remove('no-actions');}else{box.classList.add('no-actions');}}
+}
+function clearName(){nameInput.value='';paintName();try{nameInput.focus();}catch(e){}}
+if(nameInput){
+  wireBoxFocus('f-name-box','f-name-input');
+  nameInput.addEventListener('input',paintName);
+  nameInput.addEventListener('keydown',function(e){if(e.key==='Escape'&&!nameClear.hidden){e.preventDefault();clearName();}});
+  if(nameClear){nameClear.addEventListener('click',clearName);}
+  paintName();
+}
+// field 2: url slug validation
+var urlWrap=d.getElementById('tf-url');
+var urlInput=d.getElementById('f-url-input');
+var urlMsg=d.getElementById('f-url-msg');
+var URL_HINT='Lowercase letters, numbers and dashes.';
+var URL_ERR='Only lowercase letters, numbers and dashes.';
+function paintUrl(){
+  var v=urlInput.value||'';
+  var ok=slugRe.test(v);
+  if(!ok){
+    urlWrap.setAttribute('data-invalid','true');
+    urlInput.setAttribute('aria-invalid','true');
+    if(urlMsg.textContent!==URL_ERR){urlMsg.textContent=URL_ERR;}
+    urlMsg.setAttribute('aria-live','polite');
+  }else{
+    urlWrap.removeAttribute('data-invalid');
+    urlInput.removeAttribute('aria-invalid');
+    if(urlMsg.textContent!==URL_HINT){urlMsg.textContent=URL_HINT;}
+    urlMsg.removeAttribute('aria-live');
+  }
+}
+if(urlInput){wireBoxFocus('f-url-box','f-url-input');urlInput.addEventListener('input',paintUrl);paintUrl();}
+// field 3: email validation
+var emailWrap=d.getElementById('tf-email');
+var emailInput=d.getElementById('f-email-input');
+var emailMsg=d.getElementById('f-email-msg');
+var EM_HINT='Invoices go here.';
+var EM_ERR='Enter a full email, like maya@acme.com';
+function paintEmail(){
+  var v=emailInput.value||'';
+  var bad=v&&!emailRe.test(v);
+  if(bad){
+    emailWrap.setAttribute('data-invalid','true');
+    emailInput.setAttribute('aria-invalid','true');
+    if(emailMsg.textContent!==EM_ERR){emailMsg.textContent=EM_ERR;}
+    emailMsg.setAttribute('aria-live','polite');
+  }else{
+    emailWrap.removeAttribute('data-invalid');
+    emailInput.removeAttribute('aria-invalid');
+    if(emailMsg.textContent!==EM_HINT){emailMsg.textContent=EM_HINT;}
+    emailMsg.removeAttribute('aria-live');
+  }
+}
+if(emailInput){wireBoxFocus('f-email-box','f-email-input');emailInput.addEventListener('input',paintEmail);paintEmail();}
+// field 4: password reveal
+var passInput=d.getElementById('f-pass-input');
+var passBtn=d.getElementById('f-pass-reveal');
+var eyeOn=d.getElementById('f-pass-eye');
+var eyeOff=d.getElementById('f-pass-eyeoff');
+var revealed=false;
+function paintPass(){
+  passInput.type=revealed?'text':'password';
+  if(revealed){passInput.setAttribute('data-revealed','true');}else{passInput.setAttribute('data-revealed','false');}
+  passBtn.setAttribute('aria-pressed',revealed?'true':'false');
+  passBtn.setAttribute('aria-label',revealed?'Hide password':'Show password');
+  eyeOn.hidden=revealed;
+  eyeOff.hidden=!revealed;
+}
+if(passInput&&passBtn){wireBoxFocus('f-pass-box','f-pass-input');passBtn.addEventListener('click',function(){revealed=!revealed;paintPass();try{passInput.focus();}catch(e){}});paintPass();}
+// field 5: copy with 1600ms feedback (the timed loop)
+var keyInput=d.getElementById('f-key-input');
+var copyBtn=d.getElementById('f-key-copy');
+var copyIcon=d.getElementById('f-key-icon-copy');
+var doneIcon=d.getElementById('f-key-icon-done');
+var copyStatus=d.getElementById('f-key-status');
+var copyTimer=0;
+var copied=false;
+function paintCopy(){
+  if(copied){copyBtn.setAttribute('data-copied','true');}else{copyBtn.removeAttribute('data-copied');}
+  copyBtn.setAttribute('aria-label',copied?'Copied':'Copy');
+  copyBtn.disabled=!keyInput.value;
+  copyIcon.hidden=copied;
+  doneIcon.hidden=!copied;
+  // done icon uses setAttribute for class (SVG-safe)
+  if(copied){doneIcon.setAttribute('class','ui-tf__check');}else{doneIcon.removeAttribute('class');}
+  var s=copied?'Copied':'';
+  if(copyStatus.textContent!==s){copyStatus.textContent=s;}
+}
+function revertCopy(){copied=false;paintCopy();}
+if(keyInput&&copyBtn){
+  wireBoxFocus('f-key-box','f-key-input');
+  paintCopy();
+  keyInput.addEventListener('input',paintCopy);
+  copyBtn.addEventListener('click',function(){
+    if(!keyInput.value||copyBtn.disabled){return;}
+    var done=function(){copied=true;paintCopy();try{clearTimeout(copyTimer);}catch(e){}copyTimer=setTimeout(revertCopy,1600);};
+    try{
+      if(navigator&&navigator.clipboard&&navigator.clipboard.writeText){
+        navigator.clipboard.writeText(keyInput.value).then(done,done);
+      }else{try{keyInput.select();}catch(e){}done();}
+    }catch(e){try{keyInput.select();}catch(_){}done();}
+  });
+}
+var form=d.getElementById('demo-form');
+if(form){form.addEventListener('submit',function(e){e.preventDefault();});form.addEventListener('reset',function(){setTimeout(function(){paintName();paintUrl();paintEmail();},0);});}
+})();
+</script>
+</body>
+</html>

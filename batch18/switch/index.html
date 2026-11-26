@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Switch — affectUI replica</title>
+<meta name="color-scheme" content="light dark">
+<style>html{background:#fafaf9}html[data-theme="dark"]{background:#101012}</style>
+<script>/*noflash*/(function(){try{var k="affectui-switch-theme";var t=localStorage.getItem(k);if(!t){var m=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)");t=(m&&m.matches)?"dark":"light";}document.documentElement.setAttribute("data-theme",t);}catch(e){try{document.documentElement.setAttribute("data-theme","light");}catch(_){}}})();</script>
+<style>
+:root, html[data-theme="light"]{
+  --page:#fafaf9;
+  --surface:#ffffff;
+  --ink:#171717;
+  --ink-2:#1c1917;
+  --muted:#78716c;
+  --subtle:#f5f5f4;
+  --border:#e7e5e4;
+  --radius-lg:16px;
+  --radius:10px;
+  --radius-sm:6px;
+  --shadow:0 1px 2px rgba(0,0,0,.05), 0 4px 16px rgba(0,0,0,.05);
+  --status-wait:#f59e0b; --status-wait-bg:#fef3c7; --status-wait-text:#92400e;
+  --focus:rgba(0,96,226,.7);
+}
+html[data-theme="dark"]{
+  --page:#101012;
+  --surface:#1c1c1f;
+  --ink:#ededed;
+  --ink-2:#ededed;
+  --muted:#a1a1aa;
+  --subtle:#26262a;
+  --border:#2e2e33;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 4px 16px rgba(0,0,0,.4);
+  --status-wait:#fbbf24; --status-wait-bg:#451a03; --status-wait-text:#fde68a;
+  --focus:rgba(77,141,255,.8);
+}
+*{box-sizing:border-box}
+[hidden]{display:none !important}
+html,body{margin:0;padding:0}
+body{
+  background:var(--page);
+  color:var(--ink);
+  font-family:system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size:14px;
+  line-height:20px;
+  -webkit-font-smoothing:antialiased;
+  min-height:100vh;
+}
+.wrap{max-width:600px;margin:0 auto;padding:28px 20px 48px}
+.topbar{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:16px}
+.eyebrow{font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin:0 0 6px}
+h1{font-size:16px;line-height:22px;margin:0;font-weight:600;color:var(--ink)}
+.sub{font-size:13px;color:var(--muted);margin:6px 0 0;max-width:44ch}
+.meta-row{display:flex;align-items:center;gap:8px;margin-top:10px}
+.count-pill{font-size:12px;color:var(--muted);background:var(--subtle);border:1px solid var(--border);border-radius:999px;padding:2px 10px;white-space:nowrap}
+.theme-btn{
+  flex:none;display:inline-flex;align-items:center;gap:8px;
+  background:var(--surface);color:var(--ink);
+  border:1px solid var(--border);border-radius:999px;
+  padding:7px 12px;font:inherit;font-size:13px;cursor:pointer;
+  box-shadow:var(--shadow);
+  transition:transform 150ms ease, border-color 150ms ease, background 150ms ease;
+}
+@media (hover: hover) and (pointer: fine) {
+.theme-btn:hover{transform:translateY(-1px);border-color:var(--muted)}
+}
+.theme-btn:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.theme-btn .theme-icon{width:16px;height:16px;display:inline-flex}
+.card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius-lg);
+  box-shadow:var(--shadow);
+  padding:8px 16px 12px;
+  transition:border-color 150ms ease;
+}
+.card-foot{
+  margin-top:4px;padding:10px 4px 4px;
+  border-top:1px solid var(--border);
+  font-size:12.5px;color:var(--muted);
+  display:flex;justify-content:space-between;gap:12px;
+}
+.card-foot strong{color:var(--ink);font-weight:600}
+
+/* ---- Switch (clean-room reimplementation of observed behaviour) ---- */
+.sw{
+  --sw-ink:var(--ink);
+  --sw-subtle:var(--muted);
+  --sw-off:#e2e2e2;
+  --sw-off-hover:#d4d4d8;
+  --sw-on:#171717;
+  --sw-on-hover:#2e2e2e;
+  --sw-thumb:#ffffff;
+  --sw-thumb-shadow:0 1px 2px rgba(0,0,0,.2);
+  --sw-ease:cubic-bezier(.22,1,.36,1);
+  --w:32px; --h:20px;
+  min-width:0;
+  font-size:13.5px;line-height:20px;color:var(--sw-ink);
+}
+html[data-theme="dark"] .sw{
+  --sw-ink:#ededed;
+  --sw-subtle:#8b8b92;
+  --sw-off:#3a3a3f;
+  --sw-off-hover:#46464c;
+  --sw-on:#ededed;
+  --sw-on-hover:#d4d4d8;
+  --sw-thumb:#ffffff;
+}
+.sw[data-size="sm"]{--w:26px;--h:16px}
+.sw-row{display:flex;align-items:flex-start;gap:10px;min-width:0;cursor:pointer;-webkit-tap-highlight-color:transparent;padding:10px 0}
+.sw[data-placement="end"] .sw-row{flex-direction:row-reverse;justify-content:space-between;gap:16px}
+.sw[data-disabled] .sw-row{cursor:not-allowed;opacity:.5}
+.sw-control{position:relative;display:grid;flex:none;place-items:center;height:max(var(--h),20px)}
+.sw-input{position:absolute;inset:-6px;width:calc(100% + 12px);height:calc(100% + 12px);margin:0;opacity:0;cursor:inherit}
+.sw-track{position:relative;display:block;width:var(--w);height:var(--h);border-radius:999px;background:var(--sw-off);pointer-events:none;transition:background-color 200ms ease}
+.sw-thumb{position:absolute;top:2px;left:2px;width:calc(var(--h) - 4px);height:calc(var(--h) - 4px);border-radius:999px;background:var(--sw-thumb);box-shadow:var(--sw-thumb-shadow);transition:transform 260ms var(--sw-ease), width 160ms var(--sw-ease), background-color 200ms ease}
+@media (hover: hover) and (pointer: fine) {
+.sw-row:hover .sw-input:not(:disabled):not(:checked) + .sw-track{background:var(--sw-off-hover)}
+}
+.sw-input:checked + .sw-track{background:var(--sw-on)}
+@media (hover: hover) and (pointer: fine) {
+.sw-row:hover .sw-input:not(:disabled):checked + .sw-track{background:var(--sw-on-hover)}
+}
+.sw-input:checked + .sw-track .sw-thumb{transform:translateX(calc(var(--w) - var(--h)))}
+html[data-theme="dark"] .sw-input:checked + .sw-track .sw-thumb{background:#161618;box-shadow:none}
+.sw-input:active:not(:disabled) + .sw-track .sw-thumb{width:calc(var(--h) + 1px)}
+.sw-input:active:not(:disabled):checked + .sw-track .sw-thumb{transform:translateX(calc(var(--w) - var(--h) - 5px))}
+.sw-input:focus-visible + .sw-track{outline:2px solid var(--focus);outline-offset:2px}
+.sw-text{display:grid;flex:1;min-width:0}
+.sw-label{color:var(--sw-ink);overflow-wrap:anywhere}
+.sw-desc{font-size:12.5px;line-height:17px;color:var(--sw-subtle);overflow-wrap:anywhere}
+.sw-divider{border:0;border-top:1px solid var(--border);margin:4px 0}
+@media (pointer:coarse){
+  .sw{--w:40px;--h:24px;font-size:15px;line-height:22px}
+  .sw[data-size="sm"]{--w:34px;--h:20px}
+  .sw-control{height:max(var(--h),22px)}
+}
+@media (prefers-reduced-motion:reduce){
+  .sw-track,.sw-thumb,.card,.theme-btn{transition-duration:1ms}
+}
+@media (max-width:480px){
+  .wrap{padding:20px 14px 40px}
+  .topbar{align-items:flex-start}
+}
+</style>
+<style>/*polish*/body{font-variant-numeric:tabular-nums}</style></head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <div>
+      <p class="eyebrow">affectUI · Switch</p>
+      <h1>Switch</h1>
+      <p class="sub">Instant on/off toggle with label, optional description, stretchy thumb interaction.</p>
+      <div class="meta-row">
+        <span class="count-pill" id="onCount">2 on</span>
+        <span class="count-pill">5 settings · 1 disabled</span>
+      </div>
+    </div>
+    <button class="theme-btn" id="themeToggle" type="button" aria-label="Toggle dark mode">
+      <span class="theme-icon" id="themeIconMoon" aria-hidden="true"><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13.5 9.5A6 6 0 0 1 6.5 2.5a6 6 0 1 0 7 7Z"/></svg></span>
+      <span class="theme-icon" id="themeIconSun" hidden aria-hidden="true"><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="3.2"/><path d="M8 1.5v1.6M8 12.9v1.6M1.5 8h1.6M12.9 8h1.6M3.4 3.4l1.1 1.1M11.5 11.5l1.1 1.1M12.6 3.4l-1.1 1.1M4.5 11.5l-1.1 1.1"/></svg></span>
+      <span id="themeLabel">Dark</span>
+    </button>
+  </div>
+
+  <div class="card" id="demoCard">
+    <div class="sw" data-placement="end" id="sw1">
+      <label class="sw-row" for="sw1-input">
+        <span class="sw-control">
+          <input class="sw-input" id="sw1-input" type="checkbox" role="switch" checked aria-describedby="sw1-desc">
+          <span class="sw-track" aria-hidden="true"><span class="sw-thumb"></span></span>
+        </span>
+        <span class="sw-text">
+          <span class="sw-label">Daily digest</span>
+          <span class="sw-desc" id="sw1-desc">Approvals waiting, runs that finished or failed</span>
+        </span>
+      </label>
+    </div>
+    <div class="sw" data-placement="end" id="sw2">
+      <label class="sw-row" for="sw2-input">
+        <span class="sw-control">
+          <input class="sw-input" id="sw2-input" type="checkbox" role="switch" aria-describedby="sw2-desc">
+          <span class="sw-track" aria-hidden="true"><span class="sw-thumb"></span></span>
+        </span>
+        <span class="sw-text">
+          <span class="sw-label">Weekly usage report</span>
+          <span class="sw-desc" id="sw2-desc">Credits spent and the busiest agents, every Monday</span>
+        </span>
+      </label>
+    </div>
+    <div class="sw" data-placement="end" id="sw3">
+      <label class="sw-row" for="sw3-input">
+        <span class="sw-control">
+          <input class="sw-input" id="sw3-input" type="checkbox" role="switch" checked aria-describedby="sw3-desc">
+          <span class="sw-track" aria-hidden="true"><span class="sw-thumb"></span></span>
+        </span>
+        <span class="sw-text">
+          <span class="sw-label">Hold pushes at night</span>
+          <span class="sw-desc" id="sw3-desc">Mobile pushes wait until morning</span>
+        </span>
+      </label>
+    </div>
+    <div class="sw" data-placement="end" data-disabled="true" id="sw4">
+      <label class="sw-row" for="sw4-input">
+        <span class="sw-control">
+          <input class="sw-input" id="sw4-input" type="checkbox" role="switch" disabled aria-describedby="sw4-desc">
+          <span class="sw-track" aria-hidden="true"><span class="sw-thumb"></span></span>
+        </span>
+        <span class="sw-text">
+          <span class="sw-label">Sound on new messages</span>
+          <span class="sw-desc" id="sw4-desc">Needs the desktop app</span>
+        </span>
+      </label>
+    </div>
+    <hr class="sw-divider">
+    <div class="sw" data-placement="start" data-size="sm" id="sw5">
+      <label class="sw-row" for="sw5-input">
+        <span class="sw-control">
+          <input class="sw-input" id="sw5-input" type="checkbox" role="switch" aria-describedby="sw5-desc">
+          <span class="sw-track" aria-hidden="true"><span class="sw-thumb"></span></span>
+        </span>
+        <span class="sw-text">
+          <span class="sw-label">Compact rows</span>
+        </span>
+      </label>
+    </div>
+    <div class="card-foot"><span>State persists for this demo session only.</span><span><strong id="footCount">2</strong> of 4 enabled on</span></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var KEY = "affectui-switch-theme";
+  var root = document.documentElement;
+  var toggle = document.getElementById("themeToggle");
+  var label = document.getElementById("themeLabel");
+  var iconMoon = document.getElementById("themeIconMoon");
+  var iconSun = document.getElementById("themeIconSun");
+
+  function currentTheme(){
+    var t = root.getAttribute("data-theme");
+    if(t === "dark" || t === "light") return t;
+    try{
+      var stored = null;
+      if(window.localStorage) stored = window.localStorage.getItem(KEY);
+      if(stored === "dark" || stored === "light") return stored;
+    }catch(e){}
+    if(window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) return "dark";
+    return "light";
+  }
+  function paintTheme(t){
+    root.setAttribute("data-theme", t);
+    // In-place icon/label update only; never rebuild DOM.
+    if(t === "dark"){
+      if(label) label.textContent = "Light";
+      if(iconMoon) iconMoon.hidden = true;
+      if(iconSun) iconSun.hidden = false;
+      if(toggle) toggle.setAttribute("aria-label", "Switch to light mode");
+    }else{
+      if(label) label.textContent = "Dark";
+      if(iconMoon) iconMoon.hidden = false;
+      if(iconSun) iconSun.hidden = true;
+      if(toggle) toggle.setAttribute("aria-label", "Switch to dark mode");
+    }
+  }
+  function saveTheme(t){ try{ if(window.localStorage) window.localStorage.setItem(KEY, t); }catch(e){} }
+  // Init once from guard/current value.
+  paintTheme(currentTheme());
+  if(toggle){
+    toggle.addEventListener("click", function(){
+      var next = currentTheme() === "dark" ? "light" : "dark";
+      saveTheme(next);
+      paintTheme(next);
+    });
+  }
+
+  // Demo state: update counts in place on change. No timers, no re-render.
+  var inputs = [
+    document.getElementById("sw1-input"),
+    document.getElementById("sw2-input"),
+    document.getElementById("sw3-input"),
+    document.getElementById("sw4-input"),
+    document.getElementById("sw5-input")
+  ];
+  var onCount = document.getElementById("onCount");
+  var footCount = document.getElementById("footCount");
+  function refreshCounts(){
+    var n = 0;
+    for(var i=0;i<inputs.length;i++){
+      var el = inputs[i];
+      if(el && el.checked && !el.disabled) n++;
+    }
+    if(onCount) onCount.textContent = n + " on";
+    if(footCount) footCount.textContent = String(n);
+  }
+  for(var k=0;k<inputs.length;k++){
+    (function(el){
+      if(el) el.addEventListener("change", refreshCounts);
+    })(inputs[k]);
+  }
+  refreshCounts();
+})();
+</script>
+</body>
+</html>
