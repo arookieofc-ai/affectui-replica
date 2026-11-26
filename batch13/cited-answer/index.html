@@ -360,7 +360,8 @@ var nonEmpty = SEGMENTS.filter(function(s){ return s.text.trim(); });
 var citedCount = SEGMENTS.filter(function(s){ return s.text.trim() && (s.cite||[]).some(hasSrc); }).length;
 
 var hot = null;        // {source, segment?}
-var openId = null;     // open source id
+var openId = null;     // open source id (click-pinned)
+var hoverId = null;    // hover preview source (pointerenter, repeatable)
 var lastOpen = null;   // remembers last open for the fold animation region label
 var copied = null;     // {at, source}
 var capCur = {id:'', tone:'', html:null};
@@ -409,10 +410,12 @@ groups.forEach(function(g){
       b.setAttribute('aria-expanded','false');
       b.setAttribute('aria-label','Source '+mk.n+': '+mk.label);
       b.textContent=fmt.format(mk.n);
-      b.addEventListener('pointerover',function(e){ if(!e.pointerType || e.pointerType==='mouse') setHot({source:mk.id, segment:idx}); });
-      b.addEventListener('pointerout',function(e){ if(!e.pointerType || e.pointerType==='mouse') setHot(null); });
-      b.addEventListener('focus',function(){ setHot({source:mk.id, segment:idx}); });
-      b.addEventListener('blur',function(){ setHot(null); });
+      b.addEventListener('pointerenter',function(e){ if(!e.pointerType || e.pointerType==='mouse') hotOpen(mk.id, idx); });
+      b.addEventListener('pointerover',function(e){ if(!e.pointerType || e.pointerType==='mouse') hotOpen(mk.id, idx); });
+      b.addEventListener('pointerleave',function(e){ if(!e.pointerType || e.pointerType==='mouse') hotClose(); });
+      b.addEventListener('pointerout',function(e){ if(!e.pointerType || e.pointerType==='mouse') hotClose(); });
+      b.addEventListener('focus',function(){ hotOpen(mk.id, idx); });
+      b.addEventListener('blur',function(){ hotClose(); });
       b.addEventListener('click',function(){ toggleOpen(mk.id); });
       return b;
     });
@@ -444,7 +447,7 @@ groups.forEach(function(g){
   });
   textBox.appendChild(p);
 });
-textBox.addEventListener('pointerleave',function(){ setHot(null); });
+textBox.addEventListener('pointerleave',function(){ hotClose(); });
 
 /* fold / preview (nodes persist; only text + attrs change) */
 var fold=document.createElement('div');
@@ -482,7 +485,7 @@ var copyBtn=document.createElement('button');
 copyBtn.setAttribute('type','button'); copyBtn.setAttribute('class','ca-btn'); copyBtn.setAttribute('aria-label','Copy quote');
 var copyIcon=document.createElement('span'); copyIcon.setAttribute('class','ca-btn-icon'); copyBtn.appendChild(copyIcon);
 var copyText=document.createElement('span'); copyText.setAttribute('class','ca-btn-text'); copyBtn.appendChild(copyText);
-copyBtn.addEventListener('click',function(){ if(openId) copyQuote(srcOf(openId)); });
+copyBtn.addEventListener('click',function(){ var cur=hoverId||openId; if(cur) copyQuote(srcOf(cur)); });
 pvActions.appendChild(copyBtn);
 
 /* chips */
@@ -506,9 +509,12 @@ SOURCES.forEach(function(s,i){
   b.appendChild(nm);
   var num=document.createElement('span'); num.setAttribute('class','ca-chip-num'); num.textContent=fmt.format(i+1);
   b.appendChild(num);
-  b.addEventListener('pointerover',function(e){ if(!e.pointerType || e.pointerType==='mouse') setHot({source:s.id}); });
-  b.addEventListener('focus',function(){ setHot({source:s.id}); });
-  b.addEventListener('blur',function(){ setHot(null); });
+  b.addEventListener('pointerenter',function(e){ if(!e.pointerType || e.pointerType==='mouse') hotOpen(s.id); });
+  b.addEventListener('pointerover',function(e){ if(!e.pointerType || e.pointerType==='mouse') hotOpen(s.id); });
+  b.addEventListener('pointerleave',function(e){ if(!e.pointerType || e.pointerType==='mouse') hotClose(); });
+  b.addEventListener('pointerout',function(e){ if(!e.pointerType || e.pointerType==='mouse') hotClose(); });
+  b.addEventListener('focus',function(){ hotOpen(s.id); });
+  b.addEventListener('blur',function(){ hotClose(); });
   b.addEventListener('keydown',function(e){
     var n=null;
     if(e.key==='ArrowRight') n=Math.min(SOURCES.length-1,i+1);
@@ -520,7 +526,7 @@ SOURCES.forEach(function(s,i){
   b.addEventListener('click',function(){ toggleOpen(s.id); });
   item.appendChild(b); chipsBox.appendChild(item); chipBtns.push(b);
 });
-chipsBox.addEventListener('pointerleave',function(){ setHot(null); });
+chipsBox.addEventListener('pointerleave',function(){ hotClose(); });
 
 /* footer caption + action */
 var foot=document.createElement('div'); foot.setAttribute('class','ca-foot'); card.appendChild(foot);
@@ -536,7 +542,7 @@ act.appendChild(actLabel); act.appendChild(icon('M2.5 6h7M6.5 3l3 3-3 3',12));
 foot.appendChild(act);
 
 root.addEventListener('keydown',function(e){
-  if(e.key==='Escape' && openId){ e.stopPropagation(); closePreview(true); }
+  if(e.key==='Escape' && (openId||hoverId)){ e.stopPropagation(); closePreview(true); }
 });
 mount.appendChild(root);
 
@@ -546,7 +552,8 @@ function segState(seg, idx){
     if(hot.segment===undefined) return (seg.cite||[]).indexOf(hot.source)>=0 ? 'hl' : 'dim';
     return hot.segment===idx ? 'hl' : undefined;
   }
-  if(openId && (seg.cite||[]).indexOf(openId)>=0) return 'hl';
+  var actId = hoverId || openId;
+  if(actId && (seg.cite||[]).indexOf(actId)>=0) return 'hl';
   return undefined;
 }
 function el(html){
@@ -596,8 +603,11 @@ function paintCaption(next){
   },260);
 }
 function paintPreview(){
-  var q=openId?srcOf(openId):(lastOpen?srcOf(lastOpen):null);
-  if(openId && q){
+  var hov=hoverId?srcOf(hoverId):null;
+  var opn=openId?srcOf(openId):null;
+  var q=hov||opn||(lastOpen?srcOf(lastOpen):null);
+  var active=hov||opn;
+  if(active && q){
     view.hidden=false;
     fold.setAttribute('data-open','');
     if('inert' in fold) fold.inert=false;
@@ -639,17 +649,19 @@ function refresh(){
     else if(st==='dim'){ se.wrap.setAttribute('data-dim',''); se.wrap.removeAttribute('data-hl'); }
     else{ se.wrap.removeAttribute('data-hl'); se.wrap.removeAttribute('data-dim'); }
     var lit = hot && (hot.segment===se.index || (hot.segment===undefined && citesOf(se.seg).indexOf(hot.source)>=0)) ? hot.source : null;
+    var act = hoverId || openId;
     se.markers.forEach(function(b){
       var id=b.getAttribute('data-source');
       if(lit && id===lit) b.setAttribute('data-lit',''); else b.removeAttribute('data-lit');
-      b.setAttribute('aria-expanded', openId&&id===openId?'true':'false');
+      b.setAttribute('aria-expanded', act&&id===act?'true':'false');
     });
   });
   chipBtns.forEach(function(b){
     var id=b.getAttribute('data-source');
     if(hotSrc && id===hotSrc) b.setAttribute('data-lit',''); else b.removeAttribute('data-lit');
     if(hotSrc && id!==hotSrc) b.setAttribute('data-dim',''); else b.removeAttribute('data-dim');
-    b.setAttribute('aria-expanded', openId&&id===openId?'true':'false');
+    var act2 = hoverId || openId;
+    b.setAttribute('aria-expanded', act2&&id===act2?'true':'false');
   });
   paintPreview();
   var capNext = captionFor();
@@ -657,21 +669,32 @@ function refresh(){
   caption.setAttribute('title', capNext.html.replace(/<\/?b>/g,''));
 }
 
-/* ---------- interactions ---------- */
+/* ---------- interactions (hover opens preview, faithfully + repeatably) ---------- */
 function setHot(h){
-  var a=hot?hot.source+':'+hot.segment:'', b=h?h.source+':'+h.segment:'';
-  if(a===b) return;
-  hot=h; refresh();
+  hot=h;
+  hoverId=h?h.source:null;
+  refresh();
+}
+function hotOpen(source, segment){
+  if(segment===undefined) hot={source:source};
+  else hot={source:source, segment:segment};
+  hoverId=source;
+  refresh();
+}
+function hotClose(){
+  hot=null;
+  hoverId=null;
+  refresh();
 }
 function toggleOpen(id){
-  openId = (openId===id) ? null : id;
-  if(openId){ lastOpen=openId; }
+  if(openId===id){ openId=null; hoverId=null; }
+  else { openId=id; lastOpen=id; }
   copied=null;
   refresh();
 }
 function closePreview(focusBack){
-  var was=openId;
-  openId=null; copied=null; refresh();
+  var was=openId||hoverId;
+  openId=null; hoverId=null; copied=null; refresh();
   if(focusBack && was){
     for(var i=0;i<segEls.length;i++){
       for(var j=0;j<segEls[i].markers.length;j++){
@@ -741,6 +764,8 @@ try{
   window.__ca={
     get hot(){ return hot; },
     get openId(){ return openId; },
+    get hoverId(){ return hoverId; },
+    get activeId(){ return hoverId||openId; },
     get copied(){ return copied; },
     get demoOn(){ return demoOn; },
     stop:stopDemo,
