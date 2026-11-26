@@ -1,5 +1,55 @@
 # Agent Queue — replica report
 
+## Fix pass 4, 2026-11-25 (FLICKER defect — full render() rebuilt the DOM every tick)
+Root cause: every demo tick called `render()`, which did `chipsEl.innerHTML = ""`,
+`wellEl.innerHTML = ""`, `workersEl.innerHTML = ""`, `svg.innerHTML = ""`,
+`liveMsg.innerHTML = ""`, `popDl.innerHTML = ""` and `pauseIcon.innerHTML = ...`,
+then re-created every row/card/chart node from scratch. Each step therefore
+destroyed the live component tree: CSS animations (pulse, transitions) restarted,
+focused/pressed nodes were detached mid-gesture, and the eye saw a full
+flash/reload. Loop restarts wiped the containers the same way.
+Fix in `index.html` (data, timings, choreography, interactions, themes untouched):
+- Build-once/update-in-place: an init-time `buildStaticDom()` pre-creates every
+  mutable node — 3 chip slots (each with 3 pre-parsed kind icons toggled by
+  `display`, nm/dt spans, badge), 8 overflow square slots, empty/more notes,
+  8 worker rows (avatar, nm/dt, bar+fill, state), chart SVG (3 grid lines,
+  6 limit rects, area/line/dot paths), 3 y-labels, live `<b>`+`<span>`,
+  pause play/pause icons, theme sun/moon icons, and 7 dialog dt/dd pairs.
+  `render()` / `renderChart()` / `openJob()` now only mutate `textContent`
+  (via a `setText` helper), attributes, `style.display`/`width`/`top`, and
+  `setAttribute("class", …)` on the worker bar — zero `createElement`,
+  zero `appendChild`/`remove`, zero `innerHTML` after init. Slots are
+  positional: empty slots hide (`display:none` + `data-job-id` removed) so
+  unchanged nodes keep object identity across ticks AND across 34 s loop
+  restarts; focus is never detached (the old focus-restore workaround is gone).
+- Per-node click/keydown closures (which captured stale job ids) now read the
+  live `data-job-id` off their own persistent node; container delegation and
+  the document-level `pointerdown`/`mousedown` capture + Enter/Space backup are
+  unchanged, so press-to-open, arrows, Enter, Esc behave exactly as before.
+- Dialog refresh while open (`openJob(openId, false)` from the tick) updates the
+  same 7 prebuilt dt/dd pairs in place instead of wiping `popDl`.
+- `paintThemeBtn` / pause icon toggle prebuilt icon spans by `display` instead
+  of `innerHTML`, so theme switches also cause no rebuild.
+- Small correctness fix inside the rewrite: `onJobKey` arrow navigation now
+  skips hidden (unassigned) slots.
+- Added `[hidden]{display:none !important}` (author-display guard for `popErr`);
+  chart/SVG nodes are touched via `setAttribute` only (worker bar class too);
+  early-theme `/*noflash*/` `<head>` guard byte-identical.
+Verification: rewrote in-directory `verify-fix.js` (node only, no packages, no
+browser; extracts the LAST `<script>` block since the old greedy extractor broke
+on the `<head>` noflash guard). It boots the page in a DOM stub, then: (a) refs
+to chip/grid/worker/chart/live/dialog/pause nodes captured after init are
+asserted `===`-identical, in order and still attached, after 36×1000 ms ticks
+(sim.t 106000→142000, ≥ one full 34 s loop incl. restart) plus rAF/250 ms ticks,
+in light AND dark (`applyTheme("dark")`); (b) an instrumented `innerHTML` setter
+asserts ZERO assignments after init across all ticks (old code did 6+ per tick);
+(c) live message / waiting count / pill move through ≥3 distinct states with the
+`Rate limited · Ns` window observed and cleared (loop choreography intact), in
+both themes; press-time `pointerdown` capture still opens the popover and Enter
+on the never-detached row opens the dialog. Result: 66/66 PASS. The old
+rebuild-based expectations (e.g. asserting the pressed node gets detached) no
+longer apply and were replaced. `index.html` is 64,082 B (< 200 KB).
+
 ## What was built
 `index.html` (53 KB, self-contained, inline CSS + JS, system fonts only) replicating the
 affectUI **Agent Queue** demo: a live queue of agent jobs flowing into workers, with a
@@ -29,6 +79,47 @@ Done/Failed bins) → `Queue depth` chart → kind legend + live status message.
   `The card issuer declined the refund – payments are never retried` @25 s.
 - **Timings:** per-kind min/max durations, 300 ms worker cooldown, 120 s chart window,
   96 s retention, 106 s pre-roll so the chart/backlog look alive on load.
+
+## Fix pass 3, 2026-11-25 (real-browser keyboard STILL dead — focus never reaches rows)
+Why pass 2 fixed the mouse but not the keyboard: the press-time capture
+listeners fire synchronously on `pointerdown`/`mousedown`, so clicks survive
+the rebuild — but Tab focus does not. `render()` still replaces every chip /
+square / worker-row node on each 250 ms step, detaching the focused node, so
+the browser drops focus to `<body>`: the next Tab restarts at the top
+(Pause/Resume, −/+ only), no focus ring ever appears on a task row, and
+Enter/Space reach nothing. A second defect: `.worker[role=button]` had no
+`:focus-visible` rule, so even a focused worker card showed no ring.
+Fixes in `index.html` (mouse paths untouched, empty-state/pause untouched):
+- `render()` now captures `document.activeElement.closest("[data-job-id]")`
+  before rebuilding and re-focuses the replacement node with the same
+  `data-job-id` afterwards (`focus({preventScroll:true})` with fallback);
+  skipped while the dialog is open (focus belongs on Close); if that job is
+  gone, focus moves to the first remaining job row. Backlog chips, overflow
+  squares, and worker-card jobs therefore stay in the Tab order across ticks.
+- Explicit `tabIndex = 0` on backlog/grid `button`s (native but now
+  asserted), worker cards keep `role="button"` + `tabIndex = 0` +
+  `aria-haspopup="dialog"` + `aria-expanded`; added
+  `.worker:focus-visible{outline:2px solid var(--focus);outline-offset:2px}`
+  to match `.chip`/`.sq`.
+- Enter/Space reuse the existing `safeOpen` path (per-node keydown +
+  container-delegated keydown + document capture backup) — unchanged, now
+  reachable because focus survives.
+Verification: extended in-directory `verify-fix.js` (node, no packages) with
+section [9] that models the REAL keyboard gesture with no manual re-query —
+Tab-focus a row, run a real 250 ms `tick()` rebuild, emulate the browser's
+focus-drop if the node was detached (`activeElement` → root), then dispatch
+Enter to *whatever is actually focused* and assert the dialog opens. Covers
+backlog chip, overflow square (8 jobs injected so squares exist
+deterministically), and worker-card job, plus Tab-focusability / `role` /
+`aria-expanded` / `:focus-visible` CSS for all three shapes and Space-to-open.
+Result on the fixed file: 44/44 PASS. The same harness with only the
+focus-restore disabled fails 10/44 (every "focus still on the SAME job" +
+"Enter opens" assertion), proving it reproduces the reported browser symptom
+instead of false-passing; the old section-[4] style check (manual refocus
+before Enter) still passes on the broken build, which is why it was kept but
+no longer relied upon. Mouse sections [1]–[3]/[5], overlay [6], and
+empty-state/pause [7] still pass unchanged. `index.html` is now 58,338 B
+(< 200 KB); inline JS still passes `node --check`.
 
 ## Fix pass 2, 2026-11-25 (real-browser click STILL dead — real root cause)
 Why pass 1 failed in a real browser: its stub dispatched a synthetic `click`

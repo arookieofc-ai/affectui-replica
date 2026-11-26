@@ -266,6 +266,7 @@ body{
 .pop .err{font-size:12px;background:var(--err-bg);color:var(--err-fg);border-radius:var(--radius-sm);padding:8px 10px;margin:0 0 12px;box-shadow:inset 0 0 0 1px var(--err-edge)}
 .pop-actions{display:flex;gap:8px;justify-content:flex-end}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+[hidden]{display:none !important}
 @media (max-width:600px){
   .flow{grid-template-columns:1fr}
   .col + .col{border-left:0;border-top:1px solid var(--border)}
@@ -383,9 +384,17 @@ var storedTheme = null;
 try { storedTheme = window.localStorage.getItem("agq-theme"); } catch (e) {}
 var mq = window.matchMedia("(prefers-color-scheme: dark)");
 function currentTheme(){ return rootEl.getAttribute("data-theme") || "light"; }
+var themeSunEl = null, themeMoonEl = null;
 function paintThemeBtn(){
   var dark = currentTheme() === "dark";
-  themeIcon.innerHTML = dark ? SUN : MOON;
+  if (!themeSunEl) {
+    themeIcon.innerHTML = "";
+    themeSunEl = document.createElement("span"); themeSunEl.innerHTML = SUN;
+    themeMoonEl = document.createElement("span"); themeMoonEl.innerHTML = MOON;
+    themeIcon.appendChild(themeSunEl); themeIcon.appendChild(themeMoonEl);
+  }
+  themeSunEl.style.display = dark ? "" : "none";
+  themeMoonEl.style.display = dark ? "none" : "";
   themeLabel.textContent = dark ? "Light" : "Dark";
   themeBtn.setAttribute("aria-label", dark ? "Switch to light mode" : "Switch to dark mode");
 }
@@ -662,39 +671,206 @@ function waitingSorted(){
 function jobLabel(j){
   return j.name + ", " + j.detail + ", " + (j.priority === "high" ? "high priority" : j.priority + " priority") + (j.attempt > 1 ? ", attempt " + j.attempt : "");
 }
-function makeJobBtn(job, shape){
-  var b = document.createElement("button");
-  b.type = "button";
-  b.tabIndex = 0;
-  b.className = shape === "chip" ? "chip" : "sq";
-  b.setAttribute("aria-label", jobLabel(job));
-  b.setAttribute("aria-haspopup", "dialog");
-  b.setAttribute("aria-expanded", "false");
-  b.setAttribute("data-job-id", job.id);
-  b.dataset.jobId = job.id;
-  styleKind(b, job.kind);
-  if (shape === "chip") {
-    if (job.priority && job.priority !== "normal") b.setAttribute("data-priority", job.priority);
-    var ic = document.createElement("span");
-    ic.className = "ic"; ic.setAttribute("aria-hidden", "true"); ic.innerHTML = KIND_ICON[job.kind] || KIND_ICON.tool;
-    var tx = document.createElement("span"); tx.className = "tx";
-    var nm = document.createElement("span"); nm.className = "nm"; nm.textContent = job.name;
-    var dt = document.createElement("span"); dt.className = "dt"; dt.textContent = job.detail;
-    tx.appendChild(nm); tx.appendChild(dt);
-    b.appendChild(ic); b.appendChild(tx);
-    if (job.priority === "high") {
-      var badge = document.createElement("span"); badge.className = "badge"; badge.textContent = "High"; b.appendChild(badge);
-    } else if (job.attempt > 1) {
-      var rb = document.createElement("span"); rb.className = "badge"; rb.setAttribute("data-k", "retry"); rb.textContent = "Retry"; b.appendChild(rb);
-    }
-  } else {
-    b.textContent = (job.priority === "high") ? "!" : initials(job.name).slice(0, 1);
-    b.title = job.name + " \u2013 " + job.detail;
-    if (job.priority !== "high") b.setAttribute("data-dim", "");
+function setText(el, v){
+  v = String(v);
+  if (el.textContent !== v) el.textContent = v;
+}
+/* FLICKER FIX: build the component DOM ONCE at init; ticks only update
+   text/attrs/styles/classes on these EXISTING nodes, never innerHTML,
+   never appendChild/removeChild of list rows. Slots are positional so
+   node identity survives every tick and every loop restart. */
+var chipSlots = [], sqSlots = [], workerSlots = [];
+var chipsEmpty, wellEmptyClear, wellEmptyIdle, wellMore;
+var liveBold, liveSpan, yLabs = [], pauseShow, pauseHide;
+var chartBuilt = false, gridLines = [], limitRects = [], areaPath = null, linePath = null, dotCircle = null;
+var popRows = [];
+(function buildStaticDom(){
+  var k, i;
+  for (i = 0; i < 3; i++) {
+    (function(){
+      var b = document.createElement("button");
+      b.type = "button"; b.tabIndex = 0; b.className = "chip";
+      b.setAttribute("aria-haspopup", "dialog");
+      b.setAttribute("aria-expanded", "false");
+      b.style.display = "none";
+      var ic = document.createElement("span");
+      ic.className = "ic"; ic.setAttribute("aria-hidden", "true");
+      var icons = {};
+      ["llm", "tool", "agent"].forEach(function(kind){
+        var h = document.createElement("span");
+        h.innerHTML = KIND_ICON[kind];
+        h.setAttribute("data-ic-kind", kind);
+        h.style.display = "none";
+        ic.appendChild(h);
+        icons[kind] = h;
+      });
+      var tx = document.createElement("span"); tx.className = "tx";
+      var nm = document.createElement("span"); nm.className = "nm";
+      var dt = document.createElement("span"); dt.className = "dt";
+      tx.appendChild(nm); tx.appendChild(dt);
+      var badge = document.createElement("span"); badge.className = "badge";
+      badge.style.display = "none";
+      b.appendChild(ic); b.appendChild(tx); b.appendChild(badge);
+      b.addEventListener("click", function(){ var id = b.getAttribute("data-job-id"); if (id) safeOpen(id); });
+      b.addEventListener("keydown", function(e){ var id = b.getAttribute("data-job-id"); if (id) onJobKey(e, id); });
+      chipsEl.appendChild(b);
+      chipSlots.push({ root: b, ic: ic, icons: icons, nm: nm, dt: dt, badge: badge });
+    })();
   }
-  b.addEventListener("click", function(){ safeOpen(job.id); });
-  b.addEventListener("keydown", function(e){ onJobKey(e, job.id); });
-  return b;
+  chipsEmpty = document.createElement("div");
+  chipsEmpty.className = "empty-note";
+  chipsEmpty.textContent = "Queue is empty \u2013 new jobs arrive continuously.";
+  chipsEmpty.style.display = "none";
+  chipsEl.appendChild(chipsEmpty);
+  for (i = 0; i < 8; i++) {
+    (function(){
+      var b = document.createElement("button");
+      b.type = "button"; b.tabIndex = 0; b.className = "sq";
+      b.setAttribute("aria-haspopup", "dialog");
+      b.setAttribute("aria-expanded", "false");
+      b.style.display = "none";
+      b.addEventListener("click", function(){ var id = b.getAttribute("data-job-id"); if (id) safeOpen(id); });
+      b.addEventListener("keydown", function(e){ var id = b.getAttribute("data-job-id"); if (id) onJobKey(e, id); });
+      wellEl.appendChild(b);
+      sqSlots.push(b);
+    })();
+  }
+  wellEmptyClear = document.createElement("div");
+  wellEmptyClear.className = "empty-note"; wellEmptyClear.textContent = "Overflow is clear.";
+  wellEmptyClear.style.display = "none"; wellEl.appendChild(wellEmptyClear);
+  wellEmptyIdle = document.createElement("span");
+  wellEmptyIdle.className = "empty-note"; wellEmptyIdle.textContent = "Nothing waiting";
+  wellEmptyIdle.style.display = "none"; wellEl.appendChild(wellEmptyIdle);
+  wellMore = document.createElement("span");
+  wellMore.className = "more-chip"; wellMore.style.display = "none";
+  wellEl.appendChild(wellMore);
+  for (i = 0; i < 8; i++) {
+    (function(){
+      var row = document.createElement("div"); row.className = "worker";
+      row.style.display = "none";
+      var av = document.createElement("span"); av.className = "avatar"; av.setAttribute("aria-hidden", "true");
+      var tx = document.createElement("div"); tx.className = "w-tx";
+      var nm = document.createElement("div"); nm.className = "w-nm";
+      var dt = document.createElement("div"); dt.className = "w-dt";
+      tx.appendChild(nm); tx.appendChild(dt);
+      row.appendChild(av); row.appendChild(tx);
+      var bar = document.createElement("div");
+      bar.setAttribute("class", "bar idle"); bar.setAttribute("aria-hidden", "true");
+      var fill = document.createElement("i"); fill.style.width = "0%";
+      bar.appendChild(fill); row.appendChild(bar);
+      var st = document.createElement("span"); st.className = "w-state";
+      st.setAttribute("data-s", "idle"); st.textContent = "Idle";
+      row.appendChild(st);
+      row.addEventListener("click", function(){ var id = row.getAttribute("data-job-id"); if (id) safeOpen(id); });
+      row.addEventListener("keydown", function(e){
+        var id = row.getAttribute("data-job-id"); if (!id) return;
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); safeOpen(id); }
+      });
+      workersEl.appendChild(row);
+      workerSlots.push({ root: row, av: av, nm: nm, dt: dt, bar: bar, fill: fill, st: st });
+    })();
+  }
+  liveBold = document.createElement("b");
+  liveSpan = document.createElement("span");
+  liveMsg.appendChild(liveBold);
+  liveMsg.appendChild(liveSpan);
+  var plot = document.getElementById("plot");
+  for (k = 0; k < 3; k++) {
+    var s = document.createElement("span");
+    s.className = "y-lab"; s.textContent = "0";
+    plot.appendChild(s); yLabs.push(s);
+  }
+  var pi = document.getElementById("pauseIcon");
+  pi.innerHTML = "";
+  pauseShow = document.createElement("span"); pauseShow.innerHTML = '<svg viewBox="0 0 24 24" fill="none"><path d="M9 5v14M9 5l11 7-11 7V5Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>';
+  pauseHide = document.createElement("span"); pauseHide.innerHTML = '<svg viewBox="0 0 24 24" fill="none"><path d="M8 5v14M16 5v14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>';
+  pauseHide.style.display = "none";
+  pi.appendChild(pauseShow); pi.appendChild(pauseHide);
+  var svg = document.getElementById("chartSvg");
+  var NS = "http://www.w3.org/2000/svg";
+  for (k = 0; k < 3; k++) {
+    var ln = document.createElementNS(NS, "line");
+    ln.setAttribute("stroke-width", "1");
+    svg.appendChild(ln); gridLines.push(ln);
+  }
+  for (k = 0; k < 6; k++) {
+    var r = document.createElementNS(NS, "rect");
+    r.style.display = "none";
+    svg.appendChild(r); limitRects.push(r);
+  }
+  areaPath = document.createElementNS(NS, "path");
+  areaPath.setAttribute("fill", "var(--depth-fill)");
+  svg.appendChild(areaPath);
+  linePath = document.createElementNS(NS, "path");
+  linePath.setAttribute("fill", "none");
+  linePath.setAttribute("stroke-width", "2");
+  linePath.setAttribute("stroke-linecap", "round");
+  svg.appendChild(linePath);
+  dotCircle = document.createElementNS(NS, "circle");
+  dotCircle.setAttribute("r", "3.5");
+  svg.appendChild(dotCircle);
+  chartBuilt = true;
+  var dl0 = document.getElementById("popDl");
+  for (var pdi = 0; pdi < 7; pdi++) {
+    var dt00 = document.createElement("dt");
+    var dd00 = document.createElement("dd");
+    dt00.style.display = "none"; dd00.style.display = "none";
+    dl0.appendChild(dt00); dl0.appendChild(dd00);
+    popRows.push({ dt: dt00, dd: dd00 });
+  }
+})();
+function updateChipSlot(slot, job){
+  if (!job) {
+    slot.root.style.display = "none";
+    slot.root.removeAttribute("data-job-id");
+    if (slot.root.dataset) delete slot.root.dataset.jobId;
+    return;
+  }
+  slot.root.style.display = "";
+  slot.root.setAttribute("data-job-id", job.id);
+  slot.root.dataset.jobId = job.id;
+  slot.root.setAttribute("aria-label", jobLabel(job));
+  styleKind(slot.root, job.kind);
+  if (job.priority && job.priority !== "normal") slot.root.setAttribute("data-priority", job.priority);
+  else slot.root.removeAttribute("data-priority");
+  for (var kind in slot.icons) {
+    if (Object.prototype.hasOwnProperty.call(slot.icons, kind)) {
+      slot.icons[kind].style.display = (kind === job.kind) ? "" : "none";
+    }
+  }
+  if (!slot.icons[job.kind]) {
+    slot.icons.tool.style.display = "";
+  }
+  setText(slot.nm, job.name);
+  setText(slot.dt, job.detail);
+  if (job.priority === "high") {
+    slot.badge.removeAttribute("data-k");
+    setText(slot.badge, "High");
+    slot.badge.style.display = "";
+  } else if (job.attempt > 1) {
+    slot.badge.setAttribute("data-k", "retry");
+    setText(slot.badge, "Retry");
+    slot.badge.style.display = "";
+  } else {
+    slot.badge.style.display = "none";
+  }
+}
+function updateSqSlot(el, job){
+  if (!job) {
+    el.style.display = "none";
+    el.removeAttribute("data-job-id");
+    if (el.dataset) delete el.dataset.jobId;
+    return;
+  }
+  el.style.display = "";
+  el.setAttribute("data-job-id", job.id);
+  el.dataset.jobId = job.id;
+  el.setAttribute("aria-label", jobLabel(job));
+  styleKind(el, job.kind);
+  setText(el, (job.priority === "high") ? "!" : initials(job.name).slice(0, 1));
+  el.title = job.name + " \u2013 " + job.detail;
+  if (job.priority !== "high") el.setAttribute("data-dim", "");
+  else el.removeAttribute("data-dim");
 }
 /* Delegated open: the containers below are persistent while render() rebuilds
    their children every tick, so per-node listeners alone can miss clicks/keys
@@ -775,26 +951,20 @@ document.addEventListener("keydown", function(e){
   } catch (err) {}
 }, true);
 function onJobKey(e, id){
-  var items = Array.prototype.slice.call(document.querySelectorAll(".chip,.sq"));
-  var idx = items.findIndex(function(el){ return el.dataset.jobId === id; });
+  var items = Array.prototype.slice.call(document.querySelectorAll(".chip,.sq")).filter(function(el){
+    return el.getAttribute && el.getAttribute("data-job-id") && el.style.display !== "none";
+  });
+  var idx = items.findIndex(function(el){ return (el.getAttribute("data-job-id") || (el.dataset && el.dataset.jobId)) === id; });
   if (e.key === "Enter" || e.key === " ") { e.preventDefault(); safeOpen(id); }
   else if (e.key === "ArrowDown" || e.key === "ArrowRight") { e.preventDefault(); var n = items[idx + 1]; if (n) n.focus(); }
   else if (e.key === "ArrowUp" || e.key === "ArrowLeft") { e.preventDefault(); var p = items[idx - 1]; if (p) p.focus(); }
   else if (e.key === "Escape") { closePop(); }
 }
 function render(){
-  /* KEYBOARD FIX: remember which job row holds Tab focus BEFORE rebuilding.
-     render() replaces every chip/sq/worker node; without this the focused
-     node is detached and the browser drops focus to <body>, so the next Tab
-     restarts at the top (Pause/-/+ only) and Enter/Space reach nothing. */
-  var keepId = null;
-  try {
-    var ae0 = document.activeElement;
-    if (ae0 && ae0.closest && document.contains(ae0)) {
-      var h0 = ae0.closest("[data-job-id]");
-      if (h0) keepId = h0.getAttribute("data-job-id") || (h0.dataset && h0.dataset.jobId) || null;
-    }
-  } catch (e0) { keepId = null; }
+  /* FLICKER FIX: nodes are persistent (built once above); this tick only
+     mutates text/attrs/styles on EXISTING nodes. No innerHTML, no
+     createElement/appendChild/remove here, so CSS animations keep running
+     and Tab focus is never detached. */
   var waiting = waitingSorted();
   var running = sim.jobs.filter(function(j){ return j.status === "running"; });
   var limited = isLimited();
@@ -831,109 +1001,83 @@ function render(){
   var p95 = 0;
   if (waits.length) { waits.sort(function(a, b){ return a - b; }); p95 = waits[Math.min(waits.length - 1, Math.floor(0.95 * waits.length))]; }
   document.getElementById("stP95").textContent = fmtDur(p95);
-  /* queue columns */
+  /* queue columns (in place: reuse the 3 chip slots + 8 square slots) */
   document.getElementById("queueCount").textContent = waiting.length;
   document.getElementById("queueMore").textContent = waiting.length > 11 ? "+" + (waiting.length - 11) + " more" : "";
-  chipsEl.innerHTML = "";
-  wellEl.innerHTML = "";
   var heads = waiting.slice(0, 3), rest = waiting.slice(3, 11);
-  if (!waiting.length) {
-    var en = document.createElement("div"); en.className = "empty-note"; en.textContent = "Queue is empty \u2013 new jobs arrive continuously."; chipsEl.appendChild(en);
-  }
-  heads.forEach(function(j){ chipsEl.appendChild(makeJobBtn(j, "chip")); });
-  if (waiting.length > 3 && !rest.length) {
-    var en2 = document.createElement("div"); en2.className = "empty-note"; en2.textContent = "Overflow is clear."; wellEl.appendChild(en2);
-  }
-  rest.forEach(function(j){ wellEl.appendChild(makeJobBtn(j, "sq")); });
-  if (!rest.length && waiting.length <= 3) {
-    var en3 = document.createElement("span"); en3.className = "empty-note"; en3.textContent = "Nothing waiting"; wellEl.appendChild(en3);
-  }
+  chipsEmpty.style.display = waiting.length ? "none" : "";
+  for (var hi = 0; hi < chipSlots.length; hi++) updateChipSlot(chipSlots[hi], heads[hi] || null);
+  for (var si = 0; si < sqSlots.length; si++) updateSqSlot(sqSlots[si], rest[si] || null);
+  wellEmptyClear.style.display = (waiting.length > 3 && !rest.length) ? "" : "none";
+  wellEmptyIdle.style.display = (!rest.length && waiting.length <= 3 && waiting.length > 0) ? "" : "none";
   if (waiting.length > 11) {
-    var mc = document.createElement("span"); mc.className = "more-chip"; mc.textContent = "+" + (waiting.length - 11) + " more"; wellEl.appendChild(mc);
+    setText(wellMore, "+" + (waiting.length - 11) + " more");
+    wellMore.style.display = "";
+  } else {
+    wellMore.style.display = "none";
   }
-  /* workers */
-  workersEl.innerHTML = "";
-  sim.workers.forEach(function(w){
-    var meta = workerById(w.id);
-    var job = running.find(function(j){ return j.worker === w.id; });
-    var row = document.createElement("div"); row.className = "worker";
-    var av = document.createElement("span"); av.className = "avatar"; av.setAttribute("aria-hidden", "true"); av.textContent = initials(meta.name);
-    var tx = document.createElement("div"); tx.className = "w-tx";
-    var nm = document.createElement("div"); nm.className = "w-nm"; nm.textContent = meta.name; nm.title = meta.name;
-    var dt = document.createElement("div"); dt.className = "w-dt"; dt.textContent = job ? job.name : (limited ? "Paused by the rate limit" : sim.paused ? "Paused" : "Idle \u2013 waiting for work");
-    dt.title = dt.textContent;
-    tx.appendChild(nm); tx.appendChild(dt);
-    row.appendChild(av); row.appendChild(tx);
-    var bar = document.createElement("div"); bar.className = "bar" + (job ? "" : " idle"); bar.setAttribute("aria-hidden", "true");
-    var fill = document.createElement("i");
-    if (job) {
-      styleKind(bar, job.kind);
-      fill.style.width = Math.round(job.prog * 100) + "%";
-    } else { fill.style.width = "0%"; }
-    bar.appendChild(fill); row.appendChild(bar);
-    var st = document.createElement("span"); st.className = "w-state";
-    st.setAttribute("data-s", job ? "running" : "idle");
-    st.textContent = job ? Math.round(job.prog * 100) + "%" : "Idle";
-    row.appendChild(st);
-    if (job) {
-      row.style.cursor = "pointer";
-      row.setAttribute("role", "button");
-      row.tabIndex = 0;
-      row.setAttribute("aria-haspopup", "dialog");
-      row.setAttribute("aria-expanded", "false");
-      row.setAttribute("data-job-id", job.id);
-      row.dataset.jobId = job.id;
-      row.setAttribute("aria-label", jobLabel(job) + ", running on " + meta.name);
-      (function(jid){
-        row.addEventListener("click", function(){ safeOpen(jid); });
-        row.addEventListener("keydown", function(e){ if (e.key === "Enter" || e.key === " ") { e.preventDefault(); safeOpen(jid); } });
-      })(job.id);
-    }
-    workersEl.appendChild(row);
-  });
-  /* KEYBOARD FIX: restore Tab focus to the same job after the rebuild, so a
-     focus -> 250ms step -> Enter gesture reaches a live node. Skip while the
-     dialog is open (focus belongs on Close then). If the job is gone, move
-     focus to the first remaining job row to keep a visible Tab stop. */
-  if (keepId && !openId) {
-    try {
-      var repl = null;
-      var all = document.querySelectorAll("[data-job-id]");
-      for (var ri = 0; ri < all.length; ri++) {
-        var cid = all[ri].getAttribute ? all[ri].getAttribute("data-job-id") : null;
-        if (cid === keepId) { repl = all[ri]; break; }
+  /* workers (in place: reuse the 8 prebuilt rows) */
+  for (var wi = 0; wi < workerSlots.length; wi++) {
+    (function(idx){
+      var slot = workerSlots[idx];
+      if (idx >= sim.workers.length) {
+        slot.root.style.display = "none";
+        slot.root.removeAttribute("data-job-id");
+        if (slot.root.dataset) delete slot.root.dataset.jobId;
+        return;
       }
-      if (repl && document.activeElement !== repl && repl.focus) {
-        try { repl.focus({ preventScroll: true }); } catch (eFS) { repl.focus(); }
-      } else if (!repl) {
-        try {
-          /* Previously focused job finished/left: keep a visible Tab stop by
-             moving focus to the first remaining job row. Only runs when the
-             previous focus was on a job (keepId set), so header controls are
-             never disturbed. */
-          var first = document.querySelector(".chip,.sq") || all[0] || null;
-          if (first && first.focus) { try { first.focus({ preventScroll: true }); } catch (eFF) { first.focus(); } }
-        } catch (eGone) {}
+      var w = sim.workers[idx];
+      var meta = workerById(w.id);
+      var job = null;
+      for (var k = 0; k < running.length; k++) if (running[k].worker === w.id) { job = running[k]; break; }
+      slot.root.style.display = "";
+      setText(slot.av, initials(meta.name));
+      setText(slot.nm, meta.name);
+      slot.nm.title = meta.name;
+      var dtxt = job ? job.name : (limited ? "Paused by the rate limit" : sim.paused ? "Paused" : "Idle \u2013 waiting for work");
+      setText(slot.dt, dtxt);
+      slot.dt.title = dtxt;
+      slot.bar.setAttribute("class", "bar" + (job ? "" : " idle"));
+      if (job) {
+        styleKind(slot.bar, job.kind);
+        slot.fill.style.width = Math.round(job.prog * 100) + "%";
+      } else { slot.fill.style.width = "0%"; }
+      slot.st.setAttribute("data-s", job ? "running" : "idle");
+      setText(slot.st, job ? Math.round(job.prog * 100) + "%" : "Idle");
+      if (job) {
+        slot.root.style.cursor = "pointer";
+        slot.root.setAttribute("role", "button");
+        slot.root.tabIndex = 0;
+        slot.root.setAttribute("aria-haspopup", "dialog");
+        slot.root.setAttribute("data-job-id", job.id);
+        slot.root.dataset.jobId = job.id;
+        slot.root.setAttribute("aria-label", jobLabel(job) + ", running on " + meta.name);
+      } else {
+        slot.root.style.cursor = "";
+        slot.root.removeAttribute("role");
+        slot.root.tabIndex = -1;
+        slot.root.removeAttribute("aria-haspopup");
+        slot.root.removeAttribute("data-job-id");
+        if (slot.root.dataset) delete slot.root.dataset.jobId;
+        slot.root.removeAttribute("aria-label");
       }
-    } catch (eR) {}
+    })(wi);
   }
+  syncExpanded(openId);
   document.getElementById("doneCount").textContent = sim.done.toLocaleString("en-US");
   document.getElementById("failCount").textContent = sim.failed.toLocaleString("en-US");
   /* chart */
   renderChart(waiting.length, limited);
-  liveMsg.innerHTML = "";
-  var b = document.createElement("b"); b.textContent = waiting.length + " waiting \u00B7 " + running.length + " running. ";
-  liveMsg.appendChild(b);
-  liveMsg.appendChild(document.createTextNode(lastMsg));
+  setText(liveBold, waiting.length + " waiting \u00B7 " + running.length + " running. ");
+  setText(liveSpan, lastMsg);
   srStatus.textContent = waiting.length + " waiting, " + running.length + " running.";
-  /* pause button */
+  /* pause button (no innerHTML: toggle two prebuilt icons) */
   var pb = document.getElementById("pauseBtn");
   pb.setAttribute("aria-pressed", sim.paused ? "true" : "false");
   pb.setAttribute("aria-label", sim.paused ? "Resume the queue" : "Pause the queue");
   document.getElementById("pauseText").textContent = sim.paused ? "Resume" : "Pause";
-  document.getElementById("pauseIcon").innerHTML = sim.paused
-    ? '<svg viewBox="0 0 24 24" fill="none"><path d="M8 5v14M16 5v14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>'
-    : '<svg viewBox="0 0 24 24" fill="none"><path d="M9 5v14M9 5l11 7-11 7V5Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>';
+  pauseShow.style.display = sim.paused ? "none" : "";
+  pauseHide.style.display = sim.paused ? "" : "none";
   document.getElementById("wLess").disabled = sim.workers.length <= MIN_W;
   document.getElementById("wMore").disabled = sim.workers.length >= MAX_W;
 }
@@ -948,56 +1092,51 @@ function renderChart(waiting, limited){
   var ymax = steps.find(function(s){ return s >= maxV * 1.15; }) || Math.ceil(maxV * 1.15 / 100) * 100;
   var X = function(t){ return PADL + ((t - v0) / WINDOW) * (W - PADL - 4); };
   var Y = function(v){ return PADT + (1 - v / ymax) * (H - PADT - PADB); };
-  var NS = "http://www.w3.org/2000/svg";
-  svg.innerHTML = "";
   svg.setAttribute("viewBox", "0 0 " + W + " " + H);
   var cs = getComputedStyle(rootEl);
   var gridC = cs.getPropertyValue("--grid") || "rgba(0,0,0,.06)";
   var depthC = (cs.getPropertyValue("--depth") || "").trim();
-  [0, ymax / 2, ymax].forEach(function(v){
-    var ln = document.createElementNS(NS, "line");
+  var gridVals = [0, ymax / 2, ymax];
+  for (var gi = 0; gi < gridLines.length; gi++) {
+    var ln = gridLines[gi];
     ln.setAttribute("x1", PADL); ln.setAttribute("x2", W - 4);
-    ln.setAttribute("y1", Y(v)); ln.setAttribute("y2", Y(v));
+    ln.setAttribute("y1", Y(gridVals[gi])); ln.setAttribute("y2", Y(gridVals[gi]));
     ln.setAttribute("stroke", gridC); ln.setAttribute("stroke-width", "1");
-    svg.appendChild(ln);
-  });
+  }
+  var li = 0;
   sim.limits.forEach(function(l){
     if (l.until < v0 || l.from > sim.t) return;
-    var r = document.createElementNS(NS, "rect");
+    if (li >= limitRects.length) return;
+    var r = limitRects[li++];
+    r.style.display = "";
     r.setAttribute("x", X(Math.max(l.from, v0)));
     r.setAttribute("width", Math.max(1, X(Math.min(l.until, sim.t)) - X(Math.max(l.from, v0))));
     r.setAttribute("y", PADT); r.setAttribute("height", H - PADT - PADB);
     r.setAttribute("fill", gridC);
-    svg.appendChild(r);
   });
+  for (var ri = li; ri < limitRects.length; ri++) limitRects[ri].style.display = "none";
   var mapped = pts.filter(function(p){ return p[0] >= v0 - 2000; }).map(function(p){ return [X(p[0]), Y(p[1])]; });
   if (mapped.length >= 2) {
     var line = smoothPath(mapped);
-    var area = document.createElementNS(NS, "path");
-    area.setAttribute("d", line + "L" + mapped[mapped.length - 1][0].toFixed(1) + "," + Y(0) + "L" + mapped[0][0].toFixed(1) + "," + Y(0) + "Z");
-    area.setAttribute("fill", "var(--depth-fill)");
-    svg.appendChild(area);
-    var pl = document.createElementNS(NS, "path");
-    pl.setAttribute("d", line);
-    pl.setAttribute("fill", "none");
-    pl.setAttribute("stroke", depthC || "currentColor");
-    pl.setAttribute("stroke-width", "2");
-    pl.setAttribute("stroke-linecap", "round");
-    svg.appendChild(pl);
+    areaPath.style.display = "";
+    linePath.style.display = "";
+    dotCircle.style.display = "";
+    areaPath.setAttribute("d", line + "L" + mapped[mapped.length - 1][0].toFixed(1) + "," + Y(0) + "L" + mapped[0][0].toFixed(1) + "," + Y(0) + "Z");
+    linePath.setAttribute("d", line);
+    linePath.setAttribute("stroke", depthC || "currentColor");
     var last = mapped[mapped.length - 1];
-    var dot = document.createElementNS(NS, "circle");
-    dot.setAttribute("cx", last[0]); dot.setAttribute("cy", last[1]); dot.setAttribute("r", "3.5");
-    dot.setAttribute("fill", depthC || "currentColor");
-    svg.appendChild(dot);
+    dotCircle.setAttribute("cx", last[0]); dotCircle.setAttribute("cy", last[1]);
+    dotCircle.setAttribute("fill", depthC || "currentColor");
+  } else {
+    areaPath.style.display = "none";
+    linePath.style.display = "none";
+    dotCircle.style.display = "none";
   }
-  var plot = document.getElementById("plot");
-  plot.querySelectorAll(".y-lab").forEach(function(e){ e.remove(); });
-  [ymax, Math.round(ymax / 2), 0].forEach(function(v){
-    var s = document.createElement("span");
-    s.className = "y-lab"; s.textContent = v;
-    s.style.top = Y(v) + "px";
-    plot.appendChild(s);
-  });
+  var yVals = [ymax, Math.round(ymax / 2), 0];
+  for (var yi = 0; yi < yLabs.length; yi++) {
+    setText(yLabs[yi], yVals[yi]);
+    yLabs[yi].style.top = Y(yVals[yi]) + "px";
+  }
   var peak = pts.reduce(function(m, p){ return Math.max(m, p[1]); }, 0);
   document.getElementById("chartSub").textContent = "last 2.0 min \u00B7 " + waiting + " waiting now, peak " + peak;
   svg.setAttribute("aria-label", "Queue depth over the last 2 minutes: " + waiting + " waiting now, peak " + peak + (limited ? ", currently rate limited" : ""));
@@ -1028,7 +1167,6 @@ function openJob(id, doFocus){
   document.getElementById("popName").textContent = j.name;
   document.getElementById("popSub").textContent = j.detail + " \u00B7 " + ({ llm: "LLM call", tool: "Tool call", agent: "Sub-agent" }[j.kind] || j.kind);
   var dl = document.getElementById("popDl");
-  dl.innerHTML = "";
   var rows = [
     ["Status", j.status === "running" ? "Running" : j.status === "failed" ? "Failed" : j.status === "done" ? "Done" : "Waiting"],
     ["Waited", j.status === "queued" ? fmtDur(sim.t - j.enqueuedAt) : fmtDur((j.startedAt || j.endedAt || sim.t) - j.enqueuedAt)],
@@ -1038,11 +1176,17 @@ function openJob(id, doFocus){
     ["Attempt", j.attempt + (j.maxAttempts ? " of " + j.maxAttempts : "")]
   ];
   if (sim.paused || isLimited()) rows.push(["Queue", sim.paused ? "Paused" : "Paused by the rate limit"]);
-  rows.forEach(function(r){
-    var dt = document.createElement("dt"); dt.textContent = r[0];
-    var dd = document.createElement("dd"); dd.textContent = r[1];
-    dl.appendChild(dt); dl.appendChild(dd);
-  });
+  for (var ri2 = 0; ri2 < popRows.length; ri2++) {
+    if (ri2 < rows.length) {
+      setText(popRows[ri2].dt, rows[ri2][0]);
+      setText(popRows[ri2].dd, rows[ri2][1]);
+      popRows[ri2].dt.style.display = "";
+      popRows[ri2].dd.style.display = "";
+    } else {
+      popRows[ri2].dt.style.display = "none";
+      popRows[ri2].dd.style.display = "none";
+    }
+  }
   var err = document.getElementById("popErr");
   if (j.error) { err.hidden = false; err.textContent = j.error; } else { err.hidden = true; err.textContent = ""; }
   popFront.style.display = (j.status === "queued") ? "" : "none";

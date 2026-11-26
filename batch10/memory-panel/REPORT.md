@@ -105,3 +105,34 @@ no extra renders, theme toggles `data-theme`, no 8-cell grid, 45KB < 200KB, no n
 - Pixel-exact match to the original rendered demo (no screenshot pipeline here); spacing,
   radii, folds and timings follow the extracted CSS/behaviour values.
 - Real-browser focus/keyboard/container-query behaviour beyond the stubbed logic paths.
+
+## Flicker fix (2026-11-25 — rAF/full-render reload defect)
+Defect: every demo tick rebuilt component DOM via `innerHTML`, so CSS animations
+restarted and unchanged rows were destroyed/recreated (visible full flash each step).
+Fix: the panel DOM is now built ONCE at init (`mount` → `buildHead/Note/Filters/
+List/Bottom/Foot`, all `createElement`/`createElementNS` + `appendChild`). Every
+later tick patches ONLY what changed, in place: `textContent` on existing text
+nodes, `setAttribute`/`removeAttribute` for classes/roles/aria/data, `.hidden`
+for show/hide, SVG icon swaps by replacing the `<path>` child (SVG classes only
+via `setAttribute`, never `className`). Row/group/chip/card/list/foot nodes are
+keyed and cached (`rowMap`/`groupMap`/`chipMap`); forget detaches but keeps the
+node so undo re-attaches the SAME object. Loop restarts only re-append existing
+nodes in order — the container is never wiped. The 520ms counter tween still
+updates text nodes only. All data (8 seeds), timings (`UNDO_MS 5000`, `LEAVE_MS
+320`, `COUNT_MS 520`, `SCROLL_MS 120`, `TOUR` delays/steps), tour choreography,
+interactions, and both themes are unchanged; the early-theme `/*noflash*/` guard
+in `<head>` is untouched. Added `[hidden]{display:none !important}` so hidden
+rows/groups (whose containers carry author `display`) stay hidden. Tour still
+stops on capture-phase `pointerdown`/`mousedown`.
+Verification (`node harness.cjs`, node only — no browser installed or launched,
+all files inside this directory): the harness extracts the real main script (the
+`__mp` block, not the `noflash` guard — the old extractor matched the guard and
+failed), spies `innerHTML` writes, captures 4 row nodes + item + card/list/foot
+after init, then advances virtual timers through a full 12.4s tour loop in light
+and a second full loop in dark. It asserts (a) every captured node is the SAME
+object and still in the tree afterwards, (b) zero `innerHTML` writes during all
+ticks (`src` contains no `innerHTML` reference either), (c) visible text advances
+through the loop states (auto-pause → `Forgot "…"` → undo → Projects(2) → All(8)
+→ pause) in both themes. All 30 checks pass (`ALL HARNESS CHECKS PASSED`,
+`t=41550ms`); `index.html` is 57,888 bytes (<200KB), single file, no network
+refs (except the SVG XML namespace).

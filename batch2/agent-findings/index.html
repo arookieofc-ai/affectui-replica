@@ -343,6 +343,7 @@ ul, ol { margin: 0; padding: 0; list-style: none; }
 }
 .af__detail code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 11.5px; color: var(--af-ink); }
 .af__empty { display: grid; place-items: center; height: 40px; font-size: 12px; color: var(--af-muted); }
+[hidden] { display: none !important; }
 
 /* ---------- footer bar ---------- */
 .af__foot {
@@ -516,14 +517,224 @@ function countSev(list, sev, agentId) {
   }
   return n;
 }
-function markHTML(sev) {
-  return '<span class="mark" data-sev="' + sev + '" aria-hidden="true"><i></i><i></i><i></i><i></i></span>';
+function makeMark(sev) {
+  var s = document.createElement("span");
+  s.setAttribute("class", "mark");
+  s.setAttribute("data-sev", sev);
+  s.setAttribute("aria-hidden", "true");
+  for (var i = 0; i < 4; i++) s.appendChild(document.createElement("i"));
+  return s;
+}
+function setMarkSev(markEl, sev) {
+  markEl.setAttribute("data-sev", sev);
+}
+function makeAvatarSVG(d) {
+  var svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("fill", "currentColor");
+  svg.setAttribute("aria-hidden", "true");
+  var p = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  p.setAttribute("d", d);
+  svg.appendChild(p);
+  return svg;
 }
 function esc(s) {
   return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
-function render() {
+/* Build the DOM once. After this function returns, ticks only touch
+   text/attrs/styles in place on the existing nodes. */
+var SVGNS = "http://www.w3.org/2000/svg";
+var agentRefs = [];
+var totalsRefs = null;
+var filterRefs = [];
+var chipRefs = null;
+var slotRefs = [];
+var emptyRefs = null;
+
+function el(tag, cls) {
+  var n = document.createElement(tag);
+  if (cls) n.setAttribute("class", cls);
+  return n;
+}
+function svgEl(tag) {
+  return document.createElementNS(SVGNS, tag);
+}
+
+function buildStatic() {
+  var i, j, b, s;
+  elTotals.setAttribute("aria-label", "0 critical, 0 warnings");
+  totalsRefs = [];
+  var sevNames = ["critical", "warning"];
+  var sevWords = ["critical", "warnings"];
+  for (i = 0; i < 2; i++) {
+    s = el("span");
+    s.setAttribute("data-sev", sevNames[i]);
+    s.setAttribute("data-zero", "true");
+    b = el("b");
+    b.textContent = "0";
+    s.appendChild(b);
+    var tail = document.createTextNode(" " + sevWords[i]);
+    s.appendChild(tail);
+    elTotals.appendChild(s);
+    totalsRefs.push({ wrap: s, num: b, tail: tail, sev: sevNames[i] });
+  }
+
+  for (i = 0; i < AGENTS.length; i++) {
+    (function (a) {
+      var li = el("li");
+      var btn = el("button", "af__agent");
+      btn.setAttribute("type", "button");
+      btn.setAttribute("data-status", "running");
+      btn.setAttribute("aria-pressed", "false");
+      btn.setAttribute("title", a.name + " · " + a.model);
+      btn.setAttribute("data-agent", a.id);
+      var av = el("span", "af__avatar");
+      av.setAttribute("data-av", a.id);
+      av.setAttribute("aria-hidden", "true");
+      av.appendChild(makeAvatarSVG(AVATAR_PATHS[a.id]));
+      btn.appendChild(av);
+      var who = el("span", "af__who");
+      var nm = el("span", "af__name");
+      nm.textContent = a.name;
+      who.appendChild(nm);
+      var st = el("span", "af__step");
+      st.textContent = a.steps[0];
+      st.setAttribute("title", a.steps[0]);
+      who.appendChild(st);
+      btn.appendChild(who);
+      var track = el("span", "af__track");
+      track.setAttribute("aria-hidden", "true");
+      var fill = el("span", "af__fill");
+      fill.style.width = "0.0%";
+      track.appendChild(fill);
+      btn.appendChild(track);
+      var count = el("span", "af__count");
+      count.textContent = "0/" + a.total;
+      btn.appendChild(count);
+      var found = el("span", "af__found");
+      var critW = el("span");
+      critW.setAttribute("data-sev", "critical");
+      critW.setAttribute("data-zero", "true");
+      var critM = makeMark("critical");
+      critW.appendChild(critM);
+      var critB = el("b");
+      critB.textContent = "0";
+      critW.appendChild(critB);
+      found.appendChild(critW);
+      var warnW = el("span");
+      warnW.setAttribute("data-sev", "warning");
+      warnW.setAttribute("data-zero", "true");
+      var warnM = makeMark("warning");
+      warnW.appendChild(warnM);
+      var warnB = el("b");
+      warnB.textContent = "0";
+      warnW.appendChild(warnB);
+      found.appendChild(warnW);
+      btn.appendChild(found);
+      li.appendChild(btn);
+      elAgents.appendChild(li);
+      agentRefs.push({ a: a, li: li, btn: btn, step: st, fill: fill, count: count, critW: critW, critB: critB, warnW: warnW, warnB: warnB });
+    })(AGENTS[i]);
+  }
+
+  var chip = el("button", "af__chip");
+  chip.setAttribute("type", "button");
+  chip.setAttribute("id", "afChip");
+  chip.hidden = true;
+  var chipName = el("span", "af__chip-name");
+  chipName.textContent = "";
+  chip.appendChild(chipName);
+  var chipSvg = svgEl("svg");
+  chipSvg.setAttribute("viewBox", "0 0 10 10");
+  chipSvg.setAttribute("aria-hidden", "true");
+  var chipPath = svgEl("path");
+  chipPath.setAttribute("d", "M2.5 2.5l5 5M7.5 2.5l-5 5");
+  chipPath.setAttribute("stroke", "currentColor");
+  chipPath.setAttribute("stroke-width", "1.4");
+  chipPath.setAttribute("stroke-linecap", "round");
+  chipSvg.appendChild(chipPath);
+  chip.appendChild(chipSvg);
+  elChipWrap.appendChild(chip);
+  chipRefs = { btn: chip, name: chipName };
+  chip.addEventListener("click", function () { selectedAgent = null; update(); });
+
+  var filters = [["all", "All"], ["critical", "Critical"], ["warning", "Warning"], ["note", "Note"]];
+  for (i = 0; i < filters.length; i++) {
+    (function (fl) {
+      var pill = el("button", "af__pill");
+      pill.setAttribute("type", "button");
+      if (fl[0] !== "all") pill.setAttribute("data-sev", fl[0]);
+      pill.setAttribute("aria-pressed", fl[0] === severityFilter ? "true" : "false");
+      pill.setAttribute("data-sevfilter", fl[0]);
+      pill.textContent = fl[1];
+      elFilters.appendChild(pill);
+      filterRefs.push({ key: fl[0], btn: pill });
+    })(filters[i]);
+  }
+
+  for (i = 0; i < ROWS + 1; i++) {
+    (function () {
+      var slot = el("li", "af__slot");
+      var btn = el("button", "af__finding");
+      btn.setAttribute("type", "button");
+      btn.style.height = "40px";
+      btn.setAttribute("aria-expanded", "false");
+      var inner = el("span", "af__in");
+      var mark = makeMark("note");
+      inner.appendChild(mark);
+      var sr = el("span", "af__sr");
+      sr.textContent = "Note: ";
+      inner.appendChild(sr);
+      var title = el("span", "af__ftitle");
+      title.textContent = "";
+      inner.appendChild(title);
+      var meta = el("span", "af__meta");
+      var whoN = el("span", "af__who-name");
+      whoN.textContent = "";
+      meta.appendChild(whoN);
+      var dot = el("span", "af__dot");
+      dot.setAttribute("aria-hidden", "true");
+      dot.textContent = "·";
+      meta.appendChild(dot);
+      var code = document.createElement("code");
+      code.textContent = "";
+      meta.appendChild(code);
+      inner.appendChild(meta);
+      var time = el("span", "af__time");
+      time.textContent = "";
+      inner.appendChild(time);
+      btn.appendChild(inner);
+      slot.appendChild(btn);
+      var detail = el("div", "af__detail");
+      detail.hidden = true;
+      var db = document.createElement("b");
+      db.textContent = "Note";
+      detail.appendChild(db);
+      var dmid = document.createTextNode(" ·  · ");
+      detail.appendChild(dmid);
+      var dcode = document.createElement("code");
+      dcode.textContent = "";
+      detail.appendChild(dcode);
+      slot.appendChild(detail);
+      slot.hidden = true;
+      elFeed.appendChild(slot);
+      slotRefs.push({ slot: slot, btn: btn, mark: mark, sr: sr, title: title, meta: meta, whoN: whoN, dot: dot, code: code, time: time, detail: detail, db: db, dmid: dmid, dcode: dcode });
+    })();
+  }
+  var emptyLi = el("li", "af__empty");
+  emptyLi.textContent = "Nothing found yet";
+  emptyLi.hidden = true;
+  elFeed.appendChild(emptyLi);
+  emptyRefs = emptyLi;
+}
+
+function setZero(elm, isZero) {
+  if (isZero) elm.setAttribute("data-zero", "true");
+  else elm.removeAttribute("data-zero");
+}
+
+function update() {
   var elapsed = Math.max(0, (nowTime - startTime) / 1000);
   var shown = visibleFindings(elapsed);
   var doneSum = 0, totalSum = 0, running = 0;
@@ -538,48 +749,52 @@ function render() {
   elProgress.textContent = totalSum > 0 ? fmtNum(doneSum) + " of " + fmtNum(totalSum) + " checks" : "";
   var nc = countSev(shown, "critical"), nw = countSev(shown, "warning");
   elTotals.setAttribute("aria-label", nc + " critical, " + nw + " warnings");
-  elTotals.innerHTML =
-    '<span data-sev="critical"' + (nc === 0 ? ' data-zero="true"' : "") + '><b>' + fmtNum(nc) + "</b> critical</span>" +
-    '<span data-sev="warning"' + (nw === 0 ? ' data-zero="true"' : "") + '><b>' + fmtNum(nw) + "</b> " + (nw === 1 ? "warning" : "warnings") + "</span>";
+  totalsRefs[0].num.textContent = fmtNum(nc);
+  totalsRefs[0].tail.textContent = " critical";
+  setZero(totalsRefs[0].wrap, nc === 0);
+  totalsRefs[1].num.textContent = fmtNum(nw);
+  totalsRefs[1].tail.textContent = " " + (nw === 1 ? "warning" : "warnings");
+  setZero(totalsRefs[1].wrap, nw === 0);
 
-  elAgents.innerHTML = states.map(function (st) {
-    var a = st.a;
+  for (var si = 0; si < agentRefs.length; si++) {
+    var r = agentRefs[si];
+    var st = states[si];
+    var a = r.a;
     var pct = a.total ? Math.min(100, (st.done / a.total) * 100) : 0;
     var step = st.status === "done" ? "All checks done" : stepOf(a, st.p);
     var ic = countSev(shown, "critical", a.id), iw = countSev(shown, "warning", a.id);
-    var dim = selectedAgent && selectedAgent !== a.id ? ' data-dim="true"' : "";
-    var pressed = selectedAgent === a.id ? "true" : "false";
-    return '<li><button type="button" class="af__agent" data-status="' + st.status + '"' +
-      ' aria-pressed="' + pressed + '"' + dim +
-      ' title="' + esc(a.name + " · " + a.model) + '" data-agent="' + a.id + '">' +
-      '<span class="af__avatar" data-av="' + a.id + '" aria-hidden="true">' +
-      '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="' + AVATAR_PATHS[a.id] + '"/></svg></span>' +
-      '<span class="af__who"><span class="af__name">' + esc(a.name) + "</span>" +
-      '<span class="af__step" title="' + esc(step) + '">' + esc(step) + "</span></span>" +
-      '<span class="af__track" aria-hidden="true"><span class="af__fill" style="width:' + pct.toFixed(1) + '%"></span></span>' +
-      '<span class="af__count">' + fmtNum(st.done) + "/" + fmtNum(a.total) + "</span>" +
-      '<span class="af__found" aria-label="' + ic + " critical, " + iw + ' warnings">' +
-      '<span data-sev="critical"' + (ic === 0 ? ' data-zero="true"' : "") + ">" + markHTML("critical") + "<b>" + (ic > 99 ? "99+" : ic) + "</b></span>" +
-      '<span data-sev="warning"' + (iw === 0 ? ' data-zero="true"' : "") + ">" + markHTML("warning") + "<b>" + (iw > 99 ? "99+" : iw) + "</b></span>" +
-      "</span></button></li>";
-  }).join("");
+    r.btn.setAttribute("data-status", st.status);
+    r.btn.setAttribute("aria-pressed", selectedAgent === a.id ? "true" : "false");
+    if (selectedAgent && selectedAgent !== a.id) r.btn.setAttribute("data-dim", "true");
+    else r.btn.removeAttribute("data-dim");
+    r.btn.setAttribute("title", a.name + " · " + a.model);
+    if (r.step.textContent !== step) r.step.textContent = step;
+    if (r.step.getAttribute("title") !== step) r.step.setAttribute("title", step);
+    var w = pct.toFixed(1) + "%";
+    if (r.fill.style.width !== w) r.fill.style.width = w;
+    var cTxt = fmtNum(st.done) + "/" + fmtNum(a.total);
+    if (r.count.textContent !== cTxt) r.count.textContent = cTxt;
+    var cbTxt = ic > 99 ? "99+" : String(ic);
+    if (r.critB.textContent !== cbTxt) r.critB.textContent = cbTxt;
+    setZero(r.critW, ic === 0);
+    var wbTxt = iw > 99 ? "99+" : String(iw);
+    if (r.warnB.textContent !== wbTxt) r.warnB.textContent = wbTxt;
+    setZero(r.warnW, iw === 0);
+  }
 
   var sel = selectedAgent ? agentById(selectedAgent) : null;
   if (sel) {
-    elChipWrap.innerHTML = '<button type="button" class="af__chip" id="afChip" aria-label="Show all agents (now only ' +
-      esc(sel.name) + ')" title="' + esc(sel.name) + '"><span class="af__chip-name">' + esc(sel.name) +
-      '</span><svg viewBox="0 0 10 10" aria-hidden="true"><path d="M2.5 2.5l5 5M7.5 2.5l-5 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></button>';
-    document.getElementById("afChip").addEventListener("click", function () { selectedAgent = null; render(); });
+    chipRefs.btn.hidden = false;
+    if (chipRefs.name.textContent !== sel.name) chipRefs.name.textContent = sel.name;
+    chipRefs.btn.setAttribute("aria-label", "Show all agents (now only " + sel.name + ")");
+    chipRefs.btn.setAttribute("title", sel.name);
   } else {
-    elChipWrap.innerHTML = "";
+    chipRefs.btn.hidden = true;
   }
 
-  var filters = [["all", "All"], ["critical", "Critical"], ["warning", "Warning"], ["note", "Note"]];
-  elFilters.innerHTML = filters.map(function (fl) {
-    var on = severityFilter === fl[0] ? "true" : "false";
-    var sevAttr = fl[0] === "all" ? "" : ' data-sev="' + fl[0] + '"';
-    return '<button type="button" class="af__pill"' + sevAttr + ' aria-pressed="' + on + '" data-sevfilter="' + fl[0] + '">' + fl[1] + "</button>";
-  }).join("");
+  for (var fi = 0; fi < filterRefs.length; fi++) {
+    filterRefs[fi].btn.setAttribute("aria-pressed", severityFilter === filterRefs[fi].key ? "true" : "false");
+  }
 
   var feed = shown.slice().sort(function (x, y) { return y.at - x.at; });
   if (sel) feed = feed.filter(function (e) { return e.f.agentId === sel.id; });
@@ -595,65 +810,120 @@ function render() {
   elFeed.style.setProperty("--af-shown", String(shownRows));
   elFeed.style.height = "calc(" + shownRows + " * 40px + 12px" + (extra ? " + " + extra + "px" : "") + ")";
   if (list.length === 0) {
-    elFeed.innerHTML = '<li class="af__empty">Nothing found yet</li>';
+    emptyRefs.hidden = false;
+    for (var q = 0; q < slotRefs.length; q++) slotRefs[q].slot.hidden = true;
   } else {
-    elFeed.innerHTML = list.map(function (entry, i) {
+    emptyRefs.hidden = true;
+    for (var idx = 0; idx < slotRefs.length; idx++) {
+      var sr2 = slotRefs[idx];
+      if (idx >= list.length) { sr2.slot.hidden = true; continue; }
+      sr2.slot.hidden = false;
+      var entry = list[idx];
       var f = entry.f;
       var ag = agentById(f.agentId);
       var agName = ag ? ag.name : "";
-      var out = i >= ROWS ? ' data-out="true" aria-hidden="true"' : "";
-      var open = i === openIdx;
-      var y = i * 40 + (openIdx >= 0 && i > openIdx ? extra : 0);
-      var slotStyle = "transform:translateY(" + y + "px)" + (open ? ";height:" + (40 + extra) + "px" : "");
-      var html = '<li class="af__slot" style="' + slotStyle + '"' + out + ">" +
-        '<button type="button" class="af__finding" style="height:40px"' + (i >= ROWS ? ' tabindex="-1"' : "") + ' data-finding="' + f.id + '"' +
-        ' aria-expanded="' + (open ? "true" : "false") + '">' +
-        '<span class="af__in">' + markHTML(f.severity) +
-        '<span class="af__sr">' + SEV_LABEL[f.severity] + ": </span>" +
-        '<span class="af__ftitle" title="' + esc(f.title) + '">' + esc(f.title) + "</span>" +
-        '<span class="af__meta" title="' + esc((agName && f.location ? agName + " · " + f.location : (agName || f.location || ""))) + '">' +
-        (agName ? '<span class="af__who-name">' + esc(agName) + "</span>" : "") +
-        (agName && f.location ? '<span class="af__dot" aria-hidden="true">·</span>' : "") +
-        (f.location ? "<code>" + esc(f.location) + "</code>" : "") + "</span>" +
-        '<span class="af__time">' + esc(fmtAgo(entry.at, nowTime)) + "</span>" +
-        "</span></button>";
+      var isOut = idx >= ROWS;
+      if (isOut) sr2.slot.setAttribute("data-out", "true");
+      else sr2.slot.removeAttribute("data-out");
+      sr2.slot.setAttribute("aria-hidden", isOut ? "true" : "false");
+      var y = idx * 40 + (openIdx >= 0 && idx > openIdx ? extra : 0);
+      var wantT = "translateY(" + y + "px)";
+      if (sr2.slot.style.transform !== wantT) sr2.slot.style.transform = wantT;
+      var wantH = (idx === openIdx) ? (40 + extra) + "px" : "";
+      if (sr2.slot.style.height !== wantH) sr2.slot.style.height = wantH;
+      var open = idx === openIdx;
+      if (sr2.btn.getAttribute("data-finding") !== f.id) sr2.btn.setAttribute("data-finding", f.id);
+      sr2.btn.setAttribute("aria-expanded", open ? "true" : "false");
+      if (isOut) sr2.btn.setAttribute("tabindex", "-1");
+      else sr2.btn.removeAttribute("tabindex");
+      setMarkSev(sr2.mark, f.severity);
+      var srTxt = SEV_LABEL[f.severity] + ": ";
+      if (sr2.sr.textContent !== srTxt) sr2.sr.textContent = srTxt;
+      if (sr2.title.textContent !== f.title) sr2.title.textContent = f.title;
+      if (sr2.title.getAttribute("title") !== f.title) sr2.title.setAttribute("title", f.title);
+      var metaFull = (agName && f.location ? agName + " · " + f.location : (agName || f.location || ""));
+      if (sr2.meta.getAttribute("title") !== metaFull) sr2.meta.setAttribute("title", metaFull);
+      if (sr2.whoN.textContent !== agName) sr2.whoN.textContent = agName;
+      var locTxt = f.location || "";
+      if (sr2.code.textContent !== locTxt) sr2.code.textContent = locTxt;
+      var showMeta = !!(agName || f.location);
+      sr2.whoN.style.display = agName ? "" : "none";
+      sr2.dot.style.display = (agName && f.location) ? "" : "none";
+      sr2.code.style.display = f.location ? "" : "none";
+      void showMeta;
+      var tTxt = fmtAgo(entry.at, nowTime);
+      if (sr2.time.textContent !== tTxt) sr2.time.textContent = tTxt;
       if (open) {
-        html += '<div class="af__detail"><b>' + SEV_LABEL[f.severity] + "</b> · " + esc(agName) +
-          (ag ? " (" + esc(ag.model) + ")" : "") + " · <code>" + esc(f.location || "") + "</code></div>";
+        sr2.detail.hidden = false;
+        var sevW = SEV_LABEL[f.severity];
+        if (sr2.db.textContent !== sevW) sr2.db.textContent = sevW;
+        var mid = " · " + agName + (ag ? " (" + ag.model + ")" : "") + " · ";
+        if (sr2.dmid.textContent !== mid) sr2.dmid.textContent = mid;
+        if (sr2.dcode.textContent !== (f.location || "")) sr2.dcode.textContent = (f.location || "");
+      } else {
+        sr2.detail.hidden = true;
       }
-      return html + "</li>";
-    }).join("");
+    }
   }
 
   elStatus.textContent = running === 0 ? "Run complete · " + fmtNum(shown.length) + " findings"
     : running + " of " + AGENTS.length + " agents working · " + fmtNum(doneSum) + "/" + fmtNum(totalSum);
 }
 
+function toggleAgent(id) {
+  selectedAgent = (selectedAgent === id) ? null : id;
+  update();
+}
+function toggleFinding(id) {
+  openFinding = (openFinding === id) ? null : id;
+  update();
+}
+var suppressAgentClick = false;
+var suppressFeedClick = false;
+var suppressFilterClick = false;
+elAgents.addEventListener("pointerdown", function (ev) {
+  var btn = ev.target && ev.target.closest ? ev.target.closest("[data-agent]") : null;
+  if (!btn) return;
+  suppressAgentClick = true;
+  toggleAgent(btn.getAttribute("data-agent"));
+}, true);
 elAgents.addEventListener("click", function (ev) {
+  if (suppressAgentClick) { suppressAgentClick = false; return; }
   var btn = ev.target.closest("[data-agent]");
   if (!btn) return;
-  var id = btn.getAttribute("data-agent");
-  selectedAgent = (selectedAgent === id) ? null : id;
-  render();
+  toggleAgent(btn.getAttribute("data-agent"));
 });
+elFeed.addEventListener("pointerdown", function (ev) {
+  var btn = ev.target && ev.target.closest ? ev.target.closest("[data-finding]") : null;
+  if (!btn) return;
+  suppressFeedClick = true;
+  toggleFinding(btn.getAttribute("data-finding"));
+}, true);
 elFeed.addEventListener("click", function (ev) {
+  if (suppressFeedClick) { suppressFeedClick = false; return; }
   var btn = ev.target.closest("[data-finding]");
   if (!btn) return;
-  var id = btn.getAttribute("data-finding");
-  openFinding = (openFinding === id) ? null : id;
-  render();
+  toggleFinding(btn.getAttribute("data-finding"));
 });
+elFilters.addEventListener("pointerdown", function (ev) {
+  var btn = ev.target && ev.target.closest ? ev.target.closest("[data-sevfilter]") : null;
+  if (!btn) return;
+  suppressFilterClick = true;
+  severityFilter = btn.getAttribute("data-sevfilter");
+  update();
+}, true);
 elFilters.addEventListener("click", function (ev) {
+  if (suppressFilterClick) { suppressFilterClick = false; return; }
   var btn = ev.target.closest("[data-sevfilter]");
   if (!btn) return;
   severityFilter = btn.getAttribute("data-sevfilter");
-  render();
+  update();
 });
 document.getElementById("afReplay").addEventListener("click", function () {
   startTime = Date.now();
   nowTime = Date.now();
   openFinding = null;
-  render();
+  update();
 });
 
 var toggle = document.getElementById("themeToggle");
@@ -672,9 +942,10 @@ syncToggleLabel();
 
 setInterval(function () {
   nowTime = Date.now();
-  render();
+  update();
 }, 500);
-render();
+buildStatic();
+update();
 </script>
 </body>
 </html>

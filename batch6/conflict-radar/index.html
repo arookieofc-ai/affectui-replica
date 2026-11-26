@@ -95,6 +95,9 @@ html[data-theme="dark"] .cr{
 .cr-merge[data-ready]:hover{opacity:.9}
 .cr-merged{display:flex;align-items:center;gap:8px;margin:0 8px 8px;padding:8px 12px;border-radius:var(--radius);background:var(--ok-bg2);border:1px solid var(--ok-edge);color:var(--ok-tag);font-size:13px;font-weight:600}
 .cr-merged[hidden]{display:none}
+[hidden]{display:none!important}
+button.cr-row[data-state="clean"]{cursor:default}
+button.cr-row[data-state="clean"]:hover{background:none;box-shadow:none}
 .cr-grid{display:grid}
 #fileRows{display:grid}
 .cr-row{position:relative;display:grid;grid-template-columns:minmax(var(--filew),1fr) minmax(0,calc(3 * var(--col)));align-items:center;width:100%;min-height:36px;border-top:1px solid var(--line);transition:background 160ms ease}
@@ -313,11 +316,32 @@ function initials(name){
 }
 function hashStr(s){ var h=2166136261; for(var i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,16777619);} return h>>>0; }
 function agentHue(id){ return hashStr("cr:"+id)%360; }
-/* deterministic 3x3 pixel-mark: exactly 9 cells */
-function pixelMark(id){
-  var h=hashStr("px:"+id), hue=agentHue(id), cells="";
-  for(var k=0;k<9;k++){ var on=((h>>k)&1)===1 || k===4; cells+='<i class="'+(on?"on":"")+'"></i>'; }
-  return '<span class="px" style="--px-c:hsl('+hue+' 65% 55%)" aria-hidden="true">'+cells+"</span>";
+/* deterministic 3x3 pixel-mark: exactly 9 cells (DOM builder, no innerHTML) */
+function buildPixelMark(id){
+  var h=hashStr("px:"+id), hue=agentHue(id);
+  var wrap=document.createElement("span");
+  wrap.setAttribute("class","px");
+  wrap.setAttribute("aria-hidden","true");
+  wrap.style.setProperty("--px-c","hsl("+hue+" 65% 55%)");
+  var cells=[];
+  for(var k=0;k<9;k++){
+    var c=document.createElement("i");
+    var on=((h>>k)&1)===1||k===4;
+    if(on) c.setAttribute("class","on");
+    else c.setAttribute("class","");
+    wrap.appendChild(c);
+    cells.push(c);
+  }
+  return {root:wrap,cells:cells};
+}
+function paintPixelMark(pm,id){
+  var h=hashStr("px:"+id), hue=agentHue(id);
+  pm.root.style.setProperty("--px-c","hsl("+hue+" 65% 55%)");
+  for(var k=0;k<9;k++){
+    var on=((h>>k)&1)===1||k===4;
+    var want=on?"on":"";
+    if(pm.cells[k].getAttribute("class")!==want) pm.cells[k].setAttribute("class",want);
+  }
 }
 function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
 
@@ -325,7 +349,11 @@ function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").rep
 function now(){ try{ var h=window.__crHarness; if(h&&typeof h.now==="function") return h.now(); }catch(e){} return Date.now(); }
 var t0=now(), nowT=t0, userResolved={}, selected=null, flashTimer=0;
 var merged=false, curReady=false;
-var prevHeads="\0", prevRows="\0", prevPick="\0", prevLegend="\0", prevMerge="\0", prevCtx="";
+var prevMergeTxt="\0", prevCtx="";
+function setText(node,val){ if(node&&node.textContent!==val) node.textContent=val; }
+function setAttr(el,k,v){ if(el.getAttribute(k)!==v) el.setAttribute(k,v); }
+function toggleAttr(el,k,on){ var has=el.getAttribute(k)!=null; if(on&&!has) el.setAttribute(k,""); else if(!on&&has) el.removeAttribute(k); }
+function setHidden(el,hide){ if(el.hidden!==hide) el.hidden=hide; }
 function doMerge(){ if(curReady&&!merged){ merged=true; render(); } }
 (function(){
   var mb=document.getElementById("mergeBtn");
@@ -366,6 +394,140 @@ function autoMap(elapsed){
 }
 function resolvedFor(path,elapsed){ return userResolved[path]||autoMap(elapsed)[path]; }
 
+/* ---- build the DOM ONCE (no innerHTML anywhere in this script) ---- */
+var elWork=document.getElementById("workCount"),
+    elMergeBtn=document.getElementById("mergeBtn"),
+    elMergeLabel=document.getElementById("mergeLabel"),
+    elBanner=document.getElementById("mergedBanner"),
+    elLegendHead=document.getElementById("legendHead"),
+    elLegendFoot=document.getElementById("legendFoot"),
+    elHeads=document.getElementById("agentHeads"),
+    elRows=document.getElementById("fileRows"),
+    elPick=document.getElementById("pickBox");
+function mk(tag,cls,parent){
+  var e=document.createElement(tag);
+  if(cls) e.setAttribute("class",cls);
+  if(parent) parent.appendChild(e);
+  return e;
+}
+function mkText(s,parent){ var t=document.createTextNode(s); if(parent) parent.appendChild(t); return t; }
+function buildLegend(box){
+  [["edit","Changed"],["conflict","Conflict"],["kept","Kept"]].forEach(function(p){
+    var outer=mk("span","",box);
+    var bar=mk("span","",outer); bar.setAttribute("data-role",p[0]); bar.setAttribute("class","cr-bar-s");
+    mkText(p[1],outer);
+  });
+}
+buildLegend(elLegendHead); buildLegend(elLegendFoot);
+/* agent heads: one stable node per agent */
+var headRefs=AGENTS.map(function(a,ix){
+  var root=mk("span","cr-head",elHeads);
+  root.setAttribute("role","columnheader");
+  if(ix===AGENTS.length-1) root.setAttribute("data-last","");
+  var px=buildPixelMark(a.id); root.appendChild(px.root);
+  var hn=mk("span","cr-hname",root); hn.setAttribute("title",a.name); hn.textContent=a.name;
+  var sr=mk("span","sr",root); sr.textContent=", working";
+  var kpi=mk("span","cr-kpi",root); kpi.setAttribute("aria-hidden","true");
+  var kpitop=mk("span","cr-kpitop",kpi);
+  var kpx=buildPixelMark(a.id); kpitop.appendChild(kpx.root);
+  var kb=mk("b","",kpitop); kb.textContent=a.name;
+  var kstate=mk("span","cr-kpistate",kpitop); kstate.textContent="Working";
+  var kmodel=mk("span","cr-kpimodel",kpi); kmodel.textContent=a.model||"";
+  var kpis=mk("span","cr-kpis",kpi);
+  function kpiSlot(key){
+    var s=mk("span","",kpis); s.setAttribute("data-kpi",key);
+    var b=mk("b","",s); b.textContent="0";
+    var lab=mkText("",s);
+    return {slot:s,b:b,lab:lab};
+  }
+  var f=kpiSlot("files"), c=kpiSlot("conflicts"), k=kpiSlot("kept");
+  return {root:root,sr:sr,kstate:kstate,f:f,c:c,k:k};
+});
+/* file rows: one stable <button> per file (tag never changes, so identity holds) */
+var rowRefs=FILE_ORDER.map(function(path,ix){
+  var sp=splitPath(path);
+  var root=mk("button","cr-row",elRows);
+  root.setAttribute("type","button");
+  root.setAttribute("role","row");
+  root.setAttribute("data-path",path);
+  if(ix%2===1) root.setAttribute("data-alt","");
+  root.setAttribute("data-state","clean");
+  root.setAttribute("aria-pressed","false");
+  var file=mk("span","cr-file",root); file.setAttribute("role","cell");
+  var dot=mk("span","cr-dot",file); dot.setAttribute("aria-hidden","true"); dot.setAttribute("data-state","clean");
+  var sr=mk("span","sr",file); sr.textContent="";
+  var pt=mk("span","cr-path",file); pt.setAttribute("title",path);
+  var dir=mk("span","cr-dir",pt); dir.textContent=sp[0];
+  var fn=mk("span","cr-fname",pt); fn.textContent=sp[1];
+  var cellsBox=mk("span","cr-cells",root);
+  var link=mk("span","cr-link",cellsBox); link.setAttribute("aria-hidden","true"); link.hidden=true;
+  var cells=AGENTS.map(function(a,ai){
+    var cell=mk("span","cr-cell",cellsBox);
+    cell.setAttribute("role","cell");
+    if(ai===AGENTS.length-1) cell.setAttribute("data-last","");
+    var bar=mk("span","cr-bar-s",cell); bar.setAttribute("data-role","none");
+    var tip=mk("span","cr-tip",cell); tip.setAttribute("data-role","none");
+    tip.hidden=true;
+    var ttop=mk("span","cr-tiptop",tip);
+    var tb=mk("b","",ttop); tb.textContent=a.name;
+    var tstate=mk("span","cr-tipstate",ttop); tstate.textContent="";
+    var tmeta=mk("span","cr-tipmeta",tip); tmeta.textContent="";
+    return {cell:cell,bar:bar,tip:tip,tstate:tstate,tmeta:tmeta};
+  });
+  return {root:root,dot:dot,sr:sr,cells:cells,link:link,path:path};
+});
+Array.prototype.forEach.call(rowRefs,function(r){
+  function inspect(){ selected=r.path; render(); }
+  r.root.addEventListener("pointerdown",inspect,true);
+  r.root.addEventListener("click",inspect);
+});
+/* pick panel skeleton: stable nodes, toggled in place */
+var pickHead=mk("div","cr-phead",elPick); pickHead.hidden=true;
+var pickTitle=mk("span","cr-ptitle",pickHead); pickTitle.textContent="";
+var pickWhere=mk("span","cr-where",pickHead); pickWhere.textContent="";
+var pickWays=mk("div","cr-ways",elPick);
+pickWays.setAttribute("role","radiogroup");
+pickWays.hidden=true;
+var SVGNS="http://www.w3.org/2000/svg";
+var wayRefs=[0,1,2].map(function(){
+  var w=mk("button","cr-way",pickWays);
+  w.setAttribute("type","button"); w.setAttribute("role","radio"); w.setAttribute("aria-checked","false");
+  w.hidden=true;
+  var wtop=mk("span","cr-wtop",w);
+  var pm=buildPixelMark("fix"); wtop.appendChild(pm.root);
+  var wn=mk("span","cr-wname",w); wn.textContent="";
+  var kept=mk("span","cr-kept",w); kept.hidden=true;
+  var svg=document.createElementNS(SVGNS,"svg");
+  svg.setAttribute("width","12"); svg.setAttribute("height","12");
+  svg.setAttribute("viewBox","0 0 12 12"); svg.setAttribute("fill","none");
+  svg.setAttribute("aria-hidden","true");
+  var ph=document.createElementNS(SVGNS,"path");
+  ph.setAttribute("d","m2.8 6.3 2.1 2.1 4.3-4.6");
+  ph.setAttribute("stroke","currentColor"); ph.setAttribute("stroke-width","1.5");
+  ph.setAttribute("stroke-linecap","round"); ph.setAttribute("stroke-linejoin","round");
+  svg.appendChild(ph); kept.appendChild(svg); mkText(" Kept",kept);
+  var sum=mk("span","cr-summary",w); sum.textContent="";
+  return {root:w,pm:pm,wname:wn,kept:kept,sum:sum};
+});
+Array.prototype.forEach.call(wayRefs,function(w){
+  function choose(){
+    var p=w.root.getAttribute("data-p"), a=w.root.getAttribute("data-a");
+    if(!p||!a) return;
+    userResolved[p]=a; selected=p; render();
+    window.clearTimeout(flashTimer);
+    flashTimer=window.setTimeout(function(){ selected=null; render(); },2400);
+  }
+  w.root.addEventListener("pointerdown",choose,true);
+  w.root.addEventListener("click",choose);
+  w.root.addEventListener("keydown",function(ev){
+    if(ev.key!=="ArrowRight"&&ev.key!=="ArrowLeft") return;
+    var vis=wayRefs.filter(function(x){return !x.root.hidden;}).map(function(x){return x.root;});
+    var i=vis.indexOf(w.root), n=vis[(i+(ev.key==="ArrowRight"?1:vis.length-1))%vis.length];
+    if(n){ if(ev.preventDefault) ev.preventDefault(); if(n.focus) n.focus(); }
+  });
+});
+var pickCalm=mk("div","cr-calm",elPick); pickCalm.textContent="No changes yet";
+
 function render(){
   var elapsed=Math.max(0,(nowT-t0)/1000);
   var agents=AGENTS.map(function(a){ return {id:a.id,name:a.name,model:a.model,status:elapsed>=DONE_AT[a.id]?"done":"running"}; });
@@ -386,111 +548,101 @@ function render(){
 
   /* header counts + merge (merged persists until loop reset) */
   curReady=ready;
-  document.getElementById("workCount").textContent=working;
-  var mb=document.getElementById("mergeBtn"), ml=document.getElementById("mergeLabel");
-  var banner=document.getElementById("mergedBanner");
+  setText(elWork,String(working));
   var txt=merged?"Merged ✓":open.length?(cnt(open.length,"conflict")+" to settle"):working?("Waiting for "+cnt(working,"agent")):active?("Merge "+cnt(active,"branch","branches")):"Nothing to merge";
-  if(txt!==prevMerge){ ml.textContent=txt; prevMerge=txt; }
-  if(merged){ mb.setAttribute("data-ready",""); mb.disabled=true; }
-  else if(ready){ mb.setAttribute("data-ready",""); mb.disabled=false; }
-  else { mb.removeAttribute("data-ready"); mb.disabled=true; }
-  if(banner){ var show=!!merged; if(banner.hidden===show){ banner.hidden=!show; } }
+  if(txt!==prevMergeTxt){ elMergeLabel.textContent=txt; prevMergeTxt=txt; }
+  if(merged){ setAttr(elMergeBtn,"data-ready",""); elMergeBtn.disabled=true; }
+  else if(ready){ setAttr(elMergeBtn,"data-ready",""); elMergeBtn.disabled=false; }
+  else { if(elMergeBtn.getAttribute("data-ready")!=null) elMergeBtn.removeAttribute("data-ready"); elMergeBtn.disabled=true; }
+  setHidden(elBanner,!merged);
 
-  /* legend */
-  var lg=[["edit","Changed"],["conflict","Conflict"],["kept","Kept"]].map(function(p){
-    return '<span><span class="cr-bar-s" data-role="'+p[0]+'"></span>'+p[1]+"</span>";
-  }).join("");
-  if(lg!==prevLegend){ document.getElementById("legendHead").innerHTML=lg; document.getElementById("legendFoot").innerHTML=lg; prevLegend=lg; }
-
-  /* agent heads (only touch DOM when output changes) */
-  var headsHtml=agents.map(function(a,ix){
+  /* agent heads: update text/attrs/classes in place */
+  agents.forEach(function(a,ix){
+    var R=headRefs[ix], st=a.status==="done"?"done":"running";
+    setAttr(R.root,"data-status",st);
+    setText(R.sr,a.status==="done"?", done":", working");
+    setText(R.kstate,a.status==="done"?"Done":"Working");
     var rel=rows.filter(function(r){return r.file.edits.some(function(e){return e.agentId===a.id;});});
     var nc=rel.filter(function(r){return r.state==="conflict"&&r.conflict.agents.indexOf(a.id)>=0;}).length;
     var nk=rel.filter(function(r){return r.pick===a.id;}).length;
-    return '<span class="cr-head" role="columnheader" data-status="'+(a.status==="done"?"done":"running")+'"'+(ix===agents.length-1?" data-last":"")+">"
-      +pixelMark(a.id)
-      +'<span class="cr-hname" title="'+esc(a.name)+'">'+esc(a.name)+'</span><span class="sr">'+(a.status==="done"?", done":", working")+"</span>"
-      +'<span class="cr-kpi" aria-hidden="true"><span class="cr-kpitop">'+pixelMark(a.id)+"<b>"+esc(a.name)+"</b>"+'<span class="cr-kpistate">'+(a.status==="done"?"Done":"Working")+"</span></span>"
-      +(a.model?'<span class="cr-kpimodel">'+esc(a.model)+"</span>":"")
-      +'<span class="cr-kpis">'
-      +'<span data-kpi="files"'+(rel.length===0?" data-zero":"")+'"><b>'+fmt(rel.length)+"</b>"+(rel.length===1?"File":"Files")+"</span>"
-      +'<span data-kpi="conflicts"'+(nc===0?" data-zero":"")+'"><b>'+fmt(nc)+"</b>"+(nc===1?"Conflict":"Conflicts")+"</span>"
-      +'<span data-kpi="kept"'+(nk===0?" data-zero":"")+'"><b>'+fmt(nk)+"</b>Kept</span>"
-      +"</span></span></span>";
-  }).join("");
-  if(headsHtml!==prevHeads){ document.getElementById("agentHeads").innerHTML=headsHtml; prevHeads=headsHtml; }
+    setText(R.f.b,fmt(rel.length)); setText(R.f.lab,rel.length===1?"File":"Files");
+    toggleAttr(R.f.slot,"data-zero",rel.length===0);
+    setText(R.c.b,fmt(nc)); setText(R.c.lab,nc===1?"Conflict":"Conflicts");
+    toggleAttr(R.c.slot,"data-zero",nc===0);
+    setText(R.k.b,fmt(nk)); setText(R.k.lab,"Kept");
+    toggleAttr(R.k.slot,"data-zero",nk===0);
+  });
 
-  /* file rows (only touch DOM when output changes) */
-  var box=document.getElementById("fileRows");
-  var rowsHtml=rows.map(function(r,ix){
-    var sp=splitPath(r.file.path), idxs=[];
+  /* file rows: update state/classes/text in place, never replace nodes */
+  rows.forEach(function(r,ix){
+    var R=rowRefs[ix];
+    setAttr(R.root,"data-state",r.state);
+    setAttr(R.root,"aria-pressed",String(!!(focus&&focus.file.path===r.file.path)));
+    setAttr(R.dot,"data-state",r.state);
+    setText(R.sr,r.state==="conflict"?"Conflict: ":r.state==="settled"?"Settled: ":"");
+    var idxs=[];
     if(r.conflict) idxs=r.conflict.agents.map(function(id){return AGENTS.findIndex(function(a){return a.id===id;});}).filter(function(i){return i>=0;});
-    var link=(idxs.length>1)?'<span class="cr-link" style="--a:'+Math.min.apply(null,idxs)+";--b:"+Math.max.apply(null,idxs)+'" aria-hidden="true"></span>':"";
-    var cells=AGENTS.map(function(a,ai){
-      var ed=r.file.edits.filter(function(e){return e.agentId===a.id;})[0]||null;
+    if(idxs.length>1){
+      setHidden(R.link,false);
+      R.link.style.setProperty("--a",String(Math.min.apply(null,idxs)));
+      R.link.style.setProperty("--b",String(Math.max.apply(null,idxs)));
+    } else setHidden(R.link,true);
+    AGENTS.forEach(function(a,ai){
+      var C=R.cells[ai];
+      var ed=null;
+      for(var k=0;k<r.file.edits.length;k++) if(r.file.edits[k].agentId===a.id){ ed=r.file.edits[k]; break; }
       var inC=!!(r.conflict&&r.conflict.agents.indexOf(a.id)>=0);
       var role=!ed?"none":r.pick?(inC?(r.pick===a.id?"kept":"lost"):"edit"):(inC?"conflict":"edit");
-      var others=inC&&!r.pick?r.conflict.agents.filter(function(id){return id!==a.id;}).map(function(id){return byId[id]?byId[id].name:id;}):[];
-      var tip=ed?'<span class="cr-tip" data-role="'+role+'"><span class="cr-tiptop"><b>'+esc(a.name)+"</b>"+'<span class="cr-tipstate">'+(ed.active&&!r.pick?"Writing…":ROLE_LABEL[role])+"</span></span>"
-        +((ed.span||others.length)?'<span class="cr-tipmeta">'+esc([ed.span?spanLabel(ed.span).replace(/^l/,"L"):null,others.length?("overlaps "+others.join(", ")):null].filter(Boolean).join(" · "))+"</span>":"")+"</span>":"";
-      return '<span class="cr-cell" role="cell"'+(ai===AGENTS.length-1?" data-last":"")+">"
-        +'<span class="cr-bar-s" data-role="'+role+'"'+(ed&&ed.active&&!r.pick?" data-active":"")+"></span>"+tip+"</span>";
-    }).join("");
-    var inner='<span class="cr-file" role="cell"><span class="cr-dot" data-state="'+r.state+'" aria-hidden="true"></span>'
-      +'<span class="sr">'+(r.state==="conflict"?"Conflict: ":r.state==="settled"?"Settled: ":"")+'</span>'
-      +'<span class="cr-path" title="'+esc(r.file.path)+'"><span class="cr-dir">'+esc(sp[0])+'</span><span class="cr-fname">'+esc(sp[1])+"</span></span></span>"
-      +'<span class="cr-cells">'+link+cells+"</span>";
-    if(r.conflict){
-      return '<button type="button" role="row" class="cr-row" data-state="'+r.state+'"'+(ix%2===1?" data-alt":"")+'" aria-pressed="'+(focus&&focus.file.path===r.file.path)+'" data-path="'+esc(r.file.path)+'">'+inner+"</button>";
-    }
-    return '<div role="row" class="cr-row" data-state="'+r.state+'"'+(ix%2===1?" data-alt":"")+">"+inner+"</div>";
-  }).join("");
-  if(rowsHtml!==prevRows){
-    box.innerHTML=rowsHtml; prevRows=rowsHtml;
-    Array.prototype.forEach.call(box.querySelectorAll("button.cr-row"),function(b){
-      b.addEventListener("click",function(){ selected=b.getAttribute("data-path"); render(); });
+      setAttr(C.bar,"data-role",role);
+      toggleAttr(C.bar,"data-active",!!(ed&&ed.active&&!r.pick));
+      if(ed){
+        setHidden(C.tip,false);
+        setAttr(C.tip,"data-role",role);
+        setText(C.tstate,(ed.active&&!r.pick?"Writing…":ROLE_LABEL[role]));
+        var others=inC&&!r.pick?r.conflict.agents.filter(function(id){return id!==a.id;}).map(function(id){return byId[id]?byId[id].name:id;}):[];
+        var meta=[ed.span?spanLabel(ed.span).replace(/^l/,"L"):null,others.length?("overlaps "+others.join(", ")):null].filter(Boolean).join(" · ");
+        setText(C.tmeta,meta);
+      } else {
+        setHidden(C.tip,true);
+        setAttr(C.tip,"data-role","none");
+        setText(C.tstate,""); setText(C.tmeta,"");
+      }
     });
-  }
+  });
 
-  /* pick panel (only touch DOM when output changes) */
-  var pk=document.getElementById("pickBox");
-  var pickHtml="";
+  /* pick panel: toggle stable sections in place */
   if(merged){
-    pickHtml='<div class="cr-calm">✓ Merged — all branches are now in sync</div>';
+    setHidden(pickHead,true); setHidden(pickWays,true); setHidden(pickCalm,false);
+    setText(pickCalm,"✓ Merged — all branches are now in sync");
+    wayRefs.forEach(function(w){ setHidden(w.root,true); });
   } else if(focus&&focus.conflict){
     var c=focus.conflict, fname=splitPath(focus.file.path)[1];
-    var ways=c.agents.map(function(id){
-      var a=byId[id], ed=focus.file.edits.filter(function(e){return e.agentId===id;})[0]||null;
+    setHidden(pickHead,false); setHidden(pickWays,false); setHidden(pickCalm,true);
+    setText(pickTitle,focus.state==="settled"?"Settled":"Pick a way");
+    setText(pickWhere,fname+" · "+spanLabel([c.from,c.to]));
+    pickWays.setAttribute("aria-label","Ways to settle "+focus.file.path);
+    c.agents.forEach(function(id,j){
+      var w=wayRefs[j], a=byId[id], ed=null;
+      for(var k=0;k<focus.file.edits.length;k++) if(focus.file.edits[k].agentId===id){ ed=focus.file.edits[k]; break; }
       var kept=focus.pick===id;
       var sum=(ed&&ed.summary)||(ed&&ed.span?("Changes "+spanLabel(ed.span)):"Changes this file");
-      return '<button type="button" role="radio" aria-checked="'+kept+'" class="cr-way"'+(focus.pick&&!kept?" data-lost":"")+' data-p="'+esc(focus.file.path)+'" data-a="'+esc(id)+'">'
-        +'<span class="cr-wtop">'+pixelMark(id)+'<span class="cr-wname" title="'+esc(a?a.name:id)+'">'+esc(a?a.name:id)+"</span>"
-        +(kept?'<span class="cr-kept"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="m2.8 6.3 2.1 2.1 4.3-4.6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Kept</span>':"")
-        +"</span>"
-        +'<span class="cr-summary" title="'+esc(sum)+'">'+esc(sum)+"</span></button>";
-    }).join("");
-    pickHtml='<div class="cr-phead"><span class="cr-ptitle">'+(focus.state==="settled"?"Settled":"Pick a way")+'</span><span class="cr-where" title="'+esc(focus.file.path+" · "+spanLabel([c.from,c.to]))+'">'+esc(fname)+" · "+esc(spanLabel([c.from,c.to]))+"</span></div>"
-      +'<div class="cr-ways" role="radiogroup" aria-label="Ways to settle '+esc(focus.file.path)+'">'+ways+"</div>";
+      setHidden(w.root,false);
+      setAttr(w.root,"data-p",focus.file.path); setAttr(w.root,"data-a",id);
+      w.root.setAttribute("aria-checked",String(!!kept));
+      toggleAttr(w.root,"data-lost",!!(focus.pick&&!kept));
+      paintPixelMark(w.pm,id);
+      setText(w.wname,a?a.name:id);
+      w.wname.setAttribute("title",a?a.name:id);
+      setText(w.sum,sum);
+      w.sum.setAttribute("title",sum);
+      setHidden(w.kept,!kept);
+    });
+    for(var j=c.agents.length;j<wayRefs.length;j++) setHidden(wayRefs[j].root,true);
   } else {
     var calm=working?("Watching "+cnt(working,"agent")+" for overlaps"):active>1?"No overlaps – the branches merge cleanly":active?"No overlaps – the branch merges cleanly":"No changes yet";
-    pickHtml='<div class="cr-calm">'+esc(calm)+"</div>";
-  }
-  if(pickHtml!==prevPick){
-    pk.innerHTML=pickHtml; prevPick=pickHtml;
-    Array.prototype.forEach.call(pk.querySelectorAll(".cr-way"),function(w){
-      w.addEventListener("click",function(){
-        var p=w.getAttribute("data-p"), a=w.getAttribute("data-a");
-        userResolved[p]=a; selected=p; render();
-        window.clearTimeout(flashTimer);
-        flashTimer=window.setTimeout(function(){ selected=null; render(); },2400);
-      });
-      w.addEventListener("keydown",function(ev){
-        if(ev.key!=="ArrowRight"&&ev.key!=="ArrowLeft") return;
-        var all=Array.prototype.slice.call(pk.querySelectorAll(".cr-way"));
-        var i=all.indexOf(w), n=all[(i+(ev.key==="ArrowRight"?1:all.length-1))%all.length];
-        if(n){ ev.preventDefault(); n.focus(); }
-      });
-    });
+    setHidden(pickHead,true); setHidden(pickWays,true); setHidden(pickCalm,false);
+    setText(pickCalm,calm);
+    wayRefs.forEach(function(w){ setHidden(w.root,true); });
   }
 }
 

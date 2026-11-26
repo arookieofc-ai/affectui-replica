@@ -84,6 +84,7 @@ html[data-theme="dark"]{
   --lift:0 1px 2px rgba(0,0,0,.4),0 14px 32px -10px rgba(0,0,0,.7);
 }
 *{box-sizing:border-box}
+[hidden]{display:none !important}
 html,body{margin:0;padding:0}
 body{
   background:var(--page);
@@ -373,118 +374,239 @@ body{
 
   function isDraft(){ return phase==="draft"; }
 
+  var SVGNS="http://www.w3.org/2000/svg";
+  function svgNode(tag,cls,attrs){
+    var el=document.createElementNS(SVGNS,tag);
+    if(cls)el.setAttribute("class",cls);
+    if(attrs)for(var k in attrs)el.setAttribute(k,attrs[k]);
+    return el;
+  }
+  function clearKids(el){ while(el.firstChild)el.removeChild(el.firstChild); }
+  function elText(tag,cls,text){
+    var el=document.createElement(tag); el.className=cls; el.textContent=text; return el;
+  }
+
+  var stepMap=new Map(); // id -> rec (persistent node refs, built once, patched in place)
+  function buildMarkerInto(marker,status,idx){
+    clearKids(marker);
+    var svg,path,line,span,i;
+    if(status==="active"){
+      svg=svgNode("svg","spinner",{viewBox:"0 0 16 16","aria-hidden":"true"});
+      for(i=0;i<8;i++){
+        line=svgNode("line",null,{x1:"8",y1:"2.2",x2:"8",y2:"4.4",transform:"rotate("+(i*45)+" 8 8)"});
+        line.setAttribute("style","animation-delay:"+(-(800-i*100))+"ms");
+        svg.appendChild(line);
+      }
+      marker.appendChild(svg);
+    }else if(status==="done"){
+      svg=svgNode("svg","mark",{viewBox:"0 0 16 16","aria-hidden":"true"});
+      path=svgNode("path","draw",{pathLength:"1",d:"M4.2 8.4 6.8 11l5-5.6"});
+      svg.appendChild(path); marker.appendChild(svg);
+    }else if(status==="failed"){
+      svg=svgNode("svg","mark",{viewBox:"0 0 16 16","aria-hidden":"true"});
+      path=svgNode("path",null,{d:"M8 4.2v4.4M8 11.6h.01"});
+      svg.appendChild(path); marker.appendChild(svg);
+    }else if(status==="skipped"){
+      svg=svgNode("svg","mark",{viewBox:"0 0 16 16","aria-hidden":"true"});
+      path=svgNode("path",null,{d:"M5 8h6"});
+      svg.appendChild(path); marker.appendChild(svg);
+    }else{
+      span=document.createElement("span"); span.className="num"; span.textContent=String(idx+1);
+      marker.appendChild(span);
+    }
+  }
+
+  function createStepRec(st){
+    var id=st.id;
+    var rec={id:id,_status:null,_markerKey:null,_editing:false,_title:null,_detail:null,_tool:null,_asideKey:null,_doneText:null,_error:null};
+    var li=document.createElement("li");
+    rec.li=li;
+    li.className="step"; li.dataset.id=id; li.tabIndex=0;
+
+    var grip=document.createElement("button");
+    grip.className="grip"; grip.type="button"; grip.tabIndex=-1;
+    grip.setAttribute("aria-label","Drag to reorder");
+    (function(){
+      var gsvg=svgNode("svg",null,{viewBox:"0 0 14 14","aria-hidden":"true"});
+      var pts=[[5,3],[9,3],[5,7],[9,7],[5,11],[9,11]];
+      for(var i=0;i<pts.length;i++){
+        var c=svgNode("circle",null,{cx:String(pts[i][0]),cy:String(pts[i][1]),r:"1"});
+        c.setAttribute("fill","currentColor");
+        gsvg.appendChild(c);
+      }
+      grip.appendChild(gsvg);
+    })();
+    grip.addEventListener("mousedown",function(e){ if(isDraft()) startDrag(e,id,li); });
+    // popovers/drag affordance opens on pointerdown capture (no click-only open)
+    grip.addEventListener("pointerdown",function(e){ if(isDraft())startDrag(e,id,li); },true);
+    grip.addEventListener("touchstart",function(e){ if(isDraft()) startDrag(e,id,li); },{passive:true});
+    li.appendChild(grip); rec.grip=grip;
+
+    var marker=document.createElement("span");
+    marker.className="marker"; marker.setAttribute("aria-hidden","true");
+    li.appendChild(marker); rec.marker=marker;
+
+    var main=document.createElement("div"); main.className="main"; li.appendChild(main);
+    var name=document.createElement("button");
+    name.className="name"; name.type="button";
+    name.setAttribute("aria-describedby","kbdHelp");
+    name.addEventListener("dblclick",function(){ if(isDraft()){editingId=id;render();} });
+    name.addEventListener("click",function(){ if(isDraft()&&editingId===id)return; });
+    main.appendChild(name); rec.nameBtn=name;
+    var inp=document.createElement("input");
+    inp.className="edit"; inp.hidden=true; inp.setAttribute("autocomplete","off");
+    inp.addEventListener("keydown",function(e){
+      if(e.key==="Enter"){e.preventDefault();commitEdit(id,inp.value);}
+      else if(e.key==="Escape"){e.preventDefault();editingId=null;render();focusStep(id);}
+    });
+    inp.addEventListener("blur",function(){ if(editingId===id)commitEdit(id,inp.value); });
+    main.appendChild(inp); rec.editInput=inp;
+
+    var sub=document.createElement("div"); sub.className="sub"; main.appendChild(sub);
+    var d=document.createElement("span"); d.className="detail"; d.hidden=true; sub.appendChild(d); rec.detailEl=d;
+    var t=document.createElement("code"); t.className="tool"; t.hidden=true; sub.appendChild(t); rec.toolEl=t;
+    var srSt=document.createElement("span"); srSt.className="sr"; sub.appendChild(srSt); rec.srSt=srSt;
+
+    var fail=document.createElement("div"); fail.className="fail"; fail.hidden=true; main.appendChild(fail); rec.failWrap=fail;
+    var err=document.createElement("div"); err.className="error"; fail.appendChild(err); rec.errEl=err;
+    var rb=document.createElement("button"); rb.className="retry ui-retry"; rb.type="button";
+    (function(){
+      var rsvg=svgNode("svg",null,{viewBox:"0 0 16 16","aria-hidden":"true"});
+      var p1=svgNode("path",null,{d:"M13 8a5 5 0 1 1-1.6-3.7"});
+      var p2=svgNode("path",null,{d:"M13 3v2.6h-2.6"});
+      rsvg.appendChild(p1); rsvg.appendChild(p2); rb.appendChild(rsvg);
+      var lbl=document.createElement("span"); lbl.textContent="Retry from here"; rb.appendChild(lbl);
+    })();
+    rb.addEventListener("click",function(){retryFrom(id);});
+    fail.appendChild(rb); rec.retryBtn=rb;
+
+    var aside=document.createElement("div"); aside.className="aside"; li.appendChild(aside); rec.aside=aside;
+    var live=document.createElement("span"); live.className="time"; live.hidden=true; aside.appendChild(live); rec.liveWrap=live;
+    (function(){
+      var pill=document.createElement("span"); pill.className="pill-live"; live.appendChild(pill);
+      var lt=document.createElement("span"); lt.textContent="0.0s"; pill.appendChild(lt); rec.liveText=lt;
+      lt.setAttribute("data-live",id);
+    })();
+    var tm=document.createElement("span"); tm.className="time"; tm.hidden=true; aside.appendChild(tm); rec.doneText=tm;
+    var pf=document.createElement("span"); pf.className="time"; pf.hidden=true; aside.appendChild(pf); rec.failPillWrap=pf;
+    (function(){ var pill=document.createElement("span"); pill.className="pill-fail"; pill.textContent="Failed"; pf.appendChild(pill); })();
+    var del=document.createElement("button"); del.className="remove"; del.type="button"; del.hidden=true;
+    (function(){
+      var dsvg=svgNode("svg",null,{viewBox:"0 0 16 16","aria-hidden":"true"});
+      var dp=svgNode("path",null,{d:"M4.5 4.5l7 7M11.5 4.5l-7 7"});
+      dsvg.appendChild(dp); del.appendChild(dsvg);
+    })();
+    del.addEventListener("click",function(e){e.stopPropagation();removeStep(id);});
+    aside.appendChild(del); rec.removeBtn=del;
+
+    var rail=document.createElement("span"); rail.className="rail"; rail.setAttribute("aria-hidden","true");
+    li.appendChild(rail);
+
+    li.addEventListener("keydown",function(e){
+      var idx=steps.findIndex(function(x){return x.id===id;});
+      onStepKey(e,id,idx);
+    });
+    li.addEventListener("dblclick",function(e){
+      if(e.target.closest("button,input"))return;
+      if(isDraft()){editingId=id;render();}
+    });
+    return rec;
+  }
+
+  function updateStepRec(rec,st,idx){
+    var status=st.status||"pending";
+    var li=rec.li;
+    li.dataset.step=status; li.dataset.id=st.id;
+    if(st._enter)li.classList.add("enter"); else li.classList.remove("enter");
+    li.setAttribute("aria-label","Step "+(idx+1)+" of "+steps.length+": "+st.title+", "+STATUS_LABEL[status]);
+    if(status==="failed")li.setAttribute("aria-current","true"); else li.removeAttribute("aria-current");
+    // grip (in place: style/attribute only)
+    rec.grip.style.display=isDraft()?"":"none";
+    rec.grip.setAttribute("aria-hidden",isDraft()?"false":"true");
+    // marker: rebuild children only when status/number actually changed
+    var mkey=status==="pending"?"pending:"+idx:status;
+    if(rec._markerKey!==mkey){ buildMarkerInto(rec.marker,status,idx); rec._markerKey=mkey; }
+    // name vs edit (toggle hidden, never recreate)
+    var editing=(editingId===st.id&&isDraft());
+    if(rec._editing!==editing){
+      rec._editing=editing;
+      rec.nameBtn.hidden=editing; rec.editInput.hidden=!editing;
+      if(editing){ rec.editInput.value=st.title; rec.editInput.setAttribute("aria-label","Rename step "+(idx+1)); later(function(){rec.editInput.focus();rec.editInput.select();},0); }
+      rec._title=null; // force title resync after mode switch
+    }
+    if(!editing&&rec._title!==st.title){
+      rec.nameBtn.textContent=st.title;
+      rec.nameBtn.setAttribute("aria-label",st.title+" — double-click or press Enter to rename");
+      rec._title=st.title;
+    }
+    rec.nameBtn.disabled=!isDraft();
+    if(editing&&document.activeElement!==rec.editInput&&rec.editInput.value!==st.title&&rec._title!==st.title){
+      rec.editInput.value=st.title; rec._title=st.title;
+    }
+    // sub detail/tool (text nodes only)
+    if(rec._detail!==(st.detail||"")){
+      rec._detail=st.detail||"";
+      if(st.detail){rec.detailEl.hidden=false; if(rec.detailEl.textContent!==st.detail)rec.detailEl.textContent=st.detail;}
+      else{rec.detailEl.hidden=true; rec.detailEl.textContent="";}
+    }
+    if(rec._tool!==(st.tool||"")){
+      rec._tool=st.tool||"";
+      if(st.tool){rec.toolEl.hidden=false; if(rec.toolEl.textContent!==st.tool)rec.toolEl.textContent=st.tool;}
+      else{rec.toolEl.hidden=true; rec.toolEl.textContent="";}
+    }
+    if(rec.srSt.textContent!==STATUS_LABEL[status])rec.srSt.textContent=STATUS_LABEL[status];
+    // fail block (in place)
+    var showFail=(status==="failed"&&!!st.error);
+    rec.failWrap.hidden=!showFail;
+    if(showFail){
+      if(rec._error!==st.error){rec.errEl.textContent=st.error; rec._error=st.error;}
+      rec.retryBtn.setAttribute("aria-label","Retry from here: "+st.title);
+    }else if(rec._error!==null){rec._error=null;}
+    // aside (toggle hidden + text only)
+    var akey=status;
+    if(status==="done")akey=(doneMs[st.id]!=null)?"done:time":"done:empty";
+    else if(status==="pending"||status==="skipped")akey=isDraft()?"draft-remove":"run-empty";
+    rec.liveWrap.hidden=(status!=="active");
+    if(status==="active")rec.liveText.setAttribute("data-live",st.id);
+    var showDone=(status==="done"&&doneMs[st.id]!=null);
+    rec.doneText.hidden=!showDone;
+    if(showDone){
+      var took=fmtTook(doneMs[st.id]);
+      if(rec._doneText!==took){rec.doneText.textContent=took; rec._doneText=took;}
+      rec.doneText.title="took "+took;
+    }
+    rec.failPillWrap.hidden=(status!=="failed");
+    var showRemove=(akey==="draft-remove");
+    rec.removeBtn.hidden=!showRemove;
+    if(showRemove)rec.removeBtn.setAttribute("aria-label","Remove step: "+st.title);
+    rec._status=status;
+  }
+
+  function syncSteps(){
+    var seen={};
+    steps.forEach(function(st,idx){
+      seen[st.id]=true;
+      var rec=stepMap.get(st.id);
+      if(!rec){rec=createStepRec(st); stepMap.set(st.id,rec);}
+      updateStepRec(rec,st,idx);
+      // reorder in place: appendChild on existing node moves it, never recreates
+      if(listEl.lastChild!==rec.li||listEl.children[idx]!==rec.li)listEl.appendChild(rec.li);
+      // ensure exact order without wipe: appendChild in order already orders correctly
+    });
+    // fix order deterministically (appendChild in order above already orders; this pass corrects)
+    steps.forEach(function(st){ var rec=stepMap.get(st.id); if(rec&&rec.li.parentNode===listEl)listEl.appendChild(rec.li); });
+    // drop nodes for ids no longer present (never wipe container)
+    Array.from(stepMap.keys()).forEach(function(id){
+      if(!seen[id]){ var rec=stepMap.get(id); if(rec&&rec.li.parentNode===listEl)listEl.removeChild(rec.li); stepMap.delete(id); }
+    });
+  }
+
   function render(){
     planEl.setAttribute("data-status", phase==="draft"?"draft":"running");
     countEl.textContent="Plan · "+steps.length+(steps.length===1?" step":" steps");
-    // build list
-    listEl.innerHTML="";
-    steps.forEach(function(st,idx){
-      var status=st.status||"pending";
-      var li=document.createElement("li");
-      li.className="step"+(st._enter?" enter":"");
-      li.dataset.step=status; li.dataset.id=st.id;
-      li.tabIndex=0;
-      li.setAttribute("aria-label","Step "+(idx+1)+" of "+steps.length+": "+st.title+", "+STATUS_LABEL[status]);
-      if(status==="failed")li.setAttribute("aria-current","true");
-
-      var grip=document.createElement("button");
-      grip.className="grip"; grip.type="button"; grip.tabIndex=-1;
-      grip.setAttribute("aria-label","Drag to reorder");
-      grip.setAttribute("aria-hidden", isDraft()?"false":"true");
-      grip.innerHTML='<svg viewBox="0 0 14 14"><circle cx="5" cy="3" r="1"/><circle cx="9" cy="3" r="1"/><circle cx="5" cy="7" r="1"/><circle cx="9" cy="7" r="1"/><circle cx="5" cy="11" r="1"/><circle cx="9" cy="11" r="1"/></svg>';
-      grip.style.display=isDraft()?"":"none";
-      grip.addEventListener("mousedown",function(e){ if(isDraft()) startDrag(e,st.id,li); });
-      grip.addEventListener("touchstart",function(e){ if(isDraft()) startDrag(e,st.id,li); },{passive:true});
-      li.appendChild(grip);
-
-      var marker=document.createElement("span");
-      marker.className="marker"; marker.setAttribute("aria-hidden","true");
-      marker.innerHTML=markerHTML(status,idx);
-      li.appendChild(marker);
-
-      var main=document.createElement("div"); main.className="main";
-      if(editingId===st.id && isDraft()){
-        var inp=document.createElement("input");
-        inp.className="edit"; inp.value=st.title; inp.setAttribute("aria-label","Rename step "+(idx+1));
-        inp.addEventListener("keydown",function(e){
-          if(e.key==="Enter"){e.preventDefault();commitEdit(st.id,inp.value);}
-          else if(e.key==="Escape"){e.preventDefault();editingId=null;render();focusStep(st.id);}
-        });
-        inp.addEventListener("blur",function(){ if(editingId===st.id)commitEdit(st.id,inp.value); });
-        main.appendChild(inp);
-        later(function(){inp.focus();inp.select();},0);
-      }else{
-        var name=document.createElement("button");
-        name.className="name"; name.type="button";
-        name.textContent=st.title;
-        name.setAttribute("aria-label",st.title+" — double-click or press Enter to rename");
-        name.setAttribute("aria-describedby","kbdHelp");
-        if(!isDraft())name.disabled=true;
-        name.addEventListener("dblclick",function(){ if(isDraft()){editingId=st.id;render();} });
-        name.addEventListener("click",function(){ if(isDraft()&&editingId===st.id)return; });
-        main.appendChild(name);
-      }
-      var sub=document.createElement("div"); sub.className="sub";
-      if(st.detail){ var d=document.createElement("span"); d.className="detail"; d.textContent=st.detail; sub.appendChild(d); }
-      if(st.tool){ var t=document.createElement("code"); t.className="tool"; t.textContent=st.tool; sub.appendChild(t); }
-      var srSt=document.createElement("span"); srSt.className="sr"; srSt.textContent=STATUS_LABEL[status]; sub.appendChild(srSt);
-      main.appendChild(sub);
-
-      if(status==="failed"&&st.error){
-        var fail=document.createElement("div"); fail.className="fail";
-        var err=document.createElement("div"); err.className="error"; err.textContent=st.error; fail.appendChild(err);
-        var rb=document.createElement("button"); rb.className="retry ui-retry"; rb.type="button";
-        rb.innerHTML='<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M13 8a5 5 0 1 1-1.6-3.7"/><path d="M13 3v2.6h-2.6"/></svg><span>Retry from here</span>';
-        rb.setAttribute("aria-label","Retry from here: "+st.title);
-        rb.addEventListener("click",function(){retryFrom(st.id);});
-        fail.appendChild(rb);
-        main.appendChild(fail);
-      }
-      li.appendChild(main);
-
-      var aside=document.createElement("div"); aside.className="aside";
-      if(status==="active"){
-        var live=document.createElement("span"); live.className="time";
-        live.innerHTML='<span class="pill-live"><span data-live="'+st.id+'">0.0s</span></span>';
-        aside.appendChild(live);
-      }else if(status==="done"&&doneMs[st.id]!=null){
-        var tm=document.createElement("span"); tm.className="time"; tm.title="took "+fmtTook(doneMs[st.id]); tm.textContent=fmtTook(doneMs[st.id]);
-        aside.appendChild(tm);
-      }else if(status==="failed"){
-        var pf=document.createElement("span"); pf.className="time"; pf.innerHTML='<span class="pill-fail">Failed</span>'; aside.appendChild(pf);
-      }else if(isDraft()){
-        var del=document.createElement("button"); del.className="remove"; del.type="button";
-        del.setAttribute("aria-label","Remove step: "+st.title);
-        del.innerHTML='<svg viewBox="0 0 16 16"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7"/></svg>';
-        del.addEventListener("click",function(e){e.stopPropagation();removeStep(st.id);});
-        aside.appendChild(del);
-      }
-      li.appendChild(aside);
-
-      var rail=document.createElement("span"); rail.className="rail"; rail.setAttribute("aria-hidden","true");
-      li.appendChild(rail);
-
-      // keyboard + focus
-      li.addEventListener("keydown",function(e){ onStepKey(e,st.id,idx); });
-      li.addEventListener("dblclick",function(e){
-        if(e.target.closest("button,input"))return;
-        if(isDraft()){editingId=st.id;render();}
-      });
-      listEl.appendChild(li);
-    });
+    syncSteps();
     renderFoot();
     tickLive();
-  }
-
-  function markerHTML(status,idx){
-    if(status==="active"){
-      var lines="";for(var i=0;i<8;i++){lines+='<line x1="8" y1="2.2" x2="8" y2="4.4" transform="rotate('+(i*45)+' 8 8)" style="animation-delay:'+(-(800-i*100))+'ms"/>';}
-      return '<svg class="spinner" viewBox="0 0 16 16">'+lines+'</svg>';
-    }
-    if(status==="done")return '<svg class="mark" viewBox="0 0 16 16"><path class="draw" pathLength="1" d="M4.2 8.4 6.8 11l5-5.6"/></svg>';
-    if(status==="failed")return '<svg class="mark" viewBox="0 0 16 16"><path d="M8 4.2v4.4M8 11.6h.01"/></svg>';
-    if(status==="skipped")return '<svg class="mark" viewBox="0 0 16 16"><path d="M5 8h6"/></svg>';
-    return '<span class="num">'+(idx+1)+'</span>';
   }
 
   function onStepKey(e,id,idx){
@@ -555,16 +677,18 @@ body{
         var from=ids.indexOf(id), to=ids.indexOf(target.dataset.id);
         if(from>=0&&to>=0&&from!==to){
           var s=steps.splice(from,1)[0]; steps.splice(to,0,s);
+          li.style.transform="";
           render();
-          var nl=listEl.querySelector('[data-id="'+CSS.escape(id)+'"]');
-          if(nl){nl.classList.add("dragging");li=nl;}
+          li.classList.add("dragging");
         }
       }
     }
     function up(){
       document.removeEventListener("mousemove",mv);document.removeEventListener("mouseup",up);
       document.removeEventListener("touchmove",mv);document.removeEventListener("touchend",up);
-      dragId=null; render();
+      dragId=null;
+      try{li.style.transform="";li.classList.remove("dragging");}catch(e){}
+      render();
     }
     document.addEventListener("mousemove",mv);document.addEventListener("mouseup",up);
     document.addEventListener("touchmove",mv,{passive:true});document.addEventListener("touchend",up);
@@ -659,41 +783,66 @@ body{
     later(function(){runFrom(0);},350);
   }
 
-  function renderFoot(){
-    actionsEl.innerHTML="";
-    hintEl.hidden=false; statusEl.hidden=true; elapsedEl.hidden=true;
-    footEl.dataset.phase=phase==="draft"?"draft":phase;
-    function btn(cls,label,icon,fn,primary){
-      var b=document.createElement("button");
-      b.type="button"; b.className="btn "+cls; b.innerHTML=(icon||"")+"<span>"+label+"</span>";
-      b.addEventListener("click",fn); actionsEl.appendChild(b); return b;
+  // footer buttons: built ONCE at init, toggled in place (never innerHTML, never wipe)
+  var footBtns=null;
+  function footSvgBtn(cls,label,iconPaths,fn,extraCls){
+    var b=document.createElement("button");
+    b.type="button"; b.className="btn "+cls+(extraCls?" "+extraCls:"");
+    if(iconPaths){
+      var svg=svgNode("svg",null,{viewBox:"0 0 16 16","aria-hidden":"true"});
+      iconPaths.forEach(function(dd){ svg.appendChild(svgNode("path",null,{d:dd})); });
+      // play icon uses fill (not stroke): mark via fill attr on svg
+      if(cls.indexOf("btn-primary")>=0&&label==="Run plan")svg.setAttribute("fill","currentColor");
+      b.appendChild(svg);
     }
-    var play='<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 3.8v8.4L12 8z"/></svg>';
-    var again='<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M13 8a5 5 0 1 1-1.6-3.7"/><path d="M13 3v2.6h-2.6"/></svg>';
+    var lbl=document.createElement("span"); lbl.textContent=label; b.appendChild(lbl);
+    b.addEventListener("click",fn);
+    if(actionsEl&&actionsEl.appendChild)actionsEl.appendChild(b);
+    return b;
+  }
+  function ensureFootBtns(){
+    if(footBtns)return footBtns;
+    var PLAY=["M5.5 3.8v8.4L12 8z"];
+    var AGAIN=["M13 8a5 5 0 1 1-1.6-3.7","M13 3v2.6h-2.6"];
+    var runB=footSvgBtn("btn-primary ui-run","Run plan",PLAY,function(){startRun(steps);},"ui-pl__run");
+    var cancelB1=footSvgBtn("btn-quiet","Cancel",null,function(){cancelRun();});
+    var retryB=footSvgBtn("btn-primary","Retry",AGAIN,function(){
+      var f=steps.find(function(s){return (s.status||"pending")==="failed";});
+      if(f)retryFrom(f.id);
+    },"ui-pl__retry");
+    var cancelB2=footSvgBtn("btn-quiet","Cancel",null,function(){cancelRun();});
+    var againB=footSvgBtn("btn-quiet ui-again","Run again",AGAIN,function(){runAgain();});
+    // fix play icon to filled path (class via setAttribute already on svg)
+    footBtns={run:runB,cancelRun:cancelB1,retry:retryB,cancelFail:cancelB2,again:againB};
+    return footBtns;
+  }
+  function renderFoot(){
+    ensureFootBtns();
+    footEl.dataset.phase=phase==="draft"?"draft":phase;
+    var B=footBtns;
+    [B.run,B.cancelRun,B.retry,B.cancelFail,B.again].forEach(function(b){b.hidden=true;});
     if(phase==="draft"){
-      hintEl.hidden=false; hintEl.textContent="Drag to reorder · double-click to rename";
-      var r=btn("btn-primary ui-run","Run plan",play,function(){startRun(steps);});
-      r.classList.add("ui-pl__run"); if(!steps.length)r.disabled=true;
+      hintEl.hidden=false; statusEl.hidden=true; elapsedEl.hidden=true;
+      hintEl.textContent="Drag to reorder · double-click to rename";
+      B.run.hidden=false; B.run.disabled=!steps.length;
     }else if(phase==="running"){
       hintEl.hidden=true; statusEl.hidden=false; elapsedEl.hidden=false;
       footIconPath.setAttribute("d","M5.4 8.2 7.2 10l3.4-3.8");
       statusLabel.textContent="Running plan";
-      btn("btn-quiet","Cancel","",cancelRun);
+      B.cancelRun.hidden=false;
     }else if(phase==="failed"){
       hintEl.hidden=true; statusEl.hidden=false; elapsedEl.hidden=false;
       footIconPath.setAttribute("d","M8 4.9v3.6M8 11h.01");
       var fi=steps.find(function(s){return (s.status||"pending")==="failed";});
       var idx=steps.indexOf(fi);
       statusLabel.textContent="Step "+(idx+1)+" failed: "+(fi?fi.title:"");
-      var retry=btn("btn-primary","Retry",again,function(){retryFrom(fi.id);});
-      retry.classList.add("ui-pl__retry");
-      btn("btn-quiet","Cancel","",cancelRun);
+      B.retry.hidden=false; B.cancelFail.hidden=false;
     }else if(phase==="done"){
       hintEl.hidden=true; statusEl.hidden=false; elapsedEl.hidden=true;
       footIconPath.setAttribute("d","M5.4 8.2 7.2 10l3.4-3.8");
       var total=runEnd&&runStart?runEnd-runStart:0;
       statusLabel.textContent="Plan done in "+fmtTook(total);
-      btn("btn-quiet ui-again","Run again",again,runAgain);
+      B.again.hidden=false;
     }
   }
 

@@ -28,12 +28,10 @@ Light: `--page #fafaf9 --surface #ffffff --ink #171717/#1c1917 --muted #78716c -
 Dark: `--surface #1c1c1f --page #101012 --ink #ededed --muted #a1a1aa --subtle #26262a --border #2e2e33`; amber `#fbbf24/#451a03/#fde68a`.
 Toggle: sun/moon button top-right, `data-theme` on `<html>`, default follows `prefers-color-scheme`, override saved to `localStorage`.
 
-## Verification
-- Token audit: `grep #[0-9a-f]` → 51 hex hits, all inside the two token blocks; zero outside → PASS.
-- Contrast (WCAG AA): light ink 17.93, muted 4.80, amber 6.37, failed 5.52, chip 6.72; dark ink 14.52, muted 6.63, amber 12.03, failed 6.09, chip 7.56 → all ≥4.5 PASS.
-- `node --check` on extracted script → OK. Size 36KB < 200KB.
-- Checked light + dark visually via token review (card, rail, chips, error, pills legible; borders visible in dark).
-- Clean-room: behaviour/markup understood from compiled bundle; all HTML/CSS/JS written fresh; no verbatim copy; no Pro .tsx fetched.
+## Flicker fix (2026-11-25) — build DOM once, patch in place
+- Defect: every state change (`setStatus`, run steps, retry, cancel, foot) called `render()`, which did `listEl.innerHTML=""` + `actionsEl.innerHTML=""` and rebuilt all rows/buttons from scratch; CSS animations restarted and unchanged rows were destroyed/recreated each step.
+- Fix: `index.html` now builds each step row ONCE (`createStepRec`, keyed by step id in `stepMap`) and each footer button ONCE (`ensureFootBtns`). `syncSteps()` reorders via `appendChild` on existing nodes (move, never recreate) and drops only truly-removed ids; `updateStepRec()` patches `dataset`/ARIA/`hidden`/text nodes and rebuilds the small status marker only when its status key changes. `renderFoot()` toggles the persistent buttons + `hidden` flags. The 100ms `tickLive()` still only writes `textContent` of the live/elapsed spans — it never rebuilds. Loop restarts (`startRun`/`retryFrom`/`runAgain`/`cancelRun`) reuse the same nodes. Zero `innerHTML` assignments remain in the page script (all SVG built via `createElementNS` + `setAttribute("class",…)`); added `[hidden]{display:none !important}` so `hidden` survives author `display` rules; grip keeps its `pointerdown`-capture affordance; the head `/*noflash*/` theme guard is untouched. Data, timings (1300/1100/1400/1250/900ms), fail-once-on-slides choreography, retry focus nudge, drag/reorder, rename, add/remove and both themes are unchanged.
+- Verification (node only, no browser): `verify-flicker.js` runs the real page script in a `vm` sandbox with a fake DOM + fake clock, drives Run → fail on step 3 → Retry → done → Run again in light AND dark, and asserts: (a) the 5 row `li` nodes (plus marker/name/aside children) are the identical objects before/after every transition and loop restart; (b) an `innerHTML` setter spy records 0 writes across both full loops, and `tickLive` contains no rebuild calls; (c) live text advances (`0.0s`→…), foot goes `Running plan` → `Step 3 failed: Build the KPI slides` → `Running plan` → `Plan done in Xs`, done rows show `took Xs`. All 45 checks pass; `node --check` clean; 44KB < 200KB. How to re-run: `node verify-flicker.js` in this directory.
 
 ## How to test
 1. Open `index.html` in a browser.

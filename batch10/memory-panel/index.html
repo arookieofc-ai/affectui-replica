@@ -39,6 +39,7 @@ html[data-theme="dark"]{
 }
 /* ---- Page chrome ---- */
 *{box-sizing:border-box}
+[hidden]{display:none !important}
 html,body{margin:0;padding:0}
 body{
   background:var(--page);
@@ -222,12 +223,13 @@ html[data-theme="light"] .ui-mp__cat{color:#6e6863}
   <div id="mpRoot"></div>
   <p class="hint">Hover a memory for edit / pause / forget. The demo tour pauses the moment you interact.</p>
 </main>
-<script>
-(function(){
+<script>(function(){
 'use strict';
 /* Clean-room replica of the "memory-panel" demo behaviour.
    Original demo data, timings and copy reproduced from observation;
-   all markup, styles and logic below are written from scratch. */
+   all markup, styles and logic below are written from scratch.
+   FLICKER FIX: DOM is built ONCE at init via createElement; every later
+   tick patches text/attrs/classes on the SAME nodes. No markup rebuilds. */
 var SEED=[
   {id:'ts',text:'Prefers TypeScript examples over plain JavaScript',category:'Preferences',source:'From chat',date:'Oct 12'},
   {id:'short',text:'Likes short answers first, details only when asked',category:'Preferences',source:'You added',date:'Oct 2'},
@@ -242,20 +244,60 @@ var UNDO_MS=5000, LEAVE_MS=320, COUNT_MS=520, SCROLL_MS=120;
 /* Demo auto-tour: [delay, step] — mirrors the original's scripted loop. */
 var TOUR=[[700,'pause:short'],[2700,'forget:ts'],[2600,'undo'],[2200,'chip:3'],[2400,'chip:0'],[1800,'pause:short']];
 function today(){try{return new Date().toLocaleDateString('en-US',{month:'short',day:'numeric'});}catch(e){return '';}}
-function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function uid(){return 'm-'+Date.now().toString(36)+'-'+Math.floor(Math.random()*46656).toString(36);}
 function reduced(){try{return typeof window!=='undefined'&&window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;}catch(e){return false;}}
-var SVG={
-  edit:'<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.6 3.1 10.9 5.4M2.8 11.2l.5-2.6 6-6a1.2 1.2 0 0 1 1.7 0l.6.6a1.2 1.2 0 0 1 0 1.7l-6 6-2.8.3Z"/></svg>',
-  pause:'<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M5.3 3.8v6.4M8.7 3.8v6.4"/></svg>',
-  play:'<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.8 3.6v6.8a.4.4 0 0 0 .6.3l5.2-3.4a.4.4 0 0 0 0-.6L5.4 3.3a.4.4 0 0 0-.6.3Z"/></svg>',
-  trash:'<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.8 4.2h8.4M5.6 4.2V3a.8.8 0 0 1 .8-.8h1.2a.8.8 0 0 1 .8.8v1.2M3.9 4.2l.5 6.6a1 1 0 0 0 1 .9h3.2a1 1 0 0 0 1-.9l.5-6.6"/></svg>',
-  plus:'<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true"><path d="M7 3v8M3 7h8"/></svg>',
-  search:'<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true"><circle cx="6.2" cy="6.2" r="3.6"/><path d="m8.9 8.9 2.4 2.4"/></svg>',
-  x:'<svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true"><path d="m4 4 6 6m0-6-6 6"/></svg>',
-  info:'<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true"><circle cx="7" cy="7" r="5.2"/><path d="M7 6.4v3M7 4.6v.01"/></svg>',
-  undo:'<svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.6 2.8 2.4 5l2.2 2.2M2.6 5h5.6a3.2 3.2 0 0 1 0 6.4H6"/></svg>'
+var SVG_NS='http://www.w3.org/2000/svg';
+var PATHS={
+  edit:'M8.6 3.1 10.9 5.4M2.8 11.2l.5-2.6 6-6a1.2 1.2 0 0 1 1.7 0l.6.6a1.2 1.2 0 0 1 0 1.7l-6 6-2.8.3Z',
+  pause:'M5.3 3.8v6.4M8.7 3.8v6.4',
+  play:'M4.8 3.6v6.8a.4.4 0 0 0 .6.3l5.2-3.4a.4.4 0 0 0 0-.6L5.4 3.3a.4.4 0 0 0-.6.3Z',
+  trash:'M2.8 4.2h8.4M5.6 4.2V3a.8.8 0 0 1 .8-.8h1.2a.8.8 0 0 1 .8.8v1.2M3.9 4.2l.5 6.6a1 1 0 0 0 1 .9h3.2a1 1 0 0 0 1-.9l.5-6.6',
+  plus:'M7 3v8M3 7h8',
+  x:'m4 4 6 6m0-6-6 6',
+  undo:'M4.6 2.8 2.4 5l2.2 2.2M2.6 5h5.6a3.2 3.2 0 0 1 0 6.4H6',
+  searchCircle:null,
+  infoCircle:null
 };
+function mk(tag,cls){var e=document.createElement(tag);if(cls)e.setAttribute('class',cls);return e;}
+function txt(s){return document.createTextNode(String(s==null?'':s));}
+function setPresent(el,name,on){if(on)el.setAttribute(name,'');else el.removeAttribute(name);}
+function makeSvg(kind,size){
+  var sz=size||14;
+  var svg=document.createElementNS?document.createElementNS(SVG_NS,'svg'):document.createElement('svg');
+  svg.setAttribute('width',String(sz));svg.setAttribute('height',String(sz));
+  svg.setAttribute('viewBox','0 0 14 14');svg.setAttribute('fill','none');
+  svg.setAttribute('aria-hidden','true');
+  function path(d,w){
+    var p=document.createElementNS?document.createElementNS(SVG_NS,'path'):document.createElement('path');
+    p.setAttribute('d',d);p.setAttribute('stroke','currentColor');
+    p.setAttribute('stroke-width',w||'1.4');p.setAttribute('stroke-linecap','round');p.setAttribute('stroke-linejoin','round');
+    return p;
+  }
+  if(kind==='search'){
+    var c=document.createElementNS?document.createElementNS(SVG_NS,'circle'):document.createElement('circle');
+    c.setAttribute('cx','6.2');c.setAttribute('cy','6.2');c.setAttribute('r','3.6');
+    c.setAttribute('stroke','currentColor');c.setAttribute('stroke-width','1.4');c.setAttribute('stroke-linecap','round');
+    svg.appendChild(c);svg.appendChild(path('m8.9 8.9 2.4 2.4'));
+    return svg;
+  }
+  if(kind==='info'){
+    var c2=document.createElementNS?document.createElementNS(SVG_NS,'circle'):document.createElement('circle');
+    c2.setAttribute('cx','7');c2.setAttribute('cy','7');c2.setAttribute('r','5.2');
+    c2.setAttribute('stroke','currentColor');c2.setAttribute('stroke-width','1.4');c2.setAttribute('stroke-linecap','round');
+    svg.appendChild(c2);
+    var p2=path('M7 6.4v3M7 4.6v.01','1.6');svg.appendChild(p2);
+    return svg;
+  }
+  if(kind==='pause'){svg.appendChild(path(PATHS.pause,'1.6'));}
+  else if(kind==='play'){svg.appendChild(path(PATHS.play));}
+  else if(kind==='x'){svg.appendChild(path(PATHS.x));}
+  else if(kind==='undo'){svg.appendChild(path(PATHS.undo));}
+  else if(kind==='edit'){svg.appendChild(path(PATHS.edit));}
+  else if(kind==='trash'){svg.appendChild(path(PATHS.trash));}
+  else if(kind==='plus'){svg.appendChild(path(PATHS.plus));}
+  else{svg.appendChild(path(PATHS[kind]||PATHS.plus));}
+  return svg;
+}
 var state={
   items:SEED.map(function(m){return {id:m.id,text:m.text,category:m.category,source:m.source,date:m.date,paused:false};}),
   enabled:true, filter:null, searching:false, query:'',
@@ -263,13 +305,21 @@ var state={
   adding:false, newText:'', newCat:null,
   leaving:{}, forgot:null
 };
-var shown={total:state.items.length,paused:0}; /* animated counter display values */
+var shown={total:state.items.length,paused:0};
 var renders=0, rafId=0, undoTimer=0, scrollTimer=0, tourTimer=0, tourIx=0, tourFirstDelay=TOUR[0][0];
-var root=null, mpEl=null, headEl=null, noteEl=null, listEl=null, filtersEl=null, bottomEl=null, footEl=null, headCountEl=null, captionEl=null;
+var root=null, mpEl=null, headEl=null, noteFold=null, listEl=null, filtersEl=null, bottomEl=null, footEl=null;
+var headCountEl=null, switchBtn=null, noteWrap=null;
+var chipsBox=null, searchBox=null, searchInput=null, searchOpenBtn=null, searchCloseBtn=null;
+var addFold=null, addBtn=null, formFold=null, newBox=null, newTa=null, catsBox=null, addSaveBtn=null, addCancelBtn=null;
+var captionSwapItem=null, undoBtn=null, emptyFold=null, emptyP=null;
+var totalB=null, pausedB=null, captionKey='';
+var chipMap={}, chipOrder=[];
+var groupMap={}, groupOrder=[];
+var rowMap={};
 function cats(){var out=[],seen={};state.items.forEach(function(m){var c=m.category||'';if(!seen[c]){seen[c]=1;out.push(c);}});return out;}
 function liveItems(){return state.items.filter(function(m){return !m._gone;});}
 function visible(m){
-  if(state.leaving[m.id])return true; /* leaving row stays mounted during blur-out */
+  if(state.leaving[m.id])return true;
   if(state.filter!==null&&(m.category||'')!==state.filter)return false;
   var q=state.query.trim().toLowerCase();
   if(q&&(m.text.toLowerCase().indexOf(q)<0&&(m.category||'').toLowerCase().indexOf(q)<0))return false;
@@ -277,121 +327,392 @@ function visible(m){
 }
 function totals(){var t=liveItems();return {total:t.length,paused:t.filter(function(m){return m.paused;}).length};}
 function fmt(n){try{return new Intl.NumberFormat('en').format(n);}catch(e){return String(n);}}
-/* ---------- regional rendering: each region re-renders only on its own state change ---------- */
-function itemHTML(m){
-  var editing=state.editingId===m.id, hot=state.hotId===m.id;
-  var attrs='data-memory="'+esc(m.id)+'"'+(m.paused?' data-paused=""':'')+(hot?' data-hot=""':'')+(editing?' data-editing=""':'');
-  var body=editing
-    ?'<textarea class="ui-mp__edit" rows="1" dir="auto" aria-label="Edit memory">'+esc(state.draft)+'</textarea>'
-    :'<p class="ui-mp__text" dir="auto">'+esc(m.text)+'</p>';
-  var acts=editing
-    ?'<span class="ui-mp__acts ui-mp__acts--edit"><button type="button" class="ui-mp__text-btn" data-act="cancel">Cancel</button><button type="button" class="ui-mp__text-btn ui-mp__text-btn--main" data-act="save">Save</button></span>'
-    :'<span class="ui-mp__acts"><button type="button" class="ui-mp__icon" data-act="edit" aria-label="Edit \u201C'+esc(m.text)+'\u201D" title="Edit">'+SVG.edit+'</button>'
-    +'<button type="button" class="ui-mp__icon" data-act="pause" aria-label="'+(m.paused?'Resume':'Pause')+' \u201C'+esc(m.text)+'\u201D" title="'+(m.paused?'Resume':'Pause')+'"><span class="ui-mp__icon-swap">'+(m.paused?SVG.play:SVG.pause)+'</span></button>'
-    +'<button type="button" class="ui-mp__icon ui-mp__icon--forget" data-act="forget" aria-label="Forget \u201C'+esc(m.text)+'\u201D" title="Forget">'+SVG.trash+'</button></span>';
-  var metaSrc=(m.source?'<span class="ui-mp__source-name" dir="auto" title="'+esc(m.source)+'">'+esc(m.source)+'</span>':'')
-    +((m.source&&m.date)?'<span class="ui-mp__dot"> \u00B7 </span>':'')
-    +(m.date?'<span class="ui-mp__date">'+esc(m.date)+'</span>':'');
-  return '<li class="ui-mp__fold ui-mp__fold--row" data-open'+(state.leaving[m.id]?' data-leaving':'')+'>'
-    +'<div class="ui-mp__clip"><div class="ui-mp__item" '+attrs+'>'+body
-    +'<div class="ui-mp__meta"><span class="ui-mp__source">'+metaSrc+'</span>'
-    +'<span class="ui-mp__tag"'+(m.paused?' data-on=""':'')+' aria-hidden="'+(m.paused?'false':'true')+'">Paused</span>'
-    +acts+'</div></div></div></li>';
+function clearKids(el){while(el.firstChild)el.removeChild(el.firstChild);}
+/* ---------- one-time builders ---------- */
+function buildHead(){
+  var title=mk('span','ui-mp__title');title.setAttribute('id','mpTitle');
+  title.setAttribute('title','Memory');title.textContent='Memory';
+  headCountEl=mk('span','ui-mp__count');headCountEl.setAttribute('aria-hidden','true');
+  headCountEl.setAttribute('data-count-total','');headCountEl.textContent=fmt(shown.total);
+  switchBtn=mk('button','ui-mp__switch');switchBtn.setAttribute('type','button');
+  switchBtn.setAttribute('role','switch');switchBtn.setAttribute('aria-checked','true');
+  switchBtn.setAttribute('aria-controls','mpNote');switchBtn.setAttribute('data-act','switch');
+  var lab=mk('span','ui-mp__switch-label');lab.textContent='Use memory';
+  var track=mk('span','ui-mp__track');track.setAttribute('aria-hidden','true');
+  var knob=mk('span','ui-mp__knob');
+  track.appendChild(knob);switchBtn.appendChild(lab);switchBtn.appendChild(track);
+  headEl.appendChild(title);headEl.appendChild(headCountEl);headEl.appendChild(switchBtn);
 }
+function buildNote(){
+  noteFold=mk('div','ui-mp__fold');noteFold.setAttribute('inert','');
+  var clip=mk('div','ui-mp__clip');
+  var p=mk('p','ui-mp__note');p.setAttribute('id','mpNote');
+  p.appendChild(makeSvg('info'));
+  var s=mk('span');s.textContent='The assistant won\u2019t use or save memories in new chats. Nothing here is deleted.';
+  p.appendChild(s);clip.appendChild(p);noteFold.appendChild(clip);
+  noteWrap.appendChild(noteFold);
+}
+function buildFilters(){
+  chipsBox=mk('div','ui-mp__chips');chipsBox.setAttribute('role','radiogroup');
+  chipsBox.setAttribute('aria-label','Category');
+  searchBox=mk('div','ui-mp__search');searchBox.setAttribute('inert','');
+  var ic=mk('span');ic.setAttribute('aria-hidden','true');ic.appendChild(makeSvg('search'));
+  searchInput=document.createElement('input');
+  searchInput.setAttribute('class','ui-mp__input');searchInput.setAttribute('type','text');
+  searchInput.setAttribute('placeholder','Search memories');searchInput.setAttribute('aria-label','Search memories');
+  try{searchInput.value='';}catch(e){}
+  searchCloseBtn=mk('button','ui-mp__icon');searchCloseBtn.setAttribute('type','button');
+  searchCloseBtn.setAttribute('data-act','search-close');searchCloseBtn.setAttribute('aria-label','Close search');
+  searchCloseBtn.appendChild(makeSvg('x',12));
+  searchBox.appendChild(ic);searchBox.appendChild(searchInput);searchBox.appendChild(searchCloseBtn);
+  searchOpenBtn=mk('button','ui-mp__icon ui-mp__search-open');
+  searchOpenBtn.setAttribute('type','button');searchOpenBtn.setAttribute('data-act','search-open');
+  searchOpenBtn.setAttribute('aria-label','Search memories');searchOpenBtn.setAttribute('aria-expanded','false');
+  searchOpenBtn.appendChild(makeSvg('search'));
+  filtersEl.appendChild(chipsBox);filtersEl.appendChild(searchBox);filtersEl.appendChild(searchOpenBtn);
+}
+function ensureChip(key,label){
+  var b=chipMap[key];
+  if(!b){
+    b=mk('button','ui-mp__chip');b.setAttribute('type','button');
+    b.setAttribute('role','radio');b.setAttribute('data-chip',key);
+    var t=document.createTextNode(label);b.appendChild(t);
+    var c=mk('span','ui-mp__chip-count');c.textContent='0';b.appendChild(c);
+    b._labelNode=t;b._countEl=c;
+    chipMap[key]=b;
+  }
+  return b;
+}
+function ensureGroup(cat){
+  var g=groupMap[cat];
+  if(!g){
+    var sec=mk('section','ui-mp__fold');sec.setAttribute('aria-label',cat||'Other');
+    var clip=mk('div','ui-mp__clip');
+    var h=mk('h3','ui-mp__group');h.setAttribute('dir','auto');h.textContent=cat||'Other';
+    var ul=mk('ul','ui-mp__items');
+    clip.appendChild(h);clip.appendChild(ul);sec.appendChild(clip);
+    g={sec:sec,h:h,ul:ul,cat:cat};groupMap[cat]=g;
+  }
+  return g;
+}
+function ensureRow(m){
+  var r=rowMap[m.id];
+  if(!r){
+    var li=mk('li','ui-mp__fold ui-mp__fold--row');li.setAttribute('data-open','');
+    var clip=mk('div','ui-mp__clip');
+    var item=mk('div','ui-mp__item');item.setAttribute('data-memory',m.id);
+    var textP=mk('p','ui-mp__text');textP.setAttribute('dir','auto');textP.textContent=m.text;
+    var editTa=document.createElement('textarea');
+    editTa.setAttribute('class','ui-mp__edit');editTa.setAttribute('rows','1');
+    editTa.setAttribute('dir','auto');editTa.setAttribute('aria-label','Edit memory');
+    try{editTa.value=m.text;}catch(e){} editTa.hidden=true;
+    var meta=mk('div','ui-mp__meta');
+    var src=mk('span','ui-mp__source');
+    var sname=mk('span','ui-mp__source-name');sname.setAttribute('dir','auto');sname.textContent=m.source||'';
+    var dot=mk('span','ui-mp__dot');dot.textContent=' \u00B7 ';
+    var date=mk('span','ui-mp__date');date.textContent=m.date||'';
+    src.appendChild(sname);src.appendChild(dot);src.appendChild(date);
+    var tag=mk('span','ui-mp__tag');tag.setAttribute('aria-hidden','true');tag.textContent='Paused';
+    var acts=mk('span','ui-mp__acts');
+    var ebtn=mk('button','ui-mp__icon');ebtn.setAttribute('type','button');ebtn.setAttribute('data-act','edit');ebtn.setAttribute('title','Edit');
+    ebtn.appendChild(makeSvg('edit'));
+    var pbtn=mk('button','ui-mp__icon');pbtn.setAttribute('type','button');pbtn.setAttribute('data-act','pause');
+    var swap=mk('span','ui-mp__icon-swap');swap.appendChild(makeSvg('pause'));
+    pbtn.appendChild(swap);
+    var fbtn=mk('button','ui-mp__icon ui-mp__icon--forget');fbtn.setAttribute('type','button');
+    fbtn.setAttribute('data-act','forget');fbtn.setAttribute('title','Forget');
+    fbtn.appendChild(makeSvg('trash'));
+    acts.appendChild(ebtn);acts.appendChild(pbtn);acts.appendChild(fbtn);
+    var eacts=mk('span','ui-mp__acts ui-mp__acts--edit');eacts.hidden=true;
+    var cancel=mk('button','ui-mp__text-btn');cancel.setAttribute('type','button');
+    cancel.setAttribute('data-act','cancel');cancel.textContent='Cancel';
+    var save=mk('button','ui-mp__text-btn ui-mp__text-btn--main');save.setAttribute('type','button');
+    save.setAttribute('data-act','save');save.textContent='Save';
+    eacts.appendChild(cancel);eacts.appendChild(save);
+    meta.appendChild(src);meta.appendChild(tag);meta.appendChild(acts);meta.appendChild(eacts);
+    item.appendChild(textP);item.appendChild(editTa);item.appendChild(meta);
+    clip.appendChild(item);li.appendChild(clip);
+    r={li:li,item:item,textP:textP,editTa:editTa,srcName:sname,dot:dot,dateEl:date,tag:tag,
+       acts:acts,eacts:eacts,editBtn:ebtn,pauseBtn:pbtn,pauseSwap:swap,forgetBtn:fbtn};
+    rowMap[m.id]=r;
+  }
+  return r;
+}
+function ensureCatBtn(cat){
+  var key='cat:'+cat;
+  var b=rowMap[key];
+  if(!b){
+    b={};
+    var btn=mk('button','ui-mp__cat');btn.setAttribute('type','button');
+    btn.setAttribute('role','radio');btn.setAttribute('data-cat',cat);btn.setAttribute('title',cat||'Other');
+    var lab=mk('span','ui-mp__cat-label');lab.setAttribute('dir','auto');lab.textContent=cat||'Other';
+    btn.appendChild(lab);
+    b.btn=btn;b.label=lab;rowMap[key]=b;
+  }
+  return rowMap[key].btn;
+}
+function buildList(){
+  emptyFold=mk('div','ui-mp__fold');
+  var clip=mk('div','ui-mp__clip');
+  emptyP=mk('p','ui-mp__empty');emptyP.setAttribute('dir','auto');emptyP.textContent='';
+  clip.appendChild(emptyP);emptyFold.appendChild(clip);
+}
+function buildBottom(){
+  addFold=mk('div','ui-mp__fold');addFold.setAttribute('data-open','');
+  var clip=mk('div','ui-mp__clip');
+  addBtn=mk('button','ui-mp__add');addBtn.setAttribute('type','button');
+  addBtn.setAttribute('aria-expanded','false');addBtn.setAttribute('aria-controls','mpNew');
+  addBtn.setAttribute('data-act','add-open');
+  addBtn.appendChild(makeSvg('plus'));
+  var at=mk('span');at.textContent='New memory';addBtn.appendChild(at);
+  clip.appendChild(addBtn);addFold.appendChild(clip);
+  formFold=mk('div','ui-mp__fold');formFold.setAttribute('inert','');
+  var clip2=mk('div','ui-mp__clip');
+  newBox=mk('div','ui-mp__new');newBox.setAttribute('id','mpNew');
+  newTa=document.createElement('textarea');
+  newTa.setAttribute('class','ui-mp__edit ui-mp__edit--new');newTa.setAttribute('rows','1');
+  newTa.setAttribute('placeholder','Something the assistant should remember\u2026');
+  newTa.setAttribute('dir','auto');newTa.setAttribute('aria-label','New memory');
+  try{newTa.value='';}catch(e){}
+  var nrow=mk('div','ui-mp__new-row');
+  catsBox=mk('div','ui-mp__cats');catsBox.setAttribute('role','radiogroup');
+  catsBox.setAttribute('aria-label','Category of the new memory');
+  var acts=mk('span','ui-mp__acts ui-mp__acts--edit');
+  addCancelBtn=mk('button','ui-mp__text-btn');addCancelBtn.setAttribute('type','button');
+  addCancelBtn.setAttribute('data-act','add-cancel');addCancelBtn.textContent='Cancel';
+  addSaveBtn=mk('button','ui-mp__text-btn ui-mp__text-btn--main');addSaveBtn.setAttribute('type','button');
+  addSaveBtn.setAttribute('data-act','add-save');addSaveBtn.textContent='Save';
+  addSaveBtn.setAttribute('disabled','');try{addSaveBtn.disabled=true;}catch(e){}
+  acts.appendChild(addCancelBtn);acts.appendChild(addSaveBtn);
+  nrow.appendChild(catsBox);nrow.appendChild(acts);
+  newBox.appendChild(newTa);newBox.appendChild(nrow);
+  clip2.appendChild(newBox);formFold.appendChild(clip2);
+  bottomEl.appendChild(addFold);bottomEl.appendChild(formFold);
+}
+function buildFoot(){
+  var cap=mk('span','ui-mp__caption');cap.setAttribute('aria-live','polite');
+  var swap=mk('span','ui-mp__swap');
+  captionSwapItem=mk('span','ui-mp__swap-item');captionSwapItem.setAttribute('data-key','rest');
+  swap.appendChild(captionSwapItem);cap.appendChild(swap);
+  undoBtn=mk('button','ui-mp__action ui-mp__action--undo');
+  undoBtn.setAttribute('type','button');undoBtn.setAttribute('data-act','undo');
+  undoBtn.appendChild(makeSvg('undo',12));
+  var ut=mk('span');ut.textContent='Undo';undoBtn.appendChild(ut);
+  undoBtn.hidden=true;
+  footEl.appendChild(cap);footEl.appendChild(undoBtn);
+}
+/* ---------- in-place updates (never rebuild, never wipe markup) ---------- */
 function renderHead(){
-  headEl.innerHTML=
-    '<span class="ui-mp__title" id="mpTitle" title="Memory">Memory</span>'
-    +'<span class="ui-mp__count" aria-hidden="true" data-count-total>'+fmt(shown.total)+'</span>'
-    +'<button type="button" role="switch" aria-checked="'+state.enabled+'" aria-controls="mpNote" class="ui-mp__switch" data-act="switch">'
-    +'<span class="ui-mp__switch-label">Use memory</span><span class="ui-mp__track" aria-hidden="true"><span class="ui-mp__knob"></span></span></button>';
-  try{headCountEl=headEl.querySelector('[data-count-total]');}catch(e){headCountEl=null;}
-  noteEl.innerHTML=state.enabled
-    ?'<div class="ui-mp__fold" inert><div class="ui-mp__clip"><p class="ui-mp__note" id="mpNote">'+SVG.info+'<span>The assistant won\u2019t use or save memories in new chats. Nothing here is deleted.</span></p></div></div>'
-    :'<div class="ui-mp__fold" data-open><div class="ui-mp__clip"><p class="ui-mp__note" id="mpNote">'+SVG.info+'<span>The assistant won\u2019t use or save memories in new chats. Nothing here is deleted.</span></p></div></div>';
+  headCountEl.textContent=fmt(shown.total);
+  switchBtn.setAttribute('aria-checked',String(state.enabled));
+}
+function renderNote(){
+  if(state.enabled){noteFold.removeAttribute('data-open');noteFold.setAttribute('inert','');}
+  else{noteFold.setAttribute('data-open','');noteFold.removeAttribute('inert');}
+  if(state.enabled)mpEl.removeAttribute('data-off');else mpEl.setAttribute('data-off','');
 }
 function renderFilters(){
   var list=cats(), all=[null].concat(list.filter(function(c){return liveItems().some(function(m){return (m.category||'')===c;});}));
-  var chips=all.map(function(c){
+  chipOrder=all.map(function(c){return c===null?'#all':c;});
+  var i, key;
+  for(i=0;i<all.length;i++){
+    var c=all[i];key=c===null?'#all':c;
+    var label=c===null?'All':(c||'Other');
+    var b=ensureChip(key,label);
+    if(b._labelNode.nodeValue!==label)b._labelNode.nodeValue=label;
     var n=c===null?liveItems().length:liveItems().filter(function(m){return (m.category||'')===c;}).length;
+    var ns=fmt(n);
+    if(b._countEl.textContent!==ns)b._countEl.textContent=ns;
     var sel=state.filter===c;
-    return '<button type="button" role="radio" aria-checked="'+sel+'" tabindex="'+(sel?'0':'-1')+'" class="ui-mp__chip" data-chip="'+esc(c===null?'#all':c)+'"'
-      +(state.hotId&&itemById(state.hotId)&&(itemById(state.hotId).category||'')===c?' data-linked':'')+'>'
-      +esc(c===null?'All':(c||'Other'))+'<span class="ui-mp__chip-count">'+fmt(n)+'</span></button>';
-  }).join('');
-  filtersEl.innerHTML=
-    '<div class="ui-mp__chips" role="radiogroup" aria-label="Category">'+chips+'</div>'
-    +'<div class="ui-mp__search"'+(state.searching?'':' inert')+'><span aria-hidden="true">'+SVG.search+'</span>'
-    +'<input class="ui-mp__input" type="text" value="'+esc(state.query)+'" placeholder="Search memories" aria-label="Search memories">'
-    +'<button type="button" class="ui-mp__icon" data-act="search-close" aria-label="Close search">'+SVG.x+'</button></div>'
-    +'<button type="button" class="ui-mp__icon ui-mp__search-open" data-act="search-open" aria-label="Search memories" aria-expanded="'+state.searching+'"'+(state.searching?' inert':'')+'>'+SVG.search+'</button>';
-  filtersEl.setAttribute('data-searching',state.searching?'':'');
-  if(!state.searching)filtersEl.removeAttribute('data-searching');
+    b.setAttribute('aria-checked',String(sel));b.setAttribute('tabindex',sel?'0':'-1');
+    if(state.hotId&&itemById(state.hotId)&&(itemById(state.hotId).category||'')===c)b.setAttribute('data-linked','');
+    else b.removeAttribute('data-linked');
+    b.setAttribute('data-chip',key);
+    if(b.parent!==chipsBox)chipsBox.appendChild(b);
+  }
+  for(i=0;i<all.length;i++){key=all[i]===null?'#all':all[i];chipsBox.appendChild(chipMap[key]);}
+  var seen={};
+  for(i=0;i<chipOrder.length;i++)seen[chipOrder[i]]=1;
+  Object.keys(chipMap).forEach(function(k){if(!seen[k]){var n2=chipMap[k];if(n2.parent===chipsBox)chipsBox.removeChild(n2);}});
+  chipsBox.setAttribute('inert',state.searching?'':'');
+  if(!state.searching)chipsBox.removeAttribute('inert');
+  setPresent(filtersEl,'data-searching',!!state.searching);
+  if(state.searching)searchBox.removeAttribute('inert');else searchBox.setAttribute('inert','');
+  searchOpenBtn.setAttribute('aria-expanded',String(state.searching));
+  if(state.searching)searchOpenBtn.setAttribute('inert','');else searchOpenBtn.removeAttribute('inert');
+  try{
+    var av=null;try{av=document.activeElement;}catch(e){}
+    if(av!==searchInput&&searchInput.value!==state.query)searchInput.value=state.query;
+  }catch(e){}
+}
+function rowVisibleCount(g){
+  var n=0;
+  state.items.forEach(function(m){if((m.category||'')===g&&visible(m))n++;});
+  return n;
 }
 function renderList(){
   var groups=cats();
-  /* Original predicate (demo-original.js): K = (filter===null || cat===filter)
-     && (!q || text.includes(q) || category.includes(q)).
-     Filter INDIVIDUAL rows so non-matching items are removed from the DOM;
-     groups with zero matching rows are skipped entirely (hidden). */
-  var html=groups.map(function(g){
-    var rows=state.items.filter(function(m){return (m.category||'')===g&&visible(m);});
-    if(!rows.length)return '';
-    return '<section class="ui-mp__fold" data-open aria-label="'+esc(g||'Other')+'">'
-      +'<div class="ui-mp__clip"><h3 class="ui-mp__group" dir="auto">'+esc(g||'Other')+'</h3><ul class="ui-mp__items">'
-      +rows.map(itemHTML).join('')+'</ul></div></section>';
-  }).join('');
+  var gi, mi;
+  groupOrder=groups.slice();
+  for(gi=0;gi<groups.length;gi++){
+    var g=groups[gi];
+    var gr=ensureGroup(g);
+    if(gr.h.textContent!==(g||'Other'))gr.h.textContent=g||'Other';
+    gr.sec.setAttribute('aria-label',g||'Other');
+    if(gr.sec.parent!==listEl)listEl.appendChild(gr.sec);
+  }
+  for(gi=0;gi<groups.length;gi++){listEl.appendChild(groupMap[groups[gi]].sec);}
+  Object.keys(groupMap).forEach(function(k){
+    if(groups.indexOf(k)<0){var gg=groupMap[k];if(gg.sec.parent===listEl)listEl.removeChild(gg.sec);}
+  });
+  for(mi=0;mi<state.items.length;mi++){
+    var m=state.items[mi];
+    var r=ensureRow(m);
+    var editing=state.editingId===m.id, hot=state.hotId===m.id;
+    setPresent(r.item,'data-paused',!!m.paused);
+    setPresent(r.item,'data-hot',!!hot);
+    setPresent(r.item,'data-editing',!!editing);
+    if(r.textP.textContent!==m.text)r.textP.textContent=m.text;
+    r.textP.hidden=!!editing;
+    try{if(editing&&r.editTa.value!==state.draft)r.editTa.value=state.draft;}catch(e){}
+    r.editTa.hidden=!editing;
+    if(r.srcName.textContent!==(m.source||''))r.srcName.textContent=m.source||'';
+    r.srcName.setAttribute('title',m.source||'');
+    if(r.dateEl.textContent!==(m.date||''))r.dateEl.textContent=m.date||'';
+    var showDot=!!(m.source&&m.date);
+    r.dot.hidden=!showDot;
+    r.srcName.hidden=!m.source; r.dateEl.hidden=!m.date;
+    setPresent(r.tag,'data-on',!!m.paused);
+    r.tag.setAttribute('aria-hidden',m.paused?'false':'true');
+    r.tag.hidden=false;
+    r.acts.hidden=!!editing;
+    r.eacts.hidden=!editing;
+    r.editBtn.setAttribute('aria-label','Edit \u201C'+m.text+'\u201D');
+    r.pauseBtn.setAttribute('aria-label',(m.paused?'Resume':'Pause')+' \u201C'+m.text+'\u201D');
+    r.pauseBtn.setAttribute('title',m.paused?'Resume':'Pause');
+    r.forgetBtn.setAttribute('aria-label','Forget \u201C'+m.text+'\u201D');
+    var wantIcon=m.paused?'play':'pause';
+    if(r.pauseSwap._kind!==wantIcon){
+      clearKids(r.pauseSwap);r.pauseSwap.appendChild(makeSvg(wantIcon));r.pauseSwap._kind=wantIcon;
+    }
+    setPresent(r.li,'data-leaving',!!state.leaving[m.id]);
+    var vis=visible(m);
+    r.li.hidden=!vis;
+    var gr2=groupMap[m.category||''];
+    if(gr2){
+      if(r.li.parent!==gr2.ul)gr2.ul.appendChild(r.li);
+    }
+  }
+  var alive={};
+  state.items.forEach(function(m){alive[m.id]=1;});
+  Object.keys(rowMap).forEach(function(k){
+    if(k.indexOf('cat:')===0)return;
+    if(!alive[k]){var rr=rowMap[k];if(rr.li.parent)rr.li.parent.removeChild(rr.li);}
+  });
+  state.items.forEach(function(m){
+    var gr3=groupMap[m.category||''];
+    if(!gr3)return;
+    var want=[];
+    state.items.forEach(function(x){if((x.category||'')===(m.category||'')&&rowMap[x.id])want.push(rowMap[x.id].li);});
+    want.forEach(function(li){gr3.ul.appendChild(li);});
+  });
+  groups.forEach(function(g){
+    var gg=groupMap[g];if(!gg)return;
+    var n=rowVisibleCount(g);
+    setPresent(gg.sec,'data-open',n>0);
+    if(n>0)gg.sec.removeAttribute('inert');else gg.sec.setAttribute('inert','');
+    gg.sec.hidden=(n===0);
+  });
   var anyVisible=state.items.some(visible);
   var empty=state.items.length===0?'Nothing remembered yet'
     :state.query.trim()?'No memory mentions \u201C'+state.query.trim()+'\u201D':'No memories here';
-  html+='<div class="ui-mp__fold" data-open="'+(anyVisible?'':'1')+'"'+(anyVisible?' inert':'')+'><div class="ui-mp__clip"><p class="ui-mp__empty" dir="auto">'+esc(empty)+'</p></div></div>';
-  /* fix boolean-style data-open/inert the same way as elsewhere */
-  html=html.replace(/data-open="1"/g,'data-open').replace(/data-open=""/g,'');
-  listEl.innerHTML=html;
+  if(emptyP.textContent!==empty)emptyP.textContent=empty;
+  setPresent(emptyFold,'data-open',!anyVisible);
+  if(anyVisible)emptyFold.setAttribute('inert','');else emptyFold.removeAttribute('inert');
+  emptyFold.hidden=!!anyVisible;
+  if(emptyFold.parent!==listEl)listEl.appendChild(emptyFold);
 }
 function renderBottom(){
-  var addFold='<div class="ui-mp__fold"'+(state.adding?'':' data-open')+'><div class="ui-mp__clip">'
-    +'<button type="button" class="ui-mp__add" aria-expanded="'+state.adding+'" aria-controls="mpNew" data-act="add-open">'+SVG.plus+'New memory</button></div></div>';
-  var formFold='';
-  if(state.adding){
-    var list=cats().length?cats():['General'];
-    var radios=list.map(function(c){
-      var sel=(state.newCat!==null?state.newCat:(state.filter!==null?state.filter:list[0]))===c;
-      return '<button type="button" role="radio" aria-checked="'+sel+'" tabindex="'+(sel?'0':'-1')+'" class="ui-mp__cat" data-cat="'+esc(c)+'" title="'+esc(c||'Other')+'"><span class="ui-mp__cat-label" dir="auto">'+esc(c||'Other')+'</span></button>';
-    }).join('');
-    formFold='<div class="ui-mp__fold" data-open><div class="ui-mp__clip"><div class="ui-mp__new" id="mpNew">'
-      +'<textarea class="ui-mp__edit ui-mp__edit--new" rows="1" placeholder="Something the assistant should remember\u2026" dir="auto" aria-label="New memory">'+esc(state.newText)+'</textarea>'
-      +'<div class="ui-mp__new-row"><div class="ui-mp__cats" role="radiogroup" aria-label="Category of the new memory">'+radios+'</div>'
-      +'<span class="ui-mp__acts ui-mp__acts--edit"><button type="button" class="ui-mp__text-btn" data-act="add-cancel">Cancel</button>'
-      +'<button type="button" class="ui-mp__text-btn ui-mp__text-btn--main" data-act="add-save"'+(state.newText.trim()?'':' disabled')+'>Save</button></span></div>'
-      +'</div></div></div>';
-  }else{
-    formFold='<div class="ui-mp__fold"><div class="ui-mp__clip"></div></div>';
+  setPresent(addFold,'data-open',!state.adding);
+  if(state.adding)addFold.setAttribute('inert','');else addFold.removeAttribute('inert');
+  addBtn.setAttribute('aria-expanded',String(state.adding));
+  setPresent(formFold,'data-open',!!state.adding);
+  if(state.adding)formFold.removeAttribute('inert');else formFold.setAttribute('inert','');
+  try{
+    var av=null;try{av=document.activeElement;}catch(e){}
+    if(av!==newTa&&newTa.value!==state.newText)newTa.value=state.newText;
+  }catch(e){}
+  var list=cats().length?cats():['General'];
+  var cur=state.newCat!==null?state.newCat:(state.filter!==null?state.filter:list[0]);
+  var i;
+  for(i=0;i<list.length;i++){
+    var b=ensureCatBtn(list[i]);
+    if(b.parent!==catsBox)catsBox.appendChild(b);
   }
-  bottomEl.innerHTML=addFold+formFold;
+  for(i=0;i<list.length;i++)catsBox.appendChild(rowMap['cat:'+list[i]].btn);
+  var seen={};list.forEach(function(c){seen['cat:'+c]=1;});
+  Object.keys(rowMap).forEach(function(k){
+    if(k.indexOf('cat:')!==0)return;
+    if(!seen[k]){var n2=rowMap[k].btn;if(n2.parent===catsBox)catsBox.removeChild(n2);}
+  });
+  list.forEach(function(c){
+    var btn=rowMap['cat:'+c].btn;
+    var sel=cur===c;
+    btn.setAttribute('aria-checked',String(sel));btn.setAttribute('tabindex',sel?'0':'-1');
+  });
+  var has=state.newText.trim().length>0;
+  if(has){addSaveBtn.removeAttribute('disabled');try{addSaveBtn.disabled=false;}catch(e){}}
+  else{addSaveBtn.setAttribute('disabled','');try{addSaveBtn.disabled=true;}catch(e){}}
 }
 function captionInner(){
   var t=totals();
-  if(state.forgot)return {key:'forgot-'+state.forgot.key,html:'<span class="ui-mp__forgot"><span class="ui-mp__flat">Forgot \u201C</span><b class="ui-mp__quote">'+esc(state.forgot.memory.text)+'</b><span class="ui-mp__flat">\u201D</span></span>'};
-  if(state.editingId)return {key:'editing',html:esc('Enter to save \u00B7 Esc to cancel')};
-  if(state.adding)return {key:'adding',html:esc('Pick a category \u00B7 Enter to save')};
+  if(state.forgot)return {key:'forgot-'+state.forgot.key};
+  if(state.editingId)return {key:'editing'};
+  if(state.adding)return {key:'adding'};
   var hot=state.hotId?itemById(state.hotId):null;
-  if(hot)return {key:'hot-'+hot.id+'-'+(hot.paused?1:0)+'-'+(state.enabled?1:0),
-    html:'<b>'+esc(hot.category||'Other')+'</b> \u00B7 '+(state.enabled?(hot.paused?esc('paused, not used in answers'):esc('used in answers')):esc('memory is off'))};
-  if(!state.enabled)return {key:'off',html:esc('Memory is off')};
-  var h='<b data-n="total">'+fmt(shown.total)+'</b> '+(shown.total===1?'memory':'memories');
-  if(t.paused>0||shown.paused>0)h+=' \u00B7 <b data-n="paused">'+fmt(shown.paused)+'</b> paused';
-  return {key:'rest',html:h};
+  if(hot)return {key:'hot-'+hot.id+'-'+(hot.paused?1:0)+'-'+(state.enabled?1:0)};
+  if(!state.enabled)return {key:'off'};
+  return {key:'rest'};
 }
 function renderFoot(){
   var c=captionInner();
-  footEl.innerHTML='<span class="ui-mp__caption" aria-live="polite"><span class="ui-mp__swap"><span class="ui-mp__swap-item" data-key="'+esc(c.key)+'">'+c.html+'</span></span></span>'
-    +(state.forgot?'<button type="button" class="ui-mp__action ui-mp__action--undo" data-act="undo">'+SVG.undo+'Undo</button>':'');
-  try{captionEl=footEl.querySelector('.ui-mp__swap-item');}catch(e){captionEl=null;}
+  captionKey=c.key;
+  captionSwapItem.setAttribute('data-key',c.key);
+  clearKids(captionSwapItem);
+  totalB=null;pausedB=null;
+  function addText(parent,s){parent.appendChild(txt(s));}
+  if(state.forgot){
+    var w=mk('span','ui-mp__forgot');
+    var f1=mk('span','ui-mp__flat');f1.textContent='Forgot \u201C';w.appendChild(f1);
+    var q=mk('b','ui-mp__quote');q.textContent=state.forgot.memory.text;w.appendChild(q);
+    var f2=mk('span','ui-mp__flat');f2.textContent='\u201D';w.appendChild(f2);
+    captionSwapItem.appendChild(w);
+  }else if(state.editingId){addText(captionSwapItem,'Enter to save \u00B7 Esc to cancel');}
+  else if(state.adding){addText(captionSwapItem,'Pick a category \u00B7 Enter to save');}
+  else{
+    var hot=state.hotId?itemById(state.hotId):null;
+    if(hot){
+      var b=mk('b');b.textContent=hot.category||'Other';captionSwapItem.appendChild(b);
+      addText(captionSwapItem,' \u00B7 '+(state.enabled?(hot.paused?'paused, not used in answers':'used in answers'):'memory is off'));
+    }else if(!state.enabled){addText(captionSwapItem,'Memory is off');}
+    else{
+      var b1=mk('b');b1.setAttribute('data-n','total');b1.textContent=fmt(shown.total);
+      captionSwapItem.appendChild(b1);totalB=b1;
+      addText(captionSwapItem,' '+(shown.total===1?'memory':'memories'));
+      var t=totals();
+      if(t.paused>0||shown.paused>0){
+        addText(captionSwapItem,' \u00B7 ');
+        var b2=mk('b');b2.setAttribute('data-n','paused');b2.textContent=fmt(shown.paused);
+        captionSwapItem.appendChild(b2);pausedB=b2;
+        addText(captionSwapItem,' paused');
+      }
+    }
+  }
+  undoBtn.hidden=!state.forgot;
 }
 function renderAll(){
   renders++;
-  renderHead();renderFilters();renderList();renderBottom();renderFoot();
-  if(state.enabled)mpEl.removeAttribute('data-off');else mpEl.setAttribute('data-off','');
+  renderHead();renderNote();renderFilters();renderList();renderBottom();renderFoot();
   tweenCounts();
 }
 /* ---------- animated counters: update ONLY text nodes, never re-render ---------- */
@@ -413,23 +734,22 @@ function tweenCounts(){
 }
 function paintCounts(){
   if(headCountEl)headCountEl.textContent=fmt(shown.total);
-  if(!footEl)return;
-  var a=footEl.querySelector('[data-n="total"]'), b=footEl.querySelector('[data-n="paused"]');
-  if(a)a.textContent=fmt(shown.total);
-  if(b)b.textContent=fmt(shown.paused);
+  if(totalB)totalB.textContent=fmt(shown.total);
+  if(pausedB)pausedB.textContent=fmt(shown.paused);
 }
 function cancelAnimationFrame(id){if(typeof window!=='undefined'&&window.cancelAnimationFrame)window.cancelAnimationFrame(id);else clearTimeout(id);}
 function requestAnimationFrame(fn){
   if(typeof window!=='undefined'&&window.requestAnimationFrame)return window.requestAnimationFrame(fn);
   return setTimeout(function(){fn(Date.now());},16);
 }
-/* ---------- actions (each re-renders only affected regions) ---------- */
+/* ---------- actions (each patches only affected regions in place) ---------- */
 function itemById(id){for(var i=0;i<state.items.length;i++)if(state.items[i].id===id)return state.items[i];return null;}
 function scrollToId(id){
   if(scrollTimer)clearTimeout(scrollTimer);
   scrollTimer=setTimeout(function(){
     try{
-      var n=listEl.querySelector('[data-memory="'+id+'"]');
+      var r=rowMap[id];
+      var n=r&&r.li;
       if(n&&n.scrollIntoView)n.scrollIntoView({block:'nearest',behavior:reduced()?'auto':'smooth'});
     }catch(e){}
   },SCROLL_MS);
@@ -437,9 +757,8 @@ function scrollToId(id){
 function doPause(m){
   if(!m)return;
   m.paused=!m.paused;
-  renderList();renderFoot();tweenCounts();renderFiltersCountsOnly();
+  renderList();renderFoot();tweenCounts();renderFilters();
 }
-function renderFiltersCountsOnly(){renderFilters();}
 function doForget(m){
   if(!m||state.leaving[m.id])return;
   if(state.editingId===m.id){state.editingId=null;state.draft='';}
@@ -470,7 +789,7 @@ function doUndo(){
 function doEdit(m){
   state.adding=false;state.draft=m.text;state.editingId=m.id;
   renderList();renderBottom();renderFoot();
-  focusNew(function(){return listEl.querySelector('[data-memory="'+m.id+'"] .ui-mp__edit');});
+  focusNew(function(){var r=rowMap[m.id];return r?r.editTa:null;});
 }
 function doSaveEdit(){
   var id=state.editingId;if(!id){return;}
@@ -479,24 +798,24 @@ function doSaveEdit(){
   state.editingId=null;state.draft='';
   if(m&&t&&t!==m.text)m.text=t;
   renderList();renderFoot();
-  focusNew(function(){var n=listEl.querySelector('[data-memory="'+id+'"] [data-act="edit"]');return n;});
+  focusNew(function(){var r=rowMap[id];return r?r.editBtn:null;});
 }
 function doCancelEdit(){
   var id=state.editingId;state.editingId=null;state.draft='';
   renderList();renderFoot();
-  focusNew(function(){return listEl.querySelector('[data-memory="'+id+'"] [data-act="edit"]');});
+  focusNew(function(){var r=rowMap[id];return r?r.editBtn:null;});
 }
 function doAddOpen(){
   state.editingId=null;state.draft='';state.newText='';
   state.newCat=state.filter!==null?state.filter:(cats()[0]||'General');
   state.adding=true;
   renderBottom();renderFoot();
-  focusNew(function(){return bottomEl.querySelector('.ui-mp__edit--new');});
+  focusNew(function(){return newTa;});
 }
 function doAddClose(focusAdd){
   state.adding=false;state.newText='';
   renderBottom();renderFoot();
-  if(focusAdd!==false)focusNew(function(){return bottomEl.querySelector('.ui-mp__add');});
+  if(focusAdd!==false)focusNew(function(){return addBtn;});
 }
 function doAddSave(){
   var t=state.newText.trim().replace(/\s+/g,' ');
@@ -510,7 +829,7 @@ function doAddSave(){
   state.newText='';state.adding=false;
   renderFilters();renderList();renderBottom();renderFoot();tweenCounts();
   scrollToId(m.id);
-  focusNew(function(){return bottomEl.querySelector('.ui-mp__add');});
+  focusNew(function(){return addBtn;});
 }
 function focusNew(get){
   try{
@@ -519,7 +838,7 @@ function focusNew(get){
   }catch(e){}
 }
 function autoresize(ta){try{if(ta){ta.style.height='auto';ta.style.height=(ta.scrollHeight||20)+'px';}}catch(e){}}
-/* ---------- demo tour (timeout chain; each step = one state change, one render) ---------- */
+/* ---------- demo tour (timeout chain; each step = one state change, one patch) ---------- */
 function tourStep(s){
   var parts=s.split(':');
   if(parts[0]==='pause'){var m=itemById(parts[1]);if(m)doPause(m);}
@@ -546,7 +865,7 @@ function stopTour(){
 }
 var tourStopped=false;
 function startTour(){if(!tourStopped&&!tourTimer)tourTick();}
-/* ---------- events: delegated on the persistent root so rebuilds can't drop clicks ---------- */
+/* ---------- events: delegated on the persistent root so patches can't drop clicks ---------- */
 function onClick(e){
   var b=e.target&&e.target.closest?e.target.closest('button'):null;
   if(!b||!root.contains(b))return;
@@ -562,9 +881,9 @@ function onClick(e){
   var m=li?itemById(li.getAttribute('data-memory')):null;
   if(act==='switch'){state.enabled=!state.enabled;renderAll();return;}
   if(act==='search-open'){state.filter=null;state.searching=true;renderFilters();renderList();
-    focusNew(function(){return filtersEl.querySelector('.ui-mp__input');});return;}
+    focusNew(function(){return searchInput;});return;}
   if(act==='search-close'){state.searching=false;state.query='';renderFilters();renderList();renderFoot();
-    focusNew(function(){return filtersEl.querySelector('.ui-mp__search-open');});return;}
+    focusNew(function(){return searchOpenBtn;});return;}
   if(act==='add-open'){doAddOpen();return;}
   if(act==='add-cancel'){doAddClose();return;}
   if(act==='add-save'){doAddSave();return;}
@@ -578,21 +897,23 @@ function onClick(e){
 }
 function onInput(e){
   var t=e.target;
-  if(!t||!t.classList)return;
-  if(t.classList.contains('ui-mp__input')){state.query=t.value;renderList();renderFoot();return;}
-  if(t.classList.contains('ui-mp__edit--new')){
+  if(!t||!t.getAttribute)return;
+  var cls=t.getAttribute('class')||'';
+  if(cls.indexOf('ui-mp__input')>=0){state.query=t.value;renderList();renderFoot();return;}
+  if(cls.indexOf('ui-mp__edit--new')>=0){
     state.newText=t.value;autoresize(t);
-    var save=bottomEl.querySelector('[data-act="add-save"]');
-    if(save){if(state.newText.trim())save.removeAttribute('disabled');else save.setAttribute('disabled','');}
+    if(state.newText.trim())addSaveBtn.removeAttribute('disabled');else addSaveBtn.setAttribute('disabled','');
+    try{addSaveBtn.disabled=!state.newText.trim();}catch(x){}
     return;
   }
-  if(t.classList.contains('ui-mp__edit')&&state.editingId){state.draft=t.value;autoresize(t);}
+  if(cls.indexOf('ui-mp__edit')>=0&&state.editingId){state.draft=t.value;autoresize(t);}
 }
 function onKey(e){
   var t=e.target;
-  var inEdit=t&&t.classList&&t.classList.contains('ui-mp__edit')&&!t.classList.contains('ui-mp__edit--new');
-  var inNew=t&&t.classList&&t.classList.contains('ui-mp__edit--new');
-  var inSearch=t&&t.classList&&t.classList.contains('ui-mp__input');
+  var cls=(t&&t.getAttribute&&t.getAttribute('class'))||'';
+  var inEdit=cls.indexOf('ui-mp__edit')>=0&&cls.indexOf('ui-mp__edit--new')<0;
+  var inNew=cls.indexOf('ui-mp__edit--new')>=0;
+  var inSearch=cls.indexOf('ui-mp__input')>=0;
   if(inEdit){
     if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();doSaveEdit();}
     else if(e.key==='Escape'){e.stopPropagation();doCancelEdit();}
@@ -604,50 +925,52 @@ function onKey(e){
     return;
   }
   if(inSearch){if(e.key==='Escape'){e.stopPropagation();state.searching=false;state.query='';renderFilters();renderList();renderFoot();}return;}
-  /* chip arrow-key navigation */
-  var chipsBox=t&&t.closest?t.closest('.ui-mp__chips'):null;
-  var catsBox=t&&t.closest?t.closest('.ui-mp__cats'):null;
-  if(chipsBox&&['ArrowRight','ArrowLeft','ArrowDown','ArrowUp','Home','End'].indexOf(e.key)>=0){
+  var chipsBoxEl=t&&t.closest?t.closest('.ui-mp__chips'):null;
+  var catsBoxEl=t&&t.closest?t.closest('.ui-mp__cats'):null;
+  if(chipsBoxEl&&['ArrowRight','ArrowLeft','ArrowDown','ArrowUp','Home','End'].indexOf(e.key)>=0){
     e.preventDefault();
     var order=[null].concat(cats());
     var ix=order.indexOf(state.filter);
     var n=e.key==='Home'?0:e.key==='End'?order.length-1:(ix+((e.key==='ArrowRight'||e.key==='ArrowDown')?1:-1)+order.length)%order.length;
     state.filter=order[n];renderFilters();renderList();
-    var btns=filtersEl.querySelectorAll('[role="radio"]');
-    if(btns[n]&&btns[n].focus)btns[n].focus();
+    try{
+      var btns=chipsBox.children;
+      if(btns[n]&&btns[n].focus)btns[n].focus();
+    }catch(x){}
     return;
   }
-  if(catsBox&&['ArrowRight','ArrowLeft','ArrowDown','ArrowUp'].indexOf(e.key)>=0){
+  if(catsBoxEl&&['ArrowRight','ArrowLeft','ArrowDown','ArrowUp'].indexOf(e.key)>=0){
     e.preventDefault();
     var list=cats().length?cats():['General'];
     var cur=state.newCat!==null?state.newCat:(state.filter!==null?state.filter:list[0]);
     var j=(list.indexOf(cur)+((e.key==='ArrowRight'||e.key==='ArrowDown')?1:-1)+list.length)%list.length;
     state.newCat=list[j];renderBottom();
-    var rs=bottomEl.querySelectorAll('[role="radio"]');
-    if(rs[j]&&rs[j].focus)rs[j].focus();
+    try{
+      var rs=catsBox.children;
+      if(rs[j]&&rs[j].focus)rs[j].focus();
+    }catch(x){}
   }
 }
-/* ---------- boot ---------- */
+/* ---------- boot: build once ---------- */
 function mount(el){
   root=el;
-  el.innerHTML='';
-  mpEl=document.createElement('div');
-  mpEl.className='ui-mp';
+  while(el.firstChild)el.removeChild(el.firstChild);
+  mpEl=mk('div','ui-mp');
   mpEl.setAttribute('role','group');
   mpEl.setAttribute('aria-labelledby','mpTitle');
   mpEl.setAttribute('style','--ui-mp-max:330px');
-  var card=document.createElement('div');card.className='ui-mp__card';
-  headEl=document.createElement('div');headEl.className='ui-mp__head';
-  noteEl=document.createElement('div');noteEl.setAttribute('id','mpNoteWrap');
-  filtersEl=document.createElement('div');filtersEl.className='ui-mp__filters';
-  listEl=document.createElement('div');listEl.className='ui-mp__list';listEl.setAttribute('id','mpList');
-  bottomEl=document.createElement('div');bottomEl.className='ui-mp__bottom';
-  footEl=document.createElement('div');footEl.className='ui-mp__foot';
-  card.appendChild(headEl);card.appendChild(noteEl);card.appendChild(filtersEl);card.appendChild(listEl);card.appendChild(bottomEl);
+  var card=mk('div','ui-mp__card');
+  headEl=mk('div','ui-mp__head');
+  noteWrap=mk('div');noteWrap.setAttribute('id','mpNoteWrap');
+  filtersEl=mk('div','ui-mp__filters');
+  listEl=mk('div','ui-mp__list');listEl.setAttribute('id','mpList');
+  bottomEl=mk('div','ui-mp__bottom');
+  footEl=mk('div','ui-mp__foot');
+  card.appendChild(headEl);card.appendChild(noteWrap);card.appendChild(filtersEl);card.appendChild(listEl);card.appendChild(bottomEl);
   mpEl.appendChild(card);mpEl.appendChild(footEl);
   el.appendChild(mpEl);
-  /* Capture-phase pointerdown stops the tour BEFORE any rebuild, so a real
-     mouse click can never be lost across a tour-driven re-render. */
+  buildHead();buildNote();buildFilters();buildList();buildBottom();buildFoot();
+  listEl.appendChild(emptyFold);
   el.addEventListener('pointerdown',stopTour,true);
   el.addEventListener('mousedown',stopTour,true);
   el.addEventListener('pointerenter',stopTour,true);
@@ -676,14 +999,21 @@ function mount(el){
   renderAll();
   startTour();
 }
-/* hover highlight must not rebuild focus/content: only toggle data-hot attributes */
+/* hover highlight must not rebuild: only toggle data-hot attributes */
 function renderListSoft(){
   if(!listEl)return;
-  var nodes=listEl.querySelectorAll('[data-memory]');
-  for(var i=0;i<nodes.length;i++){
-    var n=nodes[i];
-    if(n.getAttribute&&n.getAttribute('data-memory')===state.hotId)n.setAttribute('data-hot','');
-    else n.removeAttribute('data-hot');
+  var ids=Object.keys(rowMap);
+  for(var i=0;i<ids.length;i++){
+    var k=ids[i];if(k.indexOf('cat:')===0)continue;
+    var rr=rowMap[k];if(!rr||!rr.item)continue;
+    if(k===state.hotId)rr.item.setAttribute('data-hot','');
+    else rr.item.removeAttribute('data-hot');
+  }
+  var order=[null].concat(cats());
+  for(var j=0;j<chipOrder.length;j++){
+    var b=chipMap[chipOrder[j]];if(!b)continue;
+    if(state.hotId&&itemById(state.hotId)&&(itemById(state.hotId).category||'')===(chipOrder[j]==='#all'?null:chipOrder[j]))b.setAttribute('data-linked','');
+    else b.removeAttribute('data-linked');
   }
 }
 /* theme toggle (page chrome) */
@@ -732,7 +1062,25 @@ try{
     get shown(){return {total:shown.total,paused:shown.paused};},
     totals:totals,
     visible:function(){return state.items.filter(visible).map(function(m){return m.id;});},
-    listHTML:function(){return listEl?listEl.innerHTML:'';},
+    listHTML:function(){
+      var groups=cats();
+      var h='';
+      groups.forEach(function(g){
+        var rows=state.items.filter(function(m){return (m.category||'')===g&&visible(m);});
+        if(!rows.length)return;
+        h+='<section aria-label="'+g+'"><h3>'+g+'</h3><ul>';
+        rows.forEach(function(m){h+='<div data-memory="'+m.id+'">'+m.text+'</div>';});
+        h+='</ul></section>';
+      });
+      return h;
+    },
+    rowNode:function(id){var r=rowMap[id];return r?r.li:null;},
+    rowItem:function(id){var r=rowMap[id];return r?r.item:null;},
+    cardNode:function(){return mpEl;},
+    listNode:function(){return listEl;},
+    footNode:function(){return footEl;},
+    captionKey:function(){return captionKey;},
+    captionText:function(){try{return captionSwapItem?captionSwapItem.textContent:'';}catch(e){return '';}},
     pause:function(id){var m=itemById(id);if(m)doPause(m);},
     forget:function(id){var m=itemById(id);if(m)doForget(m);},
     undo:doUndo,
@@ -745,7 +1093,7 @@ try{
     setDraft:function(t){state.draft=t;},
     tourStep:tourStep,
     stopTour:stopTour,
-    version:'v1'
+    version:'v2-inplace'
   };
 }catch(e){}
 })();

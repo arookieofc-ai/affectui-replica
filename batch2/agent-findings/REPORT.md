@@ -38,6 +38,26 @@ page `#fafaf9` / `#101012`, surface `#ffffff` / `#1c1c1f`, ink `#171717` /
 `#e7e5e4` / `#2e2e33`, radii 16/10/6px, pill 999px, soft shadow, waiting amber
 `#f59e0e`-family light / `#fbbf24` on `#451a03` dark, crit/warn/note per theme.
 
+## Flicker fix (2026-11-25)
+Defect: the 500ms demo timer called a `render()` that rebuilt the whole
+component via `innerHTML` every tick — CSS animations restarted and unchanged
+rows were destroyed/recreated (visible flash each step).
+Fix: `buildStatic()` runs once at init and creates every node (totals spans,
+4 agent rows, chip, 4 filter pills, 5 feed slots + empty-state node) with
+`createElement`/`createElementNS`; the 500ms tick now calls `update()`, which
+only writes `textContent`, attributes (`data-status`, `data-sev`, `data-zero`,
+`aria-*`, `title`, `data-out`, `tabindex`), `hidden`, and `style`
+(width/transform/height) on the existing nodes. No `innerHTML`/`outerHTML`/
+`insertAdjacentHTML` string remains anywhere in the file. Filter/chip/detail
+toggles and the Replay restart all call `update()` in place — the container is
+never wiped. Data, timings (500ms tick, finish 25/24/26/17s), loop
+choreography, interactions, and both themes are unchanged; the
+early-theme `/*noflash*/` guard in `<head>` was not touched. Also added
+`[hidden]{display:none!important}` (author display rules otherwise override
+the UA hidden rule), `pointerdown` + capture listeners for agent/finding/
+filter toggles (click retained for keyboard, guarded against double-toggle),
+and SVG classes/attrs are set only via `setAttribute`.
+
 ## Verification performed
 - **Token audit**: regex scan — zero hex colours outside the token blocks. PASS.
 - **Contrast** (computed): light ink 17.9, text 7.6, muted 4.8, crit 5.5,
@@ -53,6 +73,16 @@ page `#fafaf9` / `#101012`, surface `#ffffff` / `#1c1c1f`, ink `#171717` /
 - **Runtime smoke test**: page script executed in Node with a DOM stub —
   14/14 assertions pass (rows render, "0 of 64 checks", done-state, exact demo
   counts 2 crit / 3 warn / 3 note, both filters, f0-at-t0 / f1-gating).
+- **Flicker harness** (`verify-flicker.js`, node only, no browser): captures
+  refs to the 4 agent buttons/step/fill nodes, 5 feed slots/title nodes,
+  totals/filter/chip/empty nodes after init, then advances the captured
+  500ms timer 70 ticks (35s, a full 26s loop) plus a Replay restart, in light
+  AND dark. Asserts (a) every captured node is still the identical object in
+  the tree after the loop and after restart, (b) an `innerHTML` setter spy
+  records zero writes during build, all ticks, and restart, (c) visible text
+  still advances: "0 of 64 checks" → "64 of 64 checks", "Run complete ·
+  8 findings", steps → "All checks done", feed f0 → … → f7, totals
+  2 critical / 3 warnings. ALL CHECKS PASSED in both themes.
 - `node --check`: JS syntax OK. No external URLs/imports in the file.
 
 ## How to verify

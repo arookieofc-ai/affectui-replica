@@ -168,3 +168,42 @@ flow passed. Root causes found in `index.html`:
 ## How to test
 Open `index.html` in a browser (no server needed). Toggle ◐ top-right for
 dark mode. Watch one 26 s cycle, click a conflict row, pick a way.
+
+## Flicker fix (2026-11-25 — 200ms timer rebuilt DOM via innerHTML)
+Defect: the demo timer called a full `render()` that rebuilt the component
+via `innerHTML` (heads/rows/pick panels). Every tick destroyed and recreated
+nodes, so CSS animations restarted and the eye saw a full flash/reload.
+Fix, data/timings/choreography untouched:
+- DOM is built ONCE at init with `createElement`/`createElementNS`/
+  `createTextNode` + `setAttribute` only — zero `.innerHTML =` and zero
+  `.className =` anywhere in the page script (statically asserted).
+- Each 200 ms tick updates ONLY what changed, in place: `textContent`
+  (guarded by `setText` diff), attributes (`setAttr`/`toggleAttr` diffs),
+  `hidden`/`disabled` properties, and `style.setProperty` for the
+  link `--a`/`--b` and context bar width. Unchanged nodes are never touched,
+  so animations/sheen do not restart.
+- Row tags are stable (`<button class="cr-row">` for all 6 files, clean rows
+  get `cursor:default` + no-hover so they look like the old `<div>` rows) —
+  loop restarts update in place instead of wiping `#fileRows`.
+- Pick panel is a stable skeleton (phead + 3 reusable way buttons + calm);
+  ways update `data-p`/`data-a`/`aria-checked`/`data-lost`, pixel-marks
+  repaint via `paintPixelMark` (same 9 `<i>` nodes, class toggled), Kept
+  badge toggles `hidden`. Heads keep stable nodes; counts/singulars/status
+  update as text.
+- Compliance: added `[hidden]{display:none!important}` (author
+  `.cr-merged{display:flex}` etc. would otherwise override `hidden`);
+  popovers/rows/ways open on `pointerdown` capture (`addEventListener(
+  "pointerdown",…,true)` alongside click); SVG check icons use
+  `createElementNS` + `setAttribute` only. Early-theme `/*noflash*/` guard
+  in `<head>` untouched. All data, timings, loop choreography, interactions
+  and both themes unchanged.
+Verification (`node harness.cjs`, node only, files in this directory):
+- Mini-DOM stub preserves element identity and serialises `innerHTML` from
+  the live tree; an `innerHTML` setter spy counts assignments.
+- Captured 6 row + 3 head + bar/link nodes after init, drove ticks through
+  a full 26 s loop + wrap + cycle-2: (a) same objects still in the tree
+  (`parent`/`children` identity, 6/6 rows match), (b) `innerHTMLWrites === 0`
+  after init through all light AND dark ticks, (c) merge text advances
+  `Waiting for 3 agents` → `1 conflict` → `2 conflicts` → `1 conflict` →
+  `Merge 3 branches` → `Merged ✓` → wrap, in light and (el=13/20) in dark.
+- Full suite: 136 checks pass, `node --check` on the page script OK.

@@ -48,8 +48,44 @@ no verbatim code taken from the compiled demo bundle.
 - SVG classes set only via `setAttribute('class', …)` — never `.className` on SVG.
 - No browser launched; verification is node-only.
 
+## Visual QA fixes (2026-11-25 — all three defects root-caused and fixed)
+
+1. **Agent filter buttons blank.** Two compounding causes, both fixed:
+   - `pixelmark()` creates `span` cells, but the CSS styled `.px i` (`i` elements) —
+     so every 3×3 agent mark rendered as an empty box and no icon ever painted.
+     Selectors corrected to `.px span` (including the `data-fresh`/flier twinkle rule).
+   - `.sr-agent-name` was `max-width:0; opacity:0` unless the button had `data-on`,
+     so labels existed only in the DOM/aria and never painted. Labels are now always
+     painted (`max-width:120px; opacity:1`); buttons spread with `margin-left:4px`
+     instead of the `-9px` logo-stack overlap, and the selected filter gets
+     `font-weight:600`. (DOM-only text does NOT count as visible.)
+2. **Descriptions truncated.** `.sr-tile-meta` was single-line
+   `white-space:nowrap; text-overflow:ellipsis`, cutting every description mid-word
+   in tray and grid. It now wraps (`white-space:normal; overflow-wrap:anywhere`,
+   no ellipsis), and tile/slot/cell heights changed from fixed (`64px`/`68px`/`156px`)
+   to `height:auto; min-height:…` so wrapped text is fully readable. Task-name
+   single-line ellipsis is unchanged (names were fine).
+3. **Dialog title clipped.** `buildDialog` used raw `top = r.bottom - rb.top + 6`
+   with no viewport guard, so the title row could land above the viewport top.
+   Positioning now clamps `left = max(8, min(..., rb.width - FLY_W - 16))` and
+   `top = max(max(8, 8 - rb.top), r.bottom - rb.top + 6)`, keeping the whole dialog
+   (title row first) below the viewport top even when scrolled; `.sr-info` also
+   caps `max-width:min(264px, 100vw - 32px)` / `max-height:calc(100vh - 48px)`
+   with internal scroll.
+
 ## Verification (light AND dark checked)
-`node verify-harness.cjs` (in-dir stub-DOM + fake-timer harness): **45 passed, 0 failed**.
+`node verify-harness.cjs` (in-dir stub-DOM + fake-timer harness): **70 passed, 0 failed**.
+- `node --check` passes on the extracted script.
+- Initial light render: all task titles, agents, days, times, `30%`/`140%`, tray count 6.
+- Painted-text guards (light AND dark): no CSS rule sets `display:none` /
+  `visibility:hidden` / `color:transparent` / `font-size:0` /
+  `-webkit-text-fill-color:transparent` / `opacity:0` / `max-width:0` on
+  `.sr-agent-name` or `.sr-tile-meta`; `.sr-tile-meta` has no
+  `text-overflow:ellipsis` / `white-space:nowrap`; `.px span` icon rule present;
+  each filter button paints its full label; five full descriptions asserted readable.
+- Dialog: opens on tap with detail + `split over 2 sessions`; numeric `top >= 0`,
+  `left >= 0` asserted plus the `max(8, 8 - rb.top)` clamp in the positioning math
+  and `max-height` in CSS; Escape closes (light and dark).
 - `node --check` passes on the extracted script.
 - Initial light render: all task titles, agents, days, times, `30%`/`140%`, tray count 6.
 - Every `.px` pixel-mark has EXACTLY 9 cells; CSS scan finds no `display:none` /

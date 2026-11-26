@@ -76,7 +76,7 @@ body{
 .rvc-card{
   background:var(--surface); border:1px solid var(--border);
   border-radius:var(--r-lg); box-shadow:var(--shadow);
-  display:grid; grid-template-columns:300px 1fr; overflow:hidden;
+  display:grid; grid-template-columns:360px minmax(0,1fr); overflow:hidden;
 }
 .rvc-queue{border-right:1px solid var(--border); display:flex; flex-direction:column; min-width:0}
 .rvc-queue-head{padding:10px 12px 6px}
@@ -100,12 +100,12 @@ body{
 .rvc-row[aria-current="true"]{background:var(--subtle); border-color:var(--border)}
 .rvc-row:focus-visible{outline:2px solid var(--fill); outline-offset:1px}
 .rvc-row-main{min-width:0; flex:1}
-.rvc-row-top{display:flex; align-items:center; gap:8px; min-width:0}
+.rvc-row-top{display:flex; align-items:flex-start; gap:8px; min-width:0}
 .rvc-row-title{
-  font-weight:600; font-size:14px; white-space:nowrap; overflow:hidden;
-  text-overflow:ellipsis; flex:1; min-width:0;
+  font-weight:600; font-size:14px; white-space:normal; overflow:visible;
+  text-overflow:clip; flex:1; min-width:0; overflow-wrap:anywhere;
 }
-.rvc-wait{font-size:12px; color:var(--muted); white-space:nowrap; font-variant-numeric:tabular-nums}
+.rvc-wait{font-size:12px; color:var(--muted); white-space:nowrap; font-variant-numeric:tabular-nums; flex:none; margin-left:auto}
 .rvc-wait[data-sla="near"]{color:var(--amber)}
 .rvc-wait[data-sla="over"]{color:var(--red-tx)}
 .rvc-row-meta{display:flex; gap:6px; align-items:center; margin-top:2px; min-width:0}
@@ -151,6 +151,8 @@ body{
   font-size:12.5px; overflow:auto;
 }
 .rvc-line{display:block; white-space:pre-wrap; word-break:break-word}
+.rvc-line .rvc-flag{display:inline}
+.rvc-code .rvc-flag{display:inline}
 .rvc-line[data-diff="add"]{background:var(--green-bg)}
 .rvc-line[data-diff="del"]{background:var(--red-bg)}
 .rvc-file-head{display:flex; gap:8px; align-items:center; margin-bottom:6px; font-size:12px}
@@ -163,7 +165,9 @@ body{
   border:1px solid var(--border); display:flex; align-items:center; justify-content:center;
   color:var(--muted);
 }
-.rvc-step-tool{display:inline-flex; gap:4px; align-items:center; font-size:12px; color:var(--muted)}
+.rvc-step-main{display:block; min-width:0}
+.rvc-step-title{overflow-wrap:anywhere}
+.rvc-step-tool{display:inline-flex; gap:4px; align-items:center; font-size:12px; color:var(--muted); margin-left:6px}
 .rvc-foot{margin-top:10px}
 .rvc-sources{list-style:none; margin:0; padding:0; display:flex; gap:6px; flex-wrap:wrap}
 .rvc-source{
@@ -272,15 +276,12 @@ function initialItems(now){
      type:"Code change", risk:"high", confidence:.41, createdAt:now-28*MIN,
      reasoning:"Deliveries time out under load \u2013 I added retries with backoff. Tests pass.",
      files:[
-       {path:"src/webhooks/deliver.ts", added:3, removed:2, start:38, diff:[
-         "   const endpoint = await getEndpoint(event.accountId);",
-         "-  ", F("if (!endpoint) return;", "Removed the null check \u2013 paused accounts have no endpoint, so this now throws for them.", "accounts.paused \u00b7 214 rows"), "",
-         "+  // endpoint is always set for active accounts",
-         "   const body = JSON.stringify(event.payload);",
-         "-  for (let i = 0; i < 3; i++) {",
-         "+  for (let i = 0; ", F("i < 10", "Retries went from 3 to 10 with backoff \u2013 the last wait is over 2 minutes, longer than the worker's 60s timeout.", "queue/worker.ts"), "; i++) {",
-         "     const res = await post(endpoint.url, body);",
-         "+    await sleep(250 * 2 ** i);"]},
+        {path:"src/webhooks/deliver.ts", added:3, removed:2, start:38, diff:[
+          "   const endpoint = await getEndpoint(event.accountId);\n-  ",
+          F("if (!endpoint) return;", "Removed the null check \u2013 paused accounts have no endpoint, so this now throws for them.", "accounts.paused \u00b7 214 rows"),
+          "\n+  // endpoint is always set for active accounts\n   const body = JSON.stringify(event.payload);\n-  for (let i = 0; i < 3; i++) {\n+  for (let i = 0; ",
+          F("i < 10", "Retries went from 3 to 10 with backoff \u2013 the last wait is over 2 minutes, longer than the worker's 60s timeout.", "queue/worker.ts"),
+          "; i++) {\n     const res = await post(endpoint.url, body);\n+    await sleep(250 * 2 ** i);"]},
        {path:"src/webhooks/deliver.test.ts", added:14, removed:0},
        {path:"src/queue/config.ts", added:1, removed:1}],
      sources:[{label:"PR #511"},{label:"CI run 1204"}]},
@@ -296,13 +297,10 @@ function initialItems(now){
     {id:"migration", title:"Split customers.name into first and last name", agent:"Data agent", model:"Opus 5.5",
      type:"Migration", risk:"medium", confidence:.64, createdAt:now-14*MIN,
      reasoning:"Billing needs first names for invoices. 48,210 rows; the split takes about 40 seconds.",
-     files:[{path:"migrations/0042_split_customer_name.sql", added:5, removed:0, diff:[
-       "@@ -0,0 +1,5 @@",
-       "+ALTER TABLE customers ADD COLUMN first_name text;",
-       "+ALTER TABLE customers ADD COLUMN last_name text;",
-       "+UPDATE customers SET first_name = split_part(name, ' ', 1),",
-       "+  last_name = split_part(name, ' ', 2);",
-       "+ALTER TABLE customers ", F("DROP COLUMN name", "Drops the original in the same step \u2013 312 names have three or more parts and would lose them, with no way back.", "SELECT count(*) \u2026 312 rows"), ";"]}],
+      files:[{path:"migrations/0042_split_customer_name.sql", added:5, removed:0, diff:[
+        "@@ -0,0 +1,5 @@\n+ALTER TABLE customers ADD COLUMN first_name text;\n+ALTER TABLE customers ADD COLUMN last_name text;\n+UPDATE customers SET first_name = split_part(name, ' ', 1),\n+  last_name = split_part(name, ' ', 2);\n+ALTER TABLE customers ",
+        F("DROP COLUMN name", "Drops the original in the same step \u2013 312 names have three or more parts and would lose them, with no way back.", "SELECT count(*) \u2026 312 rows"),
+        ";"]}],
      sources:[{label:"Ticket BILL-88"}]},
     {id:"rotate", title:"Rotate the Stripe API keys", agent:"Ops agent", model:"Sonnet 5.5",
      type:"Plan", risk:"medium", confidence:.72, createdAt:now-11*MIN,
@@ -330,19 +328,23 @@ function initialItems(now){
     {id:"bump", title:"Bump @stripe/stripe-js to 4.2.1", agent:"Coder", model:"GPT-6 Mini",
      type:"Code change", risk:"low", confidence:.95, createdAt:now-4*MIN,
      reasoning:null,
-     files:[{path:"package.json", added:1, removed:1, start:24, diff:[
-       "@@ -24,4 +24,4 @@",
-       "   \"dependencies\": {",
-       "-    \"@stripe/stripe-js\": \"4.1.0\",",
-       "+    \"@stripe/stripe-js\": \"4.2.1\",",
-       "     \"react\": \"19.1.0\","]}],
+      files:[{path:"package.json", added:1, removed:1, start:24, diff:
+        "@@ -24,4 +24,4 @@\n   \"dependencies\": {\n-    \"@stripe/stripe-js\": \"4.1.0\",\n+    \"@stripe/stripe-js\": \"4.2.1\",\n     \"react\": \"19.1.0\","}],
      sources:[{label:"PR #509"}]},
-    {id:"notes", title:"Post release notes to #announcements", agent:"Marketing agent", model:"GPT-6 Mini",
-     type:"Slack message", risk:"low", confidence:.91, createdAt:now-2*MIN,
-     reasoning:null,
-     body:"v4.12 is live \u2013 per-seat coupons, a faster pricing page and 9 fixes. Full notes in the changelog.",
-     sources:[{label:"#announcements"}]}
-  ];
+     {id:"notes", title:"Post release notes to #announcements", agent:"Marketing agent", model:"GPT-6 Mini",
+      type:"Slack message", risk:"low", confidence:.91, createdAt:now-2*MIN,
+      reasoning:null,
+      body:"v4.12 is live \u2013 per-seat coupons, a faster pricing page and 9 fixes. Full notes in the changelog.",
+      sources:[{label:"#announcements"}]},
+     {id:"invoice", title:"Pay INV-2207 from Acme Logistics", agent:"Finance agent", model:"Gemini 3.8 Pro",
+      type:"Invoice", risk:"high", confidence:.55, createdAt:now,
+      reasoning:"Amount and line items match PO-118. The bank details differ from the last six payments to Acme.",
+      fields:[
+        {label:"Amount", value:"$12,480.00"},
+        {label:"Due", value:"Oct 24"},
+        {label:"IBAN", value:[F("DE89 \u2022\u2022\u2022\u2022 3000", "New IBAN \u2013 changed by email two days ago. Confirm it by phone before paying.", "Email from billing@acme-logistics.co")]}],
+      sources:[{label:"INV-2207.pdf"},{label:"PO-118"},{label:"Vendor email"}]}
+   ];
 }
 var CLAUSE_BODY = "Each party's total liability under this Agreement is limited to the fees paid in the 12 months before the claim, except for breaches of confidentiality, gross negligence and indemnity obligations.";
 function invoiceItem(now){
@@ -538,24 +540,28 @@ function renderQueue(){
 }
 /* rich content: strings + flag marks; hover/focus only touches tooltip (no re-render) */
 var flagSeq=0;
+function makeFlag(part){
+  var idx=flagSeq++;
+  var m=el("mark","rvc-flag",part.text);
+  m.setAttribute("tabindex","0");
+  m.setAttribute("role","button");
+  m.setAttribute("aria-label", part.text+" \u2013 the agent is unsure");
+  (function(m, part, idx){
+    m.addEventListener("mouseenter", function(){ showTip(idx, m, part); });
+    m.addEventListener("mouseleave", function(){ hideTip(idx); });
+    m.addEventListener("focus", function(){ S.peekIdx=idx; showTip(idx, m, part); });
+    m.addEventListener("blur", function(){ if(S.peekIdx===idx) S.peekIdx=null; hideTip(idx); });
+    m.addEventListener("click", function(){ S.peekIdx=idx; showTip(idx, m, part); });
+    m.addEventListener("pointerdown", function(){ S.peekIdx=idx; showTip(idx, m, part); }, true);
+    m._flagIdx=idx;
+  })(m, part, idx);
+  return m;
+}
 function renderRich(parent, val, opts){
   opts=opts||{};
   asArr(val).forEach(function(part){
     if(typeof part==="string"){ parent.appendChild(document.createTextNode(part)); return; }
-    var idx=flagSeq++;
-    var m=el("mark","rvc-flag",part.text);
-    m.setAttribute("tabindex","0");
-    m.setAttribute("role","button");
-    m.setAttribute("aria-label", part.text+" \u2013 the agent is unsure");
-    (function(m, part, idx){
-      m.addEventListener("mouseenter", function(){ showTip(idx, m, part); });
-      m.addEventListener("mouseleave", function(){ hideTip(idx); });
-      m.addEventListener("focus", function(){ S.peekIdx=idx; showTip(idx, m, part); });
-      m.addEventListener("blur", function(){ if(S.peekIdx===idx) S.peekIdx=null; hideTip(idx); });
-      m.addEventListener("click", function(){ S.peekIdx=idx; showTip(idx, m, part); });
-      m._flagIdx=idx;
-    })(m, part, idx);
-    parent.appendChild(m);
+    parent.appendChild(makeFlag(part));
   });
 }
 function showTip(idx, anchor, part){
@@ -589,16 +595,33 @@ function hideTipNow(){
 }
 function renderDiff(parent, lines){
   var hunk=/^@@/;
-  (lines||[]).forEach(function(part){
-    if(typeof part!=="string"){ renderRich(parent, part); return; }
-    part.split("\n").forEach(function(line, li, arr){
-      if(li>0) parent.appendChild(document.createElement("br"));
-      if(line===""&&li===arr.length-1) return;
-      var cls = hunk.test(line)?null:(line.charAt(0)==="+"?"add":(line.charAt(0)==="-"?"del":null));
-      var s=el("span","rvc-line"+(cls?"":""),line===""?"\u200b":line);
-      if(cls) s.setAttribute("data-diff",cls);
-      parent.appendChild(s);
+  var val=(typeof lines==="string")?[lines]:(lines||[]);
+  var grouped=[[]];
+  val.forEach(function(part){
+    if(typeof part!=="string"){ grouped[grouped.length-1].push(part); return; }
+    var segs=part.split("\n");
+    for(var i=0;i<segs.length;i++){
+      if(i>0) grouped.push([]);
+      if(segs[i]!=="") grouped[grouped.length-1].push(segs[i]);
+    }
+  });
+  grouped.forEach(function(segs){
+    if(!segs.length){
+      parent.appendChild(el("span","rvc-line","​"));
+      return;
+    }
+    var firstStr=null;
+    for(var k=0;k<segs.length;k++){ if(typeof segs[k]==="string"){ firstStr=segs[k]; break; } }
+    var raw=firstStr!==null?firstStr:"";
+    var cls=hunk.test(raw)?null:(raw.charAt(0)==="+"?"add":(raw.charAt(0)==="-"?"del":null));
+    var lineEl=el("span","rvc-line");
+    if(cls) lineEl.setAttribute("data-diff",cls);
+    segs.forEach(function(seg){
+      if(typeof seg==="string"){ lineEl.appendChild(document.createTextNode(seg)); }
+      else { lineEl.appendChild(makeFlag(seg)); }
     });
+    if(!lineEl.textContent) lineEl.textContent="​";
+    parent.appendChild(lineEl);
   });
 }
 function renderDetail(){
@@ -677,6 +700,7 @@ function renderDetail(){
         var tt=el("span","rvc-step-title"); tt.setAttribute("dir","auto");
         renderRich(tt, st.title); sm.appendChild(tt);
         if(st.tool){
+          sm.appendChild(document.createTextNode(" "));
           var tool=el("span","rvc-step-tool","with "+st.tool); tool.setAttribute("title",st.tool);
           sm.appendChild(tool);
         }

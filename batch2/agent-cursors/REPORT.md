@@ -107,6 +107,43 @@ measured rects. Cost ticker rates reuse the original per-agent rates.
   (light 17.93/4.80/6.37/4.97/6.37, dark 14.52/6.63/12.03 — all AA),
   54,189 bytes (<200KB), light+dark tokens unchanged.
 
+## Flicker fix (2026-11-25) — build once, update in place
+- **Defect:** the 500 ms cost ticker (`renderSum` + full `placeAll` rebuild of
+  `#cursors`/`#marks` via `innerHTML=''`) and every typing/autoplay tick
+  (`render()` → `paper/people/pins.innerHTML=…`) destroyed and recreated the
+  whole component DOM. CSS animations restarted, unchanged rows lost node
+  identity, the eye saw a full flash/reload each step.
+- **Fix (same file, data/timings/choreography untouched):** all DOM is built
+  ONCE at init (`buildOnce`: doc blocks, 6-row table with 2 hidden extra
+  rows, 8 faces, sum/status/pop skeletons, pin/cursor/mark pools). Every tick
+  only mutates the live nodes — `textContent`/`data` on existing text nodes,
+  `setAttribute`, `classList`, `style` (transform/left/top/width/opacity).
+  `syncRich` reuses per-suggestion `<del>`/`<ins>` nodes keyed by sug id, so a
+  typing step only grows one text node; loop restarts (`runDoc`/`runTable`)
+  hide/show the same nodes instead of wiping containers. Doc layout order
+  kept (ship paragraph → item `<ul>` → `What ships` heading, as before).
+  Zero `.innerHTML =` assignments remain in the main script.
+- **Also fixed per the brief:** `[hidden]{display:none!important}` guard added
+  (author `.pop`/row styles set `display`, so `hidden` needs the guard);
+  suggestion `<del>`/`<ins>` and pin dots now open popovers on
+  `pointerdown` with capture (`addEventListener('pointerdown',…,true)`) in
+  addition to hover/focus/click; no `.className` assignments remain — SVG is
+  built with `createElementNS` + `setAttribute` only. The early-theme
+  `/*noflash*/` guard in `<head>` is byte-identical.
+- **Verification (`node verify-flicker.js`, no browser):** minimal DOM stub +
+  fake timers drive the real inline script through a full doc loop + restart
+  and a full table loop + restart, in light AND dark (`matchMedia`
+  true/false, `data-theme` asserted). Captured refs (`why`/`code`/`title`/
+  `i1` blocks, face buttons, `sumLine` text node, table cells `t-1-0` + row
+  `r1`) are asserted `===`-identical and still in the tree at 3.2 s,
+  post-accept, and across both restarts; an `innerHTML` setter spy asserts 0
+  assignments after init through all ticks; visible text asserted at
+  checkpoints (`about 40%` → typing `38%` → accepted `38%`, title back after
+  restart, table `Maya`/`Doing`/`Nov 10`); pointerdown-capture listeners
+  asserted on a live `p1` node. Result: `ALL HARNESS CHECKS PASSED` in both
+  themes. `node --check` passes on the extracted script, 68,679 bytes
+  (<200 KB), 0 hex colours after `/* base */`.
+
 ## How to test
 1. `open index.html` in a browser (or serve this directory).
 2. Watch the autoplay: cursors glide, suggestions type in, `r1` auto-accepts,
