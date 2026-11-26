@@ -1,0 +1,523 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Follow-up after sales calls — AI Chat / Progress</title>
+<script>/*noflash*/(function(){try{var k='ui-prg-theme';var t=null;try{t=localStorage.getItem(k);}catch(e){}if(!t){try{t=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}catch(e){t='light';}if(!t)t='light';}document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<style>html{background:#fafaf9}html[data-theme="dark"]{background:#101012}</style>
+<style>
+:root{color-scheme:light dark;}
+html[data-theme="light"]{
+--surface:#ffffff;--page:#fafaf9;--ink:#1c1917;--ink-soft:#44403c;--muted:#78716c;
+--subtle:#f5f5f4;--border:#e7e5e4;--line:#e7e5e4;--line-strong:#d6d3d1;
+--panel:#ffffff;--text:#1c1917;--hover:#f5f5f4;--chip:#f5f5f4;
+--accent:#2563eb;--accent-ink:#1d4ed8;--accent-bg:#eff6ff;
+--ok:#15803d;--ok-bg:#f0fdf4;
+--amber:#92400e;--amber-bg:#fef3c7;--amber-dot:#f59e0b;
+--danger:#b91c1c;
+--r-lg:16px;--r:10px;--r-sm:6px;
+--shadow:0 1px 2px rgba(0,0,0,.05),0 4px 16px rgba(0,0,0,.05);
+--shadow-sm:0 1px 2px rgba(0,0,0,.05);
+--focus:rgba(0,96,226,.7);
+}
+html[data-theme="dark"]{
+--surface:#1c1c1f;--page:#101012;--ink:#ededed;--ink-soft:#d4d4d8;--muted:#a1a1aa;
+--subtle:#26262a;--border:#2e2e33;--line:#2e2e33;--line-strong:#3f3f46;
+--panel:#1c1c1f;--text:#ededed;--hover:#26262a;--chip:#26262a;
+--accent:#60a5fa;--accent-ink:#93c5fd;--accent-bg:#172554;
+--ok:#4ade80;--ok-bg:#052e16;
+--amber:#fde68a;--amber-bg:#451a03;--amber-dot:#fbbf24;
+--danger:#f87171;
+--r-lg:16px;--r:10px;--r-sm:6px;
+--shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+--shadow-sm:0 1px 2px rgba(0,0,0,.4);
+--focus:rgba(77,141,255,.8);
+}
+html{-webkit-tap-highlight-color:transparent;}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--page);color:var(--text);
+font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:14px;line-height:1.45;
+font-variant-numeric:tabular-nums;}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0;}
+input{font:inherit;}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:4px;}
+.page{max-width:1080px;margin:0 auto;padding:14px 16px 28px;}
+.page-bar{display:flex;align-items:center;gap:12px;padding:6px 2px 12px;}
+.page-bar__id{min-width:0;flex:1;}
+.page-bar__title{margin:0;font-size:15px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.page-bar__meta{margin:2px 0 0;font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.theme-btn{flex:none;display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 12px 0 10px;border:1px solid var(--border);border-radius:999px;background:var(--surface);box-shadow:var(--shadow-sm);font-size:12.5px;color:var(--text);}
+.theme-btn__glyph{font-size:13px;line-height:1;transform:translateY(-.5px);}
+.stage{border:1px solid var(--border);border-radius:var(--r-lg);background:var(--panel);box-shadow:var(--shadow);overflow:clip;}
+.ui-prg{--side:300px;position:relative;display:grid;grid-template-columns:minmax(0,1fr) var(--side);min-height:560px;max-height:78vh;height:640px;}
+.ui-prg[data-panel="closed"]{grid-template-columns:minmax(0,1fr) 0px;}
+.ui-prg-chat{display:flex;flex-direction:column;min-width:0;min-height:0;}
+.ui-prg-bar{display:flex;flex:none;align-items:center;justify-content:flex-end;gap:8px;min-height:48px;padding:0 12px 0 20px;}
+.ui-prg-toggle{display:none;align-items:center;gap:6px;height:28px;padding:0 10px 0 8px;border-radius:8px;font-size:12.5px;font-weight:550;color:var(--text);border:1px solid var(--border);background:var(--surface);}
+.ui-prg[data-panel="closed"] .ui-prg-toggle{display:inline-flex;}
+.ui-prg-toggle__count{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--subtle);border:1px solid var(--border);font-size:11.5px;}
+.ui-prg-thread{flex:1;overflow-y:auto;padding:14px 18px 10px;scrollbar-width:thin;}
+.ui-prg-col{display:flex;flex-direction:column;gap:14px;max-width:660px;margin:0 auto;width:100%;}
+.ui-prg-user{align-self:flex-end;max-width:78%;margin:0;padding:9px 13px;border-radius:var(--r-lg);border-bottom-right-radius:var(--r-sm);background:var(--subtle);border:1px solid var(--border);font-size:13.5px;}
+.ui-prg-answer{display:flex;flex-direction:column;gap:8px;min-width:0;}
+.ui-prg-text{font-size:13.5px;color:var(--text);overflow-wrap:anywhere;}
+.ui-prg-text b{font-weight:650;}
+.ui-prg-text ul{margin:8px 0 0;padding-left:20px;display:grid;gap:4px;color:var(--ink-soft);}
+.tool{border:1px solid var(--border);border-radius:var(--r);background:var(--surface);box-shadow:var(--shadow-sm);overflow:hidden;}
+.tool__head{display:flex;align-items:center;gap:9px;width:100%;min-height:44px;padding:7px 10px 7px 12px;text-align:left;}
+.tool__icon{flex:none;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:700;color:#fff;}
+.tool__icon--notion{background:#111418;}
+html[data-theme="dark"] .tool__icon--notion{background:#e7e5e4;color:#1c1917;}
+.tool__icon--drive{background:#0F9D58;}
+.tool__icon--dir{background:#57534e;}
+.tool__icon--search{background:var(--accent);}
+.tool__main{flex:1;min-width:0;}
+.tool__name{font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.tool__sum{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.tool__status{flex:none;font-size:11px;font-weight:650;padding:3px 9px 3px 7px;border-radius:999px;border:1px solid var(--border);color:var(--muted);}
+.tool__status[data-s="success"]{color:var(--ok);border-color:var(--line-strong);}
+.tool__status[data-s="running"]{color:var(--accent-ink);border-color:var(--line-strong);}
+.tool__chev{flex:none;color:var(--muted);font-size:12px;padding-left:2px;}
+.tool__body{border-top:1px solid var(--border);padding:10px 12px;display:grid;gap:8px;}
+.tool__kv{margin:0;display:grid;grid-template-columns:110px minmax(0,1fr);gap:3px 10px;font-size:12px;}
+.tool__kv dt{color:var(--muted);}
+.tool__kv dd{margin:0;min-width:0;overflow-wrap:anywhere;}
+.tool__note{font-size:12px;color:var(--muted);}
+.ui-prg-composer{flex:none;padding:10px 16px 14px;}
+.composer{display:flex;align-items:center;gap:8px;max-width:660px;margin:0 auto;border:1px solid var(--border);border-radius:999px;background:var(--surface);box-shadow:var(--shadow-sm);padding:5px 5px 5px 14px;}
+.composer input{flex:1;min-width:0;border:0;background:transparent;color:var(--text);outline:none;font-size:13.5px;}
+.composer input::placeholder{color:var(--muted);}
+.send{flex:none;height:30px;padding:0 14px 0 12px;border-radius:999px;background:var(--ink);color:var(--page);font-size:12.5px;font-weight:600;}
+html[data-theme="dark"] .send{background:var(--ink);color:#101012;}
+.ui-prg-side{position:relative;min-width:0;overflow:hidden;border-left:1px solid var(--border);}
+.ui-prg[data-panel="closed"] .ui-prg-side{border-left-color:transparent;}
+.ui-prg-side__in{width:var(--side);height:100%;overflow-y:auto;padding:0 16px 20px;scrollbar-width:thin;}
+.ui-prg-close{position:absolute;top:12px;right:12px;z-index:2;display:grid;place-items:center;width:26px;height:26px;border-radius:8px;color:var(--muted);}
+.ui-prg-section{padding:14px 0 12px;}
+.ui-prg-section + .ui-prg-section{border-top:1px solid var(--border);}
+.ui-prg-section__head{margin:0 0 0;min-height:26px;}
+.ui-prg-section[data-open] .ui-prg-section__head{margin-bottom:6px;}
+.ui-prg-section__head button{display:inline-flex;align-items:center;gap:4px;height:26px;margin-left:-6px;padding:0 6px 0 4px;border-radius:7px;font-size:13px;font-weight:600;color:var(--ink);}
+.ui-prg-chev{display:inline-grid;place-items:center;color:var(--muted);font-size:11px;width:14px;transition:transform 220ms ease;}
+.ui-prg-section[data-open] .ui-prg-chev{transform:rotate(90deg);}
+.ui-prg-fold{display:grid;grid-template-rows:0fr;transition:grid-template-rows 260ms cubic-bezier(.32,.72,.24,1);}
+.ui-prg-section[data-open] .ui-prg-fold{grid-template-rows:1fr;}
+.ui-prg-fold__in{min-height:0;margin-inline:-4px;padding-inline:4px;overflow:hidden;opacity:0;transition:opacity 200ms ease;}
+.ui-prg-section[data-open] .ui-prg-fold__in{opacity:1;}
+.ui-prg-trail{--rail:var(--line-strong);}
+.ui-prg-steps{display:grid;margin:0;padding:0;list-style:none;}
+.ui-prg-trail__earlier,.ui-prg-steps > li{position:relative;padding:0 0 9px 26px;}
+.ui-prg-steps > li:last-child{padding-bottom:2px;}
+.ui-prg-trail__earlier::before,.ui-prg-steps > li::before{content:"";position:absolute;top:0;bottom:0;left:7px;width:2px;border-radius:1px;background:var(--rail);}
+.ui-prg-trail__earlier::before{top:3px;background:repeating-linear-gradient(to bottom,var(--rail) 0 3px,transparent 3px 6px);}
+.ui-prg-trail__earlier[data-open]::before{background:var(--rail);}
+.ui-prg-steps:first-child > li:first-child::before{top:3px;}
+.ui-prg-steps > li:last-child::before{display:none;}
+.ui-prg-earlier{display:inline-flex;align-items:center;gap:4px;margin:-2px 0 0 -6px;padding:2px 6px;border-radius:6px;font-size:12.5px;color:var(--muted);}
+.ui-prg-steps > li{min-width:0;font-size:12.5px;line-height:18px;color:var(--muted);opacity:.88;}
+.ui-prg-steps > li[data-state="running"]{color:var(--ink);opacity:1;}
+.ui-prg-step__mark{position:absolute;top:1px;left:0;display:grid;place-items:center;width:16px;height:16px;border-radius:50%;background:var(--panel);border:1.5px solid var(--line-strong);color:var(--panel);font-size:10px;}
+.ui-prg-steps > li[data-state="done"] .ui-prg-step__mark{background:var(--muted);border-color:var(--muted);color:var(--panel);}
+.ui-prg-steps > li[data-state="running"] .ui-prg-step__mark{border-color:var(--line-strong);}
+.ui-prg-spin{width:10px;height:10px;border:1.5px solid var(--line-strong);border-top-color:var(--accent);border-radius:50%;animation:spin 800ms linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.ui-prg-step__label{display:block;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;}
+.ui-prg-preview{display:grid;gap:2px;width:100%;padding-top:2px;text-align:left;border-radius:var(--r);}
+.ui-prg-page{display:grid;gap:6px;min-height:132px;overflow:hidden;margin-bottom:6px;padding:16px 18px;border-radius:var(--r);background:var(--surface);border:1px solid var(--border);box-shadow:inset 0 0 0 1px rgba(0,0,0,.10),var(--shadow-sm);}
+html[data-theme="dark"] .ui-prg-page{box-shadow:inset 0 0 0 1px rgba(255,255,255,.10),var(--shadow-sm);}
+.ui-prg-page b{font-family:ui-serif,Georgia,"Times New Roman",serif;font-size:15px;font-weight:500;color:var(--ink);}
+.ui-prg-page i{font-size:10.5px;font-style:normal;color:var(--text);}
+.ui-prg-page__lines{display:grid;gap:6px;padding-top:4px;}
+.ui-prg-page__lines span{height:5px;border-radius:3px;background:var(--chip);border:1px solid var(--border);}
+.ui-prg-preview__meta{display:flex;align-items:center;gap:9px;min-width:0;}
+.ui-prg-preview__text{display:grid;min-width:0;}
+.ui-prg-preview__name,.ui-prg-row__name{font-size:12.5px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;}
+.ui-prg-preview__source,.ui-prg-row__meta{font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ui-prg-files{display:grid;gap:1px;margin:8px -4px 0;padding:0;list-style:none;}
+.ui-prg-row{display:flex;align-items:center;gap:9px;width:100%;min-width:0;min-height:32px;padding:2px 6px 2px 4px;border-radius:8px;text-align:left;}
+.ui-prg-row__mark{flex:none;width:20px;height:20px;border-radius:5px;display:grid;place-items:center;font-size:10px;font-weight:800;color:#fff;}
+.ui-prg-row__mark--docs{background:#4285F4;}
+.ui-prg-row__mark--sheets{background:#0F9D58;}
+.ui-prg-row__mark--word{background:#2B579A;}
+.ui-prg-row__mark--md{background:var(--muted);}
+.ui-prg-row__icon{flex:none;width:18px;height:18px;display:grid;place-items:center;color:var(--muted);font-size:13px;}
+.ui-prg-row__meta{flex:none;max-width:46%;}
+.ui-prg-logos{display:inline-flex;flex:none;gap:5px;align-items:center;}
+.ui-prg-logos span{width:16px;height:16px;border-radius:50%;display:inline-grid;place-items:center;font-size:9px;font-weight:800;color:#fff;}
+.ui-prg-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;}
+@media (max-width:760px){
+.ui-prg,.ui-prg[data-panel="closed"]{grid-template-columns:minmax(0,1fr);}
+.ui-prg{height:auto;max-height:none;}
+.ui-prg-thread{max-height:60vh;}
+.ui-prg-side{position:absolute;z-index:5;top:0;right:0;bottom:0;width:min(var(--side),calc(100% - 40px));background:var(--panel);box-shadow:-12px 0 32px -16px rgba(0,0,0,.25);}
+.ui-prg[data-panel="closed"] .ui-prg-side{visibility:hidden;transform:translateX(100%);}
+.ui-prg-side{transition:transform 320ms cubic-bezier(.32,.72,.24,1),visibility 0s;}
+.ui-prg[data-panel="closed"] .ui-prg-side{transition:transform 280ms ease,visibility 0s 280ms;}
+.ui-prg-side__in{width:100%;}
+}
+@media (prefers-reduced-motion:reduce){.ui-prg,.ui-prg *,.ui-prg *::before{transition:none !important;animation:none !important;}}
+@media (hover: hover) and (pointer: fine){
+.theme-btn:hover{border-color:var(--line-strong);}
+.ui-prg-toggle:hover{background:var(--hover);}
+.ui-prg-close:hover{background:var(--hover);color:var(--ink);}
+.ui-prg-section__head button:hover{background:var(--hover);}
+.ui-prg-earlier:hover{background:var(--hover);color:var(--text);}
+button.ui-prg-row:hover{background:var(--hover);}
+button.ui-prg-preview:hover .ui-prg-page{border-color:var(--line-strong);}
+.tool__head:hover{background:var(--hover);}
+.send:hover{filter:brightness(1.12);}
+.composer:focus-within{border-color:var(--line-strong);}
+}
+</style>
+</head>
+<body>
+<div class="page">
+<header class="page-bar">
+<div class="page-bar__id">
+<h1 class="page-bar__title">Follow-up after sales calls</h1>
+<p class="page-bar__meta" id="pageMeta">Q3 Campaign · 5 steps · 4 outputs</p>
+</div>
+<button type="button" class="theme-btn" id="themeBtn" aria-label="Switch to dark mode"><span class="theme-btn__glyph" id="themeGlyph">☾</span><span id="themeLabel">Dark</span></button>
+</header>
+<main class="stage">
+<div class="ui-prg" id="prg" data-panel="open">
+<section class="ui-prg-chat" aria-label="Chat">
+<header class="ui-prg-bar">
+<button type="button" class="ui-prg-toggle" id="showPanel" aria-expanded="false" aria-controls="ui-prg-side"><span aria-hidden="true">◍</span><span>Show progress</span><span class="ui-prg-toggle__count" id="outCount">4</span></button>
+</header>
+<div class="ui-prg-thread" id="thread" tabindex="0"></div>
+<div class="ui-prg-composer">
+<div class="composer">
+<input id="composerInput" type="text" placeholder="Reply…" aria-label="Reply" autocomplete="off">
+<button type="button" class="send" id="sendBtn">Send</button>
+</div>
+</div>
+</section>
+<aside class="ui-prg-side" id="side" aria-label="Progress">
+<div class="ui-prg-side__in">
+<button type="button" class="ui-prg-close" id="hidePanel" aria-label="Hide progress">✕</button>
+<section class="ui-prg-section" id="secProgress" data-open="">
+<h2 class="ui-prg-section__head"><button type="button" id="secProgressBtn" aria-expanded="true"><span>Progress</span><span class="ui-prg-chev" aria-hidden="true">›</span></button></h2>
+<div class="ui-prg-fold" id="foldProgress"><div class="ui-prg-fold__in" id="foldProgressIn"></div></div>
+</section>
+<section class="ui-prg-section" id="secOutputs" data-open="">
+<h2 class="ui-prg-section__head"><button type="button" id="secOutputsBtn" aria-expanded="true"><span>Outputs</span><span class="ui-prg-chev" aria-hidden="true">›</span></button></h2>
+<div class="ui-prg-fold" id="foldOutputs"><div class="ui-prg-fold__in" id="foldOutputsIn"></div></div>
+</section>
+<section class="ui-prg-section" id="secUsed" data-open="">
+<h2 class="ui-prg-section__head"><button type="button" id="secUsedBtn" aria-expanded="true"><span>Used in this session</span><span class="ui-prg-chev" aria-hidden="true">›</span></button></h2>
+<div class="ui-prg-fold" id="foldUsed"><div class="ui-prg-fold__in" id="foldUsedIn"></div></div>
+</section>
+</div>
+</aside>
+</div>
+</main>
+</div>
+<script>
+(function(){
+"use strict";
+var LS_KEY='ui-prg-theme';
+var doc=document, root=doc.documentElement;
+function currentTheme(){return root.getAttribute('data-theme')==='dark'?'dark':'light';}
+var themeBtn=doc.getElementById('themeBtn'), themeGlyph=doc.getElementById('themeGlyph'), themeLabel=doc.getElementById('themeLabel');
+function paintThemeBtn(){
+var t=currentTheme();
+if(t==='dark'){themeGlyph.textContent='☀';themeLabel.textContent='Light';themeBtn.setAttribute('aria-label','Switch to light mode');}
+else{themeGlyph.textContent='☾';themeLabel.textContent='Dark';themeBtn.setAttribute('aria-label','Switch to dark mode');}
+}
+function setTheme(t){
+root.setAttribute('data-theme',t);
+try{localStorage.setItem(LS_KEY,t);}catch(e){}
+paintThemeBtn();
+}
+themeBtn.addEventListener('click',function(){setTheme(currentTheme()==='dark'?'light':'dark');});
+paintThemeBtn();
+
+var TOOLS={
+t1:{icon:'N',cls:'tool__icon--notion',name:'notion.search',summary:'Searched your call notes in Notion',status:'success',
+args:[['query','Sales calls'],['workspace','Sales'],['since','30 days']],
+result:[['pages','12'],['newest','Northwind – demo call'],['read','Northwind – demo call, Globex – intro, Initech – pricing']]},
+t2:{icon:'D',cls:'tool__icon--drive',name:'drive.read_file',summary:'Read Team Directory (Meetings)',status:'success',
+args:[['file','Team Directory (Meetings)'],['sheet','People']],
+result:[['rows','14'],['columns','name, email, team']]},
+t3:{icon:'◍',cls:'tool__icon--dir',name:'directory.match_people',summary:'Checked the call\u2019s people against the team list',status:'success',
+args:[['call','Northwind – demo call'],['people','Dana Wright, Jo Park, Sam Lee']],
+result:[['team','Dana Wright, Sam Lee'],['customer','Jo Park'],['note','jo.park@gmail.com isn\u2019t in the Team Directory']]}
+};
+
+var thread=doc.getElementById('thread');
+var col=doc.createElement('div');col.className='ui-prg-col';thread.appendChild(col);
+
+function el(tag,cls,text){var n=doc.createElement(tag);if(cls)n.className=cls;if(text!=null)n.textContent=text;return n;}
+
+function buildTextBlock(container, kind){
+if(kind==='bullets'){
+var b=el('b',null,'What happens after each call now:');container.appendChild(b);
+var ul=doc.createElement('ul');
+['The notes are read as soon as the call ends in Notion','Everyone in the Team Directory counts as your side, the rest as the customer','A follow-up email is drafted from the offer template and waits in Slack for your OK'].forEach(function(t){var li=doc.createElement('li');li.textContent=t;ul.appendChild(li);});
+container.appendChild(ul);
+}
+}
+
+function buildToolCard(id){
+var d=TOOLS[id];
+var card=el('div','tool');card.setAttribute('data-tool',id);
+var head=el('button','tool__head');head.type='button';head.setAttribute('aria-expanded','false');
+var icon=el('span','tool__icon '+d.cls,d.icon);icon.setAttribute('aria-hidden','true');
+var main=el('span','tool__main');
+var nm=el('span','tool__name',d.name);nm.title=d.name;
+var sm=el('span','tool__sum',d.summary);sm.title=d.summary;
+main.appendChild(nm);main.appendChild(sm);
+var st=el('span','tool__status',d.status==='success'?'success':'working');st.setAttribute('data-s',d.status);
+var chev=el('span','tool__chev','›');chev.setAttribute('aria-hidden','true');
+head.appendChild(icon);head.appendChild(main);head.appendChild(st);head.appendChild(chev);
+var body=el('div','tool__body');body.hidden=true;
+var kv=doc.createElement('dl');kv.className='tool__kv';
+d.args.forEach(function(p){var dt=doc.createElement('dt');dt.textContent=p[0];var dd=doc.createElement('dd');dd.textContent=p[1];kv.appendChild(dt);kv.appendChild(dd);});
+body.appendChild(kv);
+var kv2=doc.createElement('dl');kv2.className='tool__kv';
+d.result.forEach(function(p){var dt=doc.createElement('dt');dt.textContent=p[0];var dd=doc.createElement('dd');dd.textContent=p[1];kv2.appendChild(dt);kv2.appendChild(dd);});
+body.appendChild(kv2);
+head.addEventListener('click',function(){
+var open=body.hidden;
+body.hidden=!open;
+head.setAttribute('aria-expanded',open?'true':'false');
+chev.textContent=open?'⌄':'›';
+});
+head.addEventListener('keydown',function(ev){if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();head.click();}});
+card.appendChild(head);card.appendChild(body);
+card._refs={head:head,sum:sm,status:st,body:body,chev:chev};
+return card;
+}
+
+var answerNodes=[];
+function addUser(text){
+var p=el('p','ui-prg-user',text);p.dir='auto';col.appendChild(p);return p;
+}
+function addAnswer(){
+var ans=el('div','ui-prg-answer');col.appendChild(ans);return ans;
+}
+function addText(ans,text){
+var t=el('div','ui-prg-text',text);t.dir='auto';ans.appendChild(t);return t;
+}
+
+// message u1
+addUser('Can you automate the follow-up after our sales calls? The notes are in Notion, the team list is in Drive.');
+var a1=addAnswer();
+a1.appendChild(buildToolCard('t1'));
+addText(a1,'I read your last twelve call notes. Every follow-up has the same three parts: a thank-you, the next step you agreed on and the offer as a link.');
+a1.appendChild(buildToolCard('t2'));
+var tb=addText(a1,'');buildTextBlock(tb,'bullets');
+addUser('Why did the first draft treat Jo from our team as the customer?');
+var a2=addAnswer();
+a2.appendChild(buildToolCard('t3'));
+addText(a2,'Jo joined the call with a personal Gmail address, and only work addresses were in the Team Directory. I added Jo\u2019s Gmail there – the next draft counts Jo as your side. If more of you join from personal addresses, add them to the list the same way.');
+
+// ---- side: progress steps (built once, updated in place) ----
+var STEPS=[
+{id:'s1',label:'Read the call notes in Notion',state:'done'},
+{id:'s2',label:'Map the team from the directory',state:'done'},
+{id:'s3',label:'Build the follow-up workflow',state:'done'},
+{id:'s4',label:'Draft a test email for Northwind',state:'done'},
+{id:'s5',label:'Fix how team and customer are told apart',state:'done'}
+];
+var foldProgressIn=doc.getElementById('foldProgressIn');
+var trail=el('div','ui-prg-trail');
+var earlierWrap=el('div','ui-prg-trail__earlier');
+var earlierBtn=el('button','ui-prg-earlier','');earlierBtn.type='button';
+var stepsOl=el('ol','ui-prg-steps');stepsOl.setAttribute('aria-live','polite');
+trail.appendChild(earlierWrap);trail.appendChild(stepsOl);foldProgressIn.appendChild(trail);
+var showAll=false;
+var stepRows={};
+STEPS.forEach(function(s){
+var li=doc.createElement('li');li.setAttribute('data-state',s.state);
+var mark=el('span','ui-prg-step__mark');mark.setAttribute('aria-hidden','true');
+var lab=el('span','ui-prg-step__label',s.label);lab.title=s.label;
+var sr=el('span','ui-prg-sr',s.state==='done'?' – done':' – working on it');
+lab.appendChild(sr);
+if(s.state==='done'){mark.textContent='✓';}else{var sp=el('span','ui-prg-spin');mark.appendChild(sp);}
+if(s.state!=='done')mark.textContent='';
+li.appendChild(mark);li.appendChild(lab);
+stepRows[s.id]={li:li,mark:mark,lab:lab,sr:sr};
+stepsOl.appendChild(li);
+});
+function paintSteps(){
+var visible=showAll?STEPS:STEPS.slice(-2);
+var hiddenCount=STEPS.length-visible.length;
+Object.keys(stepRows).forEach(function(id){
+var r=stepRows[id];
+var isVis=visible.some(function(s){return s.id===id;});
+r.li.style.display=isVis?'':'none';
+});
+if(hiddenCount>0){
+earlierWrap.style.display='';
+earlierWrap.setAttribute('data-open',showAll?'':null);
+if(showAll){earlierBtn.textContent='Hide earlier steps';}
+else{earlierBtn.textContent=hiddenCount+' earlier '+(hiddenCount===1?'step':'steps');}
+earlierBtn.setAttribute('aria-expanded',showAll?'true':'false');
+}else{earlierWrap.style.display='none';}
+}
+earlierBtn.addEventListener('click',function(){showAll=!showAll;paintSteps();});
+earlierWrap.appendChild(earlierBtn);
+paintSteps();
+function setStepState(id,state){
+for(var i=0;i<STEPS.length;i++){if(STEPS[i].id===id)STEPS[i].state=state;}
+var r=stepRows[id];if(!r)return;
+r.li.setAttribute('data-state',state);
+while(r.mark.firstChild)r.mark.removeChild(r.mark.firstChild);
+if(state==='done'){r.mark.textContent='✓';r.sr.textContent=' – done';}
+else if(state==='running'){var sp=doc.createElement('span');sp.className='ui-prg-spin';r.mark.appendChild(sp);r.sr.textContent=' – working on it';}
+else{r.sr.textContent='';}
+paintSteps();
+}
+
+// ---- side: outputs ----
+var foldOutputsIn=doc.getElementById('foldOutputsIn');
+var previewBtn=el('button','ui-prg-preview');previewBtn.type='button';
+var pageBox=el('span','ui-prg-page');pageBox.setAttribute('aria-hidden','true');
+pageBox.appendChild(el('b',null,'Northwind: follow-up'));
+pageBox.appendChild(el('i',null,'Thanks for the demo today – here is what we agreed on and the offer we promised.'));
+var lines=el('span','ui-prg-page__lines');
+lines.appendChild(el('span'));lines.appendChild(el('span'));lines.appendChild(el('span'));
+pageBox.appendChild(lines);
+var prevMeta=el('span','ui-prg-preview__meta');
+var pm=el('span','ui-prg-row__mark ui-prg-row__mark--docs','D');pm.setAttribute('aria-hidden','true');
+var ptxt=el('span','ui-prg-preview__text');
+ptxt.appendChild(el('span','ui-prg-preview__name','Northwind – follow-up email'));
+ptxt.appendChild(el('span','ui-prg-preview__source','Google Docs'));
+prevMeta.appendChild(pm);prevMeta.appendChild(ptxt);
+previewBtn.appendChild(pageBox);previewBtn.appendChild(prevMeta);
+foldOutputsIn.appendChild(previewBtn);
+var filesUl=el('ul','ui-prg-files');
+[['Team Directory','Google Sheets','ui-prg-row__mark--sheets','T'],['Offer template.docx','Word','ui-prg-row__mark--word','W'],['call-notes-summary.md','Markdown','ui-prg-row__mark--md','M']].forEach(function(f){
+var li=doc.createElement('li');
+var row=el('button','ui-prg-row');row.type='button';
+var mk=el('span','ui-prg-row__mark '+f[2],f[3]);mk.setAttribute('aria-hidden','true');
+var nm=el('span','ui-prg-row__name',f[0]);nm.title=f[0];
+var mt=el('span','ui-prg-row__meta',f[1]);
+row.appendChild(mk);row.appendChild(nm);row.appendChild(mt);
+li.appendChild(row);filesUl.appendChild(li);
+});
+foldOutputsIn.appendChild(filesUl);
+
+// ---- side: used ----
+var foldUsedIn=doc.getElementById('foldUsedIn');
+var usedUl=el('ul','ui-prg-files');
+function usedRow(glyph,label,metaText,logos){
+var li=doc.createElement('li');
+var row=el('div','ui-prg-row ui-prg-row--static');
+var ic=el('span','ui-prg-row__icon',glyph);ic.setAttribute('aria-hidden','true');
+var nm=el('span','ui-prg-row__name',label);
+row.appendChild(ic);row.appendChild(nm);
+if(logos){
+var lg=el('span','ui-prg-logos');lg.setAttribute('aria-label','Notion, Google Drive and Slack');
+[['N','#111418'],['D','#0F9D58'],['S','#7c3aed']].forEach(function(l){var s=el('span',null,l[0]);s.style.background=l[1];lg.appendChild(s);});
+row.appendChild(lg);
+}else{
+row.appendChild(el('span','ui-prg-row__meta',metaText));
+}
+li.appendChild(row);usedUl.appendChild(li);return li;
+}
+usedRow('⤴','Uploads','call-screenshot.png +1',false);
+usedRow('◍','Connectors',null,true);
+usedRow('◎','Web search','2 pages',false);
+usedRow('✦','Skills','sales-follow-up',false);
+foldUsedIn.appendChild(usedUl);
+
+// sections collapse (in place)
+[['secProgress','secProgressBtn'],['secOutputs','secOutputsBtn'],['secUsed','secUsedBtn']].forEach(function(p){
+var sec=doc.getElementById(p[0]),btn=doc.getElementById(p[1]);
+btn.addEventListener('click',function(){
+var open=sec.hasAttribute('data-open');
+if(open){sec.removeAttribute('data-open');btn.setAttribute('aria-expanded','false');}
+else{sec.setAttribute('data-open','');btn.setAttribute('aria-expanded','true');}
+});
+});
+
+// panel open/close (in place)
+var prg=doc.getElementById('prg'),showBtn=doc.getElementById('showPanel'),hideBtn=doc.getElementById('hidePanel'),side=doc.getElementById('side');
+function setPanel(open,focusTarget){
+prg.setAttribute('data-panel',open?'open':'closed');
+showBtn.setAttribute('aria-expanded',open?'true':'false');
+if(open&&focusTarget==='panel'&&hideBtn.focus)hideBtn.focus({preventScroll:true});
+if(!open&&focusTarget==='bar'&&showBtn.focus)showBtn.focus();
+}
+showBtn.addEventListener('click',function(){setPanel(true,'panel');});
+hideBtn.addEventListener('click',function(){setPanel(false,'bar');});
+prg.addEventListener('keydown',function(ev){
+if(ev.key==='Escape'&&prg.getAttribute('data-panel')==='open'){
+var narrow=false;
+try{narrow=window.matchMedia&&window.matchMedia('(max-width: 760px)').matches;}catch(e){}
+if(narrow)setPanel(false,'bar');
+}
+});
+
+// composer: full-loop in-place updates only
+var input=doc.getElementById('composerInput'),sendBtn=doc.getElementById('sendBtn');
+var msgSeq=0;
+function sendChat(raw){
+var text=(raw==null?input.value:raw)||'';
+if(!text.trim())return;
+if(thread&&thread.scrollTo){/* keep position; scroll at end */}
+var uid='m'+(++msgSeq)+'-u';
+var userP=addUser(text);userP.setAttribute('data-id',uid);
+input.value='';
+var aid='m'+msgSeq;
+var ans=addAnswer();
+var runId=aid+'-t';
+TOOLS[runId]={icon:'◎',cls:'tool__icon--search',name:'search',summary:'Searching your notes and the web',status:'running',args:[['query',text]],result:[]};
+var card=buildToolCard(runId);
+ans.appendChild(card);
+var sid=aid;
+STEPS.push({id:sid,label:'Answer: '+(text.length>40?text.slice(0,40).trimEnd()+'…':text),state:'running'});
+var li=doc.createElement('li');li.setAttribute('data-state','running');
+var mark=el('span','ui-prg-step__mark');mark.setAttribute('aria-hidden','true');
+var sp=doc.createElement('span');sp.className='ui-prg-spin';mark.appendChild(sp);
+var labText='Answer: '+(text.length>40?text.slice(0,40).trimEnd()+'…':text);
+var lab=el('span','ui-prg-step__label',labText);lab.title=labText;
+var sr=el('span','ui-prg-sr',' – working on it');lab.appendChild(sr);
+li.appendChild(mark);li.appendChild(lab);
+stepsOl.appendChild(li);
+stepRows[sid]={li:li,mark:mark,lab:lab,sr:sr};
+paintSteps();
+try{thread.scrollTop=thread.scrollHeight;}catch(e){}
+setTimeout(function(){
+// update same card nodes in place
+var d=TOOLS[runId];
+d.summary='Searched your notes and the web';d.status='success';
+d.result=[['call_notes','3'],['web_pages','2']];
+card._refs.sum.textContent=d.summary;
+card._refs.status.textContent='success';
+card._refs.status.setAttribute('data-s','success');
+while(card._refs.body.firstChild)card._refs.body.removeChild(card._refs.body.firstChild);
+var kv=doc.createElement('dl');kv.className='tool__kv';
+var dt=doc.createElement('dt');dt.textContent='query';var dd=doc.createElement('dd');dd.textContent=text;kv.appendChild(dt);kv.appendChild(dd);
+card._refs.body.appendChild(kv);
+var kv2=doc.createElement('dl');kv2.className='tool__kv';
+[['call_notes','3'],['web_pages','2']].forEach(function(p){var a=doc.createElement('dt');a.textContent=p[0];var b=doc.createElement('dd');b.textContent=p[1];kv2.appendChild(a);kv2.appendChild(b);});
+card._refs.body.appendChild(kv2);
+// update same answer: append text node (no re-render)
+addText(ans,'Done – I checked your call notes and two pages on the web. The workflow stays as it is; tell me if you want the draft to change.');
+// update same step row in place
+for(var i=0;i<STEPS.length;i++){if(STEPS[i].id===sid)STEPS[i].state='done';}
+var r=stepRows[sid];
+r.li.setAttribute('data-state','done');
+while(r.mark.firstChild)r.mark.removeChild(r.mark.firstChild);
+r.mark.textContent='✓';r.sr.textContent=' – done';
+paintSteps();
+try{thread.scrollTop=thread.scrollHeight;}catch(e){}
+},1800);
+}
+sendBtn.addEventListener('click',function(){sendChat(null);});
+input.addEventListener('keydown',function(ev){if(ev.key==='Enter'){ev.preventDefault();sendChat(null);}});
+
+// test hooks (no markup string writes anywhere)
+try{
+window.__prg={send:sendChat,steps:STEPS,thread:col,stepRows:stepRows,tools:TOOLS,setTheme:setTheme,getTheme:currentTheme,setPanel:setPanel};
+}catch(e){}
+})();
+</script>
+</body>
+</html>
