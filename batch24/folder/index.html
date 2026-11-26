@@ -118,6 +118,25 @@ html[data-theme="dark"] .toast{background:var(--ink);color:#101012}
 .file-card,.skel{width:100%}
 .empty{padding:36px 18px 40px}
 }
+.toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:14px}
+.search{display:flex;align-items:center;gap:8px;flex:1 1 200px;min-width:180px;border:1px solid var(--border);background:var(--surface);border-radius:999px;padding:6px 12px}
+.search .sicon{flex:none;display:inline-flex;color:var(--muted);margin-left:-2px}
+.search input{flex:1;border:0;background:transparent;color:var(--ink);font-size:13px;outline:none;min-width:0;font-family:inherit}
+.search input::placeholder{color:var(--muted)}
+.sortwrap{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted)}
+.sortwrap select{border:1px solid var(--border);background:var(--surface);color:var(--ink);border-radius:999px;padding:6px 10px;font-size:12.5px;font-family:inherit}
+.viewseg{display:flex;border:1px solid var(--border);background:var(--surface);border-radius:999px;padding:2px;gap:2px}
+.viewseg button{border:0;background:transparent;color:var(--muted);border-radius:999px;padding:6px 12px;font-size:12.5px;cursor:pointer;font-family:inherit}
+.viewseg button[aria-pressed="true"]{background:var(--subtle);color:var(--ink);font-weight:600}
+.viewseg button:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.tmplrow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:10px;font-size:12.5px;color:var(--muted)}
+.tmpl{border:1px solid var(--border);background:var(--surface);color:var(--muted);border-radius:999px;padding:5px 11px;font-size:12px;cursor:pointer;font-family:inherit;transition:border-color 160ms ease,color 160ms ease}
+.tmpl[aria-pressed="true"]{color:var(--ink);border-color:var(--ink);font-weight:600}
+.tmpl:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.search:focus-within{border-color:var(--muted)}
+.file-grid.list{flex-direction:column;flex-wrap:nowrap}
+.file-grid.list .file-card{width:100%}
+.file-grid.list .file-preview{height:64px}
 @media (hover: hover) and (pointer: fine){
 .crumbs button:hover{color:var(--ink)}
 .back:hover{color:var(--ink)}
@@ -128,6 +147,10 @@ html[data-theme="dark"] .toast{background:var(--ink);color:#101012}
 .menu button:hover{background:var(--subtle)}
 .icon-btn:hover{background:var(--subtle);color:var(--ink)}
 .demo-row .pill:hover{border-color:var(--muted)}
+.viewseg button:hover{color:var(--ink)}
+.tmpl:hover{color:var(--ink)}
+.sortwrap select:hover{border-color:var(--muted)}
+.search:hover{border-color:var(--muted)}
 }
 </style>
 </head>
@@ -148,6 +171,8 @@ html[data-theme="dark"] .toast{background:var(--ink);color:#101012}
 </span>
 </header>
 <div class="tabs" id="folderTabs" role="tablist" aria-label="Folders"></div>
+<div class="toolbar" id="toolbar"><label class="search"><span class="sicon" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="1.8"/><path d="M16.5 16.5L20 20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span><input id="searchInput" type="search" placeholder="Search files" aria-label="Search files" autocomplete="off"></label><label class="sortwrap"><span>Sort</span><select id="sortSel" aria-label="Sort files"><option value="default">Default</option><option value="name">Name A-Z</option><option value="type">Type</option></select></label><div class="viewseg" role="group" aria-label="View"><button id="viewGridBtn" type="button" aria-pressed="true">Grid</button><button id="viewListBtn" type="button" aria-pressed="false">List</button></div></div>
+<div class="tmplrow" id="tmplRow" aria-label="Templates"><span>Templates:</span><button class="tmpl" id="tmplAll" type="button" aria-pressed="true">All</button><button class="tmpl" id="tmplDOC" type="button" aria-pressed="false">DOC</button><button class="tmpl" id="tmplPDF" type="button" aria-pressed="false">PDF</button><button class="tmpl" id="tmplXLS" type="button" aria-pressed="false">XLS</button></div>
 <div class="demo-row"><span>Demo:</span><button class="pill" id="loadingPill" type="button" aria-pressed="false">Loading</button><button class="pill" id="emptyPill" type="button" aria-pressed="false">Empty</button></div>
 <div class="count" id="fileCount" aria-live="polite">5 files</div>
 <div class="file-grid" id="fileGrid"></div>
@@ -180,7 +205,7 @@ var FOLDERS=[
 {name:"Survey-Results",type:"XLS",edited:"Last week"}]}
 ];
 var THEME_KEY="affectui-folder-theme";
-var state={folder:"Q3 Campaign",uploads:{},loading:false,empty:false,selected:null};
+var state={folder:"Q3 Campaign",uploads:{},loading:false,empty:false,selected:null,query:"",sort:"default",view:"grid",tmpl:"All"};
 function $(id){return document.getElementById(id);}
 var els={};
 els.root=document.documentElement;
@@ -190,14 +215,14 @@ els.title=$("folderTitle");els.moreBtn=$("moreBtn");els.moreMenu=$("moreMenu");
 els.menuRename=$("menuRename");els.menuCopy=$("menuCopy");els.menuDelete=$("menuDelete");
 els.shareBtn=$("shareBtn");els.uploadBtn=$("uploadBtn");els.fileInput=$("fileInput");
 els.tabs=$("folderTabs");els.loadingPill=$("loadingPill");els.emptyPill=$("emptyPill");
-els.count=$("fileCount");els.grid=$("fileGrid");els.skel=$("skelGrid");
+els.count=$("fileCount");els.grid=$("fileGrid");els.skel=$("skelGrid");els.search=$("searchInput");els.sort=$("sortSel");els.viewGrid=$("viewGridBtn");els.viewList=$("viewListBtn");els.tmplAll=$("tmplAll");els.tmplDOC=$("tmplDOC");els.tmplPDF=$("tmplPDF");els.tmplXLS=$("tmplXLS");
 els.empty=$("emptyState");els.emptyBtn=$("emptyBtn");
 els.toast=$("toast");els.toastText=$("toastText");
 var pool=[];
 var tabNodes=[];
 var toastTimer=null;
 function currentFolder(){for(var i=0;i<FOLDERS.length;i++){if(FOLDERS[i].name===state.folder)return FOLDERS[i];}return FOLDERS[0];}
-function visibleFiles(){var base=currentFolder().files;var up=state.uploads[state.folder]||[];if(state.empty)return [];return up.concat(base);}
+function visibleFiles(){var base=currentFolder().files;var up=state.uploads[state.folder]||[];if(state.empty)return [];return up.concat(base);}function orderedFiles(){var a=visibleFiles();var q=String(state.query||"").trim().toLowerCase();var tp=state.tmpl;var out=[];for(var i=0;i<a.length;i++){var f=a[i];if(tp&&tp!=="All"&&f.type!==tp)continue;if(q&&String(f.name||"").toLowerCase().indexOf(q)<0)continue;out.push(f);}if(state.sort==="name"){out=out.slice().sort(function(x,y){return String(x.name).localeCompare(String(y.name));});}else if(state.sort==="type"){out=out.slice().sort(function(x,y){var c=String(x.type).localeCompare(String(y.type));return c!==0?c:String(x.name).localeCompare(String(y.name));});}return out;}
 function showToast(msg){els.toastText.textContent=msg;els.toast.classList.add("show");if(toastTimer){try{clearTimeout(toastTimer);}catch(e){}}toastTimer=setTimeout(function(){els.toast.classList.remove("show");},2200);}
 function setTheme(mode){els.root.setAttribute("data-theme",mode);try{els.root.dataset.theme=mode;}catch(e){}try{localStorage.setItem(THEME_KEY,mode);}catch(e){}els.themeIcon.textContent=(mode==="dark")?"\u2600":"\u263E";els.themeLabel.textContent=(mode==="dark")?"Light":"Dark";}
 function getTheme(){var t=null;try{t=els.root.getAttribute("data-theme");}catch(e){}return (t==="dark")?"dark":"light";}
@@ -229,7 +254,7 @@ rec.root.classList.add("selected");state.selected=rec.file.name;
 showToast("Opened "+rec.file.name);
 }
 function updateGridInPlace(){
-var files=visibleFiles();
+var base=visibleFiles();var files=orderedFiles();
 for(var i=0;i<files.length;i++){ensureCard(i);}
 for(var k=0;k<pool.length;k++){
 var rec=pool[k];if(!rec)continue;
@@ -251,7 +276,9 @@ rec.meta.textContent=fileMetaText(f);
 }
 var showGrid=(!state.loading&&!state.empty&&files.length>0);
 els.grid.hidden=!showGrid;
-els.empty.hidden=!( !state.loading&& (state.empty||files.length===0) );
+try{els.grid.classList.toggle("list",state.view==="list");}catch(e){}
+var baseEmpty=(base.length===0);
+els.empty.hidden=!( !state.loading&& (state.empty||baseEmpty) );
 els.skel.hidden=!state.loading;
 var label=state.loading?"Loading files":(files.length===1?"1 file":files.length+" files");
 els.count.textContent=label;
@@ -268,9 +295,14 @@ b.setAttribute("aria-selected",on?"true":"false");
 }
 els.loadingPill.setAttribute("aria-pressed",state.loading?"true":"false");
 els.emptyPill.setAttribute("aria-pressed",state.empty?"true":"false");
+try{if(els.search&&els.search.value!==state.query)els.search.value=state.query;}catch(e){}
+try{if(els.sort)els.sort.value=state.sort;}catch(e){}
+try{if(els.viewGrid)els.viewGrid.setAttribute("aria-pressed",state.view==="grid"?"true":"false");}catch(e){}
+try{if(els.viewList)els.viewList.setAttribute("aria-pressed",state.view==="list"?"true":"false");}catch(e){}
+try{var tm=state.tmpl;if(els.tmplAll)els.tmplAll.setAttribute("aria-pressed",tm==="All"?"true":"false");if(els.tmplDOC)els.tmplDOC.setAttribute("aria-pressed",tm==="DOC"?"true":"false");if(els.tmplPDF)els.tmplPDF.setAttribute("aria-pressed",tm==="PDF"?"true":"false");if(els.tmplXLS)els.tmplXLS.setAttribute("aria-pressed",tm==="XLS"?"true":"false");}catch(e){}
 }
 function refresh(){updateChromeInPlace();updateGridInPlace();}
-function switchFolder(name){state.folder=name;state.selected=null;state.loading=false;state.empty=false;refresh();}
+function switchFolder(name){state.folder=name;state.selected=null;state.loading=false;state.empty=false;state.query="";state.sort="default";state.tmpl="All";refresh();}function setQuery(q){state.query=String(q==null?"":q);refresh();}function setSort(s){state.sort=(s==="name"||s==="type")?s:"default";refresh();}function setView(v){state.view=(v==="list")?"list":"grid";refresh();}function setTmpl(f){state.tmpl=(f==="DOC"||f==="PDF"||f==="XLS")?f:"All";refresh();}
 function setLoading(v){state.loading=!!v;refresh();}
 function setEmpty(v){state.empty=!!v;refresh();}
 function classify(name){if(/\.(xlsx?|csv|numbers)$/i.test(name))return "XLS";if(/\.pdf$/i.test(name))return "PDF";return "DOC";}
@@ -343,9 +375,18 @@ try{ev.target.value="";}catch(e){}
 els.loadingPill.addEventListener("click",function(){setLoading(!state.loading);});
 els.emptyPill.addEventListener("click",function(){setEmpty(!state.empty);});
 els.emptyBtn.addEventListener("click",function(){showToast("Work in folder");});
+try{if(els.search)els.search.addEventListener("input",function(ev){var v="";try{v=ev.target.value;}catch(e){}state.query=String(v||"");refresh();});}catch(e){}
+try{if(els.sort)els.sort.addEventListener("change",function(ev){var v="default";try{v=ev.target.value;}catch(e){}setSort(v);});}catch(e){}
+try{if(els.viewGrid)els.viewGrid.addEventListener("click",function(){setView("grid");});}catch(e){}
+try{if(els.viewList)els.viewList.addEventListener("click",function(){setView("list");});}catch(e){}
+try{if(els.tmplAll)els.tmplAll.addEventListener("click",function(){setTmpl("All");});}catch(e){}
+try{if(els.tmplDOC)els.tmplDOC.addEventListener("click",function(){setTmpl("DOC");});}catch(e){}
+try{if(els.tmplPDF)els.tmplPDF.addEventListener("click",function(){setTmpl("PDF");});}catch(e){}
+try{if(els.tmplXLS)els.tmplXLS.addEventListener("click",function(){setTmpl("XLS");});}catch(e){}
+els.emptyBtn.addEventListener("keydown",function(ev){if(ev.key==="Enter"||ev.key===" "){showToast("Work in folder");}});
 document.addEventListener("click",function(ev){if(!els.moreMenu.hidden){var t=null;try{t=ev.target;}catch(e){}if(t!==els.moreBtn&&t!==els.moreMenu)closeMenu();}});
 document.addEventListener("keydown",function(ev){if(ev.key==="Escape")closeMenu();});
-try{window.__folderApp={state:state,switchFolder:switchFolder,setLoading:setLoading,setEmpty:setEmpty,addUploads:addUploads,setTheme:setTheme,getTheme:getTheme,refresh:refresh,pool:function(){return pool;},visibleFiles:visibleFiles,
+try{window.__folderApp={state:state,switchFolder:switchFolder,setLoading:setLoading,setEmpty:setEmpty,addUploads:addUploads,setTheme:setTheme,getTheme:getTheme,refresh:refresh,pool:function(){return pool;},visibleFiles:orderedFiles,setQuery:setQuery,setSort:setSort,setView:setView,setTmpl:setTmpl,
 visibleText:function(){var parts=[];function walk(n){if(!n)return;if(n.hidden)return;if(n.textContent!==undefined&&(!n.children||!n.children.length)){var s=String(n.textContent||"").trim();if(s)parts.push(s);}var ch=n.children||[];for(var i=0;i<ch.length;i++)walk(ch[i]);}
 try{walk(document.body);}catch(e){}return parts.join("\n");}};}catch(e){}
 }
