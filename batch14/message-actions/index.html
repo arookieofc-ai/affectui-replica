@@ -66,17 +66,21 @@ body{
 .answer{margin:8px 0 2px;font-size:14.5px;line-height:22px;color:var(--ink);min-height:22px}
 .answer.swap-in{animation:ma-text-in 420ms ease}
 @keyframes ma-text-in{from{opacity:0;filter:blur(3px)}}
-.tray{margin-top:6px}
+.tray{margin-top:30px}
+/* 30px gap: Copy "Copied" tip paints 22px tall + 6px offset = 28px above the
+   bar, so it clears the answer text (needs >28px incl. answer margin) and
+   never covers message pixels. Placement above the button is unchanged. */
 /* ============ action bar (quiet) ============ */
 .ui-ma{display:block;min-width:0;font-size:13px;line-height:20px;color:var(--ink-soft);text-align:left}
 .ui-ma button{margin:0;padding:0;border:0;background:none;font:inherit;color:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
 .ui-ma button:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
 .ui-ma__sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 .ui-ma__bar{display:flex;flex-wrap:wrap;align-items:center;gap:2px;min-height:30px;transition:opacity 240ms ease}
-.ui-ma[data-quiet] .ui-ma__bar{opacity:.6}
+.ui-ma[data-quiet] .ui-ma__bar{opacity:.75}
 .ui-ma[data-quiet]:hover .ui-ma__bar,
 .ui-ma[data-quiet]:focus-within .ui-ma__bar,
-.ui-ma[data-quiet][data-active] .ui-ma__bar{opacity:1}
+.ui-ma[data-quiet][data-active] .ui-ma__bar,
+:where([data-ui-message]:hover,[data-ui-message]:focus-within) .ui-ma[data-quiet] .ui-ma__bar{opacity:1}
 .ui-ma__item{position:relative;display:inline-flex;flex:none}
 .ui-ma__btn{display:grid;place-items:center;width:30px;height:30px;border-radius:8px;color:var(--muted);transition:background-color 160ms ease,color 160ms ease}
 .ui-ma__btn:hover{background:rgba(120,113,108,.14);color:var(--ink)}
@@ -114,8 +118,8 @@ html[data-theme="dark"] .ui-ma__btn:hover{background:rgba(255,255,255,.08)}
 @media (hover:hover){.ui-ma__item:hover .ui-ma__tip{opacity:1;transform:translate(-50%,0);transition-delay:380ms}}
 /* version switcher */
 .ui-ma__regen{display:inline-flex;align-items:center;flex:none}
-.ui-ma__versions{display:grid;grid-template-columns:0fr;opacity:0;transition:grid-template-columns 420ms var(--ease),opacity 220ms ease}
-.ui-ma__versions[data-open]{grid-template-columns:1fr;opacity:1;transition:grid-template-columns 420ms var(--ease),opacity 320ms ease 100ms}
+.ui-ma__versions{display:grid;grid-template-columns:0fr;opacity:0;visibility:hidden;min-width:0;transition:grid-template-columns 420ms var(--ease),opacity 220ms ease,visibility 220ms ease}
+.ui-ma__versions[data-open]{grid-template-columns:1fr;opacity:1;visibility:visible;transition:grid-template-columns 420ms var(--ease),opacity 320ms ease 100ms,visibility 320ms ease 100ms}
 .ui-ma__versions-clip{display:flex;align-items:center;min-width:0;overflow:hidden;padding-right:2px}
 .ui-ma__step{display:grid;flex:none;place-items:center;width:20px;height:30px;border-radius:7px;color:var(--muted);transition:background-color 160ms ease,color 160ms ease,opacity 160ms ease}
 .ui-ma__step .ui-ma__glyph{width:14px;height:14px}
@@ -123,6 +127,12 @@ html[data-theme="dark"] .ui-ma__btn:hover{background:rgba(255,255,255,.08)}
 .ui-ma__step:disabled{cursor:default;opacity:.4}
 .ui-ma__count{display:inline-flex;align-items:center;gap:2px;padding:0 1px;font-size:12px;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
 .ui-ma__count-now{color:var(--ink);font-weight:500}
+/* swapping numerals (exact original behaviour: incoming numeral blurs in) */
+.ui-ma__swap{display:inline-grid;min-width:0}
+.ui-ma__swap-item{grid-area:1/1;display:inline-flex;align-items:center;justify-content:center;gap:4px;min-width:0;animation:ma-in 300ms ease both}
+.ui-ma__swap-item[data-out]{animation:ma-out 220ms ease both}
+@keyframes ma-in{from{opacity:0;filter:blur(2px)}}
+@keyframes ma-out{from{opacity:1}to{opacity:0;filter:blur(2px)}}
 /* feedback fold */
 .ui-ma__fold{display:grid;grid-template-rows:0fr;opacity:0;transition:grid-template-rows 420ms var(--ease),opacity 220ms ease}
 .ui-ma__fold[data-open]{grid-template-rows:1fr;opacity:1;transition:grid-template-rows 420ms var(--ease),opacity 320ms ease 80ms}
@@ -185,7 +195,7 @@ html[data-theme="dark"] .ui-ma__chip[aria-pressed="true"]{color:var(--accent-sof
   </header>
 
   <main>
-    <div class="card" id="demoRoot">
+    <div class="card" id="demoRoot" data-ui-message>
       <p class="ask" id="askLine">Summarize the 2.4 release notes in one sentence.</p>
       <div class="who"><span class="dot" aria-hidden="true"></span><span>Sonnet 5.5</span></div>
       <p class="answer" id="answerLine" dir="auto"></p>
@@ -261,9 +271,13 @@ var versionsClip=el('span','ui-ma__versions-clip',{role:'group','aria-label':'Ve
 var prevBtn=el('button','ui-ma__step',{type:'button','data-dir':'prev','aria-label':'Previous version'});
 prevBtn.appendChild(svgGlyph(GLYPHS.prev));
 var count=el('span','ui-ma__count');
-var countNow=el('span','ui-ma__count-now');countNow.textContent='1';
+var countNow=el('span','ui-ma__swap ui-ma__count-now');
+var countNowIn=el('span','ui-ma__swap-item');countNowIn.textContent='1';
+countNow.appendChild(countNowIn);
 var countSep=el('span',null,{'aria-hidden':'true'});countSep.textContent='/';
-var countTotal=el('span');countTotal.textContent='1';
+var countTotal=el('span','ui-ma__swap');
+var countTotalIn=el('span','ui-ma__swap-item');countTotalIn.textContent='1';
+countTotal.appendChild(countTotalIn);
 count.appendChild(countNow);count.appendChild(countSep);count.appendChild(countTotal);
 var nextBtn=el('button','ui-ma__step',{type:'button','data-dir':'next','aria-label':'Next version'});
 nextBtn.appendChild(svgGlyph(GLYPHS.next));
@@ -317,13 +331,17 @@ tray.appendChild(root);
 /* ---------- in-place updaters (never rebuild) ---------- */
 function refreshBarActive(){var active=S.copied||S.busy||S.speaking||S.panel||S.vote==='up';
   if(active)root.setAttribute('data-active','');else root.removeAttribute('data-active');}
+function setSwapText(wrap,item,txt){if(item.textContent!==txt){item.textContent=txt;
+    /* re-insert the same node: replays the blur-in keyframes in a real
+       browser, no-op for the stub; wrapper keeps object identity */
+    wrap.appendChild(item);}}
 function setAnswer(i){S.version=i;answerLine.textContent=VERSIONS[i];
   answerLine.classList.remove('swap-in');void answerLine.offsetWidth;answerLine.classList.add('swap-in');
-  countNow.textContent=(i+1).toLocaleString('en-US');
+  setSwapText(countNow,countNowIn,(i+1).toLocaleString('en-US'));
   count.setAttribute('aria-label','Version '+(i+1).toLocaleString('en-US')+' of '+S.versions.toLocaleString('en-US'));
   prevBtn.disabled=(i===0);
   nextBtn.disabled=(i>=S.versions-1);}
-function refreshVersions(){countTotal.textContent=S.versions.toLocaleString('en-US');
+function refreshVersions(){setSwapText(countTotal,countTotalIn,S.versions.toLocaleString('en-US'));
   if(S.versions>1){versionsWrap.setAttribute('data-open','');versionsWrap.removeAttribute('inert');}
   else{versionsWrap.removeAttribute('data-open');versionsWrap.setAttribute('inert','');}
   setAnswer(S.versions-1); /* regenerating always lands on the newest version */

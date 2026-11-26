@@ -341,16 +341,21 @@ function renderAll(changed){
   if(state.pointing) list.setAttribute("data-pointing",""); else list.removeAttribute("data-pointing");
   list.setAttribute("aria-activedescendant",state.open?("mdp-opt-"+state.focus):"");
   var lid=litId();
+  var selI=selIdx();
   for(var i=0;i<optNodes.length;i++){
     var n=optNodes[i];
-    var isSel=(i===selIdx());
+    var isSel=(i===selI);
     n.root.setAttribute("aria-selected",isSel?"true":"false");
     if(i===state.focus) n.root.setAttribute("data-active",""); else n.root.removeAttribute("data-active");
     if(n.model.id===lid) n.root.setAttribute("data-lit",""); else n.root.removeAttribute("data-lit");
-    var chk=n.title.querySelector?null:null;
-    var hasCheck=!!n.title.querySelector(".ui-mdp__check");
-    if(isSel&&!hasCheck){ n.title.appendChild(makeIcon("check")); }
-    else if(!isSel&&hasCheck){ n.title.removeChild(hasCheck); }
+    var found=[];
+    try{ found=Array.prototype.slice.call(n.title.querySelectorAll(".ui-mdp__check")); }catch(_){ try{ var _one=n.title.querySelector(".ui-mdp__check"); if(_one) found=[_one]; }catch(__){} }
+    if(isSel){
+      for(var _k=1;_k<found.length;_k++){ try{ n.title.removeChild(found[_k]); }catch(__){} }
+      if(found.length===0){ n.title.appendChild(makeIcon("check")); }
+    }else{
+      for(var _j=0;_j<found.length;_j++){ try{ n.title.removeChild(found[_j]); }catch(__){} }
+    }
   }
   /* toggles */
   thinkToggle.setAttribute("aria-checked",state.thinking?"true":"false");
@@ -397,11 +402,8 @@ function pick(i){
 function setThinking(v){ state.thinking=v; var tg=targetStats(); renderAll(); animateNumbers(tg.lat,tg.price); }
 function setEffort(id){ if(state.effort===id){renderAll();return;} state.effort=id; var tg=targetStats(); renderAll(); animateNumbers(tg.lat,tg.price); }
 function setWeb(v){ state.web=v; renderAll(); renderCaption(); }
-/* ---------- events (capture for open so clicks survive) ---------- */
-var suppressClick=false;
-trigger.addEventListener("pointerdown",function(){ if(!state.open){ setOpen(true); suppressClick=true; } else { setOpen(false); suppressClick=true; } },true);
-trigger.addEventListener("mousedown",function(){ if(!state.open){ setOpen(true); suppressClick=true; } },true);
-trigger.addEventListener("click",function(){ if(suppressClick){ suppressClick=false; return; } setOpen(!state.open); });
+/* ---------- events (click toggles reliably; outside pointerdown closes) ---------- */
+trigger.addEventListener("click",function(){ if(state.open){ setOpen(false); } else { setOpen(true,"list"); } });
 trigger.addEventListener("keydown",function(e){ if(e.key==="ArrowDown"||e.key==="ArrowUp"){ e.preventDefault(); setOpen(true,"list"); } });
 document.addEventListener("pointerdown",function(e){ try{ if(state.open&&!root.contains(e.target)) setOpen(false); }catch(_){} },true);
 root.addEventListener("keydown",function(e){ if(e.key==="Escape"&&state.open){ e.stopPropagation(); setOpen(false,"trigger"); } });
@@ -438,11 +440,19 @@ seg.addEventListener("keydown",function(e){
 });
 /* ---------- init paint ---------- */
 (function init(){ var tg=targetStats(); state.dispLat=tg.lat; state.dispPrice=tg.price; renderAll(); renderCaption(); })();
-/* ---------- automated demo loop (verbatim timings/behaviour) ---------- */
+/* ---------- automated demo loop (verbatim timings/behaviour; tour never fights user) ---------- */
 var stopped=false;
-function stopAuto(){ stopped=true; }
-["pointerenter","pointerdown","keydown","focus"].forEach(function(t){ demoRoot.addEventListener(t,stopAuto,true); });
-root.addEventListener("pointerenter",function(e){ if(e&&e.isTrusted) stopAuto(); },true);
+var stepIdx=0, timer=null;
+function stopAuto(){
+  if(stopped) return;
+  stopped=true;
+  if(timer!==null){ try{ clearTimeout(timer); }catch(_){} timer=null; }
+  if(numAnim&&numAnim.raf){ try{ cancelAnimationFrame(numAnim.raf); }catch(_){} numAnim=null; }
+}
+["pointerenter","pointerdown","mousedown","click","keydown","focus","focusin"].forEach(function(t){ try{ demoRoot.addEventListener(t,stopAuto,true); }catch(_){} });
+try{ root.addEventListener("pointerenter",function(e){ if(e&&e.isTrusted) stopAuto(); },true); }catch(_){}
+try{ root.addEventListener("pointerdown",function(e){ if(e&&e.isTrusted) stopAuto(); },true); }catch(_){}
+try{ root.addEventListener("click",function(e){ if(e&&e.isTrusted) stopAuto(); },true); }catch(_){}
 var steps=[
   [700,function(){ setOpen(true); }],
   [800,function(){ state.focus=0; state.pointing=true; renderAll(); scrollActiveIntoView(); }],
@@ -459,7 +469,6 @@ var steps=[
     setOpen(false); renderAll(); renderCaption();
   }]
 ];
-var stepIdx=0, timer=null;
 function runStep(){
   if(stopped) return;
   if(stepIdx>=steps.length){ stepIdx=0; }

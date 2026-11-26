@@ -42,13 +42,37 @@ ranked parts with animated numbers and bars.
 - One deliberate deviation: dimmed rows/segments use opacity 0.75 per spec v3
   legibility rule (original used 0.45/0.25).
 
+## QA fix (2026-11-26 — 35px strip collapse)
+Browser QA FAILED this page: the card collapsed to a ~35px-wide vertical strip in
+both themes, after reload, over 30+ seconds. Only the total number and coloured
+dots painted (total overflowed the strip's right edge). Title, period switch,
+five rows and "Largest" caption existed in the DOM but NEVER painted.
+
+Diagnosis (CSS grid/flex sizing): `.stage{display:grid;justify-items:center}` with
+an unstyled `#demo` child plus `.ui-cb{container-type:inline-size}`. Inline-size
+containment zeroes the card's intrinsic width contribution, the auto grid track
+shrink-wraps `#demo` to min-content, and `.ui-cb{width:100%}` then resolves to
+~35px. Same lesson as fallback-chain: a broad grid rule can silently squeeze the
+content column.
+
+Fix in `index.html` (page chrome only, component CSS untouched except hardening):
+- `.stage{grid-template-columns:minmax(0,1fr)}` — definite track, cannot squeeze.
+- `#demo{width:100%;max-width:360px;min-width:0;display:grid;grid-template-columns:minmax(0,1fr);justify-self:center}` — definite 360px parent so `width:100%` + `container-type:inline-size` resolves to ~360px.
+- `.ui-cb{min-width:0;justify-self:stretch}` + `.ui-cb__title{flex:1 1 auto;min-width:0}` — head can no longer squeeze the title/switch to zero.
+- Kept light AND dark themes, `/*noflash*/` guard first in `<head>`, and in-place-only updates (no `innerHTML`).
+
 ## Verification (node only, no browser)
 - `node --check` on the extracted main script: passes.
-- `node verify.js` (in-dir DOM-stub harness): **PASS (64 checks)** — asserts visible
-  text/state ($13,590 / $57,600 / $164,200, rankings, deltas, footer, caption, SR
-  line), hover isolation, keyboard (ArrowRight/Home + roving focus), 2800 ms timer
-  advance + interaction stop, node identity across a full 7d→30d→90d→7d loop,
-  **zero innerHTML writes after init**, theme flip, and both token sets.
+- `node verify.js` (in-dir DOM-stub harness): **PASS (127 checks)** — prior 64 plus
+  painted-width regression asserts: `#demo` definite width, `.stage` definite
+  track, `.ui-cb` 100%/360px/minmax(0,1fr)/container-type, title flex, no
+  `display:none` on title/switch/list/item/label/value/bar/foot, card mounted in
+  `#demo`, title + 7d/30d/90d options + total figure in visible (non-hidden,
+  non-`.ui-cb__sr`) elements, every row's label+value+share in visible elements
+  with money/`%` format, 5 rows + 5 segs with colour + non-zero `flexGrow`,
+  footer/caption visible, plus 7d ($13,590/Largest: Direct) and 90d
+  ($164,200/Largest: Organic search) repaint checks. Screen-reader-only
+  `.ui-cb__sr` text is explicitly excluded from paint counts.
 - Light AND dark checked: token sets for both themes asserted in CSS, including the
   dark categorical palette; verified light default via the noflash guard
   (stored → prefers-color-scheme → light fallback). Contrast pairs: light ink
