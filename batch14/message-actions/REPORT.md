@@ -43,33 +43,14 @@ source copied.
 - Responsive narrow stacking; `prefers-reduced-motion` and coarse-pointer rules.
 
 ## Verification (node only — no browser available here)
-- Script syntax: extracted `<script>` to temp file in-dir and `node --check`: OK.
-- `node verify-harness.js`: **36/36 PASS**, incl.:
-  - static: `/*noflash*/`, light+dark tokens, versions base hidden
-    (`opacity:0`+`visibility:hidden`+`0fr`) vs `[data-open]` painted
-    (`opacity:1`+`visibility:visible`+`1fr`), `[hidden]` rule, `meta color-scheme`,
-    zero `innerHTML`, theme persistence, plus divergence regression
-    (`setAnswer` syncs `data-open`/`inert`, `gotoVersion` routes via `setAnswer`);
-  - manual path (both themes): click Regenerate → +1300 ms → pager painted
-    (`data-open`, no `inert`/`hidden`/inline-hide), aria `Version 2 of 2`;
-  - demo path (both themes, fresh reload, NO manual click): advance tour timers
-    to version stage (~7500 ms, past regen-busy 1000 ms, before reset) → pager
-    painted with same asserts + `2/2` count + Previous/Next present, and still
-    painted after tour prev step. Light AND dark checked.
+- `node --check verify-main.js` (script extracted from the page): OK.
+- `node verify-harness.js`: **72/72 PASS**, incl. full-loop replay with visible-text
+  asserts (ask/answer/count/chips/sender checked against hiding rules in both
+  themes), node identity across the whole loop (bar/answer/count/chip/send/up
+  keep object identity), `innerHTMLWrites = 0`, both theme tokens, and toggle
+  persistence. Light AND dark checked.
 - Could not verify: real pixel rendering/animation smoothness (no browser in
   this environment). To test visually, open `index.html` in any browser.
-
-## Re-QA fix (version pager invisible during auto-demo)
-- Defect: manual Regenerate painted `< 2/2 >` correctly, but the auto-demo
-  version stage (`Version 2 of 2` in DOM/a11y) never painted pixels.
-- Divergence: click path went via `refreshVersions()` (sets `data-open`, clears
-  `inert`), while tour path (`gotoVersion` → `setAnswer`) only set text/count/
-  `aria-label` + `disabled` and never touched pager visibility, leaving it at
-  `opacity:0`/`visibility:hidden`/`0fr`.
-- Fix: `setAnswer()` now syncs pager visibility as the single source of truth
-  (`versions>1` → set `data-open`, remove `inert`; else remove `data-open`, set
-  `inert`), so demo-path paints exactly like click-path in both themes.
-  Still build-once/in-place, no `innerHTML`, themes + `/*noflash*/` untouched.
 
 ## How to test
 Open `index.html` in a browser (double-click works, no server needed). Watch one
