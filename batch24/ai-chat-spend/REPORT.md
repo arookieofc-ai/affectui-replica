@@ -38,10 +38,30 @@ workdir); exact SVG path geometry of the provider logos and the internal
 `ui-muc`/`ui-trc` chart components (re-implemented as stacked bars + SVG
 area/line charts with same data); real backend answers (fallback text used).
 
+## Targeted fix 2026-11-27 — first-chart bars 77/15/8
+Root cause: `splitNode()` in `index.html` computed `total` but never used it
+for layout. Each `.sbar` track defaulted to 100% of its grid cell (`1fr`),
+and inner `.seg` widths were `value/gsum*100%` (share *within* the provider),
+so they summed to 100% for every provider. Result: Anthropic/OpenAI/Google
+all painted ~full width despite labels 77%/15%/8%.
+Checked `./demo-original.js`: same verbatim values (Anthropic 26100+9800+1400
+=37300, OpenAI 5900+1100=7000, Google 3000+900=3900, total 48200 → 77.4/14.5
+/8.1%). The original `chart:{kind:'split'}` data implies proportional bars;
+the original does not exhibit the all-full-width behaviour, so the fix is
+warranted.
+Fix (one line, everything else identical): set the visible track width
+proportional to share of total —
+`bar.style.width=(gsum/total*100).toFixed(2)+"%"` — keeping seg widths as
+`value/gsum`. Now Anthropic 77.39%, OpenAI 14.52%, Google 8.09%. Single-group
+drilldowns stay 100%. No CSS override (`.sbar` has no width rule, inline
+width wins in both themes). Kept `/*noflash*/`, in-place updates only, zero
+`innerHTML` writes, demo data verbatim, click-a-bar handler untouched.
 ## How to test
 - `node --check ./harness.js` then `node ./harness.js` — asserts visible
   painted text (65 strings), full-loop node identity, zero `innerHTML`
-  writes after init, light+dark themes, plan math. Currently: ALL CHECKS PASSED.
+  writes after init, light+dark themes, plan math, plus provider bars
+  77.4%/14.5%/8.1% as VISIBLE `style.width` in light AND dark, seg sums
+  100%, and click-a-bar adds an answer. Currently: ALL CHECKS PASSED.
 - Open `index.html` in a browser: ask each sample question, drag the trend
   chart, click a provider bar, move the three levers, toggle sun/moon.
 

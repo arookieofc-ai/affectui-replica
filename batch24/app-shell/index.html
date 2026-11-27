@@ -138,8 +138,10 @@ button{font:inherit;color:inherit}
 .rp-meta{display:flex;gap:6px;margin-top:8px;align-items:center}
 .dot{width:8px;height:8px;border-radius:999px;background:var(--ok)}
 .dot.amber{background:var(--waiting)}
-.statusbar{flex:0 0 34px;display:flex;align-items:center;gap:10px;padding:0 12px;border-top:1px solid var(--border);font-size:12px;color:var(--muted)}
-.statusbar .grow{flex:1}
+.statusbar{flex:0 0 34px;display:flex;align-items:center;gap:10px;padding:0 12px;border-top:1px solid var(--border);font-size:12px;color:var(--muted);overflow:hidden}
+.statusbar .grow{flex:1;min-width:4px}
+.statusbar>span:not(.sr){min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tstat{flex:0 1 auto}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 @media (max-width: 900px){
   .app{flex-direction:column}
@@ -297,8 +299,9 @@ function build(){
   var dot=el('span','dot');dot.setAttribute('aria-hidden','true');refs.dot=dot;
   var sync=el('span',null,'Synced · just now');refs.sync=sync;
   var grow=el('span','grow');var tok=el('span',null,'44k / 200k tokens');refs.tok=tok;
-  var sr=el('span','sr','');sr.setAttribute('aria-live','polite');refs.sr=sr;state.srStatus=sr;
-  bar.appendChild(dot);bar.appendChild(sync);bar.appendChild(grow);bar.appendChild(tok);bar.appendChild(sr);
+  var sr=el('span','tstat','');sr.setAttribute('aria-live','polite');refs.sr=sr;state.srStatus=sr;
+  var ann=el('span','sr','');ann.setAttribute('aria-live','polite');refs.announcer=ann;state.announcer=ann;
+  bar.appendChild(dot);bar.appendChild(sync);bar.appendChild(grow);bar.appendChild(tok);bar.appendChild(sr);bar.appendChild(ann);
   inset.appendChild(bar);
   app.appendChild(side);app.appendChild(inset);
   refs.app=document.getElementById('app');
@@ -350,7 +353,7 @@ function addArtifact(){
   var m=el('div','rp-meta');var d=el('span','dot');var s=el('span',null,'In sync');s.style.fontSize='12px';s.style.color='var(--muted)';
   m.appendChild(d);m.appendChild(s);c.appendChild(h);c.appendChild(p);c.appendChild(m);
   refs.listWrap.appendChild(c);
-  state.srStatus.textContent='Artifact '+n+' added';
+  state.announcer.textContent='Artifact '+n+' added';
 }
 function toggleSidebar(){
   var app2=document.getElementById('app');

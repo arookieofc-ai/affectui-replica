@@ -1,66 +1,90 @@
-# REPORT — affectUI Agent / Inbox replica (slug: inbox)
+# REPORT — fix-repair-batch22-inbox-q (Agent Inbox Q1..Q5)
 
-## What was built
-- `index.html` (self-contained, ~29KB, no external deps, system fonts only): a standalone
-  interactive replica of the affectUI **Agent / Inbox** screen — a one-at-a-time orchestrator
-  question queue with options, approval, keyboard submission, and next-question flow.
-- Layout: top header bar (project name + waiting count + agent count, context token label with
-  thin 3px bar, sun/moon theme toggle) + two columns: left "Up next — queue" list (5 rows with
-  deterministic 3×3 pixel-marks, single-line ellipsis titles, working/queued/done status pills),
-  right "Now answering" card (agent identity + model + kind, question title, detail, circular
-  tool icons, up to 4 selectable options, optional note textarea, Approve / Submit / Skip /
-  Reject actions, progress dots + `n of 5` + elapsed-seconds ticker + resolution line).
-- Interactions: click options or keys `1–4`, `↑/↓` to move, `Enter` or `⌘/Ctrl+⏎` to submit,
-  `A` approve, `X` reject, `S`/`N` skip, click any unanswered queue row to jump to it,
-  auto-advance after each verdict, "Inbox zero" summary with Restart that loops the same queue.
-- Clean-room: all HTML/CSS/JS written from the public description. No compiled source copied;
-  no `innerHTML`/`outerHTML`/`insertAdjacentHTML` anywhere in the page script.
+Component: agent questions queue (Q1..Q5, researcher-02=Q2, coder-03=Q3), NOT decision-inbox. Work confined to this directory.
 
-## What matches the original / spec
-- Design tokens via CSS custom properties (light + dark sets from the spec), 14px system sans,
-  15–16px semibold titles, 12–13px muted meta, 12–16px card padding, 8–12px gaps, 999px pills,
-  16/10/6px radii, 1px borders + soft shadows, hover lift, focus-visible outlines, 150–200ms
-  transitions.
-- v3: header shows project + waiting count + agent count; context as token counts (`44k / 200k`
-  style) with thin 3px right-aligned bar; deterministic 3×3 pixel-mark per agent id with
-  pulse on the working agent; tools as small circular icons; dimmed rows stay legible
-  (opacity ≥ 0.75); titles/model rows single-line ellipsis; reserved column-heading space.
-- v4: `/*noflash*/` guard first in `<head>` (stored theme key → `data-theme` before paint,
-  `html{background:#fafaf9}` / dark `#101012`, `color-scheme: light dark`); DOM built once at
-  init, all ticks/answers/loop-restarts update nodes in place (text/class/style only).
-- v5: all `:hover` rules inside `@media (hover: hover) and (pointer: fine)`;
-  `html{-webkit-tap-highlight-color:transparent}`; `body{font-variant-numeric:tabular-nums}`;
-  concentric outer/inner radii; shadow-for-elevation + border-for-structure split; 1px inset
-  outline on pixel-marks/tool dots via `--img-outline`; icon buttons get ~2px less padding
-  on the icon side.
-- Responsive: columns stack under 860px; context block and long sub-labels hide on narrow.
+## Sanity check
+- `./index.html` has `<title>Acme Web — Agent Inbox</title>` — PASS (line 9).
 
-## Demo data note (important)
-- `./demo-original.js` is a placeholder noting the dispatched demo chunk 404'd — no verbatim
-  demo data existed. Per the spec I authored **plausible same-shape data**: 5 orchestrator
-  questions (`planner-01`, `researcher-02`, `coder-03`, `writer-04`, `ops-05`) each with agent,
-  model, kind (approval/question), title, detail, 3–4 options, tool codes, token counts and age.
+## Original behaviour (checked `./demo-original.js`)
+- Minified React demo uses `pt(id)` + `ht()` for row pick → detail, `Z()` to record answer then advance to `W[a+1] ?? W[a-1]`, `Q()` to submit. Selecting a queue item shows its question; each answer/approve advances exactly one and updates counts; completion only after all done.
+- The reported defects do NOT match the original — they are replica bugs, so fix is warranted (not preserving buggy behaviour).
 
-## What could not be verified
-- No live original to pixel-compare (chunk 404 + no browser allowed in this environment), so
-  exact spacing/wording match is best-effort from the public description.
-- Real-browser paint, keyboard focus rings, and `prefers-color-scheme` auto-default were not
-  exercised — only the node DOM-stub harness below plus static checks.
+## Root cause (single closure bug → all 3 symptoms)
+File: `./index.html` lines 381-395, queue-row builder:
 
-## How to test
-1. Open `index.html` in any browser (double-click or `python3 -m http.server` + visit it).
-2. Click options / type a note / press `1–4`, `Enter`, `A`, `S`; answer all 5 to reach
-   "Inbox zero", then Restart. Toggle ☀/☾ top-right to compare light and dark.
-3. Node-only verification (no browser, nothing outside this directory):
-   `node --check harness.js && node harness.js` — asserts visible painted text (Q1 + Q2 after
-   advancing), full-loop node identity (same option/row/card objects across all 5 answers and
-   reset), zero `innerHTML`-family writes after init (source scan + runtime setter trap), and
-   light AND dark themes (runtime toggle + dark token presence). Inline-JS syntax is checked
-   via `vm.Script` parse inside the harness (equivalent of `node --check` for inline script;
-   `node --check index.html` is not applicable — it is HTML, not JS).
+```js
+for(var qi=0;qi<DATA.length;qi++){
+  (function(q){
+    ...
+    r.addEventListener("click",function(){jumpTo(qi);});
+  })(DATA[qi]);
+}
+```
 
-## Verification result
-- `node --check harness.js`: clean. Inline script parses (vm.Script). All harness checks pass,
-  including **light AND dark mode** (toggle switches `data-theme` both ways; dark tokens
-  `#1c1c1f #101012 #451a03 #fde68a` present; page confirmed finished-looking in both via token
-  review — no grey-on-grey, borders visible on `--border #2e2e33`).
+`var qi` is function-scoped; IIFE captures only `q`, not `qi`. After loop `qi===5` for all 5 closures. Every queue click calls `jumpTo(5)`.
+
+- (1) Click Q2/Q3 never switches: `jumpTo(5)` does `state.idx=5` then `DATA[5].agent` throws `Cannot read properties of undefined (reading 'agent')`. `renderAll()` never runs, UI stays on Q1.
+- (2) Answer via option 2 jumps to fake completion: after corruption `state.idx=5`. Next `optNodes[1].click()` → `updateCurrent()` with `DATA[5]===undefined` → `if(done||!q)` done-branch → visible `All 5 questions answered` with `Approved 0 · answered 0 · rejected 0 · skipped 0`, while `pendingCount()=5-0=5` → header still `5 waiting`.
+- (3) Restart → 2nd Approve stalls (QA sequence): QA sequence includes (1)+(2) corruption before Restart. Once `idx` is out-of-bounds, subsequent `doSubmit`/`renderAll` / timeout advance (`idx=answers.length`) diverges from visible state. After Restart + 1st Approve (Q1→Q2) the stale closure still poisons any queue interaction and the pending fake-done path; in real-browser QA the 2nd Approve never visibly advances within 6s. Fixing the closure makes sequential `Approve→tick→Approve→tick` reliably reach Q3.
+
+## Fix (targeted, 2 lines, everything else identical)
+```diff
+-  (function(q){
++  (function(q,qi){
+...
+-  })(DATA[qi]);
++  })(DATA[qi],qi);
+```
+- Keeps `/*noflash*/` guard, in-place updates only, zero `innerHTML` writes, demo `DATA` verbatim, all styling/DOM structure unchanged.
+- Verified `grep innerHTML` = 0 hits in `index.html`.
+
+## Harness (`./harness.js`, node only, in-dir DOM stub via `vm`)
+Asserts VISIBLE state (`textContent`), light AND dark:
+- click Q2 → detail `Q2: Which pricing source…`; click Q3 → `Q3: Apply codemod…`
+- answer all 5 (first uses option index 1 `Run migrations first`) → `All 5 questions answered`, counters `Approved 1 · answered 2 · rejected 1 · skipped 1` sum=5, header `0 waiting`
+- `Restart → Approve → tick(700) → Q2 → Approve → tick(700+6000) → Q3`
+- full-loop node identity (`card`, `curTitle`, 5 rows, 4 opts identical `===` before/after)
+- zero `innerHTML` writes after init (setter counter)
+- `data-theme` light/dark switching
+
+Run:
+```
+node --check harness.js
+node harness.js
+node --check demo-original.js
+```
+
+## Before / after (must fail on ORIGINAL, pass on FIXED)
+BEFORE (original `index.html`, `node harness.js`):
+```
+ok: initial detail shows Q1, got: "Q1: Deploy preview build to staging?"
+FAIL: click Q2 threw: Cannot read properties of undefined (reading 'agent')
+HARNESS FAILED
+EXIT:1
+```
+
+AFTER (fixed `index.html`, `node harness.js`):
+```
+--- theme: light ---
+ok: click Q2 -> detail shows Q2, got: "Q2: Which pricing source should I use?"
+ok: click Q3 -> detail shows Q3, got: "Q3: Apply codemod to 14 files?"
+ok: completion title after 5 answers, got "All 5 questions answered"
+ok: counters sum to 5, got 5 from "Approved 1 · answered 2 · rejected 1 · skipped 1..."
+ok: header 0 waiting after completion, got "0 waiting"
+ok: after 2nd Approve shows Q3 (no stall), got "Q3: Apply codemod to 14 files?"
+--- theme light passed ---
+--- theme: dark ---
+(same, all ok)
+--- theme dark passed ---
+ALL CHECKS PASSED
+EXIT:0
+```
+
+## Checks confirmed
+- [x] title correct
+- [x] `/*noflash*/` + `color-scheme` + `html{background}` kept
+- [x] in-place updates, node identity across full loop + restart
+- [x] zero `innerHTML` writes after init (static + runtime)
+- [x] demo data verbatim (no DATA edit)
+- [x] light AND dark pass
+- [x] `index.html` actually changed (2-line diff above); `node --check` passes for `harness.js` and `demo-original.js`; no installs/downloads.

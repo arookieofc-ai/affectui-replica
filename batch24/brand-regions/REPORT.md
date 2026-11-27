@@ -1,30 +1,62 @@
-# brand-regions — AI Search / Regions replica
+# fix-brand-regions — dark-theme bubble invisibility (targeted fix)
 
-## What built
-Standalone `index.html` (~34KB, inline CSS+JS, no deps) replicating affectUI **AI Search / Regions**:
-- Header: `Brand` title, 7 tabs (Visibility, Sentiment, Topics, Platforms, **Regions** active, Shopping, Citations), More menu (Export CSV / Copy link / Report settings), `5.6k answers` button.
-- Filter bar: Period seg `7d / 15d / 30d / Custom` + `Tags / Topics / Platforms` dropdowns with count badges + Clear.
-- Card `Regions`: left shaded world map (own simplified SVG, viewBox presets World / Americas / Europe / Asia, `Chart config` menu, Shading on/off, Low→max legend, hover tooltip with flag + name + Nov 23 + 3 measures), right ranking list sorted by active measure with flag, value `E()` (`1.1%`), delta `D()` (`+` / `−` U+2212 / `0.0%`), roving tabindex + ArrowUp/Down/Home/End, click row toggles zoom.
-- Measures seg: Visibility / Share of Voice / Positive sentiment. Values use verbatim demo factors: period `1 / .94 / .88 / .9` × `(1-.04*filters)`, sentiment `min(100, s*(.5+f/2))`.
-- Toasts: tab switch, export, copy, report, answers. Export CSV really downloads `regions.csv`.
-- Theme toggle top-right, `data-theme` on `<html>`, localStorage `br-regions-theme`, noflash guard + `meta color-scheme`.
+## Defect (real-browser QA)
+Dark theme only: the map bubbles turned dark grey, nearly identical to the dark
+background, so the map's data encoding was lost in dark. Light theme bubbles
+were vivid blue; the right-hand list text stayed readable in dark.
 
-## Demo data verbatim
-16 regions from `./demo-original.js` with exact ids/names/flags/numbers:
-US 52.1/44.9/72.3, AR 35.5/28.4/66, MX 64.1/51.2/70.4, CN 19.5/12.3/58.1, IN 18.3/14.7/69.2, ES 17.2/15.1/63.8, DE 15.5/18.6/61.5, LK 12.1/8.2/64.9, TH 12.1/9.4/67.3, BR 11.8/10.6/62.7, CH 11.7/13.2/71.6, GB 11.5/16.8/65.4, FR 9.8/11.4/59.9, JP 8.6/7.9/68.8, CA 8.1/9.7/73.1, AU 7.4/8.8/70.2 + changes. Answers `5600` → `5.6k`, date `Nov 23, 2026`. Map geometry is own clean-room simplified continents + 16 country nodes (not copied).
+## Original behaviour (checked `./demo-original.js`)
+Not the same as the bug — no fix declined. The original keeps data fills visible
+in dark:
+- `--br-blue: 0,96,226` (light) → `77,141,255` (dark), both vivid blue.
+- `--br-land: rgba(0,0,0,0.07)` (light) → `rgba(255,255,255,0.09)` (dark), used
+  only for non-data land via `.ui-br-land{fill: var(--br-land)}`.
+- Data countries: `.ui-br-land[data-data]{fill: rgba(var(--br-blue), var(--v))}`
+  with `--v = .18 + normalized*.62`, plus
+  `.ui-br-land[data-on]{fill: rgba(var(--br-blue),0.9); stroke: rgb(var(--br-blue))}`.
+- Dark only redefines the `--br-blue` / `--br-land` variables; there is no
+  dark-specific `fill` rule that overrides `[data-data]`. So data stays blue in dark.
 
-## Matches original
-Layout (title+tabs+answers, bar, card 1fr/340px, map+side), tokens, hover/focus, tooltip placement (left/right flip), legend, sorting, formatting, keyboard (tabs/radios/list), responsive stacked, reduced-motion.
+## Root cause in `./index.html`
+Specificity inversion introduced by the replica's dark base rule:
+- Base: `.land{fill:rgba(0,0,0,.07)}` — spec (0,1,0).
+- Data: `.land[data-data]{fill:rgba(var(--blue),var(--v,.4))}` — spec (0,2,0), wins in light. Good.
+- Dark base (before fix): `html[data-theme="dark"] .land{fill:rgba(255,255,255,.09)}` — spec (0,2,1).
+  The extra `html` element beats `.land[data-data]` (0,2,0), so in dark every
+  bubble (circles with `class="land"` + `data-data`) was repainted with the
+  background-land grey instead of the blue accent. Effective result: dark-grey
+  bubbles on a near-black map — invisible data encoding.
 
-## Could not verify
-Pixel-exact map shapes (original uses 100+ detailed country paths; replica uses stylised nodes for size/clean-room), exact flag SVGs (replica uses emoji flags with inset outline), Pro `DemoStage` chrome outside card.
+## Fix (one line, `./index.html` only)
+```css
+html[data-theme="dark"] .land:not([data-data]){fill:rgba(255,255,255,.09)}
+```
+Scopes the dark background-land grey to non-data shapes only, so data bubbles
+fall through to the existing accent rule in both themes:
+`.land[data-data]{fill:rgba(var(--blue),var(--v,.4))}` with
+`--blue 0,96,226 → 77,141,255`, plus unchanged
+`.land[data-on]{fill:rgba(var(--blue),.92);stroke:rgb(var(--blue))}`.
+Light rendering is untouched (same winner, same tokens). Stroke left as-is
+(`stroke:var(--surface)`); fill dominates visibility.
 
-## In-place / v5
-- DOM built once; all updates mutate nodes in place (`textContent`, attrs, `style`, `appendChild` reorder). No `innerHTML`/`outerHTML`/`insertAdjacentHTML` anywhere.
-- All `:hover` inside `@media (hover: hover) and (pointer: fine)`, `html{-webkit-tap-highlight-color:transparent}`, `body{font-variant-numeric:tabular-nums}`, concentric radius (16/10/6), shadows for elevation / borders for structure, flag inset outline, icon optical padding.
+Nothing else changed: `/*noflash*/` guard, in-place updates only, zero
+`innerHTML` writes after init, demo `REGIONS`/`POS`/`RAD` data verbatim, and the
+Share of Voice list interaction (`setMeasure('sov')` + hover/tooltip/zoom) intact.
 
-## How to test
-- `node ./harness.js` (writes `app-check.js`), then `node --check ./harness.js && node --check ./app-check.js` (in this dir) — asserts visible painted text, 16 rows/paths, full-loop node identity, zero innerHTML writes, light AND dark.
-- Open `index.html` in browser, toggle sun/moon, switch periods/measures/zooms/filters, hover map+rows.
+## Verification (node only, in-dir)
+- `node --check ./harness.js` — OK.
+- Extracted inline script `node --check` — OK (also `vm.Script` parse inside harness).
+- `node ./harness.js` — ALL PASSED (see console):
+  - VISIBLE light: data-bubble winner is `rgba(var(--blue),…)` with `--blue 0,96,226`.
+  - VISIBLE dark: data-bubble winner is `rgba(var(--blue),…)` with `--blue 77,141,255`
+    (contrast vs `#101012` ≈ 5.95, vs buggy grey ≈ 1.3); dark base no longer matches `[data-data]`.
+  - Share of Voice: `setMeasure('sov')` updates head to “Share of voice”, hover sets
+    `data-on` + tooltip, clear removes it.
+  - Full loop (measures × periods × hovers × zooms × light/dark): row `_li/_btn/_val/_delta`
+    and bubble path object identity preserved; `--v` retained; zero `innerHTML` writes
+    during init and across the loop.
 
-Checked light AND dark via harness + manual token review. No browser install used.
+## How to test in a browser
+Open `./index.html`, toggle the sun/moon button: bubbles stay vivid blue in both
+themes; hover a bubble/row highlights both and shows the tooltip; “Share of Voice”
+re-sorts the list; no white first-frame flash in dark.

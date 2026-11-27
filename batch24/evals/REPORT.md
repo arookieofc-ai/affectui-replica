@@ -1,41 +1,61 @@
-# Evals replica — REPORT
+# fix-evals — targeted fix report
 
-## What I built
-Standalone `index.html` (48KB, inline CSS+JS, system fonts only) replicating affectUI **Evals** (`Support reply prompt`).
+## Defect (from real-browser QA)
+After clicking the **Fail** filter, the table correctly showed only 1 row (TC-10) but the footer still read **"1–25 of 25"** instead of **"1–1 of 1"**.
 
-- Header: `Evals / Support reply prompt` + version chip `v12 current` with dropdown (v12…v1, `Current · 92% pass`), model chip `claude-sonnet-5-5`, meta `Last run 2 hours ago` / `Running x of 25…`, `Run eval` button (▶, optical-aligned padding), sun/moon theme toggle, thin progress bar.
-- Sidebar (clean-room, same demo labels): `Home, Chat, Evals (3), Datasets, Analytics` + Prompts group `Support reply, Ticket triage, Refund check, Onboarding`.
-- 4 stat cards: `Pass rate 92%`, `Avg score`, `Latency p50 1.2s`, `Cost per 1k runs $1.84` with `vs v11` deltas.
-- Chart `Pass rate by version`: 12 bars (61,64,70,68,74,79,77,83,85,81,88,92), value + footer `Last 12 versions · 25 test cases · claude-sonnet-5-5`. Clicking a bar selects that version.
-- Diff `Changes in v12 · system prompt, edited by Mara Klein`: current vs suggested prompts verbatim, `Approve` / `Reject` → toast `Prompt changes reviewed`.
-- `Test cases 25` table: `Input | Expected | v12 output | Score | Latency`, pills `Pass/Partial/Fail/Queued/Running` + `n/5`, latency `1.2s` style. Filter `All / Pass / Partial / Fail` with counts, pager `1–25 of 25`, row click/Enter/Space opens detail, Esc closes, ArrowUp/Down moves, Re-run single case, Re-run all via `Run eval` with sequential `150+(ms%7)*22ms` timing, auto-scroll, toast `Eval finished · 92% of 25 cases passed`.
-- Detail panel shows `Input / Expected / Previous answer (n/5) / Current output`, pill + `Latency · model`.
+## Root cause
+`updateTable()` in `./index.html` computed the filtered list (`vis = filteredCases()`) and correctly hid non-matching rows, but the pager label was hard-coded to the total:
 
-## Demo data verbatim
-- Model `claude-sonnet-5-5`, versions `v1…v12`, rates `[61,64,70,68,74,79,77,83,85,81,88,92]`, dates `Jan 8…Today`.
-- Prompts: original (“…in as much detail as possible…link to our blog.”) and suggested (“…in three sentences or fewer…link the refund policy instead.”), editor `Mara Klein`.
-- All 25 cases `TC-01…TC-25` with exact `input/expected/prev/output/prevScore/score/ms` from `demo-original.js` (e.g. TC-10 Salesforce fail 2/5, TC-03 German, TC-17 French).
-- No invented data.
+```js
+document.getElementById("pagerLabel").textContent="1–"+CASES.length+" of "+CASES.length;
+```
 
-## What matches the original
-Layout, card/border/shadow language, sticky header + sticky `th`, norrow stacked responsive, focus-visible + hover lift, spinner + pop animations, `…` / `–` queued states, aria-selected running chain highlight.
+So filtering never updated the visible range/total text.
 
-## Clean-room + in-place updates
-Written from behaviour/API only, no copied bundle code. DOM built once in `buildOnce()`; timers/filters/version/detail update `textContent/class/style` on existing nodes only. No `innerHTML/insertAdjacentHTML/outerHTML/document.write` anywhere. Verified zero writes after init.
+Checked `./demo-original.js` first: the original does **not** behave this way. It builds `K` = filtered list and renders the pager from `K.length`:
 
-## v5 polish
-- All `:hover` inside `@media (hover:hover) and (pointer:fine)`.
-- `html{-webkit-tap-highlight-color:transparent}`.
-- `body{font-variant-numeric:tabular-nums}`.
-- Concentric radius (`radius-lg+2` outer, `radius` inner), shadows for elevation / borders for structure, image inset-outline rule, icon-side 2px less button padding.
+- `K = _.map(...).filter(M==="all" || status===M)`
+- pager span: `D.format(Y*T+1)` – `D.format(Y*T+X.length)` of `D.format(K.length)`
 
-## What I could not verify
-No browser available (per task constraints). Visual pixel-match vs original screenshots, real `prefers-color-scheme` first paint, and exact easing perception were not eyeballed — only DOM/text/theme logic via node stub.
+i.e. the original footer reflects the **filtered** set. The replica was simply wrong vs the original, so a fix was warranted.
 
-## How to test
-1. `open index.html` in a browser (or `python3 -m http.server` then visit).
-2. Click `Run eval`, click rows, switch filter/version, Approve/Reject, toggle theme.
-3. Node-only checks: `node --check <extracted JS>` and `node verify.js` (in-dir DOM-stub: visible text, node identity across full loop, zero innerHTML, light+dark).
+## Fix (one line, everything else identical)
+In `updateTable()`, use the already-computed filtered length:
 
-## Theme check
-Confirmed light AND dark: `data-theme` toggles via button + `localStorage affectui-evals-theme`, dark tokens (`#1c1c1f/#101012/#ededed/#a1a1aa`, amber `#fbbf24` on `#451a03`), `verify.js` asserts painted text persists in both themes. `ALL CHECKS PASSED`.
+```js
+document.getElementById("pagerLabel").textContent=vis.length?"1–"+vis.length+" of "+vis.length:"0–0 of 0";
+```
+
+- Fail → `1–1 of 1` (row TC-10 only)
+- Partial → `1–2 of 2` (TC-05, TC-20)
+- Pass → `1–22 of 22`
+- All → `1–25 of 25`
+- Empty (not reachable with current data) → `0–0 of 0` instead of a nonsensical `1–0 of 0`
+
+No other behaviour changed: header count stays total (`25`), filter-button counts unchanged, no pagination logic added, rows still toggled in place via `style.display`.
+
+## Secondary: "Pass rate 92%" — checked, left as-is
+QA noted Pass shows 92% while 22/25 = 88%. Checked the original's definition in `./demo-original.js`:
+
+```js
+O = e => e.length ? Math.round(e.reduce((sum,t)=> sum + (C(t.score)==="pass"?1:C(t.score)==="partial"?0.5:0),0) / e.length*100) : 0
+```
+
+Partial counts as **half**: (22×1 + 2×0.5)/25 = 23/25 = **92%**. The replica's `passRate()` does exactly the same (`pass=1, partial=0.5`), and chart `92%` matches `RATES[11]=92`. So the number is correct per the original — **not** changed. Noted here instead.
+
+## Constraints kept
+- `/*noflash*/` guard kept at top of `<head>`, plus `html{background:...}` paint guard and `<meta name="color-scheme" content="light dark">`.
+- In-place updates only: rows/bars/filters/stats built once in `buildOnce()`; `updateTable()` mutates `textContent`/`className`/`style`/attributes on existing nodes.
+- Zero `innerHTML` writes: `grep -c innerHTML ./index.html` → `0`.
+- Demo data verbatim: `CASES` (TC-01…TC-25), `VERSIONS`/`RATES`/`DATES`, prompts, model `claude-sonnet-5-5` untouched.
+
+## Verification (node only, in-dir)
+- `node --check` on extracted main script: OK.
+- `./harness.js` (DOM-stub, no browser): asserts **visible** `pagerLabel.textContent` + visible-row indices per filter, in **light AND dark** (via theme toggle), plus full-loop node identity and zero `innerHTML` writes:
+  - `node ./harness.js` → `HARNESS OK: Fail=1–1 of 1, Partial=1–2 of 2, Pass=1–22 of 22, All=1–25 of 25; light+dark; identity ok; innerHTML=0; passRate=92%`
+- Manual: open `./index.html` in a browser, click All/Pass/Partial/Fail, check footer; toggle theme (◐, top-right) and repeat.
+
+## Files
+- `./index.html` — one-line pager fix only.
+- `./harness.js` — in-dir DOM-stub verification harness.
+- `./REPORT.md` — this file.

@@ -1,37 +1,74 @@
-# Prompt Explorer — REPORT
+# fix-prompt-explorer — DATA FIDELITY report (targeted check, no rebuild)
 
-## What was built
-Standalone `index.html` (~37KB, inline CSS+JS, system fonts, no external deps) replicating the affectUI **AI Search / Prompt Explorer** (slug `prompt-explorer`).
+## Verdict: faithful — changed NOTHING in `index.html`
 
-- Hero: “Explore what people are prompting ChatGPT” with animated gradient backdrop, centred search box (max 600px).
-- Search box: auto-growing textarea (combobox) + `Relevant searches` dropdown (max 5, starts-with first then includes), volume + change per row, typed-substring highlight, full keyboard (ArrowDown/Up, Escape, Enter).
-- Modes: `Prompts and keywords` / `A page's address` radios + `Bulk analysis` switch + prompt counter + `Analyse` button. URL mode disables bulk, matching original.
-- Analysis card: `Analysing…` skeleton (2 rows) → header (`Analysis` / `N prompts`) + grid rows `Prompt | Prompts/mo | Change | 12 months sparkline | Mentions you meter+%`, clear button.
-- Keywords split card: `Popular Keywords` (7 verbatim) + `Trending Keywords` with Rising/Falling toggle (7+7 verbatim). Clicking any keyword analyses it. Live highlight rotates every 4s in place.
-- Top bar: Northwind + Pro plan + nav (Conversations active) + sun/moon theme toggle.
-- Toast for empty input. Responsive: split→stack, result trend/share columns hide ≤860px, hero/box tighten ≤560px.
+The QA-flagged "defects" (unsorted Popular/Falling lists, repeated 2.1k deltas,
+same-volume keywords across Rising/Falling) are **verbatim original behaviour**.
+Per the task instruction, the replica was left identical.
 
-## Data (verbatim from demo-original.js)
-- `ALL` (26): northwind ai visibility 549.4k +76.2k … perplexity citations 8.9k +1.9k (full list in code).
-- `POPULAR` (7), `RISING` (7), `FALLING` (7) with volumes/changes as in source. Trend sparklines regenerated with the same seeded hash (12 pts); share % via same `(hash>>9)%70/100+.04` fallback. Formatting `k/M/B`, `+`/`−`, `%` matches original helpers.
+## Evidence (every row vs `demo-original.js`)
 
-## What matches / what was approximated
-- Matches: layout, copy, counts, filtering order, keyboard map, bulk counting, skeleton → results flow, meters, sparklines, toggle semantics, tokens.
-- Approximated (clean-room): hero artwork is CSS gradients (original embeds a base64 photo strip); icons are text glyphs (⌕ ⇅ ↗ ↘ ▲▼ ◐ ☾) instead of the proprietary icon set; app chrome simplified to a single top bar (original lives inside a DemoStage shell). No Pro .tsx fetched or copied.
+Parsed `demo-original.js` `C(text, volume, change)` rows (47 total):
 
-## In-place updates (v4)
-- DOM built once at init (suggestion pool 5, result pool 12 + 2 skeletons, keyword pools 7+7). All ticks/inputs/loop-restarts update `textContent`/`hidden`/`aria-*`/`style.width`/`d` on existing nodes only. **Zero `innerHTML` writes** anywhere (harness counts setter after init).
+- `ALL` rows 0–25 match `index.html` `ALL` exactly (volumes, deltas, order).
+- `POPULAR` = original rows 26–32, verbatim:
+  1. `Northwind ai`, 205000, +2100 → `205k`
+  2. `northwind vs semrush`, 195000, +2100 → `195k`
+  3. `northwind ai visibility`, 147000, +2100 → `147k`
+  4. `geo`, 133000, −2100 → `133k`
+  5. `aeo`, 131000, +2100 → `131k`
+  6. `seo vs aeo`, 108000, −2100 → `108k`
+  7. `boost ai visibility`, 114000, +2100 → `114k`
+  - Last two (`108k` then `114k`) are unsorted **in the original** — not a replica bug.
+  - All magnitudes are 2.1k (sign varies) **in the original** — not fabricated.
+- `RISING` = original rows 33–39, verbatim (sorted desc, as in original):
+  `generative ai tools` 135000/+2100, `aeo` 120000/+1400,
+  `generative ai` 97000/+1800, `boost ai visibility` 72000/+3400,
+  `google ai overviews` 70000/+2900, `ai content optimization` 64000/+6400,
+  `seo` 42000/+7100.
+- `FALLING` = original rows 40–46, verbatim (unsorted, as in original):
+  `best seo tools 2026` 88100/−5600 → `88.1k`,
+  `geo` 133000/−2100, `seo vs aeo` 108000/−2100,
+  `northwind ai` 35000/−2700 → `35.0k`,
+  `keyword research tool` 51200/−1900 → `51.2k`,
+  `backlink checker` 33800/−1400 → `33.8k`,
+  `rank tracker` 27500/−1100 → `27.5k`.
+- Rising vs Falling share **no keywords** in either file, so there is no
+  same-volume/opposite-delta duplication to fix. `geo`/`seo vs aeo` repeat
+  between Popular and Falling with the **same** volume and **same** delta in
+  both files (faithful, not a bug).
 
-## v5 polish
-- All `:hover` inside `@media (hover:hover) and (pointer:fine)`; `html{-webkit-tap-highlight-color:transparent}`; `body{font-variant-numeric:tabular-nums}`; concentric radii (`--r-lg 16px/--r 10px/--r-sm 6px`); borders only on dividers/inputs/selected, depth via layered box-shadows; hero image outline via inset shadow; icon buttons optically padded.
+No rows reordered, no deltas fabricated/duplicated by the replica.
+
+## Root cause
+
+No defect in the replica. The QA expectation (sorted lists, unique deltas) does
+not match the original demo data, which is intentionally verbatim (including
+quirk order and repeated 2.1k deltas).
+
+## Fix
+
+None. `index.html` untouched — preserves `/*noflash*/` guard, in-place updates,
+zero `innerHTML` writes after init, and verbatim demo data.
 
 ## Verification (node only, in-dir)
-- `node --check _pex-check.js` (app JS extracted from index.html) → OK.
-- `node --check harness-stub.js` → OK.
-- `node harness-stub.js` (DOM stub, no browser) → **ALL HARNESS CHECKS PASSED**: noflash guard + `color-scheme` meta + bg style; light (`#fafaf9/#171717`) and dark (`#101012/#1c1c1f`) tokens; gated hover; tabular-nums; visible painted text (title, Popular/Trending, Analyse, Bulk, Relevant searches, Northwind + verbatim rows); pool sizes 5/12/7+7; full-loop (14-tick) node identity; trend-switch node reuse + verbatim repaint; 2-row analyse paints volumes; zero innerHTML after init; theme toggle flips light→dark→light.
+
+- `node --check demo-original.js` → OK
+- `node --check harness-fidelity.js` → OK
+- Inline scripts syntax-checked via `vm.Script` inside the harness (equiv. of
+  `node --check` for HTML-embedded JS; `node --check index.html` is not
+  applicable to HTML).
+- `node harness-fidelity.js` → ALL PASSED:
+  - POPULAR / RISING / FALLING visible state (text, formatted vol, delta,
+    arrow, `data-dir`, order) matches original rows in **light AND dark**
+    (`data-theme="light"` / `"dark"` produce identical visible rows).
+  - Full-loop node identity preserved (pop + trend + res pools `===` across
+    rising→falling→rising + 14 live ticks).
+  - Zero `innerHTML` writes after init; zero new DOM nodes after init
+    (in-place updates only).
 
 ## How to test
-Open `index.html` in a browser. Try: type `northwind` (dropdown appears) → Enter; toggle Bulk + paste 3 lines → Analyse; switch Rising/Falling; toggle theme (top-right) in both OS light and dark; narrow window to mobile width. No server needed.
 
-## Light AND dark
-Checked via tokens + toggle in harness; visually the page uses the same token set with dark surface/page/ink/muted/subtle/border and amber-adjusted waiting tones. Toggle persists to `localStorage (pex-theme)`, defaults to `prefers-color-scheme`.
+Open `index.html` in a browser; compare Popular / Trending (Rising/Falling)
+lists against the row tables above. Toggle the sun/moon theme button to confirm
+dark mode stays legible.
