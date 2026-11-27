@@ -36,6 +36,9 @@
   --cf-navline:#e7e7e7;
   --cf-focus:rgba(23,23,23,.25);
   --cf-ease:cubic-bezier(.22,1,.36,1);
+  --tag-bg:rgba(255,255,255,.88);
+  --tag-fg:#171717;
+  --tag-line:rgba(0,0,0,.08);
 }
 html[data-theme="dark"]{
   --surface:#1c1c1f;
@@ -61,6 +64,9 @@ html[data-theme="dark"]{
   --cf-nav:#1d1d20;
   --cf-navline:rgba(255,255,255,.1);
   --cf-focus:rgba(255,255,255,.35);
+  --tag-bg:rgba(28,28,31,.80);
+  --tag-fg:#ededed;
+  --tag-line:rgba(255,255,255,.16);
 }
 html{-webkit-tap-highlight-color:transparent;}
 *{box-sizing:border-box;}
@@ -111,9 +117,11 @@ body{
 .cf-art{position:absolute;inset:0 -8%;transform:translateX(calc(var(--cf-d,0)*-5%));}
 .cf-art > div{width:100%;height:100%;display:block;box-shadow:inset 0 0 0 1px rgba(0,0,0,.1);}
 html[data-theme="dark"] .cf-art > div{box-shadow:inset 0 0 0 1px rgba(255,255,255,.1);}
-.cf-art > div > span{
-  position:absolute;left:32px;/*edge-fix: 12px inside card (art inset 0 -8% bleeds 19px)*/bottom:10px;font-size:11px;font-weight:600;letter-spacing:.08em;
-  color:rgba(0,0,0,.55);background:rgba(255,255,255,.65);border-radius:999px;padding:3px 9px;
+.cf-tag{
+  position:absolute;left:50%;bottom:10px;transform:translateX(-50%);z-index:3;max-width:calc(100% - 24px);
+  font-size:11px;font-weight:600;letter-spacing:.08em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  color:var(--tag-fg);background:var(--tag-bg);border:1px solid var(--tag-line);border-radius:999px;padding:3px 9px;
+  box-shadow:0 1px 2px rgba(0,0,0,.12);opacity:1;visibility:visible;
 }
 .cf-floor{
   position:absolute;left:10%;right:10%;bottom:-3px;height:8px;border-radius:50%;
@@ -295,7 +303,7 @@ var st={pos:DEFAULT_INDEX,target:DEFAULT_INDEX,vel:0,raf:0,last:0,active:DEFAULT
 var showRefl=true,showCap=true,showTicks=true,soundOn=false;
 
 /* ---- build DOM once ---- */
-var itemNodes=[],artNodes=[],reflNodes=[],reflArts=[],dotNodes=[];
+var itemNodes=[],artNodes=[],reflNodes=[],reflArts=[],dotNodes=[],tagNodes=[];
 function gradBG(it){return "linear-gradient(160deg, "+it.from+", "+it.to+")";}
 function build(){
   stage.style.perspective=Math.round(1000*st.scale)+"px";
@@ -320,12 +328,13 @@ function build(){
       art.className="cf-art";
       var g=document.createElement("div");
       g.style.background=gradBG(it);
-      var tag=document.createElement("span");
-      tag.textContent=it.title;
-      g.appendChild(tag);
       art.appendChild(g);
       card.appendChild(art);
-      item.appendChild(card);
+      var tag=document.createElement("span");
+      tag.className="cf-tag";
+      tag.textContent=it.title;
+      card.appendChild(tag);
+      tagNodes.push(tag);
 
       var refl=document.createElement("div");
       refl.className="cf-refl";
@@ -386,7 +395,7 @@ try{window.addEventListener("pagehide",function(){if(actx){try{actx.close();}cat
 
 /* ---- layout: mutate existing nodes only ---- */
 function layout(){
-  var spread=W*0.55*st.scale, tail=W*0.20*st.scale, depth=W*0.7*st.scale;/*edge-fix: tighten stack so edge labels stay inside stage*/
+  var spread=W*0.44*st.scale, tail=W*0.13*st.scale, depth=W*0.7*st.scale;/*fix2: bring ALL cards+centred tags fully inside viewport at rest*/
   for(var i=0;i<COUNT;i++){
     var n=itemNodes[i];
     if(!n)continue;
@@ -631,7 +640,7 @@ try{
   window.__cf={
     items:ITEMS,count:COUNT,
     state:st,
-    nodes:itemNodes,dots:dotNodes,
+    nodes:itemNodes,dots:dotNodes,tags:tagNodes,
     goTo:goTo,layout:layout,
     title:capTitle,sub:capSub,countEl:countEl,
     view:view,prev:prevBtn,next:nextBtn

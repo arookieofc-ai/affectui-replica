@@ -146,14 +146,36 @@ html[data-theme="dark"] .thumb{outline-color:rgba(255,255,255,.1)}
 var MODES=[{id:"live",label:"Live"},{id:"decision",label:"Decision"},{id:"scrolled",label:"Scrolled up"},{id:"offline",label:"Offline"},{id:"uploading",label:"Uploading"},{id:"dictating",label:"Dictating"},{id:"away",label:"Away summary"},{id:"error",label:"Error"},{id:"loading",label:"Loading"}];
 var PX={orch:["1","0","1","0","1","0","1","0","1"],a1:["1","1","0","0","1","0","0","1","0"],a2:["0","1","1","1","0","0","1","0","0"]};
 var PXCOLOR={orch:"#2563eb",a1:"#16a34a",a2:"#f59e0b"};
+var STREAM_FULL="Got it \u2014 I split it into four tasks. Starting with the first two below \u2014 the ingest card joins when this stream finishes.";
+var TASKS=[
+{title:"Client dashboard",step:"Drawing the empty states",counter:"1 of 3 steps",pill:"Working",cls:"pill working"},
+{title:"API migration",step:"Moving our own apps",counter:"1 of 4 steps",pill:"Working",cls:"pill working"},
+{title:"Ingest pipeline",step:"Picking a queue",counter:"2 of 4 steps",pill:"Working",cls:"pill working"}
+];
+var DEC_HEAD="1 of 2";
+var DEC_Q="Which queue should the ingest service use?";
+var DEC_OPTS=["Kafka","SQS","Postgres queue","NATS JetStream","Something else…"];
 function el(tag,cls,text){var n=document.createElement(tag);if(cls)n.className=cls;if(text!=null)n.textContent=text;return n;}
 function pxMark(key,working){var w=el("span","px"+(working?" working":""));var pat=PX[key]||PX.a1;var c=PXCOLOR[key]||"#78716c";for(var i=0;i<9;i++){var cell=el("i");cell.style.background=pat[i]==="1"?c:"transparent";w.appendChild(cell);}w.setAttribute("aria-hidden","true");return w;}
 var R={};
+function makeTaskCard(idx){
+var d=TASKS[idx];
+var card=el("button","card task");card.type="button";card.setAttribute("aria-expanded","false");card.setAttribute("data-task",d.title);
+var tt=el("div","task-top");var dot=el("span",d.cls,d.pill);tt.appendChild(dot);
+var title=el("span","card-title",d.title);tt.appendChild(title);
+var tools=el("span","tools");var t1=el("span","tool","\u25E7");t1.title="shell";var t2=el("span","tool","\u29C9");t2.title="browser";var t3=el("span","tool","\u270E");t3.title="docs";tools.appendChild(t1);tools.appendChild(t2);tools.appendChild(t3);tt.appendChild(tools);
+card.appendChild(tt);
+var meta=el("div","card-meta",d.step+" \u00B7 "+d.counter);card.appendChild(meta);
+var det=el("div","task-detail","Current step: "+d.step+" \u2014 click to collapse details.");det.hidden=true;card.appendChild(det);
+card.addEventListener("click",function(){var open=det.hidden;det.hidden=!open;card.setAttribute("aria-expanded",open?"true":"false");});
+card.addEventListener("keydown",function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();card.click();}});
+return {card:card,meta:meta,detail:det,pill:dot,titleEl:title};
+}
 function buildStatic(){
 R.proj=document.getElementById("proj");
 var stack=el("span","px-stack");stack.appendChild(pxMark("orch",true));stack.appendChild(pxMark("a1",true));stack.appendChild(pxMark("a2",false));
 R.proj.appendChild(stack);
-var pt=el("div");var nm=el("div","proj-name","Atlas Launch");nm.id="projName";var mt=el("div","proj-meta","2 working · 3 agents");mt.id="projMeta";pt.appendChild(nm);pt.appendChild(mt);R.proj.appendChild(pt);
+var pt=el("div");var nm=el("div","proj-name","Atlas Launch");nm.id="projName";var mt=el("div","proj-meta","2 working \u00B7 3 agents");mt.id="projMeta";pt.appendChild(nm);pt.appendChild(mt);R.proj.appendChild(pt);
 R.ctxLabel=document.getElementById("ctxLabel");R.ctxFill=document.getElementById("ctxFill");
 R.themeBtn=document.getElementById("themeBtn");R.themeIcon=document.getElementById("themeIcon");
 R.modes=document.getElementById("modes");R.modeBtns={};
@@ -161,82 +183,75 @@ for(var i=0;i<MODES.length;i++){var m=MODES[i];var b=el("button","mode-btn",m.la
 R.threadTitle=document.getElementById("threadTitle");R.threadSub=document.getElementById("threadSub");
 R.msgs=document.getElementById("msgs");
 R.day=el("div","day","Today");R.msgs.appendChild(R.day);
-R.uMsg=el("div","bubble user");var uw=el("div","who","You · 09:41");R.uMsg.appendChild(uw);R.uText=el("p",null,"Summarize launch readiness by team.");R.uMsg.appendChild(R.uText);R.msgs.appendChild(R.uMsg);
-R.aMsg=el("div","bubble plain");var aw=el("div","who");aw.appendChild(pxMark("orch",true));R.aWho=el("span",null,"Orchestrator · gpt-4o");aw.appendChild(R.aWho);R.aMsg.appendChild(aw);R.aText=el("p",null,"Here\u2019s where we stand \u2014 2 blockers remain: billing webhook retries and staging sign-off. Everything else is green.");R.aMsg.appendChild(R.aText);R.msgs.appendChild(R.aMsg);
-R.task=el("button","card task");R.task.type="button";R.task.setAttribute("aria-expanded","false");
-var tt=el("div","task-top");var dot=el("span","pill working","Working");dot.id="taskPill";R.taskPill=dot;tt.appendChild(dot);R.taskTitle=el("span","card-title","Prepare launch checklist");tt.appendChild(R.taskTitle);
-var tools=el("span","tools");var t1=el("span","tool","◧");t1.title="shell";var t2=el("span","tool","⧉");t2.title="browser";var t3=el("span","tool","✎");t3.title="docs";tools.appendChild(t1);tools.appendChild(t2);tools.appendChild(t3);tt.appendChild(tools);
-R.task.appendChild(tt);
-R.taskMeta=el("div","card-meta","research-agent · 3 of 3 steps · 44k / 200k");R.task.appendChild(R.taskMeta);
-var checks=el("div","checks");
-R.c1=el("div","check");R.c1Mark=el("span","done-mark","✓");R.c1.appendChild(R.c1Mark);R.c1.appendChild(el("span",null,"Freeze scope"));checks.appendChild(R.c1);
-R.c2=el("div","check");R.c2Mark=el("span","done-mark","✓");R.c2.appendChild(R.c2Mark);R.c2.appendChild(el("span",null,"Verify billing webhooks"));checks.appendChild(R.c2);
-R.c3=el("div","check");R.c3Mark=el("span",null,"○");R.c3.appendChild(R.c3Mark);R.c3.appendChild(el("span",null,"Sign off staging"));checks.appendChild(R.c3);
-R.task.appendChild(checks);
-R.taskDetail=el("div","task-detail","Last run 2m ago · click to collapse details. Retries are queued and safe to interrupt \u2014 pick up where you left off.");R.taskDetail.hidden=true;R.task.appendChild(R.taskDetail);
-R.task.addEventListener("click",function(){var open=R.taskDetail.hidden;R.taskDetail.hidden=!open;R.task.setAttribute("aria-expanded",open?"true":"false");});
-R.task.addEventListener("keydown",function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();R.task.click();}});
-R.msgs.appendChild(R.task);
-R.sub=el("div","sub");R.sub.appendChild(pxMark("a1",true));R.subText=el("span",null,"research-agent · gathering pricing · working");R.sub.appendChild(R.subText);R.msgs.appendChild(R.sub);
-R.dec=el("div","card decision");var dt=el("div","task-top");var dp=el("span","pill waiting","Needs decision");R.decPill=dp;dt.appendChild(dp);R.decTitle=el("span","card-title","Approve staging deploy?");dt.appendChild(R.decTitle);R.dec.appendChild(dt);
-R.decMeta=el("div","card-meta","orchestrator asks · plain answer inside · safe to interrupt");R.dec.appendChild(R.decMeta);
-R.decBody=el("p",null,"Staging is green except sign-off. Approve deploy to prod-preview?");R.decBody.style.margin="8px 0 0";R.decBody.style.fontSize="13px";R.dec.appendChild(R.decBody);
-var da=el("div","dec-actions");R.approve=el("button","btn primary","Approve");R.approve.type="button";R.reject=el("button","btn ghost","Request changes");R.reject.type="button";da.appendChild(R.approve);da.appendChild(R.reject);R.dec.appendChild(da);
+R.uMsg=el("div","bubble user");var uw=el("div","who","You \u00B7 09:41");R.uMsg.appendChild(uw);R.uText=el("p",null,"Break down the launch work for me.");R.uMsg.appendChild(R.uText);R.msgs.appendChild(R.uMsg);
+R.aMsg=el("div","bubble plain");var aw=el("div","who");aw.appendChild(pxMark("orch",true));R.aWho=el("span",null,"Orchestrator \u00B7 gpt-4o");aw.appendChild(R.aWho);R.aMsg.appendChild(aw);R.aText=el("p",null,"");R.aMsg.appendChild(R.aText);R.msgs.appendChild(R.aMsg);
+R.taskCards=[];R.taskRefs=[];
+for(var ti=0;ti<TASKS.length;ti++){var tr=makeTaskCard(ti);R.taskCards.push(tr.card);R.taskRefs.push(tr);R.msgs.appendChild(tr.card);}
+R.taskCards[2].hidden=true;
+R.dec=el("div","card decision");var dt=el("div","task-top");var dp=el("span","pill waiting","Needs decision");R.decPill=dp;dt.appendChild(dp);R.decHead=el("span","card-meta",DEC_HEAD);dt.appendChild(R.decHead);R.dec.appendChild(dt);
+R.decQ=el("p",null,DEC_Q);R.decQ.style.margin="8px 0 0";R.decQ.style.fontSize="13px";R.dec.appendChild(R.decQ);
+R.decOpts=[];var da=el("div","dec-actions");
+for(var oi=0;oi<DEC_OPTS.length;oi++){var ob=el("button","btn"+(oi===0?" primary":""),DEC_OPTS[oi]);ob.type="button";ob.setAttribute("data-opt",DEC_OPTS[oi]);(function(btn,label){btn.addEventListener("click",function(){R.decPill.textContent="Selected: "+label;R.decPill.className="pill done";R.decNote.textContent="Selected "+label+" \u00B7 logged to Tasks";});})(ob,DEC_OPTS[oi]);da.appendChild(ob);R.decOpts.push(ob);}
+R.dec.appendChild(da);
 R.decNote=el("div","card-meta","Awaiting your decision");R.decNote.style.marginTop="8px";R.dec.appendChild(R.decNote);
-R.approve.addEventListener("click",function(){R.decPill.textContent="Approved";R.decPill.className="pill done";R.decNote.textContent="Approved · logged to Tasks";});
-R.reject.addEventListener("click",function(){R.decPill.textContent="Changes requested";R.decPill.className="pill failed";R.decNote.textContent="Sent back with note · orchestrator will re-plan";});
 R.msgs.appendChild(R.dec);
-R.typing=el("div","typing");var ti=el("span",null,"orchestrator is working");R.typText=ti;R.typing.appendChild(ti);for(var k=0;k<3;k++)R.typing.appendChild(el("i"));R.msgs.appendChild(R.typing);
-R.scrollBtn=el("button","scrolled-pill","↓ 3 new messages below");R.scrollBtn.type="button";R.msgs.appendChild(R.scrollBtn);
-R.scrollBtn.addEventListener("click",function(){R.scrollBtn.hidden=true;R.typing.hidden=false;R.aText.textContent="Caught up \u2014 3 missed messages marked read.";});
+R.typing=el("div","typing");var ti2=el("span",null,"orchestrator is working");R.typText=ti2;R.typing.appendChild(ti2);for(var k=0;k<3;k++)R.typing.appendChild(el("i"));R.msgs.appendChild(R.typing);
+R.scrollBtn=el("button","scrolled-pill","\u2193 3 new messages below");R.scrollBtn.type="button";R.msgs.appendChild(R.scrollBtn);
+R.scrollBtn.addEventListener("click",function(){R.scrollBtn.hidden=true;R.typing.hidden=false;});
 R.off=el("div","banner off","Offline \u2014 reconnecting\u2026 replies will queue.");R.msgs.appendChild(R.off);
 R.err=el("div","banner err");R.errText=el("span",null,"Something failed to send. ");R.err.appendChild(R.errText);R.retry=el("button","btn","Retry");R.retry.type="button";R.err.appendChild(R.retry);R.retry.addEventListener("click",function(){R.errText.textContent="Retrying\u2026 ";R.errState="retrying";});R.msgs.appendChild(R.err);
-R.away=el("div","banner away","Away summary \u00b7 5 missed updates \u2014 billing fixed, staging still pending sign-off.");R.msgs.appendChild(R.away);
-R.up=el("div","card");var ur=el("div","upload-row");var fthumb=el("span","tool","⤒");ur.appendChild(fthumb);R.upText=el("span",null,"Uploading launch-notes.pdf · 0%");ur.appendChild(R.upText);R.msgs.appendChild(R.up);R.up.appendChild(ur);
+R.away=el("div","banner away","Away summary \u00B7 5 missed updates \u2014 billing fixed, staging still pending sign-off.");R.msgs.appendChild(R.away);
+R.up=el("div","card");var ur=el("div","upload-row");var fthumb=el("span","tool","\u2912");ur.appendChild(fthumb);R.upText=el("span",null,"Uploading launch-notes.pdf \u00B7 0%");ur.appendChild(R.upText);R.msgs.appendChild(R.up);R.up.appendChild(ur);
 var pr=el("div","progress");R.prog=el("span");pr.appendChild(R.prog);R.up.appendChild(pr);
-R.dict=el("div","card");var dr=el("div","upload-row");var mic=el("span","tool","◉");dr.appendChild(mic);R.dictText=el("span",null,"Dictating\u2026 0:00");dr.appendChild(R.dictText);var wv=el("span","wave");for(var w=0;w<12;w++){var bar=el("i");bar.style.animationDelay=(w*0.07)+"s";wv.appendChild(bar);}dr.appendChild(wv);R.dict.appendChild(dr);R.msgs.appendChild(R.dict);
+R.dict=el("div","card");var dr=el("div","upload-row");var mic=el("span","tool","\u25C9");dr.appendChild(mic);R.dictText=el("span",null,"Dictating\u2026 0:00");dr.appendChild(R.dictText);var wv=el("span","wave");for(var w=0;w<12;w++){var bar=el("i");bar.style.animationDelay=(w*0.07)+"s";wv.appendChild(bar);}dr.appendChild(wv);R.dict.appendChild(dr);R.msgs.appendChild(R.dict);
 R.skelBox=el("div","card");R.s1=el("div","skel");R.s2=el("div","skel");R.s2.style.marginTop="8px";R.s2.style.width="70%";R.skelBox.appendChild(R.s1);R.skelBox.appendChild(R.s2);R.msgs.appendChild(R.skelBox);
 R.input=document.getElementById("composerInput");R.send=document.getElementById("sendBtn");R.attach=document.getElementById("attachBtn");R.mic=document.getElementById("micBtn");
 R.inbox=document.getElementById("inboxLink");R.tasks=document.getElementById("tasksLink");R.route=document.getElementById("routeNote");
 }
-var state={mode:"live",tick:0,tokens:44,prog:0,dictSec:0,queue:0};
+var state={mode:"live",tick:0,tokens:44,prog:0,dictSec:0,queue:0,streamIdx:0,streamDone:false};
+function updateStreamInPlace(){
+if(state.streamDone){return;}
+var next=Math.min(STREAM_FULL.length,state.streamIdx+14);
+state.streamIdx=next;
+R.aText.textContent=STREAM_FULL.slice(0,next);
+if(next>=STREAM_FULL.length){state.streamDone=true;if(state.mode!=="loading"){R.taskCards[2].hidden=false;}}
+else{if(state.mode==="live"||state.mode==="scrolled"||state.mode==="offline"||state.mode==="uploading"||state.mode==="dictating"||state.mode==="away"||state.mode==="error"){R.taskCards[2].hidden=true;}}
+}
 function applyMode(){
 var m=state.mode;
 for(var id in R.modeBtns){R.modeBtns[id].setAttribute("aria-pressed",id===m?"true":"false");}
 R.typing.hidden=!(m==="live");R.scrollBtn.hidden=!(m==="scrolled");R.off.hidden=!(m==="offline");R.err.hidden=!(m==="error");R.away.hidden=!(m==="away");R.up.hidden=!(m==="uploading");R.dict.hidden=!(m==="dictating");R.skelBox.hidden=!(m==="loading");
-R.dec.hidden=(m==="loading");R.task.hidden=(m==="loading");R.sub.hidden=(m==="loading");R.aMsg.hidden=(m==="loading");R.uMsg.hidden=(m==="loading");
-if(m==="live"){R.threadSub.textContent="2 working · 3 agents · live";R.route.textContent="Route: Live";}
-else if(m==="decision"){R.threadSub.textContent="1 decision waiting · safe to interrupt";R.route.textContent="Route: Decision";}
-else if(m==="scrolled"){R.threadSub.textContent="Scrolled up · 3 unread below";R.route.textContent="Route: Scrolled up";}
-else if(m==="offline"){R.threadSub.textContent="Offline · replies queue locally";R.route.textContent="Route: Offline";}
-else if(m==="uploading"){R.threadSub.textContent="Uploading · resumable";R.route.textContent="Route: Uploading";}
-else if(m==="dictating"){R.threadSub.textContent="Dictating · transcribing locally";R.route.textContent="Route: Dictating";}
-else if(m==="away"){R.threadSub.textContent="Away summary · 5 missed updates";R.route.textContent="Route: Away summary";}
-else if(m==="error"){R.threadSub.textContent="Error · retry safely";R.route.textContent="Route: Error";}
+var hideTasks=(m==="loading");
+for(var i=0;i<R.taskCards.length;i++){
+if(hideTasks){R.taskCards[i].hidden=true;}
+else if(m==="decision"){R.taskCards[i].hidden=false;}
+else{if(i<2){R.taskCards[i].hidden=false;}else{R.taskCards[i].hidden=!state.streamDone;}}
+}
+R.dec.hidden=(m!=="decision");
+R.aMsg.hidden=(m==="loading");R.uMsg.hidden=(m==="loading");
+if(m==="live"){R.threadSub.textContent="2 working \u00B7 3 agents \u00B7 live";R.route.textContent="Route: Live";}
+else if(m==="decision"){R.threadSub.textContent="1 decision waiting \u00B7 safe to interrupt";R.route.textContent="Route: Decision";}
+else if(m==="scrolled"){R.threadSub.textContent="Scrolled up \u00B7 3 unread below";R.route.textContent="Route: Scrolled up";}
+else if(m==="offline"){R.threadSub.textContent="Offline \u00B7 replies queue locally";R.route.textContent="Route: Offline";}
+else if(m==="uploading"){R.threadSub.textContent="Uploading \u00B7 resumable";R.route.textContent="Route: Uploading";}
+else if(m==="dictating"){R.threadSub.textContent="Dictating \u00B7 transcribing locally";R.route.textContent="Route: Dictating";}
+else if(m==="away"){R.threadSub.textContent="Away summary \u00B7 5 missed updates";R.route.textContent="Route: Away summary";}
+else if(m==="error"){R.threadSub.textContent="Error \u00B7 retry safely";R.route.textContent="Route: Error";}
 else if(m==="loading"){R.threadSub.textContent="Loading thread\u2026";R.route.textContent="Route: Loading";}
-R.day.textContent="Today · "+m;
+R.day.textContent="Today \u00B7 "+m;
 }
 function tick(){
 state.tick++;
 var t=state.tick;
 R.ctxLabel.textContent=state.tokens+"k / 200k tokens";
 R.prog.style.width=state.prog+"%";
-if(state.mode==="live"){
-var dots=".".repeat(1+(t%3));R.typText.textContent="orchestrator is working"+dots;
-if(t%8===0){state.tokens=(state.tokens>=47?44:state.tokens+1);R.taskMeta.textContent="research-agent · 3 of 3 steps · "+state.tokens+"k / 200k";}
-if(t===12){R.aText.textContent="Update \u2014 billing webhooks verified, only staging sign-off left.";}
-if(t>=20){state.tick=0;R.aText.textContent="Here\u2019s where we stand \u2014 2 blockers remain: billing webhook retries and staging sign-off. Everything else is green.";}
-}else if(state.mode==="uploading"){
-state.prog=(state.prog+7)%101;R.upText.textContent="Uploading launch-notes.pdf · "+state.prog+"%";
-if(state.prog===0){state.tick=0;}
-}else if(state.mode==="dictating"){
-state.dictSec++;var s=state.dictSec%60;var mm=Math.floor(state.dictSec/60);R.dictText.textContent="Dictating\u2026 "+mm+":"+(s<10?"0":"")+s;
-if(state.dictSec>=30){state.dictSec=0;state.tick=0;}
-}else if(state.mode==="offline"){
-R.off.textContent="Offline \u2014 reconnecting\u2026 "+(state.queue)+" queued · replies will queue.";
-}else if(state.mode==="error"&&R.errState==="retrying"){
-if(t%4===0){R.errText.textContent="Something failed to send. ";R.errState="";state.mode="live";applyMode();}
-}
+if(state.mode==="live"){var dots=".".repeat(1+(t%3));R.typText.textContent="orchestrator is working"+dots;updateStreamInPlace();}
+else if(state.mode==="decision"){if(!state.streamDone){R.aText.textContent=STREAM_FULL;state.streamIdx=STREAM_FULL.length;state.streamDone=true;}for(var i=0;i<R.taskCards.length;i++){R.taskCards[i].hidden=false;}}
+else if(state.mode==="uploading"){state.prog=(state.prog+7)%101;R.upText.textContent="Uploading launch-notes.pdf \u00B7 "+state.prog+"%";if(state.prog===0){state.tick=0;}}
+else if(state.mode==="dictating"){state.dictSec++;var s=state.dictSec%60;var mm=Math.floor(state.dictSec/60);R.dictText.textContent="Dictating\u2026 "+mm+":"+(s<10?"0":"")+s;if(state.dictSec>=30){state.dictSec=0;state.tick=0;}}
+else if(state.mode==="offline"){R.off.textContent="Offline \u2014 reconnecting\u2026 "+(state.queue)+" queued \u00B7 replies will queue.";}
+else if(state.mode==="error"&&R.errState==="retrying"){if(t%4===0){R.errText.textContent="Something failed to send. ";R.errState="";state.mode="live";applyMode();}}
+if(state.tick>=60){state.tick=0;state.streamIdx=0;state.streamDone=false;R.aText.textContent="";if(state.mode!=="decision"&&state.mode!=="loading"){R.taskCards[2].hidden=true;}}
 }
 function bind(){
 for(var id in R.modeBtns){(function(k){R.modeBtns[k].addEventListener("click",function(){state.mode=k;state.tick=0;state.prog=0;applyMode();});})(id);}
@@ -244,22 +259,23 @@ R.send.addEventListener("click",send);R.input.addEventListener("keydown",functio
 document.addEventListener("keydown",function(e){if(e.key==="Escape"){R.scrollBtn.hidden=true;}});
 R.attach.addEventListener("click",function(){state.mode="uploading";state.prog=0;applyMode();});
 R.mic.addEventListener("click",function(){state.mode="dictating";state.dictSec=0;applyMode();});
-R.inbox.addEventListener("click",function(){R.route.textContent="Route: Agent Inbox";R.threadSub.textContent="Agent Inbox · 2 working · 3 agents";});
-R.tasks.addEventListener("click",function(){R.route.textContent="Route: Tasks";R.threadSub.textContent="Tasks · 3 of 3 steps";});
-R.themeBtn.addEventListener("click",function(){var h=document.documentElement;var next=h.getAttribute("data-theme")==="dark"?"light":"dark";h.setAttribute("data-theme",next);try{localStorage.setItem("affectui-agent-thread-theme",next);}catch(e){}R.themeIcon.textContent=next==="dark"?"☀":"☾";});
-try{var cur=document.documentElement.getAttribute("data-theme");R.themeIcon.textContent=cur==="dark"?"☀":"☾";}catch(e){}
+R.inbox.addEventListener("click",function(){R.route.textContent="Route: Agent Inbox";R.threadSub.textContent="Agent Inbox \u00B7 2 working \u00B7 3 agents";});
+R.tasks.addEventListener("click",function(){R.route.textContent="Route: Tasks";R.threadSub.textContent="Tasks \u00B7 3 cards";});
+R.themeBtn.addEventListener("click",function(){var h=document.documentElement;var next=h.getAttribute("data-theme")==="dark"?"light":"dark";h.setAttribute("data-theme",next);try{localStorage.setItem("affectui-agent-thread-theme",next);}catch(e){}R.themeIcon.textContent=next==="dark"?"\u2600":"\u263E";});
+try{var cur=document.documentElement.getAttribute("data-theme");R.themeIcon.textContent=cur==="dark"?"\u2600":"\u263E";}catch(e){}
 }
 function send(){
 var v=R.input.value.trim();
 if(!v)return;
-if(state.mode==="offline"){state.queue++;R.off.textContent="Offline \u2014 reconnecting\u2026 "+state.queue+" queued · replies will queue.";R.input.value="";return;}
+if(state.mode==="offline"){state.queue++;R.off.textContent="Offline \u2014 reconnecting\u2026 "+state.queue+" queued \u00B7 replies will queue.";R.input.value="";return;}
 R.uText.textContent=v;R.input.value="";state.mode="live";state.tick=0;applyMode();
 }
 buildStatic();bind();applyMode();
 var timer=setInterval(tick,900);
 if(window.__test__){clearInterval(timer);}
-window.__thread={refs:R,state:state,setMode:function(m){state.mode=m;applyMode();},tick:tick,modes:MODES};
+window.__thread={refs:R,state:state,setMode:function(m){state.mode=m;applyMode();},tick:tick,applyMode:applyMode,modes:MODES,completeStream:function(){state.streamIdx=STREAM_FULL.length;state.streamDone=true;R.aText.textContent=STREAM_FULL;if(state.mode!=="loading"){for(var i=0;i<R.taskCards.length;i++){R.taskCards[i].hidden=false;}}},resetStream:function(){state.streamIdx=0;state.streamDone=false;state.tick=0;R.aText.textContent="";applyMode();},streamFull:STREAM_FULL,tasks:TASKS,decQ:DEC_Q,decOpts:DEC_OPTS,decHead:DEC_HEAD};
 })();
+
 </script>
 </body>
 </html>

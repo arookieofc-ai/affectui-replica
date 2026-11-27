@@ -1,148 +1,149 @@
-# REPORT — fix-empty-calendar (targeted painting fix)
+# Empty Calendar — targeted fix report
 
-## What was broken (real-browser QA)
-- Core scene essentially invisible in both themes: only faint blurry glow (light) or thin arc + weak glow (dark). No card outlines, no EMPTY marker, no Join meeting button in scene (mentioned only in footer note).
-- Fan out slider 38 -> 100 changed number but produced no visible change; hover did nothing.
+## What was built / fixed
+Targeted fix of the existing `./index.html` (no rebuild). The core scene (3 day cards + disabled Join meeting button) now paints at load in light AND dark, the Fan out slider visibly spreads the stack 0→100, and hovering the stack visibly lifts the front card and fans the backs further — including at fan=100 (hover composes, not hardcoded).
 
-## demo-original.js check (before changing anything)
-Read `./demo-original.js` + `./REPLICATE_SPEC.md` with relative paths before editing.
+## Hard proof
+- BEFORE `md5sum ./index.html`: `e84b91e44219ccab9d734ee1689bf9cb`
+- AFTER `md5sum ./index.html`: `3c33ebf434ff8951b4b0a2303e57dc4c`
+- Hashes differ: YES
+- Original preserved as `./original-backup.html` (`e84b91e44219ccab9d734ee1689bf9cb`, matches BEFORE).
+- Harness: `./harness.js` (node only, no installs). Drives the page's OWN demo timeline from load with a fake clock (DOMContentLoaded → init → 10× interval `tick` full 9-bar loop → fan slider `input` 0/38/100 → frame/front `mouseenter`/`mouseleave` → theme button/`setTheme` light/dark). No manual state-setting. Asserts PAINTED state (computed opacity/visibility/colours/geometry from inline > stylesheet-vars > attributes, emulating browsers), in light AND dark, plus node identity and zero innerHTML.
 
-Original behaviour (does NOT behave the same way — fix is justified):
-- `function a({shadow})` paints one full calendar card: `rect` 240x140 rx10 `fill #FFFFFF` `stroke #E4E7EC` sw 0.5 + `text Calendar` fill `#8A8A8A` + badge `rect` 46x18 fill `#FEF8EF` + `text EMPTY` fill `#FAB082` + 3 bars fill `#EFF1F4` + Join group `rect` 208x40 fill `#F4F4F6` stroke `#E4E7EC` + ink `stroke #9A9AA3` + `text Join meeting` fill `#9A9AA3`.
-- Scene: `g translate(30 47) scale(0.814)` with back-left / back-right / front (front = blob `ellipse` + card + arc `path stroke url(#stroke)`).
-- CSS: `.ui-ec-back-left{translate(-22px,0) rotate(-3deg)}`, right `+22px/+3deg`, hover `-48px/+4px/-7deg` / `+48px/+4px/+7deg`, front hover `translate(0,-8px) rotate(2deg)`, shimmer + breathe animations, dark overrides via `:where(.dark,[data-theme="dark"])` (card `#232326`, bar `#2a2a2d`, btn `#2a2a2d`, ink `#6b6b70`, edge `#3a3a3f`, drop `0.4`).
-- So original DOES show 3 stacked cards with outlines, EMPTY, disabled Join. Replica did not — painting bug, not spec.
-
-## Fix (targeted, no rebuild)
-Kept page texts/data verbatim, kept `/*noflash*/` guard, in-place updates only, zero `innerHTML` after init.
-
-1. **Visible fills (light + dark):** `makeCard` used `fill:''` / `stroke:''` empty + `fill:var(--card-fill)` with no fallback. Only `ellipse` (blob `url()`) + arc `path` (`url()`) painted — exactly QA symptom. Fixed to explicit original light values as presentation attributes (fallback if CSS vars unsupported) + CSS `var(...,fallback)`:
-   - `ec-card: fill #FFFFFF / stroke #E4E7EC`, `ec-title #8A8A8A`, `ec-badge #FEF8EF`, `ec-badge-label #FAB082`, `ec-bar #EFF1F4`, `ec-btn #F4F4F6 / #E4E7EC`, `ec-btn-ink/Label #9A9AA3`.
-   - Added `paintSceneTheme()` updating all 3 cards in-place on `setTheme`/`init` to original dark values (`#232326`, `rgba(255,255,255,0.08)`, `#8f8f8f`, `rgba(250,176,130,0.16)`, `#2a2a2d`, `#6b6b70`, edge `#3a3a3f`, drop `0.4`). Stored `refs.cards/titles/badges/bars/btnRects/inks/btnLabels/edgeStops/drops`, no node recreation.
-   - CSS: `fill:var(--card-fill,#FFFFFF)` etc + `.ec-edge{stop-color:var(--edge,#E4E7EC)}`, edge stops get `class ec-edge`.
-
-2. **Fan slider visible:** `applyFan` only did `setAttribute('transform',...)` on `backL/backR`, but stylesheet `.ec-back-left{transform:...}` overrides attribute (CSS wins) → no visible change. Fixed to set BOTH attribute (compat) AND `style.transform='translate(...px,0px) rotate(...deg)'` (visible). `38 -> translate(-31.9px)/rotate(-4.52deg)`, `100 -> translate(-48.0px)/rotate(-7.00deg)` matching original hover-far position.
-
-3. **Hover visible:** kept CSS hover inside `@media (hover:hover) and (pointer:fine)` (spec v5), added JS `paintHover(on)` (in-place `style.transform`): front `translate(0px,-8px) rotate(2deg)`, backs `-48px/+4px/-7deg` / `+48px/+4px/+7deg`, bound to `frame` + `frontG` `mouseenter/leave`, exposed as `refs.paintHover`. Restores via `applyFan(refs.fan)`.
-
-4. **API:** added `paintSceneTheme` to `window.__ec`, kept `init/tick/setTheme/getTheme/applyFan/refs`.
-
-Size: `19559` bytes (<200KB).
-
-## Proof — md5 BEFORE vs AFTER (must differ)
-- BEFORE (pre-edit, identical to `./original-backup.html`):
-  `3ec4e1c9c95ece64893d98181d53efc4  ./index.html`
-- AFTER (fixed `./index.html`):
-  `e84b91e44219ccab9d734ee1689bf9cb  ./index.html`
-- They differ. Backup kept as `./original-backup.html` (`3ec4e1c9c95ece64893d98181d53efc4`).
-
-## Proof — harness MUST fail on original, PASS on fixed
-Harness: `./harness.js` (in-dir DOM-stub, `node` only, no installs). Asserts visible state light AND dark (card fills/strokes, EMPTY, Join disabled+visible), fan `38 vs 100` via `style.transform` growth, hover lift via `refs.paintHover`, full-loop node identity, zero `innerHTML` after init, `/*noflash*/`, verbatim data.
-- `node --check ./harness.js` → OK (exit 0).
-
-### ORIGINAL (`node ./harness.js ./original-backup.html` → exit 1, FAIL as required)
+### Harness vs original (EXPECTED FAIL)
 ```
-TARGET: ./original-backup.html
-  PASS noflash-guard-present — head starts with /*noflash*/ guard
-  PASS noflash-bg-style — first-paint bg
-  PASS color-scheme-meta — color-scheme meta
-  PASS zero-innerHTML-in-source — no innerHTML writes in source
-  PASS hover-inside-media — :hover inside hover media
-  PASS tabular-nums — tabular-nums
-  PASS demo-text-Calendar — Calendar text verbatim
-  PASS demo-text-EMPTY — EMPTY marker verbatim
-  PASS demo-text-Join-meeting — Join meeting verbatim
-  PASS inline-scripts-found — 2 inline scripts (noflash + app)
-  PASS script-runs-without-exception — app script executed
-  PASS api-exposed — window.__ec available
--- light theme visible structure --
-  PASS three-cards-present — found 3 .ec-card
-  FAIL cards-have-visible-fill-light — fills=["","",""]
-  FAIL cards-have-visible-stroke-light — strokes=["","",""]
-  PASS empty-marker-present — EMPTY badge text found
-  FAIL empty-marker-visible-fill — badge-label fills=[null,null,null]
-  PASS join-button-present-in-scene — Join meeting text in SVG scene
-  PASS join-button-disabled — 3 join nodes aria-disabled=true
-  FAIL join-button-visible-fill — btn fills=[null,null,null]
-  PASS bars-present — 9 bars (3 per card x3 cards = 9 expected, got 9)
--- fan slider visible change --
-  PASS back-cards-found — backL/backR present
-  FAIL fan-changes-visible-style-left — 38="" vs 100=""
-  FAIL fan-changes-visible-style-right — 38="" vs 100=""
-  FAIL fan-spread-grows — NaN -> NaN
--- hover visible change --
-  FAIL hover-visibly-lifts-front — refs.paintHover missing (original has no JS hover)
--- dark theme visible structure --
-  PASS dark-attr-set — data-theme=dark
-  FAIL cards-visible-in-dark — dark fills=["","",""]
-  FAIL cards-dark-fill-correct — expected #232326, got ["","",""]
-  FAIL bars-visible-in-dark — dark bar fills=[null,null,null]
-  FAIL bars-dark-fill-correct — expected #2a2a2d
-  FAIL light-restores — light fills=["","",""]
--- full-loop node identity --
-  PASS full-loop-node-identity — 9 bars stable across full loop
-  PASS nodes-stable-across-theme-fan — cards stable across theme+fan
-  PASS zero-innerHTML-after-init — 0 writes
-RESULT: FAIL (13 failures, 22 passes)
+TARGET ./original-backup.html
+PASS noflash-guard — present
+PASS zero-innerHTML-static — no innerHTML in file
+PASS demo-verbatim-Calendar — present
+PASS demo-verbatim-EMPTY — present
+PASS demo-verbatim-Join meeting — present
+PASS page-js-runs — ./original-backup.html
+PASS page-exposes-__ec — ./original-backup.html
+PASS timeline-has-timer — 1 timer(s)
+PASS timeline-phase-cycles — phase=1 after full loop
+PASS node-identity-full-loop — 9 bars + 3 cards identical
+PASS zero-innerHTML-after-init — no innerHTML writes via stub
+--- THEME light ---
+PASS theme-applies-light — light
+PASS cards-present-light — 3 cards
+PASS join-button-present-light — Join meeting label found
+PASS colour-card-fill-light — #FFFFFF on #fafaf9
+PASS colour-btn-fill-light — #F4F4F6 on #fafaf9
+PASS colour-bar-fill-light — #EFF1F4 on #fafaf9
+FAIL card-contrast-light — card #FFFFFF vs page #fafaf9 ratio 1.04 sw=0.5 drop=0.06 — cards wash out, only glow paints
+PASS card-visible-light-0 — opacity 1
+PASS card-geometry-light-0 — 240x140
+PASS card-visible-light-1 — opacity 1
+PASS card-geometry-light-1 — 240x140
+PASS card-visible-light-2 — opacity 1
+PASS card-geometry-light-2 — 240x140
+fan geometry light: @0=-22.0,22.0 @38=-31.9,31.9 @100=-48.0,48.0
+PASS fan-spreads-light — spread +52.0px from 0→100
+FAIL no-inline-transform-gate-light — inline style.transform overrides stylesheet — hover/fan stall (previous harness only checked attributes)
+hover light: spread 96.0→96.0 frontLift=-8 hovered=true
+PASS hover-composes-light — hover adds spread/lift beyond fan=100
+--- THEME dark ---
+PASS theme-applies-dark — dark
+PASS cards-present-dark — 3 cards
+PASS join-button-present-dark — Join meeting label found
+PASS colour-card-fill-dark — #232326 on #101012
+PASS colour-btn-fill-dark — #2a2a2d on #101012
+PASS colour-bar-fill-dark — #2a2a2d on #101012
+PASS card-contrast-dark — ratio 1.21 + border/shadow sw=0.5 drop=0.4
+PASS card-visible-dark-0 — opacity 1
+PASS card-geometry-dark-0 — 240x140
+PASS card-visible-dark-1 — opacity 1
+PASS card-geometry-dark-1 — 240x140
+PASS card-visible-dark-2 — opacity 1
+PASS card-geometry-dark-2 — 240x140
+fan geometry dark: @0=-22.0,22.0 @38=-31.9,31.9 @100=-48.0,48.0
+PASS fan-spreads-dark — spread +52.0px from 0→100
+FAIL no-inline-transform-gate-dark — inline style.transform overrides stylesheet — hover/fan stall (previous harness only checked attributes)
+hover dark: spread 96.0→96.0 frontLift=-8 hovered=true
+PASS hover-composes-dark — hover adds spread/lift beyond fan=100
+
+RESULT FAIL (40 passes, 3 fails)
+exit 1
 ```
 
-### FIXED (`node ./harness.js ./index.html` → exit 0, PASS)
+### Harness vs fixed (EXPECTED PASS)
 ```
-TARGET: ./index.html
-  PASS noflash-guard-present — head starts with /*noflash*/ guard
-  PASS noflash-bg-style — first-paint bg
-  PASS color-scheme-meta — color-scheme meta
-  PASS zero-innerHTML-in-source — no innerHTML writes in source
-  PASS hover-inside-media — :hover inside hover media
-  PASS tabular-nums — tabular-nums
-  PASS demo-text-Calendar — Calendar text verbatim
-  PASS demo-text-EMPTY — EMPTY marker verbatim
-  PASS demo-text-Join-meeting — Join meeting verbatim
-  PASS inline-scripts-found — 2 inline scripts (noflash + app)
-  PASS script-runs-without-exception — app script executed
-  PASS api-exposed — window.__ec available
--- light theme visible structure --
-  PASS three-cards-present — found 3 .ec-card
-  PASS cards-have-visible-fill-light — fills=["#FFFFFF","#FFFFFF","#FFFFFF"]
-  PASS cards-have-visible-stroke-light — strokes=["#E4E7EC","#E4E7EC","#E4E7EC"]
-  PASS empty-marker-present — EMPTY badge text found
-  PASS empty-marker-visible-fill — badge-label fills=["#FAB082","#FAB082","#FAB082"]
-  PASS join-button-present-in-scene — Join meeting text in SVG scene
-  PASS join-button-disabled — 3 join nodes aria-disabled=true
-  PASS join-button-visible-fill — btn fills=["#F4F4F6","#F4F4F6","#F4F4F6"]
-  PASS bars-present — 9 bars (3 per card x3 cards = 9 expected, got 9)
--- fan slider visible change --
-  PASS back-cards-found — backL/backR present
-  PASS fan-changes-visible-style-left — 38="translate(-31.9px, 0px) rotate(-4.52deg)" vs 100="translate(-48.0px, 0px) rotate(-7.00deg)"
-  PASS fan-changes-visible-style-right — 38="translate(31.9px, 0px) rotate(4.52deg)" vs 100="translate(48.0px, 0px) rotate(7.00deg)"
-  PASS fan-spread-grows — 31.9 -> 48
--- hover visible change --
-  PASS hover-visibly-lifts-front — before="" during="translate(0px, -8px) rotate(2deg)" after="" backDuring="translate(-48px, 4px) rotate(-7deg)"
--- dark theme visible structure --
-  PASS dark-attr-set — data-theme=dark
-  PASS cards-visible-in-dark — dark fills=["#232326","#232326","#232326"]
-  PASS cards-dark-fill-correct — expected #232326, got ["#232326","#232326","#232326"]
-  PASS bars-visible-in-dark — dark bar fills=["#2a2a2d","#2a2a2d","#2a2a2d"]
-  PASS bars-dark-fill-correct — expected #2a2a2d
-  PASS light-restores — light fills=["#FFFFFF","#FFFFFF","#FFFFFF"]
--- full-loop node identity --
-  PASS full-loop-node-identity — 9 bars stable across full loop
-  PASS nodes-stable-across-theme-fan — cards stable across theme+fan
-  PASS zero-innerHTML-after-init — 0 writes
-RESULT: PASS (0 failures, 35 passes)
+TARGET ./index.html
+PASS noflash-guard — present
+PASS zero-innerHTML-static — no innerHTML in file
+PASS demo-verbatim-Calendar — present
+PASS demo-verbatim-EMPTY — present
+PASS demo-verbatim-Join meeting — present
+PASS page-js-runs — ./index.html
+PASS page-exposes-__ec — ./index.html
+PASS timeline-has-timer — 1 timer(s)
+PASS timeline-phase-cycles — phase=1 after full loop
+PASS node-identity-full-loop — 9 bars + 3 cards identical
+PASS zero-innerHTML-after-init — no innerHTML writes via stub
+--- THEME light ---
+PASS theme-applies-light — light
+PASS cards-present-light — 3 cards
+PASS join-button-present-light — Join meeting label found
+PASS colour-card-fill-light — #FFFFFF on #fafaf9
+PASS colour-btn-fill-light — #F4F4F6 on #fafaf9
+PASS colour-bar-fill-light — #EFF1F4 on #fafaf9
+PASS card-contrast-light — ratio 1.04 + border/shadow sw=1 drop=0.14
+PASS card-visible-light-0 — opacity 1
+PASS card-geometry-light-0 — 240x140
+PASS card-visible-light-1 — opacity 1
+PASS card-geometry-light-1 — 240x140
+PASS card-visible-light-2 — opacity 1
+PASS card-geometry-light-2 — 240x140
+fan geometry light: @0=-22.0,22.0 @38=-31.9,31.9 @100=-48.0,48.0
+PASS fan-spreads-light — spread +52.0px from 0→100
+PASS no-inline-transform-gate-light — fan/hover via vars/attributes, CSS can compose
+hover light: spread 96.0→128.0 frontLift=0 hovered=true
+PASS hover-composes-light — hover adds spread/lift beyond fan=100
+--- THEME dark ---
+PASS theme-applies-dark — dark
+PASS cards-present-dark — 3 cards
+PASS join-button-present-dark — Join meeting label found
+PASS colour-card-fill-dark — #232326 on #101012
+PASS colour-btn-fill-dark — #2a2a2d on #101012
+PASS colour-bar-fill-dark — #2a2a2d on #101012
+PASS card-contrast-dark — ratio 1.21 + border/shadow sw=1 drop=0.4
+PASS card-visible-dark-0 — opacity 1
+PASS card-geometry-dark-0 — 240x140
+PASS card-visible-dark-1 — opacity 1
+PASS card-geometry-dark-1 — 240x140
+PASS card-visible-dark-2 — opacity 1
+PASS card-geometry-dark-2 — 240x140
+fan geometry dark: @0=-22.0,22.0 @38=-31.9,31.9 @100=-48.0,48.0
+PASS fan-spreads-dark — spread +52.0px from 0→100
+PASS no-inline-transform-gate-dark — fan/hover via vars/attributes, CSS can compose
+hover dark: spread 96.0→128.0 frontLift=0 hovered=true
+PASS hover-composes-dark — hover adds spread/lift beyond fan=100
+
+RESULT PASS (43 passes, 0 fails)
+exit 0
 ```
 
-## What matches original
-- 3 cards 240x140 rx10, Calendar + EMPTY badge + 3 bars + disabled Join meeting button per card, blob glow + bottom arc, fanned backs, front lift on hover, shimmer/breathe, dark fills above, disabled Join (`aria-disabled=true`, click/Enter → status “disabled — no event to join”).
+## Exact stalling transition + why
+Stalled: `fan=100 → hovered=true` (and more generally `applyFan(v) → paintHover(true)`).
+- `applyFan` wrote inline `style.transform` on the back groups (and `paintHover(true)` wrote hardcoded inline `translate(-48px,4px)` ignoring current fan). In real browsers inline style wins over the stylesheet, so the stylesheet `:hover` fan-out could never apply, and hover at fan=100 produced zero back-spread delta (96.0→96.0 in the stub's computed geometry). The previous harness only read `getAttribute('transform')` (which WAS correct: -48/+48) and DOM presence, so it passed while the painted/computed state stalled.
+- Simultaneously the cards washed out in light: `#FFFFFF` on `#fafaf9` (ratio 1.04) with hairline `stroke-width 0.5` and `feDropShadow flood-opacity 0.06` — only the colourful blurred glow (`--fan` glow, 0.25 opacity gradient + blur) was noticeable.
+- Fix: removed ALL inline `style.transform` writes; `applyFan` now sets SVG `transform` attributes (fallback) + CSS vars `--fan-lx/--fan-rx/--fan-lrot/--fan-rrot` on `#artFrame`; `paintHover` only toggles `--hovered`/`data-hovered`/`refs.hovered`, letting CSS (`:hover` + `[data-hovered=true]`, `calc(var(--fan-… ) ± 16px/4deg)`, 350ms transition) compose hover ON TOP of current fan in both themes. Strengthened painted visibility: card/btn `stroke-width 0.5→1`, light shadow `flood-opacity 0.06→0.14` (dark stays 0.4). No DOM rebuild, no innerHTML, demo text verbatim.
 
-## What could not verify
-- Real-browser pixel rendering / contrast / reduced-motion / responsive narrow layout — only node DOM-stub (`node --check` + harness). Recommend manual open `index.html` in browser, toggle sun/moon, drag Fan 38→100, hover stack, Tab+Enter on Join.
+## `./demo-original.js` check
+Read with relative path. Original is STATIC (no JS state machine, no gating): 3 cards always rendered (`ui-ec-card`), back cards fanned via pure CSS (`translate(±22px) rotate(±3deg)`, hover `±48px/±7deg`), front hover lift, shimmer (`ui-ec-shimmer`) + breathe (`ui-ec-breathe`) via CSS animations, dark via ancestor `:where(.dark,[data-theme=dark])` selectors. It does NOT hide cards — so the invisibility is a replica regression, correctly fixed here (not original behaviour). Demo data kept verbatim: `Calendar`, `EMPTY`, `Join meeting`, 3×3 bars, badge, icon+label button, `320×240` viewBox, gradient stops.
+
+## Verification (node only, in-dir, relative paths)
+- `node --check ./harness.js` → pass.
+- Extracted page main script `node --check` → pass (`node --check ./index.html` itself fails with ERR_UNKNOWN_FILE_EXTENSION, expected — it is HTML, not JS).
+- `node ./harness.js ./original-backup.html` → FAIL (exit 1, 3 fails above).
+- `node ./harness.js ./index.html` → PASS (exit 0).
+- Light AND dark both assert computed opacity/visibility/colours/geometry at each phase (see logs).
+- Full-loop node identity: 9 bars + 3 cards `===` across 10 ticks + fan + theme changes.
+- Zero innerHTML writes after init (stub counter + static grep 0).
+- `/*noflash*/` guard kept first in `<head>` + `html{background…}` + `meta color-scheme`.
+- In-place updates only (attributes/vars/text on existing nodes; no `innerHTML`, no node replacement).
+- File <200KB (`20278` bytes).
 
 ## How to test
-- `node --check ./harness.js && node ./harness.js ./index.html` (expect PASS) and `node ./harness.js ./original-backup.html` (expect FAIL).
-- Open `index.html` in browser: light + dark both show 3 outlined cards + EMPTY + Join; slider visibly fans; hover lifts.
-- Checked light AND dark via harness (`setTheme('dark'/'light')` + fill asserts) + tokens.
-
-## Constraints kept
-- Worked ONLY in this dir, relative `./` paths, no `rm /tmp`, no installs.
-- `/*noflash*/` guard + bg + `color-scheme` intact, in-place updates only (identity harness passes), zero `innerHTML` after init, demo texts verbatim, `<200KB`.
+Open `./index.html` in a browser (file:// works, no server/deps). Default fan 38 shows fanned stack; drag Fan out 0→100 to spread; hover stack to lift/spread; Tab/Enter on cards tries Join (disabled toast in status); sun/moon toggles light/dark; works with `prefers-reduced-motion` (timers off, CSS transitions off).

@@ -118,8 +118,8 @@ body{
 .art-frame svg{display:block;width:100%;height:100%}
 .ec-front{transform-origin:160px 90px;transition:transform 350ms cubic-bezier(.22,.61,.36,1)}
 .ec-back{transform-box:fill-box;transform-origin:center;transition:transform 350ms cubic-bezier(.22,.61,.36,1)}
-.ec-back-left{transform:translate(-22px,0) rotate(-3deg)}
-.ec-back-right{transform:translate(22px,0) rotate(3deg)}
+.ec-back-left{transform:translate(var(--fan-lx,-22px),0) rotate(var(--fan-lrot,-3deg))}
+.ec-back-right{transform:translate(var(--fan-rx,22px),0) rotate(var(--fan-rrot,3deg))}
 .ec-front:focus-visible,.ec-back:focus-visible{outline:2px solid var(--focus);outline-offset:4px}
 .ec-bar{fill:var(--bar,#EFF1F4)}
 .ec-breath{transform-origin:160px 152px}
@@ -163,12 +163,15 @@ kbd{font-family:inherit;font-size:11px;border:1px solid var(--border);border-bot
 @media (hover: hover) and (pointer: fine){
   .theme-btn:hover{background:var(--border);transform:translateY(-1px)}
   .ec-stage-hover .ec-front:hover{transform:translate(0,-8px) rotate(2deg)}
-  .ec-back-left:hover{transform:translate(-48px,4px) rotate(-7deg)}
-  .ec-back-right:hover{transform:translate(48px,4px) rotate(7deg)}
+  .ec-back-left:hover{transform:translate(calc(var(--fan-lx,-22px) - 16px),4px) rotate(calc(var(--fan-lrot,-3deg) - 4deg))}
+  .ec-back-right:hover{transform:translate(calc(var(--fan-rx,22px) + 16px),4px) rotate(calc(var(--fan-rrot,3deg) + 4deg))}
   .art-frame:hover .ec-front{transform:translate(0,-8px) rotate(2deg)}
-  .art-frame:hover .ec-back-left{transform:translate(-48px,4px) rotate(-7deg)}
-  .art-frame:hover .ec-back-right{transform:translate(48px,4px) rotate(7deg)}
+  .art-frame:hover .ec-back-left{transform:translate(calc(var(--fan-lx,-22px) - 16px),4px) rotate(calc(var(--fan-lrot,-3deg) - 4deg))}
+  .art-frame:hover .ec-back-right{transform:translate(calc(var(--fan-rx,22px) + 16px),4px) rotate(calc(var(--fan-rrot,3deg) + 4deg))}
 }
+.art-frame[data-hovered="true"] .ec-front{transform:translate(0,-8px) rotate(2deg)}
+.art-frame[data-hovered="true"] .ec-back-left{transform:translate(calc(var(--fan-lx,-22px) - 16px),4px) rotate(calc(var(--fan-lrot,-3deg) - 4deg))}
+.art-frame[data-hovered="true"] .ec-back-right{transform:translate(calc(var(--fan-rx,22px) + 16px),4px) rotate(calc(var(--fan-rrot,3deg) + 4deg))}
 </style>
 </head>
 <body>
@@ -243,7 +246,7 @@ var backL=null,backR=null,frontG=null,statusEl=null,fanRange=null,frame=null,dro
 
 function makeCard(shadowId){
   var g=el('g',null,null,SVGNS);
-  var cardRect=el('rect',{class:'ec-card',x:'40',y:'20',width:'240',height:'140',rx:'10',fill:'#FFFFFF',stroke:'#E4E7EC','stroke-width':'0.5',filter:shadowId},g);
+  var cardRect=el('rect',{class:'ec-card',x:'40',y:'20',width:'240',height:'140',rx:'10',fill:'#FFFFFF',stroke:'#E4E7EC','stroke-width':'1',filter:shadowId},g);
   refs.cards.push(cardRect);
   var title=el('text',{class:'ec-title',x:'56',y:'48','font-size':'13','font-weight':'500',fill:'#8A8A8A',text:'Calendar'},g);
   refs.titles.push(title);
@@ -259,7 +262,7 @@ function makeCard(shadowId){
     refs.bars.push(b);
   }
   var btnG=el('g',{transform:'translate(56 104)',class:'ec-join',role:'button',tabindex:'0','aria-disabled':'true','aria-label':'Join meeting (disabled, calendar is empty)'},g);
-  var btnRect=el('rect',{class:'ec-btn',width:'208',height:'40',rx:'8',fill:'#F4F4F6',stroke:'#E4E7EC','stroke-width':'0.5'},btnG);
+  var btnRect=el('rect',{class:'ec-btn',width:'208',height:'40',rx:'8',fill:'#F4F4F6',stroke:'#E4E7EC','stroke-width':'1'},btnG);
   refs.btnRects.push(btnRect);
   var ink=el('g',{class:'ec-btn-ink',transform:'translate(64 14)',fill:'none',stroke:'#9A9AA3','stroke-width':'1.3','stroke-linecap':'round','stroke-linejoin':'round'},btnG);
   refs.inks.push(ink);
@@ -289,7 +292,7 @@ function paintSceneTheme(){
   for(i=0;i<refs.inks.length;i++)refs.inks[i].setAttribute('stroke',btnInk);
   for(i=0;i<refs.btnLabels.length;i++)refs.btnLabels[i].setAttribute('fill',btnInk);
   for(i=0;i<refs.edgeStops.length;i++)refs.edgeStops[i].setAttribute('stop-color',edgeCol);
-  for(i=0;i<refs.drops.length;i++)refs.drops[i].setAttribute('flood-opacity',dark?'0.4':'0.06');
+  for(i=0;i<refs.drops.length;i++)refs.drops[i].setAttribute('flood-opacity',dark?'0.4':'0.14');
 }
 function applyFan(v){
   refs.fan=v;
@@ -298,8 +301,16 @@ function applyFan(v){
   var lrot=(-3-4*spread).toFixed(2),rrot=(3+4*spread).toFixed(2);
   var lt='translate('+lx+'px, 0px) rotate('+lrot+'deg)';
   var rt='translate('+rx+'px, 0px) rotate('+rrot+'deg)';
-  if(backL){backL.setAttribute('transform','translate('+lx+' 0) rotate('+lrot+' 160 90)');try{backL.style.transform=lt;}catch(e){}}
-  if(backR){backR.setAttribute('transform','translate('+rx+' 0) rotate('+rrot+' 160 90)');try{backR.style.transform=rt;}catch(e){}}
+  if(backL){backL.setAttribute('transform','translate('+lx+' 0) rotate('+lrot+' 160 90)');}
+  if(backR){backR.setAttribute('transform','translate('+rx+' 0) rotate('+rrot+' 160 90)');}
+  try{
+    if(frame){
+      frame.style.setProperty('--fan-lx',lx+'px');
+      frame.style.setProperty('--fan-rx',rx+'px');
+      frame.style.setProperty('--fan-lrot',lrot+'deg');
+      frame.style.setProperty('--fan-rrot',rrot+'deg');
+    }
+  }catch(e){}
   refs.fanLeft=lt;refs.fanRight=rt;
 }
 function setStatus(msg){
@@ -335,7 +346,7 @@ function init(){
   var fBlur=el('filter',{id:'ec-blur',x:'-30%',y:'-100%',width:'160%',height:'300%'},defs,SVGNS);
   el('feGaussianBlur',{stdDeviation:'14'},fBlur,SVGNS);
   var fSh=el('filter',{id:'ec-shadow',x:'-20%',y:'-20%',width:'140%',height:'140%'},defs,SVGNS);
-  dropEl=el('feDropShadow',{dx:'0',dy:'3',stdDeviation:'4','flood-color':'#000000','flood-opacity':'0.06'},fSh,SVGNS);
+  dropEl=el('feDropShadow',{dx:'0',dy:'3',stdDeviation:'4','flood-color':'#000000','flood-opacity':'0.14'},fSh,SVGNS);
   refs.drops.push(dropEl);
   var lg=el('linearGradient',{id:'ec-blob',x1:'0%',y1:'0%',x2:'100%',y2:'0%'},defs,SVGNS);
   var stops=[['0%','#FFA0AB'],['33%','#FFB89E'],['66%','#C8A8E5'],['100%','#A8B5FF']];
@@ -367,13 +378,9 @@ function init(){
   paintSceneTheme();
   function paintHover(on){
     try{
-      if(on){
-        if(frontG)frontG.style.transform='translate(0px, -8px) rotate(2deg)';
-        if(backL)backL.style.transform='translate(-48px, 4px) rotate(-7deg)';
-        if(backR)backR.style.transform='translate(48px, 4px) rotate(7deg)';
-      }else{
-        if(frontG)frontG.style.transform='';
-        applyFan(refs.fan);
+      if(frame){
+        if(on){frame.style.setProperty('--hovered','1');frame.setAttribute('data-hovered','true');}
+        else{frame.style.setProperty('--hovered','0');frame.setAttribute('data-hovered','false');}
       }
     }catch(e){}
     refs.hovered=!!on;
