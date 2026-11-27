@@ -1,35 +1,72 @@
-# agent-run replica — REPORT
+# agent-run targeted fix — REPORT
 
-## What was built
-Single self-contained `index.html` (37.6 KB, no external deps, system fonts only) replicating affectUI **AI Chat / Run — slug `agent-run` (App screens)**.
+## Scope
+Targeted fix of `./index.html` only. No rebuild; everything else kept identical.
+Constraints kept: `/*noflash*/` guard, in-place updates only, zero `innerHTML`
+writes after init, demo data verbatim (`STEPS`, `DRAFT`, `FILES` untouched).
 
-Layout:
-- Left app nav (Home / Chat / Runs [3] / Analytics / Deliverables + Agents: Board prep active, Revenue ops, Inbox triage, Workflows).
-- Center run column: crumbs `Runs / Prepare the Q3 board update` + phase pill (Running / Needs input / Done / Stopped), time label, Stop run / Run again, theme toggle, options; hero (avatar Board prep · started by Alex Morgan, title, 4px progress bar, Uses logos stripe/drive/docs/gmail/calendar, figures Steps / Tool calls / Time / Cost $0.14); Plan block (5 steps); Activity feed (per-step entries + expandable tool calls + loader).
-- Right `Run details` panel: Needs your input (approval card), Draft (Board memo – Q3 · Revenue original vs suggested), Files (board-memo-q3.md, q3-revenue.csv, churn-chart.png + mini chart).
+## Defect 1 — duplicate "Waiting for your approval" in Activity (FIXED)
+- Root cause: in the pre-approval state two rows in the same Activity block
+  contained the string: (a) the per-step note
+  (`refs.feedNotes[3]`, text `"○ Waiting for your approval"`), and (b) the
+  block footer loader (`#loaderText`, text `"Waiting for your approval"` with
+  the CSS spinner, which reads as the "↻" row).
+- Original check (`./demo-original.js`): the canonical approval-state row is
+  the per-step `ui-ar__note` (`H[t]==='approved' ? 'You approved this step' :
+  ... : 'Waiting for your approval'`), which is the element that flips to
+  `"✓ You approved this step"` on approve. Kept that form (the "○" note).
+- Fix (2 lines in `refreshChrome`): the footer loader no longer renders the
+  duplicate Waiting string and is hidden while waiting:
+  - `loaderText` is now `done ? "Done in …" : stopped ? "Run stopped" : "Using tools…"`
+    (no Waiting case at all),
+  - `loader.style.display = (done || waiting) ? "none" : "flex"`.
+  - After approve the single note still flips via the existing `decide()`
+    path (`note.textContent = "✓ You approved this step"`), verified by harness.
 
-Behavior (autonomous loop):
-- Event timeline mirrors original `Oe()` order: step → ask (450ms) → call (200ms) → end (call.duration) → finish (250ms). Steps activate in place, calls go Running → success with duration + JSON result, progress/figures/time update in place every tick.
-- Step 4 `Send the draft to Maya` pauses on `Waiting for your approval`; Deny/Approve buttons work. Approve continues to step 5 → Done; Deny marks step failed and stops the run (Retry re-queues in place). Stop run / Run again also work in place.
-- Tool calls expand/collapse (aria-expanded, no innerHTML), keyboard-focusable, focus-visible outline.
+## Defect 2 — "Steps 3/5" vs "Activity 4 of 5" (NOT changed — matches original)
+- Checked `./demo-original.js` before changing anything. The original computes:
+  - Steps figure: `` `${K.size} / ${k.length}` `` where
+    `K = events(kind==='finish')` (finished steps),
+  - Activity header: `[G.size, ' of ', k.length]` where
+    `G = events(kind==='step')` (started steps).
+- At the waiting moment (step 4 started, 3 finished) the original therefore
+  shows exactly `3 / 5` vs `4 of 5` — the reported numbers. The replica does
+  the same (`doneSet.size` vs `activeSet.size`). The two counters measure
+  different things by design (done vs shown/started), so per the task rule
+  ("if the original behaves the same way, do NOT 'fix' it") no change was made.
 
-Demo data is verbatim from `demo-original.js`: all 5 step titles/details/tools, all 8 call summaries/args/results, approval title/description/risk/details (Maya Chen (CFO), Q3 board update – draft, Board memo – Q3 2026), draft label + original/suggested paragraphs, run title/agent/user/cost, file names.
+## Defect 3 — 5 blank boxes under Files (FIXED)
+- Root cause: replica-only placeholder chart — JS created five empty `<i>`
+  bars (`[22,34,48,58,72].forEach…appendChild`) inside `#chartRow`, styled by
+  `.chart i` as hollow rectangles.
+- Original check (`./demo-original.js`): the Files section is
+  `Object.keys(j).length>0 && (label 'Files' + file list names:Object.keys(j))`
+  with `j = {"board-memo-q3.md", "q3-revenue.csv", "churn-chart.png"}` — real
+  file chips/cards, no bar chart. The replica's 3 `chipfile` chips already
+  match this, so they were kept verbatim.
+- Fix: removed the `#chartRow` div from the HTML and removed the JS lines that
+  populated it. `chartRow` now has zero references in the file. Files shows
+  exactly the 3 real chips: `board-memo-q3.md`, `q3-revenue.csv`,
+  `churn-chart.png`.
 
-## What matches the original
-- Header pattern (Runs / title + pill + time + Stop/Run-again), progress bar colors per phase, figures row, Plan + Activity blocks, approval card (Step 4 code, Medium risk, To/Subject/Attachment, Deny/Approve), draft diff, file chips.
-- Design tokens as CSS vars, light + dark values from spec, 1px borders + soft shadows, hover lift (hover-fine only), 150–200ms transitions, pills 999px, tabular-nums, tap-highlight transparent, concentric radii, inset outlines on logos/chart, reduced-motion guard.
-- v4 rules: noflash guard first in `<head>` (theme key `affectui-agent-run-theme` + `html{background}` + `color-scheme` meta); DOM built once, all ticks update nodes in place; loop restart reuses nodes.
-
-## What could not be verified
-- Pixel-exact colors/spacing vs hosted screenshots (no browser in this environment; verified by code + DOM-stub harness only).
-- Real clipboard share and exact wall-clock durations (durations preserved from demo data but timers are illustrative).
-- Original compiled Pro `.tsx` not fetched; icons are clean-room letter marks, not copied SVG paths.
+## Verification (node only, no installs)
+- `node --check harness.js` — passes.
+- Inline main script compiles (`vm.Script`, equivalent of `node --check`) — passes.
+- `node harness.js` — DOM-stub harness, passes in **light AND dark**:
+  - waiting state: exactly **1 visible** "Waiting for your approval"
+    (note visible, loader `display:none`), `figSteps="3 / 5"`,
+    `actCount="4 of 5"` (original semantics, unchanged);
+  - approve: note flips to `"✓ You approved this step"` and stays visible;
+    loader contains no Waiting string;
+  - files: 3 chips with real names, no `chartRow`, no empty boxes;
+  - full loop to `done`, `resetInPlace()` restart, second loop to `done`:
+    plan/feed/note/call/ask node identities preserved (`===`);
+  - `innerHTML` writes after init: **0**.
+- Static: `/*noflash*/` present, `innerHTML =` occurrences in file: 0,
+  `chartRow` references: 0.
 
 ## How to test
-- Open `index.html` in a browser (double-click or `python3 -m http.server` then visit). Wait ~10s: steps complete, approval appears at step 4, approve to finish. Try Deny, Stop run, Run again, expand tool calls, toggle sun/moon.
-- Node only (no browser): `node --check .check-target.js && node verify.cjs` — asserts visible painted text, full-loop node identity, zero innerHTML writes after init, light AND dark toggle. Result: ALL PASS.
-- Confirmed light AND dark: dark tokens present, toggle flips `data-theme` + persists, harness checks both directions; no grey-on-grey (muted #a1a1aa on #101012, borders #2e2e33).
-
-## Verification
-- `node --check`: CHECK_OK
-- `node verify.cjs`: ALL PASS (size, noflash, tokens, hover-media, tabular-nums, verbatim data, no innerHTML, visible text, node identity ×2 loops + reset, deny-stop, light/dark toggle)
+Open `index.html` in a browser, let the run reach "Needs input", confirm one
+"○ Waiting for your approval" row in Activity (no second spinner Waiting row),
+click Approve (row flips to "✓ You approved this step"), and confirm Files
+shows the 3 named chips with no blank boxes. Toggle the theme button for dark.

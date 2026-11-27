@@ -1,42 +1,56 @@
-# agent-chat-rail — REPORT
+# fix-agent-chat-rail — Findings table Price/m clipped + page horizontal scroll
 
-Slug: `agent-chat-rail` (App screens).
-Public description: Assistant chat with web search, icon rail, project switcher, findings on right.
+## Defect (real-browser QA)
+- Findings `fabric-comparison.csv` table: `Price / m` column (`€14/€11/€8/€10`) exists in DOM but never paints in default view (light + dark).
+- `Creases` column sits at the panel's right edge.
+- Page shows a PAGE-LEVEL horizontal scrollbar.
 
-## What was built
-Single self-contained `index.html` (29 KB, inline CSS + JS, system fonts only, no external deps).
-Clean-room implementation from the public description + `./demo-original.js` behaviour; no compiled source copied.
+## Original check (`./demo-original.js`)
+- Read `./demo-original.js` (relative path): it defines the same 5-column table
+  `Fabric | Weight (gsm) | Breathes | Creases | Price / m` with rows
+  `€14 / €11 / €8 / €10` — data is identical to the replica.
+- The bundle is data + components; it carries no `white-space:nowrap` table rule.
+  Per the task brief the original fits its panel with all columns visible and no
+  page overflow, so this is a replica-introduced width bug — fixed (not noted as wontfix).
 
-Layout (double sidebar):
-- Left icon rail: Chats (active), Tasks, Runs, Folders, Integrations; bottom Notifications (badge 2), Settings.
-- Project switcher + chat list sidebar: `New chat` button, Projects (Summer collection, Brand, Hiring, Research with counts), 9 chats verbatim with pinned 📌 (Tone of voice) and unread dot (Linen suppliers in Portugal). Active `c-fabric`.
-- Center Assistant chat: header `Summer collection • Assistant` + title `Best fabric for a summer overshirt`, status pill (`○ idle` / `● N working`), `1 agent`, context `18k / 200k` with thin 3 px bar (right-aligned). Messages verbatim (u1/a1/u2/a2), tool rows as small circular icons (⌕/◍/▦ + label + ms + ✓), artifact chips.
-- Right Findings panel: `fabric-comparison.csv` table (5×5 verbatim, € prices) + `sources.md` (title Sources, intro, 6 bullets verbatim), both `Updated Just now`.
+## Root cause (`./index.html` CSS)
+- `table.cmp thead th { ... white-space:nowrap }` made the header row unbreakable.
+  `Weight (gsm)` + `Price / m` forced a min-content width larger than the
+  `336px` findings panel (inner ≈ `286px` after `12px` aside + `12px` card padding).
+- `table.cmp` used default `table-layout:auto` with `width:100%`, so the wide
+  min-content overflowed the `.find-card` / `.findings` column instead of wrapping.
+- Result: 5th column painted outside the panel (needs page scroll to see),
+  page-level `scrollWidth > clientWidth` → horizontal scrollbar.
+- Same in light and dark (rule was theme-agnostic).
 
-Interactions:
-- Rail / project filter / chat switch (dims non-selected at 0.78 opacity, single-line ellipsis titles), New chat → empty state (`New chat`, no artifacts), chat click restores.
-- Composer placeholder `Ask anything – it searches the web`; Enter/Send appends user msg immediately, streaming agent reply after 700 ms (`Searched the web for "…"`, `Here's what I found: … supplier brief?`), working pill 0→1→0, streaming caret + pulsing 3×3 pixel-mark, caret removed after 3200 ms. Timers update nodes in place only.
-- Artifact chips flash the matching finding card. Theme toggle ☀/☾ top-right. Responsive: ≤1180 px findings go 2-col below; ≤820 px single-column stacked. Keyboard: Enter to send, all buttons focusable with focus-visible outline.
+## Fix (targeted, everything else identical)
+In `./index.html` `<style>` only (no JS/data/DOM changes, Brand filter untouched):
+1. `table.cmp { ...; table-layout:fixed; max-width:100% }` — columns share the
+   panel width instead of sizing to unbreakable content.
+2. `table.cmp thead th { white-space:normal }` (was `nowrap`) — headers may wrap
+   (`Weight (gsm)`, `Price / m`) so min-content fits.
+3. `table.cmp th, table.cmp td { overflow-wrap:anywhere; min-width:0 }` —
+   long tokens (`Linen-cotton 55/45`) break instead of forcing overflow.
+4. `.find-card { min-width:0; max-width:100%; overflow:hidden }` — card contains
+   the table; with the table fixed this changes nothing visually when it fits.
+5. `html,body { max-width:100%; overflow-x:clip }` — guard against any subpixel
+   rounding causing page-level scroll; does not clip the column (column now fits).
+- Kept: `/*noflash*/` guard + paint style + `color-scheme` meta, in-place updates
+  only (no `innerHTML`), demo data verbatim, all other layout/JS identical.
 
-## Spec compliance
-- Tokens via CSS custom properties; light (`--surface #ffffff`, `--page #fafaf9`, …) and dark (`#1c1c1f`/`#101012`/`#ededed`/`#a1a1aa`/`#26262a`/`#2e2e33`); amber waiting `#f59e0b/#fef3c7/#92400e` → dark `#fbbf24/#451a03/#fde68a`; radius-lg 16 / radius 10 / sm 6; shadow tokens; pills 999 px; card padding 12–16, gaps 8–12; transitions 150–200 ms.
-- v3: header project + working + agent counts; context as `18k / 200k` tokens with 3 px bar; deterministic 3×3 pixel-mark per agent id (FNV hash, HSL), live one pulses; tools are 24 px circular icons; dimmed opacity 0.78 (≥0.75); titles single-line ellipsis; chips have bottom padding; headings reserve space.
-- v4: `<head>` starts with `/*noflash*/` script (stored key `agent-chat-rail-theme` else `prefers-color-scheme`) + `html{background…}` paint guard + `meta color-scheme`. DOM built once at init; ticks/sends mutate text/class/attributes only; zero `innerHTML` in app script; node identity preserved across loops.
-- v5: all `:hover` (10 rules) inside `@media (hover:hover) and (pointer:fine)`; `html{-webkit-tap-highlight-color:transparent}`; `body{font-variant-numeric:tabular-nums}`; concentric radius (card 16 = inner 10 + padding); shadows for elevation, borders only on dividers/cells/inputs/selected; `img` inset outline via `outline:1px solid var(--img-outline)`; send button optical padding nudge.
+## Verify (node only, in-dir)
+- `node --check harness.js` → OK
+- `node --check` on extracted inline script → OK, `innerHTML` count `0`
+- `node harness.js` (cwd = this dir, reads `./index.html` relative):
+  - `56 passed, 0 failed`
+  - VISIBLE state in light AND dark: 5 headers incl `Price / m`, `€14/€11/€8/€10`
+    in body, card+table `display !== none`, est `286px <= panelInner 286px`.
+  - Brand filter: `Brand` button exists, click shows 2 chats (Brand + active),
+    table still visible; reset works.
+  - Full-loop node identity: `4/4` msg nodes identical, findings cards identical,
+    `u1` identity preserved (in-place `textContent`/`classList` tick + `send()` loop).
+  - Zero `innerHTML` writes after init (static `0`, dynamic stub counter `0`).
+  - `/*noflash*/`, light tokens + `html[data-theme="dark"]` block present.
 
-## Verification (node only, no browser)
-- `node --check ./verify.js` + extracted app script `node --check` — clean.
-- `node ./verify.js` (in-dir DOM-stub harness) — ALL CHECKS PASSED:
-  - 38 verbatim visible-text strings (titles, messages, tools, table, sources, projects, rail, placeholder, `18k / 200k`).
-  - Static: noflash/meta/paint-guard/toggle/tokens/amber/tabular/tap-highlight/hover-media/3 px bar/pixel-mark.
-  - Stub execution: painted header/chat/findings; theme light→dark→light; full send loop ×2 preserves first-4 node identity in order, appends streaming reply, zero `innerHTML` writes after init.
-- Checked light AND dark (toggle asserted in stub; CSS tokens for both).
-
-## What could not be verified
-- No browser installed/launched per instructions; no pixel screenshot vs original. Dark/light judged via tokens + stub toggle, not visual QA.
-- Model list `r`, `running:{running:0,needs:0}`, `decisions:[]` from demo chunk have no visible surface; represented as `0 working • 1 agent` header.
-- Relative times (`Just now`, `6 min ago`) simplified to `Just now` with a 5 s in-place tick; original timestamps approximated.
-
-## How to test
-- `open index.html in a browser` (or any static server), toggle ☀/☾, switch projects/chats, send a message, click artifact chips, narrow the window.
-- Re-run checks: `node ./verify.js` in this directory.
+Open `./index.html` in a browser to eyeball: no page scrollbar at `>1180px`,
+all 5 columns inside the Findings panel in both themes; Brand project filters chats.

@@ -1,28 +1,34 @@
-# REPORT — AI Chat / Revenue Analyst (slug ai-chat-revenue)
+# Fix: floating Ask-input covering chart left edge + caption
 
-## What was built
-- Single self-contained `index.html` (~51KB, no external deps, system fonts only), clean-room code from the public description + demo behaviour in `demo-original.js`. No source copied; CSS/JS written from scratch.
-- Chat thread for **Q3 revenue review**: start card ("Ask about your revenue"), user turns, three assistant answers used verbatim:
-  - A1: "Q3 closed at $1.24M – 18% more than a year ago…" with KPI cards (Revenue $1.24M +18.2%, New MRR $86K +9.4%, Churn 2.1% −0.6%), trend chart W27–W39 (current/previous arrays + "Back to school · +38%" mark at W35), caption, sources Stripe/HubSpot, next chips.
-  - A2: "Europe still brings in half…" with 4-region × plan split (Europe 318/196/99k, NA 236/128/57k, APAC 74/52/35k, LATAM 21/14/9k), title Q3 2026 vs Q2 $1.05M, caption "Revenue by region, by plan".
-  - A3: "At this pace Q4 lands around $1.41M…" with KPIs ($1.41M +13.7%, $1.33–1.49M, 78%), forecast chart Jul–Dec (actual 366/399/430, forecast 430/452/468/490, target 450), caption "Monthly revenue · forecast from 18 months of history".
-- Interactions: word-by-word streaming with caret + twinkling 3×3 pixel-mark, "Reading Stripe and HubSpot…" thinking row, selectable chart ranges (drag on trend/forecast, click/tap on split bars, keyboard Enter/arrows + Escape), ask-popup that computes detail answers with the same D/O/sum/% formulas, quote chips, copy/download/good/retry buttons, composer with fallback ("I can only answer the sample questions here…"), follow-up chips, idle/working status pill, auto-play loop that pauses on first user pointer/key input.
-- Header: pixel-mark + "Q3 revenue review / Stripe · HubSpot · Q3 2026" + status + sun/moon theme toggle.
+## Defect (real-browser QA)
+- The floating `Ask about selection…` input at each chart's bottom-left was positioned wrong in both themes.
+- It covered the chart's left edge and the caption: `Revenue by region, by plan` painted only as `y plan`, Europe's `$613K` lost its `$` behind the input.
+- Good-answer interaction worked — kept working.
 
-## What matches the original
-- All demo strings, numbers, labels, captions, sources, next-question lists, mark text, and chart series used verbatim from `demo-original.js`.
-- Layout language: 760px column, left-offset cards/figures, KPI grid, figure header + legend (solid/dashed swatches), hint rows (mouse/touch/keyboard variants), source chips, icon actions with tooltips, pill follow-ups, shimmer thinking text, 3×3 pixel-mark with the same on/off pattern and busy twinkle.
-- Selection answers implement the original `H`/`U` logic (trend totals + YoY %, forecast totals + target count, region totals + plan shares).
+## Root cause (checked against ./demo-original.js first)
+- Original (`demo-original.js` `W` component): the Ask dialog is conditionally rendered only when a selection is done (`s?.done && S && …ui-rva-ask…`). With no selection there is no input in the DOM, so nothing can cover chart content or captions. When shown, it uses `transform: translate(-50%, calc(-100% - 10px))` (above the selection) with `left: max(150, min(w-150, cx))` / `top: rect.top`.
+- Replica (`./index.html`): all three popups (`#askpop-trend`, `#askpop-split`, `#askpop-forecast`) are always in the DOM with `hidden`, toggled via `pop.hidden`. But CSS had `.ask{display:grid;…}` with no `[hidden]` override. Author `display:grid` beats UA `[hidden]{display:none}`, so the popups were always visible even when `hidden=true`.
+- With no inline `left/top` set, an absolute popup falls back to its static position: bottom-left of the `.askable`, shifted up by the `-100%-10px` transform — exactly over the caption + bottom-left bars. That is why the split caption (inside `.usage` at the bottom) and Europe's `$613K` were covered. Same in light and dark because the rule is theme-independent.
+- Per instructions: original does NOT behave this way (original has no visible input until selection), so this was fixed, not noted as wont-fix.
 
-## What could not be verified
-- No browser was launched (per task constraints). Pixel-perfect rendering, smooth animations, real clipboard/download, and pointer-drag feel were not eyeballed — only DOM-stub assertions + static checks.
-- Original wrapper (DemoStage nav, composer tray internals) was out of scope; a standalone page chrome was used instead.
+## Fix (targeted, everything else identical)
+- One-line CSS addition after `*{box-sizing:border-box}` in `./index.html`:
+  ```css
+  [hidden]{display:none!important}
+  ```
+- No JS/HTML structure changes. No change to popup positioning logic (`left` clamp `150..w-150`, `top: rect.top`, `transform: translate(-50%,calc(-100%-10px))` preserved — same as original, so a shown popup still sits above the selection, clear of the caption below). No change to `/*noflash*/` guard, in-place updates, demo data, or Good-answer handler.
+- This restores original semantics: hidden popups compute to `display:none` in both themes; shown popups keep original above-selection placement.
+
+## Verification (node only, in-dir)
+- `node --check` on extracted main script: OK. `node --check ./harness-ask-fix.cjs`: OK.
+- `node ./harness-ask-fix.cjs` (in-dir DOM stub, no installs):
+  - Static: `/*noflash*/`, `meta color-scheme`, `[hidden]{display:none!important}`, `.ask` absolute + above-selection transform, light (`#ffffff/#fafaf9`) and dark (`#1c1c1f/#101012`) tokens, demo verbatim (`Q3 closed at $1.24M`, `Europe still brings in half`, `At this pace Q4…$1.41M`, `Revenue by region, by plan`, `$613K`, `Weekly revenue`), zero `innerHTML` in page script, Good-answer `Thanks` toggle present.
+  - Runtime light AND dark: after `reset()` all three `askpop-*` have `hidden==true` → computed `display:none` (no covering); split container visible; caption + `$613K` present; Europe popup math `top=74` (above bars), `left=150` clamped (not at 0); Good-answer `a2` toggles `Good answer→Thanks→Good answer` with live-region update.
+  - Full-loop node identity: element objects for `start/turn-*/a*-txt/askpop-*/pick-split/thinking` identical before/after ask cycles + reset in both themes.
+  - Zero `innerHTML` writes after init in both themes.
+- Result: `ALL HARNESS CHECKS PASSED` in light and dark.
 
 ## How to test
-- `open index.html` in a browser (or serve the folder). Click chips, drag across charts, click a region bar, type in the composer, toggle the moon/sun button.
-- Node-only verification (no browser): `node --check harness.js && node harness.js` — asserts visible painted text, noflash/dark/light tokens, guarded hover, tabular-nums, zero `innerHTML`, syntax, stub runtime theme toggle, and full-loop node identity.
-
-## Checks confirmed
-- Light AND dark: `data-theme` toggle with stored key `ai-chat-revenue-theme`, `prefers-color-scheme` default, `/*noflash*/` guard + `color-scheme` meta, token sets for both themes (dark legibility adjusted, amber-on-brown for waiting states). Harness toggles both and passes.
-- In-place updates only: DOM built once in HTML; timers/streaming/loop mutate `textContent`/`hidden`/`style`/attributes. `index.html` contains zero `innerHTML`/`outerHTML`; harness counts 0 writes after init and asserts identical node objects across reset → ask ×3 → reset.
-- v5 polish: hover rules only inside `@media (hover: hover) and (pointer: fine)`, `tap-highlight: transparent`, `tabular-nums` on body, concentric radii, border-for-structure/shadow-for-elevation split, keyboard focus-visible rings, `prefers-reduced-motion` disables animation/streaming.
+- `open index.html` in a browser, toggle sun/moon (top-right) to check light + dark.
+- Initial view: no `Ask about selection…` input visible over any chart; `Revenue by region, by plan` fully readable; Europe `$613K` fully readable.
+- Click/tap Europe bar (or drag across trend/forecast): popup appears above the selection, input focused, caption still fully visible below. Submit asks a selection question; Good-answer (thumbs-up) toggles tip to `Thanks`.

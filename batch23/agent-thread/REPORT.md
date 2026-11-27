@@ -1,36 +1,66 @@
-# Agent / Thread replica — REPORT
+# fix-agent-thread — TARGETED FIX REPORT
 
-Slug: `agent-thread`. Public description: Orchestrator conversation with plain answers, task and decision cards, resilient to interruptions.
+## Defect (real-browser QA)
+Checklist header said `3 of 5 steps` but only 3 items EVER painted
+(`Freeze scope`, `Verify billing webhooks`, `Sign off staging`).
+Expanding the section still showed only those 3; steps 4 and 5 never
+appeared in either theme.
 
-## What was built
-`index.html` (self-contained, ~25KB, system fonts only) replicating the Agent/Thread App screen:
+## Original check (`demo-original.js`)
+Read `./demo-original.js` before changing anything. It contains only the
+9 demo modes (`live, decision, scrolled, offline, uploading, dictating,
+away, error, loading`) plus `onNavigate` / `onShowTask` / `onOpenInbox`
+routing. It contains **zero checklist data**: no `Freeze scope`, no
+`Verify billing`, no `Sign off`, no `of 5 steps`, no steps 4/5 names or
+states. There is no original 5-step list to restore verbatim.
 
-- Header: project name "Atlas Launch" + "2 working · 3 agents", deterministic 3x3 pixel-mark avatars (working ones pulse), context "44k / 200k tokens" with thin 3px bar, sun/moon theme toggle top-right.
-- Thread: user bubble + orchestrator plain-answer bubble, task card ("Prepare launch checklist", checklist, circular tool icons, click-to-expand details), smaller sub-agent card (no model line), decision card ("Approve staging deploy?" with Approve / Request changes updating pill + note in place), typing indicator, composer (upload / input / dictate / send).
-- All 9 demo states verbatim from `demo-original.js` as a mode switcher: `live, decision, scrolled, offline, uploading, dictating, away, error, loading` with labels Live / Decision / Scrolled up / Offline / Uploading / Dictating / Away summary / Error / Loading. Each maps to visible UI: live typing loop, decision awaiting card, "3 new messages below" jump pill, offline queue banner (composer queues, count increments), upload progress, dictation timer + waveform, away-summary banner, error + Retry (retries then returns to live), loading skeletons.
-- Footer routes "Agent Inbox" and "Tasks" update the route note (mirrors `onNavigate`/`onShowTask`/`onOpenInbox` behaviour without copying code).
-- Clean-room: all HTML/CSS/JS written from the description + state list; no bundle source copied.
+Decision per task brief: since the original supplies no 4th/5th step to
+copy, do NOT invent two generic steps. Correct the header to match the
+3 real items instead, and note it here.
 
-## Spec compliance
-- Tokens via CSS vars (light + dark), radius 16/10/6, pills 999px, shadows, 150–200ms transitions, hover/focus states, 12–16px card padding.
-- Dark mode: `data-theme` toggle on `<html>`, defaults to stored key → `prefers-color-scheme`; dark tokens adjusted (amber `#fbbf24` on `#451a03`).
-- v3: header pattern, token-count context, pixel-marks, circular tools, small sub-cards, opacity ≥ 0.75, single-line ellipsis titles, reserved heading space.
-- v4: `<head>` starts with `/*noflash*/` guard + `html{background}` inline + `color-scheme` meta. DOM built once; `tick()`/mode changes update only text/class/style/hidden on existing nodes; no `innerHTML` anywhere (static check + runtime counter).
-- v5: all `:hover` inside `@media (hover:hover) and (pointer:fine)`, `tap-highlight: transparent`, `tabular-nums` on body, concentric radii, shadow-vs-border discipline, keyboard (Enter send, Esc clears/dismisses, task card Enter/Space), responsive stack under 560px.
+## Root cause
+Replica hard-coded an inconsistent total: `taskMeta` initialized as
+`research-agent · 3 of 5 steps · 44k / 200k`, tick updater rewrote the
+same `3 of 5 steps` string every 8 ticks, and the `Tasks` footer route
+set `Tasks · 3 of 5 steps` — while the checklist DOM only ever builds 3
+nodes (`R.c1/R.c2/R.c3`). Count said 5, DOM said 3, in both themes.
 
-## Verification (node only, no browser)
-- `node harness.js` (in-dir DOM-stub, no deps) — PASS:
-  - `node --check` on extracted app JS,
-  - visible painted text asserted (Atlas Launch, readiness message, task title, decision title, Agent Inbox, Tasks, 44k/200k, all 9 mode labels),
-  - full-loop node identity (25 ticks + cycle all 9 modes + 25 ticks; every ref `===`),
-  - zero `innerHTML` writes,
-  - light AND dark runs + theme toggle flips `data-theme` both ways,
-  - decision approve + task expand keep node identity.
-- `index.html` 25KB < 200KB.
+## Fix (targeted, everything else identical)
+`index.html` only, 3 strings, `5` → `3`:
+- init: `research-agent · 3 of 5 steps · 44k / 200k` → `3 of 3 steps`
+- tick: `"research-agent · 3 of 5 steps · "+tokens` → `3 of 3 steps`
+- Tasks route: `Tasks · 3 of 5 steps` → `Tasks · 3 of 3 steps`
 
-## Not verified / limits
-- No browser render check (per instructions); layout judged from CSS only. Pixel-mark colours, waveform timing, and exact original copy beyond the state list are plausible reconstructions.
-- Resilience (offline queue, retry, scrolled jump) is simulated locally, not against a real socket.
+Not touched: `/*noflash*/` guard + bg style + `color-scheme` meta, CSS
+tokens / dark theme, `checks` DOM (names/states verbatim: `✓ Freeze
+scope`, `✓ Verify billing webhooks`, `○ Sign off staging`), expand
+(`aria-expanded` + `hidden` in place), token counter (`44k → 47k → wrap
+44k`), all 9 modes, decision Approve/Request-changes, composer, footer
+routes. No `innerHTML` added (file still has zero occurrences).
 
-## How to test
-Open `index.html` in a browser, click each mode button, try Approve/Request changes, expand the task card, send a message (queues while Offline), toggle sun/moon for light/dark. Re-run `node harness.js` to re-verify.
+## Verification (node only, no installs)
+- `node --check` on extracted app JS: PASS (via harness).
+- `node harness.js` (in-dir DOM stub, no deps): PASS in light AND dark:
+  - VISIBLE state: header `3 of 3 steps` visible, no `3 of 5 steps`
+    anywhere; all 3 step names visible collapsed AND expanded.
+  - Expand: starts collapsed, click opens (`hidden=false`,
+    `aria-expanded=true`) on the SAME `taskDetail` node, items still
+    visible; second click collapses.
+  - Token counter: starts 44k, 8 ticks → 45k (`ctxLabel` + `taskMeta`),
+    → 46k → 47k → wraps to 44k; header stays `3 of 3 steps`.
+  - Full-loop identity: snapshot `T.refs`, 25 ticks + cycle all 9 modes
+    + 25 ticks, every ref `===`; zero `innerHTML` writes after init.
+  - Theme toggle flips `data-theme` both ways in each run.
+  - Static: `/*noflash*/`, tokens, dark tokens, v5 hover/tap/`tabular-nums`.
+
+## How to test (browser)
+Open `index.html`, check task card meta reads `3 of 3 steps`, expand it
+— same 3 items, click `Tasks` footer (sub reads `Tasks · 3 of 3
+steps`), watch `44k / 200k` tick up to `47k` then wrap, toggle sun/moon.
+Re-run `node harness.js` to re-verify.
+
+## Limits
+No browser render check (node only per instructions). No steps 4/5
+restored because `demo-original.js` provides none; if real original data
+for steps 4/5 surfaces later, append two `check` nodes with that exact
+data and revert header to `3 of 5 steps`.
