@@ -1,94 +1,438 @@
-# Prompt Explorer — targeted data fix (second attempt)
+# REPORT — fix-repair3-prompt-explorer: Popular/Trending per-row deltas
 
-## What was wrong (real-browser QA)
-- Left `Popular Keywords` read `205k, 195k, 147k, 133k, 131k, 108k, 114k` (last two swapped, not volume-DESC) and ALL SEVEN delta values were identically `2.1k` (abs), collapsing distinct true changes into one string.
-- Right `Trending Keywords` deltas read `2.1k, 1.4k, 1.8k, 3.4k, 2.9k, 6.4k, 7.1k` — NOT sorted by change DESC.
-- Root cause in `./index.html`: `POPULAR`/`RISING` were copied verbatim from `demo-original.js` buggy `w`/`ae` arrays (`Northwind ai 205k`, `nviv 147k`, `aeo 131k`, `boost 114k`, etc.) instead of authoritative `ie` triples. `paintKwRow` shows `fmtVol(|change|)` + arrow, so `-2100` and `+2100` both render `2.1k`, hiding wrong data.
+## What was wrong (real-browser QA, 3rd attempt)
+Sorting in both lists was already correct, but the Popular list's per-row deltas were wrong:
+4 of its 7 rows rendered the identical delta `2.1k`
+(`76.2k, 2.1k, 2.1k, 2.1k, 1.4k, 2.1k, 1.8k` on the pre-fix file).
 
-## Fix (targeted, no rebuild)
-Only `var POPULAR` / `var RISING` in `./index.html` changed. No layout/CSS/DOM-structure changes. `ALL` (26 `ie` triples), `FALLING`, `fmtVol`/`fmtChg`, `/*noflash*/` guard, in-place painters, pools, and live tick preserved.
+## demo-original.js check (before changing anything)
+- Read `./demo-original.js`. Its full prompt table (`ie`, 26 entries) contains every
+  keyword/volume/change pair used below (e.g. `C('northwind ai visibility',549400,76200)`,
+  `C('answer engine optimization',58600,5200)`, … `C('geo vs seo',28400,3300)`), so the
+  replacement rows are demo data verbatim, not invented.
+- Note: the original bundle's own hardcoded Popular extract (`w = [...]`) does repeat
+  `2100` deltas across rows, i.e. the shipped demo data has the same "identical delta"
+  look in that extract. The fix was still applied because the task explicitly orders the
+  verbatim tables below (and requires the harness to fail on the pre-fix file), so the
+  conditional "do NOT fix" does not apply — the specified tables are authoritative.
+- Number formatting and row layout are untouched (`549k`, `+76.2k` style via the page's
+  existing `fmtVol`/`fmtChg`; note the pre-existing quirk `97.0k`/`64.0k`/`42.0k` for
+  values < 100k is kept as-is — formatting was not part of this fix).
 
-Authoritative `ie` in `./demo-original.js` (used EXACTLY, no invention):
-- `northwind ai visibility 549400 +76200`, `answer engine optimization 58600 +5200`, `ai search visibility 47300 +7800`, `generative engine optimization 41200 +6900`, `geo vs seo 28400 +3300`, `aeo tools 22700 +4100`, `chatgpt brand mentions 19800 +4400`, `northwind pricing 18900 +2100`, `ai overviews tracking 15600 +2600`, `northwind review 12300 +900`, `chatgpt rank tracking 11400 +2300`, `perplexity citations 8900 +1900`, `northwind against semrush 6400 +1500` (plus remaining 13 `ie` entries unchanged in `ALL` for suggestions/analysis).
+## The fix (targeted, 2 lines in ./index.html, lines 231–232)
+- `POPULAR` replaced verbatim (volume desc):
+  `northwind ai visibility` 549400 +76200; `answer engine optimization` 58600 +5200;
+  `ai search visibility` 47300 +7800; `generative engine optimization` 41200 +6900;
+  `geo vs seo` 28400 +3300; `aeo tools` 22700 +4100; `chatgpt brand mentions` 19800 +4400.
+- `RISING` (Trending/rising tab) replaced verbatim (change desc):
+  `northwind ai visibility` +76200 (549400); `ai search visibility` +7800 (47300);
+  `generative engine optimization` +6900 (41200); `answer engine optimization` +5200 (58600);
+  `chatgpt brand mentions` +4400 (19800); `aeo tools` +4100 (22700); `geo vs seo` +3300 (28400).
+- Nothing else touched: `ALL`, `FALLING`, formatters, layout, CSS, `/*noflash*/` guard,
+  in-place painters. `diff` backup-vs-fixed = exactly those 2 lines.
 
-Fixed (7+7, top 7 of each ordering among full 26):
-- `POPULAR` (volume DESC): `northwind ai visibility 549400/76200`, `northwind vs semrush 195000/2100`, `generative ai tools 135000/2100`, `geo 133000/-2100`, `aeo 120000/1400`, `seo vs aeo 108000/-2100`, `generative ai 97000/1800` → volumes `[549400,195000,135000,133000,120000,108000,97000]` DESC; changes own (`76.2k,+2.1k,+2.1k,−2.1k via ▼,1.4k,2.1k via ▼,1.8k`); duplicates only where data says so (`2100×2`, `-2100×2` distinguished by ▲/▼).
-- `RISING` (change DESC): `northwind ai visibility 549400/76200`, `ai search visibility 47300/7800`, `seo 42000/7100`, `generative engine optimization 41200/6900`, `ai content optimization 64000/6400`, `answer engine optimization 58600/5200`, `chatgpt brand mentions 19800/4400` → changes `[76200,7800,7100,6900,6400,5200,4400]` DESC, each with own volume.
+## Hard proof — md5 (differ: YES)
+- BEFORE: `64a25e25caef405ad6ec895502fa1527  ./index.html`
+- AFTER:  `b2b01e2677d3fa212f03c7296c85ce0d  ./index.html`
+- Backup kept at `./original-backup.html` (`64a25e25caef405ad6ec895502fa1527`, matches BEFORE).
 
-Formatting kept in page's existing style (`fmtVol`: `>=100k` → `0` decimals e.g. `549k,195k`; `<100k` → `1` decimal e.g. `76.2k,58.6k,900`).
+## Harness (node only, no installs) — ./harness.js
+`node ./harness.js [file]` (default `./index.html`). DOM-stub asserts, as VISIBLE state:
+exact rendered (keyword, volume, change) triples per list in order; computed
+opacity (≥0.75) / visibility / display / colours (ink≠card, theme switches tokens) /
+geometry (320×44 rows) in light AND dark; triples stable across theme round-trip;
+full-loop (14-tick) button+row node identity; falling tab round-trip; zero innerHTML
+writes after init; `/*noflash*/` + color-scheme + first-paint guards; formatter spot
+checks (`549k`, `+76.2k`, `58.6k`, `+5.2k`). Exit 0 = PASS, 1 = FAIL.
+`node --check ./harness.js` passes; both inline scripts of `./index.html` parse OK.
 
-## Hard proof (mechanically checked)
-- BEFORE `md5sum ./index.html`: `0fc4c52d2c580cd4bcd270a8f5a2ebb3`
-- AFTER `md5sum ./index.html`: `64a25e25caef405ad6ec895502fa1527`
-- Hashes MUST differ: yes (`0fc4…` vs `64a2…`).
-- Original kept as `./original-backup.html` (`0fc4c52d2c580cd4bcd270a8f5a2ebb3`, matches BEFORE).
-- `node --check ./harness.js` → OK; `node --check ./demo-original.js` → OK.
-- Harness `node ./harness.js ./original-backup.html` → FAIL (exit 1); `node ./harness.js ./index.html` → PASS (exit 0). No installs.
-
-### Harness PASS (fixed `./index.html`, exit 0)
+### Result against ORIGINAL (must FAIL) — `node ./harness.js ./original-backup.html`, exit 1
 ```
-HARNESS target=./index.html
-noflash=true innerAssign=0
---- light (light) Popular (vol DESC) ---
-  [0] "northwind ai visibility" vol="549k"(549000) chg="▲76.2k" dir=up trueVol=549400 trueChg=76200
-  [1] "northwind vs semrush" vol="195k"(195000) chg="▲2.1k" dir=up trueVol=195000 trueChg=2100
-  [2] "generative ai tools" vol="135k"(135000) chg="▲2.1k" dir=up trueVol=135000 trueChg=2100
-  [3] "geo" vol="133k"(133000) chg="▼2.1k" dir=down trueVol=133000 trueChg=-2100
-  [4] "aeo" vol="120k"(120000) chg="▲1.4k" dir=up trueVol=120000 trueChg=1400
-  [5] "seo vs aeo" vol="108k"(108000) chg="▼2.1k" dir=down trueVol=108000 trueChg=-2100
-  [6] "generative ai" vol="97.0k"(97000) chg="▲1.8k" dir=up trueVol=97000 trueChg=1800
---- light (light) Trending (chg DESC) ---
-  [0] "northwind ai visibility" vol="549k" chg="▲76.2k" dir=up trueVol=549400 trueChg=76200
-  [1] "ai search visibility" vol="47.3k" chg="▲7.8k" dir=up trueVol=47300 trueChg=7800
-  [2] "seo" vol="42.0k" chg="▲7.1k" dir=up trueVol=42000 trueChg=7100
-  [3] "generative engine optimization" vol="41.2k" chg="▲6.9k" dir=up trueVol=41200 trueChg=6900
-  [4] "ai content optimization" vol="64.0k" chg="▲6.4k" dir=up trueVol=64000 trueChg=6400
-  [5] "answer engine optimization" vol="58.6k" chg="▲5.2k" dir=up trueVol=58600 trueChg=5200
-  [6] "chatgpt brand mentions" vol="19.8k" chg="▲4.4k" dir=up trueVol=19800 trueChg=4400
---- dark (dark) Popular (vol DESC) --- (same 7 rows, same strings)
---- dark (dark) Trending (chg DESC) --- (same 7 rows, same strings)
-RESULT: PASS — Popular vol DESC + own values, Trending chg DESC + own volumes, 7+7, distinct where data distinct, light+dark, node identity, zero innerHTML
+  ok  noflash guard present
+  ok  color-scheme meta present
+  ok  first-paint bg style present
+  ok  fmt.vol(549400)==="549k" (got 549k)
+  ok  fmt.chg(76200)==="+76.2k" (got +76.2k)
+  ok  fmt.vol(58600)==="58.6k" (got 58.6k)
+  ok  fmt.chg(5200)==="+5.2k" (got +5.2k)
+-- Popular triples (volume desc) --
+  ok  pop[0] ("northwind ai visibility", 549k, ▲76.2k, dir=up) === ("northwind ai visibility", 549k, ▲76.2k)
+  FAIL pop[1] ("northwind vs semrush", 195k, ▲2.1k, dir=up) === ("answer engine optimization", 58.6k, ▲5.2k)
+  FAIL pop[2] ("generative ai tools", 135k, ▲2.1k, dir=up) === ("ai search visibility", 47.3k, ▲7.8k)
+  FAIL pop[3] ("geo", 133k, ▼2.1k, dir=down) === ("generative engine optimization", 41.2k, ▲6.9k)
+  FAIL pop[4] ("aeo", 120k, ▲1.4k, dir=up) === ("geo vs seo", 28.4k, ▲3.3k)
+  FAIL pop[5] ("seo vs aeo", 108k, ▼2.1k, dir=down) === ("aeo tools", 22.7k, ▲4.1k)
+  FAIL pop[6] ("generative ai", 97.0k, ▲1.8k, dir=up) === ("chatgpt brand mentions", 19.8k, ▲4.4k)
+-- Trending triples, rising (change desc) --
+  ok  trend[0] ("northwind ai visibility", 549k, ▲76.2k, dir=up) === ("northwind ai visibility", 549k, ▲76.2k)
+  ok  trend[1] ("ai search visibility", 47.3k, ▲7.8k, dir=up) === ("ai search visibility", 47.3k, ▲7.8k)
+  FAIL trend[2] ("seo", 42.0k, ▲7.1k, dir=up) === ("generative engine optimization", 41.2k, ▲6.9k)
+  FAIL trend[3] ("generative engine optimization", 41.2k, ▲6.9k, dir=up) === ("answer engine optimization", 58.6k, ▲5.2k)
+  FAIL trend[4] ("ai content optimization", 64.0k, ▲6.4k, dir=up) === ("chatgpt brand mentions", 19.8k, ▲4.4k)
+  FAIL trend[5] ("answer engine optimization", 58.6k, ▲5.2k, dir=up) === ("aeo tools", 22.7k, ▲4.1k)
+  FAIL trend[6] ("chatgpt brand mentions", 19.8k, ▲4.4k, dir=up) === ("geo vs seo", 28.4k, ▲3.3k)
+  FAIL popular deltas all distinct (76.2k, 2.1k, 2.1k, 2.1k, 1.4k, 2.1k, 1.8k)
+-- visible state (light) --
+  ok  row0 opacity 1 >= 0.75
+  ok  row0 visible/display
+  ok  row0 colour #1c1917 on #ffffff
+  ok  row0 geometry 320x44
+  ok  row1 opacity 1 >= 0.75
+  ok  row1 visible/display
+  ok  row1 colour #1c1917 on #ffffff
+  ok  row1 geometry 320x44
+  ok  row2 opacity 1 >= 0.75
+  ok  row2 visible/display
+  ok  row2 colour #1c1917 on #ffffff
+  ok  row2 geometry 320x44
+  ok  row3 opacity 1 >= 0.75
+  ok  row3 visible/display
+  ok  row3 colour #1c1917 on #ffffff
+  ok  row3 geometry 320x44
+  ok  row4 opacity 1 >= 0.75
+  ok  row4 visible/display
+  ok  row4 colour #1c1917 on #ffffff
+  ok  row4 geometry 320x44
+  ok  row5 opacity 1 >= 0.75
+  ok  row5 visible/display
+  ok  row5 colour #1c1917 on #ffffff
+  ok  row5 geometry 320x44
+  ok  row6 opacity 1 >= 0.75
+  ok  row6 visible/display
+  ok  row6 colour #1c1917 on #ffffff
+  ok  row6 geometry 320x44
+  ok  row7 opacity 1 >= 0.75
+  ok  row7 visible/display
+  ok  row7 colour #1c1917 on #ffffff
+  ok  row7 geometry 320x44
+  ok  row8 opacity 1 >= 0.75
+  ok  row8 visible/display
+  ok  row8 colour #1c1917 on #ffffff
+  ok  row8 geometry 320x44
+  ok  row9 opacity 1 >= 0.75
+  ok  row9 visible/display
+  ok  row9 colour #1c1917 on #ffffff
+  ok  row9 geometry 320x44
+  ok  row10 opacity 1 >= 0.75
+  ok  row10 visible/display
+  ok  row10 colour #1c1917 on #ffffff
+  ok  row10 geometry 320x44
+  ok  row11 opacity 1 >= 0.75
+  ok  row11 visible/display
+  ok  row11 colour #1c1917 on #ffffff
+  ok  row11 geometry 320x44
+  ok  row12 opacity 1 >= 0.75
+  ok  row12 visible/display
+  ok  row12 colour #1c1917 on #ffffff
+  ok  row12 geometry 320x44
+  ok  row13 opacity 1 >= 0.75
+  ok  row13 visible/display
+  ok  row13 colour #1c1917 on #ffffff
+  ok  row13 geometry 320x44
+-- visible state (dark) --
+  ok  row0 opacity 1 >= 0.75
+  ok  row0 visible/display
+  ok  row0 colour #ededed on #1c1c1f
+  ok  row0 geometry 320x44
+  ok  row1 opacity 1 >= 0.75
+  ok  row1 visible/display
+  ok  row1 colour #ededed on #1c1c1f
+  ok  row1 geometry 320x44
+  ok  row2 opacity 1 >= 0.75
+  ok  row2 visible/display
+  ok  row2 colour #ededed on #1c1c1f
+  ok  row2 geometry 320x44
+  ok  row3 opacity 1 >= 0.75
+  ok  row3 visible/display
+  ok  row3 colour #ededed on #1c1c1f
+  ok  row3 geometry 320x44
+  ok  row4 opacity 1 >= 0.75
+  ok  row4 visible/display
+  ok  row4 colour #ededed on #1c1c1f
+  ok  row4 geometry 320x44
+  ok  row5 opacity 1 >= 0.75
+  ok  row5 visible/display
+  ok  row5 colour #ededed on #1c1c1f
+  ok  row5 geometry 320x44
+  ok  row6 opacity 1 >= 0.75
+  ok  row6 visible/display
+  ok  row6 colour #ededed on #1c1c1f
+  ok  row6 geometry 320x44
+  ok  row7 opacity 1 >= 0.75
+  ok  row7 visible/display
+  ok  row7 colour #ededed on #1c1c1f
+  ok  row7 geometry 320x44
+  ok  row8 opacity 1 >= 0.75
+  ok  row8 visible/display
+  ok  row8 colour #ededed on #1c1c1f
+  ok  row8 geometry 320x44
+  ok  row9 opacity 1 >= 0.75
+  ok  row9 visible/display
+  ok  row9 colour #ededed on #1c1c1f
+  ok  row9 geometry 320x44
+  ok  row10 opacity 1 >= 0.75
+  ok  row10 visible/display
+  ok  row10 colour #ededed on #1c1c1f
+  ok  row10 geometry 320x44
+  ok  row11 opacity 1 >= 0.75
+  ok  row11 visible/display
+  ok  row11 colour #ededed on #1c1c1f
+  ok  row11 geometry 320x44
+  ok  row12 opacity 1 >= 0.75
+  ok  row12 visible/display
+  ok  row12 colour #ededed on #1c1c1f
+  ok  row12 geometry 320x44
+  ok  row13 opacity 1 >= 0.75
+  ok  row13 visible/display
+  ok  row13 colour #ededed on #1c1c1f
+  ok  row13 geometry 320x44
+  ok  theme switches ink (light #1c1917 vs dark #ededed)
+-- triples stable across themes --
+  ok  pop[0] ("northwind ai visibility", 549k, ▲76.2k, dir=up) === ("northwind ai visibility", 549k, ▲76.2k)
+  FAIL pop[1] ("northwind vs semrush", 195k, ▲2.1k, dir=up) === ("answer engine optimization", 58.6k, ▲5.2k)
+  FAIL pop[2] ("generative ai tools", 135k, ▲2.1k, dir=up) === ("ai search visibility", 47.3k, ▲7.8k)
+  FAIL pop[3] ("geo", 133k, ▼2.1k, dir=down) === ("generative engine optimization", 41.2k, ▲6.9k)
+  FAIL pop[4] ("aeo", 120k, ▲1.4k, dir=up) === ("geo vs seo", 28.4k, ▲3.3k)
+  FAIL pop[5] ("seo vs aeo", 108k, ▼2.1k, dir=down) === ("aeo tools", 22.7k, ▲4.1k)
+  FAIL pop[6] ("generative ai", 97.0k, ▲1.8k, dir=up) === ("chatgpt brand mentions", 19.8k, ▲4.4k)
+  ok  trend[0] ("northwind ai visibility", 549k, ▲76.2k, dir=up) === ("northwind ai visibility", 549k, ▲76.2k)
+  ok  trend[1] ("ai search visibility", 47.3k, ▲7.8k, dir=up) === ("ai search visibility", 47.3k, ▲7.8k)
+  FAIL trend[2] ("seo", 42.0k, ▲7.1k, dir=up) === ("generative engine optimization", 41.2k, ▲6.9k)
+  FAIL trend[3] ("generative engine optimization", 41.2k, ▲6.9k, dir=up) === ("answer engine optimization", 58.6k, ▲5.2k)
+  FAIL trend[4] ("ai content optimization", 64.0k, ▲6.4k, dir=up) === ("chatgpt brand mentions", 19.8k, ▲4.4k)
+  FAIL trend[5] ("answer engine optimization", 58.6k, ▲5.2k, dir=up) === ("aeo tools", 22.7k, ▲4.1k)
+  FAIL trend[6] ("chatgpt brand mentions", 19.8k, ▲4.4k, dir=up) === ("geo vs seo", 28.4k, ▲3.3k)
+  ok  full-loop button identity preserved (14 ticks)
+  ok  full-loop row identity preserved (14 ticks)
+-- triples stable across full loop --
+  ok  pop[0] ("northwind ai visibility", 549k, ▲76.2k, dir=up) === ("northwind ai visibility", 549k, ▲76.2k)
+  FAIL pop[1] ("northwind vs semrush", 195k, ▲2.1k, dir=up) === ("answer engine optimization", 58.6k, ▲5.2k)
+  FAIL pop[2] ("generative ai tools", 135k, ▲2.1k, dir=up) === ("ai search visibility", 47.3k, ▲7.8k)
+  FAIL pop[3] ("geo", 133k, ▼2.1k, dir=down) === ("generative engine optimization", 41.2k, ▲6.9k)
+  FAIL pop[4] ("aeo", 120k, ▲1.4k, dir=up) === ("geo vs seo", 28.4k, ▲3.3k)
+  FAIL pop[5] ("seo vs aeo", 108k, ▼2.1k, dir=down) === ("aeo tools", 22.7k, ▲4.1k)
+  FAIL pop[6] ("generative ai", 97.0k, ▲1.8k, dir=up) === ("chatgpt brand mentions", 19.8k, ▲4.4k)
+  ok  trend[0] ("northwind ai visibility", 549k, ▲76.2k, dir=up) === ("northwind ai visibility", 549k, ▲76.2k)
+  ok  trend[1] ("ai search visibility", 47.3k, ▲7.8k, dir=up) === ("ai search visibility", 47.3k, ▲7.8k)
+  FAIL trend[2] ("seo", 42.0k, ▲7.1k, dir=up) === ("generative engine optimization", 41.2k, ▲6.9k)
+  FAIL trend[3] ("generative engine optimization", 41.2k, ▲6.9k, dir=up) === ("answer engine optimization", 58.6k, ▲5.2k)
+  FAIL trend[4] ("ai content optimization", 64.0k, ▲6.4k, dir=up) === ("chatgpt brand mentions", 19.8k, ▲4.4k)
+  FAIL trend[5] ("answer engine optimization", 58.6k, ▲5.2k, dir=up) === ("aeo tools", 22.7k, ▲4.1k)
+  FAIL trend[6] ("chatgpt brand mentions", 19.8k, ▲4.4k, dir=up) === ("geo vs seo", 28.4k, ▲3.3k)
+  ok  falling list has 7 rows
+  ok  trend-after-tab[0] ("northwind ai visibility", 549k, ▲76.2k, dir=up) === ("northwind ai visibility", 549k, ▲76.2k)
+  ok  trend-after-tab[1] ("ai search visibility", 47.3k, ▲7.8k, dir=up) === ("ai search visibility", 47.3k, ▲7.8k)
+  FAIL trend-after-tab[2] ("seo", 42.0k, ▲7.1k, dir=up) === ("generative engine optimization", 41.2k, ▲6.9k)
+  FAIL trend-after-tab[3] ("generative engine optimization", 41.2k, ▲6.9k, dir=up) === ("answer engine optimization", 58.6k, ▲5.2k)
+  FAIL trend-after-tab[4] ("ai content optimization", 64.0k, ▲6.4k, dir=up) === ("chatgpt brand mentions", 19.8k, ▲4.4k)
+  FAIL trend-after-tab[5] ("answer engine optimization", 58.6k, ▲5.2k, dir=up) === ("aeo tools", 22.7k, ▲4.1k)
+  FAIL trend-after-tab[6] ("chatgpt brand mentions", 19.8k, ▲4.4k, dir=up) === ("geo vs seo", 28.4k, ▲3.3k)
+  ok  zero innerHTML writes after init (count=0)
+
+RESULT: FAIL (39 checks) :: ./original-backup.html
 ```
 
-### Harness FAIL (original `./original-backup.html`, exit 1, 56 problems)
+### Result against FIXED file (must PASS) — `node ./harness.js ./index.html`, exit 0
 ```
-HARNESS target=./original-backup.html
-noflash=true innerAssign=0
---- light (light) Popular (vol DESC) ---
-  [0] "Northwind ai" vol="205k"(205000) chg="▲2.1k" dir=up trueVol=35000 trueChg=-2700
-  [1] "northwind vs semrush" vol="195k"(195000) chg="▲2.1k" dir=up trueVol=195000 trueChg=2100
-  [2] "northwind ai visibility" vol="147k"(147000) chg="▲2.1k" dir=up trueVol=549400 trueChg=76200
-  [3] "geo" vol="133k"(133000) chg="▼2.1k" dir=down trueVol=133000 trueChg=-2100
-  [4] "aeo" vol="131k"(131000) chg="▲2.1k" dir=up trueVol=120000 trueChg=1400
-  [5] "seo vs aeo" vol="108k"(108000) chg="▼2.1k" dir=down trueVol=108000 trueChg=-2100
-  [6] "boost ai visibility" vol="114k"(114000) chg="▲2.1k" dir=up trueVol=72000 trueChg=3400
---- light (light) Trending (chg DESC) ---
-  [0] "generative ai tools" vol="135k" chg="▲2.1k" dir=up trueVol=135000 trueChg=2100
-  [1] "aeo" vol="120k" chg="▲1.4k" dir=up trueVol=120000 trueChg=1400
-  [2] "generative ai" vol="97.0k" chg="▲1.8k" dir=up trueVol=97000 trueChg=1800
-  [3] "boost ai visibility" vol="72.0k" chg="▲3.4k" dir=up trueVol=72000 trueChg=3400
-  [4] "google ai overviews" vol="70.0k" chg="▲2.9k" dir=up trueVol=70000 trueChg=2900
-  [5] "ai content optimization" vol="64.0k" chg="▲6.4k" dir=up trueVol=64000 trueChg=6400
-  [6] "seo" vol="42.0k" chg="▲7.1k" dir=up trueVol=42000 trueChg=7100
-RESULT: FAIL — 56 problem(s):
-  - [light] Popular[0] "Northwind ai" vol visible "205k" != own fmtVol(35000)="35.0k"
-  - [light] Popular[0] chg "2.1k" != own "2.7k", dir "up" != "down"
-  - [light] Popular[2] vol "147k" != own "549k", chg "2.1k" != "76.2k"
-  - [light] Popular[4] vol "131k" != own "120k", chg "2.1k" != "1.4k"
-  - [light] Popular[6] vol "114k" != own "72.0k", chg "2.1k" != "3.4k"
-  - [light] Popular vols NOT DESC at 5: 108k(108000) < 114k(114000)
-  - [light] Popular distinct FAIL (true distinct but visible "up|2.1k" shared, 11 pairs)
-  - [light] Popular NOT top7 vol: got [35000,195000,549400,133000,120000,108000,72000] expected [549400,195000,135000,133000,120000,108000,97000]
-  - [light] Trending chgs NOT DESC (1400<1800, 1800<3400, 2900<6400, 6400<7100)
-  - [light] Trending NOT top7 chg: got [2100,1400,1800,3400,2900,6400,7100] expected [76200,7800,7100,6900,6400,5200,4400]
-  - (same 28 mirrored in dark) + order broken after loop
+  ok  noflash guard present
+  ok  color-scheme meta present
+  ok  first-paint bg style present
+  ok  fmt.vol(549400)==="549k" (got 549k)
+  ok  fmt.chg(76200)==="+76.2k" (got +76.2k)
+  ok  fmt.vol(58600)==="58.6k" (got 58.6k)
+  ok  fmt.chg(5200)==="+5.2k" (got +5.2k)
+-- Popular triples (volume desc) --
+  ok  pop[0] ("northwind ai visibility", 549k, ▲76.2k, dir=up) === ("northwind ai visibility", 549k, ▲76.2k)
+  ok  pop[1] ("answer engine optimization", 58.6k, ▲5.2k, dir=up) === ("answer engine optimization", 58.6k, ▲5.2k)
+  ok  pop[2] ("ai search visibility", 47.3k, ▲7.8k, dir=up) === ("ai search visibility", 47.3k, ▲7.8k)
+  ok  pop[3] ("generative engine optimization", 41.2k, ▲6.9k, dir=up) === ("generative engine optimization", 41.2k, ▲6.9k)
+  ok  pop[4] ("geo vs seo", 28.4k, ▲3.3k, dir=up) === ("geo vs seo", 28.4k, ▲3.3k)
+  ok  pop[5] ("aeo tools", 22.7k, ▲4.1k, dir=up) === ("aeo tools", 22.7k, ▲4.1k)
+  ok  pop[6] ("chatgpt brand mentions", 19.8k, ▲4.4k, dir=up) === ("chatgpt brand mentions", 19.8k, ▲4.4k)
+-- Trending triples, rising (change desc) --
+  ok  trend[0] ("northwind ai visibility", 549k, ▲76.2k, dir=up) === ("northwind ai visibility", 549k, ▲76.2k)
+  ok  trend[1] ("ai search visibility", 47.3k, ▲7.8k, dir=up) === ("ai search visibility", 47.3k, ▲7.8k)
+  ok  trend[2] ("generative engine optimization", 41.2k, ▲6.9k, dir=up) === ("generative engine optimization", 41.2k, ▲6.9k)
+  ok  trend[3] ("answer engine optimization", 58.6k, ▲5.2k, dir=up) === ("answer engine optimization", 58.6k, ▲5.2k)
+  ok  trend[4] ("chatgpt brand mentions", 19.8k, ▲4.4k, dir=up) === ("chatgpt brand mentions", 19.8k, ▲4.4k)
+  ok  trend[5] ("aeo tools", 22.7k, ▲4.1k, dir=up) === ("aeo tools", 22.7k, ▲4.1k)
+  ok  trend[6] ("geo vs seo", 28.4k, ▲3.3k, dir=up) === ("geo vs seo", 28.4k, ▲3.3k)
+  ok  popular deltas all distinct (76.2k, 5.2k, 7.8k, 6.9k, 3.3k, 4.1k, 4.4k)
+-- visible state (light) --
+  ok  row0 opacity 1 >= 0.75
+  ok  row0 visible/display
+  ok  row0 colour #1c1917 on #ffffff
+  ok  row0 geometry 320x44
+  ok  row1 opacity 1 >= 0.75
+  ok  row1 visible/display
+  ok  row1 colour #1c1917 on #ffffff
+  ok  row1 geometry 320x44
+  ok  row2 opacity 1 >= 0.75
+  ok  row2 visible/display
+  ok  row2 colour #1c1917 on #ffffff
+  ok  row2 geometry 320x44
+  ok  row3 opacity 1 >= 0.75
+  ok  row3 visible/display
+  ok  row3 colour #1c1917 on #ffffff
+  ok  row3 geometry 320x44
+  ok  row4 opacity 1 >= 0.75
+  ok  row4 visible/display
+  ok  row4 colour #1c1917 on #ffffff
+  ok  row4 geometry 320x44
+  ok  row5 opacity 1 >= 0.75
+  ok  row5 visible/display
+  ok  row5 colour #1c1917 on #ffffff
+  ok  row5 geometry 320x44
+  ok  row6 opacity 1 >= 0.75
+  ok  row6 visible/display
+  ok  row6 colour #1c1917 on #ffffff
+  ok  row6 geometry 320x44
+  ok  row7 opacity 1 >= 0.75
+  ok  row7 visible/display
+  ok  row7 colour #1c1917 on #ffffff
+  ok  row7 geometry 320x44
+  ok  row8 opacity 1 >= 0.75
+  ok  row8 visible/display
+  ok  row8 colour #1c1917 on #ffffff
+  ok  row8 geometry 320x44
+  ok  row9 opacity 1 >= 0.75
+  ok  row9 visible/display
+  ok  row9 colour #1c1917 on #ffffff
+  ok  row9 geometry 320x44
+  ok  row10 opacity 1 >= 0.75
+  ok  row10 visible/display
+  ok  row10 colour #1c1917 on #ffffff
+  ok  row10 geometry 320x44
+  ok  row11 opacity 1 >= 0.75
+  ok  row11 visible/display
+  ok  row11 colour #1c1917 on #ffffff
+  ok  row11 geometry 320x44
+  ok  row12 opacity 1 >= 0.75
+  ok  row12 visible/display
+  ok  row12 colour #1c1917 on #ffffff
+  ok  row12 geometry 320x44
+  ok  row13 opacity 1 >= 0.75
+  ok  row13 visible/display
+  ok  row13 colour #1c1917 on #ffffff
+  ok  row13 geometry 320x44
+-- visible state (dark) --
+  ok  row0 opacity 1 >= 0.75
+  ok  row0 visible/display
+  ok  row0 colour #ededed on #1c1c1f
+  ok  row0 geometry 320x44
+  ok  row1 opacity 1 >= 0.75
+  ok  row1 visible/display
+  ok  row1 colour #ededed on #1c1c1f
+  ok  row1 geometry 320x44
+  ok  row2 opacity 1 >= 0.75
+  ok  row2 visible/display
+  ok  row2 colour #ededed on #1c1c1f
+  ok  row2 geometry 320x44
+  ok  row3 opacity 1 >= 0.75
+  ok  row3 visible/display
+  ok  row3 colour #ededed on #1c1c1f
+  ok  row3 geometry 320x44
+  ok  row4 opacity 1 >= 0.75
+  ok  row4 visible/display
+  ok  row4 colour #ededed on #1c1c1f
+  ok  row4 geometry 320x44
+  ok  row5 opacity 1 >= 0.75
+  ok  row5 visible/display
+  ok  row5 colour #ededed on #1c1c1f
+  ok  row5 geometry 320x44
+  ok  row6 opacity 1 >= 0.75
+  ok  row6 visible/display
+  ok  row6 colour #ededed on #1c1c1f
+  ok  row6 geometry 320x44
+  ok  row7 opacity 1 >= 0.75
+  ok  row7 visible/display
+  ok  row7 colour #ededed on #1c1c1f
+  ok  row7 geometry 320x44
+  ok  row8 opacity 1 >= 0.75
+  ok  row8 visible/display
+  ok  row8 colour #ededed on #1c1c1f
+  ok  row8 geometry 320x44
+  ok  row9 opacity 1 >= 0.75
+  ok  row9 visible/display
+  ok  row9 colour #ededed on #1c1c1f
+  ok  row9 geometry 320x44
+  ok  row10 opacity 1 >= 0.75
+  ok  row10 visible/display
+  ok  row10 colour #ededed on #1c1c1f
+  ok  row10 geometry 320x44
+  ok  row11 opacity 1 >= 0.75
+  ok  row11 visible/display
+  ok  row11 colour #ededed on #1c1c1f
+  ok  row11 geometry 320x44
+  ok  row12 opacity 1 >= 0.75
+  ok  row12 visible/display
+  ok  row12 colour #ededed on #1c1c1f
+  ok  row12 geometry 320x44
+  ok  row13 opacity 1 >= 0.75
+  ok  row13 visible/display
+  ok  row13 colour #ededed on #1c1c1f
+  ok  row13 geometry 320x44
+  ok  theme switches ink (light #1c1917 vs dark #ededed)
+-- triples stable across themes --
+  ok  pop[0] ("northwind ai visibility", 549k, ▲76.2k, dir=up) === ("northwind ai visibility", 549k, ▲76.2k)
+  ok  pop[1] ("answer engine optimization", 58.6k, ▲5.2k, dir=up) === ("answer engine optimization", 58.6k, ▲5.2k)
+  ok  pop[2] ("ai search visibility", 47.3k, ▲7.8k, dir=up) === ("ai search visibility", 47.3k, ▲7.8k)
+  ok  pop[3] ("generative engine optimization", 41.2k, ▲6.9k, dir=up) === ("generative engine optimization", 41.2k, ▲6.9k)
+  ok  pop[4] ("geo vs seo", 28.4k, ▲3.3k, dir=up) === ("geo vs seo", 28.4k, ▲3.3k)
+  ok  pop[5] ("aeo tools", 22.7k, ▲4.1k, dir=up) === ("aeo tools", 22.7k, ▲4.1k)
+  ok  pop[6] ("chatgpt brand mentions", 19.8k, ▲4.4k, dir=up) === ("chatgpt brand mentions", 19.8k, ▲4.4k)
+  ok  trend[0] ("northwind ai visibility", 549k, ▲76.2k, dir=up) === ("northwind ai visibility", 549k, ▲76.2k)
+  ok  trend[1] ("ai search visibility", 47.3k, ▲7.8k, dir=up) === ("ai search visibility", 47.3k, ▲7.8k)
+  ok  trend[2] ("generative engine optimization", 41.2k, ▲6.9k, dir=up) === ("generative engine optimization", 41.2k, ▲6.9k)
+  ok  trend[3] ("answer engine optimization", 58.6k, ▲5.2k, dir=up) === ("answer engine optimization", 58.6k, ▲5.2k)
+  ok  trend[4] ("chatgpt brand mentions", 19.8k, ▲4.4k, dir=up) === ("chatgpt brand mentions", 19.8k, ▲4.4k)
+  ok  trend[5] ("aeo tools", 22.7k, ▲4.1k, dir=up) === ("aeo tools", 22.7k, ▲4.1k)
+  ok  trend[6] ("geo vs seo", 28.4k, ▲3.3k, dir=up) === ("geo vs seo", 28.4k, ▲3.3k)
+  ok  full-loop button identity preserved (14 ticks)
+  ok  full-loop row identity preserved (14 ticks)
+-- triples stable across full loop --
+  ok  pop[0] ("northwind ai visibility", 549k, ▲76.2k, dir=up) === ("northwind ai visibility", 549k, ▲76.2k)
+  ok  pop[1] ("answer engine optimization", 58.6k, ▲5.2k, dir=up) === ("answer engine optimization", 58.6k, ▲5.2k)
+  ok  pop[2] ("ai search visibility", 47.3k, ▲7.8k, dir=up) === ("ai search visibility", 47.3k, ▲7.8k)
+  ok  pop[3] ("generative engine optimization", 41.2k, ▲6.9k, dir=up) === ("generative engine optimization", 41.2k, ▲6.9k)
+  ok  pop[4] ("geo vs seo", 28.4k, ▲3.3k, dir=up) === ("geo vs seo", 28.4k, ▲3.3k)
+  ok  pop[5] ("aeo tools", 22.7k, ▲4.1k, dir=up) === ("aeo tools", 22.7k, ▲4.1k)
+  ok  pop[6] ("chatgpt brand mentions", 19.8k, ▲4.4k, dir=up) === ("chatgpt brand mentions", 19.8k, ▲4.4k)
+  ok  trend[0] ("northwind ai visibility", 549k, ▲76.2k, dir=up) === ("northwind ai visibility", 549k, ▲76.2k)
+  ok  trend[1] ("ai search visibility", 47.3k, ▲7.8k, dir=up) === ("ai search visibility", 47.3k, ▲7.8k)
+  ok  trend[2] ("generative engine optimization", 41.2k, ▲6.9k, dir=up) === ("generative engine optimization", 41.2k, ▲6.9k)
+  ok  trend[3] ("answer engine optimization", 58.6k, ▲5.2k, dir=up) === ("answer engine optimization", 58.6k, ▲5.2k)
+  ok  trend[4] ("chatgpt brand mentions", 19.8k, ▲4.4k, dir=up) === ("chatgpt brand mentions", 19.8k, ▲4.4k)
+  ok  trend[5] ("aeo tools", 22.7k, ▲4.1k, dir=up) === ("aeo tools", 22.7k, ▲4.1k)
+  ok  trend[6] ("geo vs seo", 28.4k, ▲3.3k, dir=up) === ("geo vs seo", 28.4k, ▲3.3k)
+  ok  falling list has 7 rows
+  ok  trend-after-tab[0] ("northwind ai visibility", 549k, ▲76.2k, dir=up) === ("northwind ai visibility", 549k, ▲76.2k)
+  ok  trend-after-tab[1] ("ai search visibility", 47.3k, ▲7.8k, dir=up) === ("ai search visibility", 47.3k, ▲7.8k)
+  ok  trend-after-tab[2] ("generative engine optimization", 41.2k, ▲6.9k, dir=up) === ("generative engine optimization", 41.2k, ▲6.9k)
+  ok  trend-after-tab[3] ("answer engine optimization", 58.6k, ▲5.2k, dir=up) === ("answer engine optimization", 58.6k, ▲5.2k)
+  ok  trend-after-tab[4] ("chatgpt brand mentions", 19.8k, ▲4.4k, dir=up) === ("chatgpt brand mentions", 19.8k, ▲4.4k)
+  ok  trend-after-tab[5] ("aeo tools", 22.7k, ▲4.1k, dir=up) === ("aeo tools", 22.7k, ▲4.1k)
+  ok  trend-after-tab[6] ("geo vs seo", 28.4k, ▲3.3k, dir=up) === ("geo vs seo", 28.4k, ▲3.3k)
+  ok  zero innerHTML writes after init (count=0)
+
+RESULT: PASS :: ./index.html
 ```
 
-## Invariants kept
-- `/*noflash*/` guard + `meta color-scheme` + `html{background…}` present; `data-theme="light"|"dark"` toggle works, both themes render identical rows (harness runs both).
-- In-place updates only: pools built once (`buildKwList` 7+7), `paintKwRow`/`paintLive` mutate `textContent`/`class`/`attributes`/`d`/`width`; no `innerHTML` code writes (`innerAssign=0`, stub counter `0` after init + 14 ticks).
-- Full-loop node identity: `__pex.pools.pop/trend` `btn`/`li` references `===` before/after 14 `tick()`s (full 14-node cycle), `createdCount` unchanged, order preserved after loop.
-- Verify: `node --check ./harness.js`, `node --check ./demo-original.js`, `node ./harness.js ./index.html` (PASS), `node ./harness.js ./original-backup.html` (FAIL). Open `index.html` in browser for visual light/dark check.
+## Invariants confirmed (both themes checked in harness)
+- `/*noflash*/` guard + `color-scheme` meta + first-paint background: intact.
+- In-place updates only: full 14-tick loop preserves every button/row node identity;
+  triples unchanged across loop and across light/dark round-trip.
+- Zero `innerHTML` writes after init (counter = 0 through ticks + trend tab switches).
+- Demo data verbatim: `ALL` (26 entries) and `FALLING` untouched; row values exist in
+  `demo-original.js` with identical numbers; only the two list-data lines changed.
+- Light AND dark: all 14 rows legible in both
+  (light ink `#1c1917` on card `#ffffff`; dark ink `#ededed` on card `#1c1c1f`;
+  opacity 1 ≥ 0.75; geometry 320×44).
 
-## Not verified in browser
-Real-browser pixel/contrast QA not re-run here; DOM-stub covers VISIBLE text (`kw-text`, `kw-vol`, `▲/▼+chg`, `data-dir`) in both themes. Reduced-motion/touch hover rules untouched.
+## How to test
+- Browser: open `./index.html`; Popular shows 549k/58.6k/47.3k/41.2k/28.4k/22.7k/19.8k
+  with distinct deltas ▲76.2k/▲5.2k/▲7.8k/▲6.9k/▲3.3k/▲4.1k/▲4.4k; Trending (Rising) shows
+  the change-desc order; toggle the sun/moon button for dark mode.
+- Node: `node --check ./harness.js && node ./harness.js ./index.html` (PASS, exit 0);
+  `node ./harness.js ./original-backup.html` (FAIL, exit 1).
+- Work was confined to this directory; no installs/downloads; no `/tmp` writes.
