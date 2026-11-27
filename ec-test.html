@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>EC minimal paint test</title>
+<style>body{font-family:system-ui;background:#fafaf9;color:#171717}svg{display:block;width:320px;height:240px;background:#fff;border:1px solid #ccc}</style>
+</head><body>
+<h1>Minimal paint test</h1>
+<p>A: static SVG — ellipse + white rect with border + text:</p>
+<svg viewBox="0 0 320 240" aria-hidden="true">
+  <ellipse cx="160" cy="190" rx="125" ry="25" fill="#FFA0AB" opacity="0.5"></ellipse>
+  <g><rect x="40" y="20" width="240" height="140" rx="10" fill="#FFFFFF" stroke="#E4E7EC"></rect>
+  <text x="56" y="48" font-size="13" fill="#8A8A8A">Calendar</text></g>
+</svg>
+<p>B: JS-built SVG using the same el() helper and makeCard pattern as empty-calendar:</p>
+<div id="holderB"></div>
+<script>
+var SVGNS='http://www.w3.org/2000/svg';
+function el(tag,attrs,parent,ns){
+  var n=(ns||(parent&&parent.namespaceURI==='http://www.w3.org/2000/svg'))?document.createElementNS(SVGNS,tag):document.createElement(tag);
+  if(attrs)for(var k in attrs){
+    if(k==='text'){n.textContent=attrs[k];}
+    else if(k==='class'){n.setAttribute('class',attrs[k]);}
+    else n.setAttribute(k,attrs[k]);
+  }
+  if(parent)parent.appendChild(n);
+  return n;
+}
+var holder=document.getElementById('holderB');
+var svg=el('svg',{viewBox:'0 0 320 240','aria-hidden':'true'},holder,SVGNS);
+var outer=el('g',{transform:'translate(30 47) scale(0.814)'},svg,SVGNS);
+var frontG=el('g',{},outer,SVGNS);
+el('ellipse',{cx:'160',cy:'152',rx:'125',ry:'35',fill:'#FFA0AB',opacity:'0.5'},frontG,SVGNS);
+var g=el('g',null,null,SVGNS);
+el('rect',{x:'40',y:'23',width:'240',height:'140',rx:'10',fill:'#000000','fill-opacity':'0.06'},g);
+el('rect',{x:'40',y:'20',width:'240',height:'140',rx:'10',fill:'#FFFFFF',stroke:'#E4E7EC','stroke-width':'1'},g);
+el('text',{x:'56',y:'48','font-size':'13',fill:'#8A8A8A',text:'Calendar'},g);
+frontG.appendChild(g);
+el('path',{d:'M40 150 A 10 10 0 0 0 50 160 L270 160 A 10 10 0 0 0 280 150',fill:'none',stroke:'#C8A8E5','stroke-width':'0.5'},frontG,SVGNS);
+</script>
+</body></html>
