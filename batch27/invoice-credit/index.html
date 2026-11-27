@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<script>/*noflash*/(function(){try{var k='ic-theme';var t=null;try{t=localStorage.getItem(k)}catch(e){}if(!t){try{t=(window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light'}catch(e){t='light'}}if(t!=='light'&&t!=='dark')t='light';document.documentElement.setAttribute('data-theme',t)}catch(e){}})();</script>
+<style>html{background:#fafaf9}html[data-theme="dark"]{background:#101012}</style>
+<title>Invoice &amp; Credit Note — Billing</title>
+<style>
+:root{
+  --surface:#ffffff;
+  --page:#fafaf9;
+  --ink:#1c1917;
+  --ink-soft:#44403c;
+  --muted:#78716c;
+  --subtle:#f5f5f4;
+  --inset:#f6f6f5;
+  --border:#e7e5e4;
+  --line:#ececea;
+  --card-line:#e5e3e0;
+  --accent:#2563eb;
+  --accent-soft:rgba(37,99,235,.08);
+  --check:#2f6bff;
+  --ok:#1e8a4f;
+  --ok-bg:#e6f5ec;
+  --amber:#f59e0b;
+  --amber-bg:#fef3c7;
+  --amber-ink:#92400e;
+  --danger:#dc2626;
+  --focus:rgba(0,96,226,.7);
+  --radius-lg:16px;
+  --radius:10px;
+  --radius-sm:6px;
+  --shadow:0 1px 2px rgba(0,0,0,.05),0 4px 16px rgba(0,0,0,.05);
+  --shadow-sm:0 1px 2px rgba(0,0,0,.06);
+  --ease:cubic-bezier(.65,0,.25,1);
+}
+html[data-theme="dark"]{
+  --surface:#1c1c1f;
+  --page:#101012;
+  --ink:#ededed;
+  --ink-soft:#c4c4c4;
+  --muted:#a1a1aa;
+  --subtle:#26262a;
+  --inset:#1c1c1f;
+  --border:#2e2e33;
+  --line:rgba(255,255,255,.07);
+  --card-line:rgba(255,255,255,.08);
+  --accent:#4fb0fe;
+  --accent-soft:rgba(79,176,254,.12);
+  --check:#4fb0fe;
+  --ok:#7dcf9f;
+  --ok-bg:rgba(125,207,159,.14);
+  --amber:#fbbf24;
+  --amber-bg:#451a03;
+  --amber-ink:#fde68a;
+  --focus:rgba(77,141,255,.8);
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+  --shadow-sm:0 1px 2px rgba(0,0,0,.4);
+}
+html{-webkit-tap-highlight-color:transparent}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:var(--page);
+  color:var(--ink);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:14px;
+  line-height:1.5;
+  font-variant-numeric:tabular-nums;
+  -webkit-font-smoothing:antialiased;
+}
+.page{max-width:800px;margin:0 auto;padding:20px 16px 48px}
+.page-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:2px 2px 14px}
+.title-wrap{min-width:0}
+.title{margin:0;font-size:15px;font-weight:600;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sub{margin:2px 0 0;font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pill{display:inline-block;margin-left:8px;padding:2px 10px;border-radius:999px;background:var(--subtle);border:1px solid var(--border);font-size:12px;font-weight:500;color:var(--muted);vertical-align:1px}
+.theme-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-width:38px;height:34px;padding:0 10px;border-radius:999px;border:1px solid var(--border);background:var(--surface);box-shadow:var(--shadow-sm);color:var(--ink);cursor:pointer;font-size:14px;transition:transform 150ms ease,background-color 160ms ease}
+.theme-btn .moon{margin-left:-2px}
+.theme-btn .lbl{font-size:12px;color:var(--muted);padding-right:2px}
+/* component frame: outer tray + stacked sheets (concentric radius: 24 outer = 20 inner + 4 pad) */
+.ic{background:var(--subtle);border:1px solid var(--border);border-radius:24px;padding:6px;box-shadow:var(--shadow);container-type:inline-size}
+.ic-bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 10px;padding:6px 4px 12px 6px}
+.seg{position:relative;display:grid;grid-template-columns:1fr 1fr;padding:3px;border-radius:var(--radius);background:rgba(0,0,0,.05)}
+html[data-theme="dark"] .seg{background:rgba(255,255,255,.06)}
+.seg-thumb{position:absolute;top:3px;left:3px;width:calc(50% - 3px);height:calc(100% - 6px);border-radius:calc(var(--radius) - 3px);background:var(--surface);box-shadow:0 1px 2px rgba(0,0,0,.08),0 0 0 1px rgba(0,0,0,.04);transition:transform 420ms var(--ease)}
+.ic[data-view="credit"] .seg-thumb{transform:translateX(100%)}
+.seg button{position:relative;height:30px;padding:0 14px;border:0;background:none;font-size:13px;font-weight:500;color:var(--muted);white-space:nowrap;cursor:pointer;transition:color 200ms ease;border-radius:7px}
+.seg button[aria-selected="true"]{color:var(--ink)}
+.seg button:focus-visible,.ic-btn:focus-visible,.ic-primary:focus-visible,.check:focus-visible,.amt input:focus-visible,.theme-btn:focus-visible,.linklike:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.ic-actions{display:flex;gap:6px}
+.ic-btn{display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 12px 0 10px;border-radius:var(--radius);background:var(--surface);box-shadow:inset 0 0 0 1px var(--card-line),0 1px 1px rgba(0,0,0,.03);border:0;font-size:13px;font-weight:500;color:var(--ink);white-space:nowrap;cursor:pointer;transition:background-color 160ms ease,transform 160ms ease}
+.ic-btn svg{width:15px;height:15px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;color:var(--ink-soft)}
+.ic-btn:active{transform:scale(.98)}
+.ic-stack{position:relative;display:grid;padding-top:14px}
+.sheet{grid-area:1/1;min-width:0;padding:38px 42px 30px;border:1px solid var(--card-line);border-radius:20px;background:var(--surface);box-shadow:0 -1px 2px rgba(0,0,0,.03);transition:transform 620ms var(--ease),opacity 420ms ease,box-shadow 420ms ease}
+.sheet[aria-hidden="true"]{z-index:0;transform:translateY(-14px) scale(.96);transform-origin:top center;pointer-events:none}
+.sheet[aria-hidden="true"]>*{opacity:0;transition:opacity 200ms ease}
+.sheet:not([aria-hidden="true"]){z-index:1;box-shadow:0 -2px 10px rgba(0,0,0,.04)}
+.sheet:not([aria-hidden="true"])>*{opacity:1;transition:opacity 360ms ease 200ms}
+.sheet-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:34px}
+.big{margin:0;font-size:40px;font-weight:500;letter-spacing:-.035em;line-height:1.1;overflow-wrap:anywhere}
+.dueline{display:flex;align-items:center;gap:28px;margin:10px 0 0;font-size:14px;color:var(--ink-soft)}
+.dueline a{color:var(--accent);text-decoration:none}
+.badge{margin-left:-16px;padding:2px 8px;border-radius:8px;background:var(--ok-bg);font-size:12px;font-weight:500;color:var(--ok)}
+.brand{display:inline-flex;align-items:center;gap:7px;min-width:0;max-width:100%;padding-top:8px;font-size:15px;color:var(--ink-soft);white-space:nowrap}
+.brand-name{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.logo{flex:none;width:24px;height:24px;border-radius:50%;background:conic-gradient(from 210deg,#2f6bff,#8fb0ff,#2f6bff);-webkit-mask:radial-gradient(circle,transparent 4px,#000 4.5px);mask:radial-gradient(circle,transparent 4px,#000 4.5px);outline:1px solid rgba(0,0,0,.1);outline-offset:-1px}
+html[data-theme="dark"] .logo{outline-color:rgba(255,255,255,.1)}
+.label{margin:0 0 8px;font-size:14px;font-weight:500;color:var(--ink)}
+.parties{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:30px}
+.party{min-width:0}
+.party p{margin:0;font-size:14px;line-height:1.6;color:var(--ink-soft);overflow-wrap:anywhere}
+.terms{margin-bottom:30px}
+.terms dl{display:grid;gap:7px;margin:0}
+.terms dl>div{display:grid;grid-template-columns:140px 1fr;font-size:14px}
+.terms dt{color:var(--muted)}
+.terms dd{min-width:0;margin:0;color:var(--ink-soft);overflow-wrap:anywhere}
+.ref{padding:0;border:0;background:none;text-align:left;color:var(--accent);font-variant-numeric:tabular-nums;font-size:14px}
+button.ref{cursor:pointer}
+table.htable{width:100%;border-collapse:collapse;font-size:14px}
+.htable th{padding:0 0 12px;border-bottom:1px solid var(--line);text-align:left;font-weight:500;color:var(--ink)}
+.htable td{padding:14px 0;border-bottom:1px solid var(--line);color:var(--ink-soft)}
+.htable tr.group td{color:var(--ink)}
+.htable tr.indent td:first-child{padding-left:24px}
+.num{text-align:right;white-space:nowrap}
+.totals{display:grid;gap:12px;width:min(100%,300px);margin:22px 0 0 auto;font-size:14px}
+.totals>div{display:flex;justify-content:space-between;gap:16px;color:var(--muted)}
+.totals>div>:last-child{white-space:nowrap}
+.totals div span:last-child{color:var(--ink-soft)}
+.total{margin-top:4px;padding-top:14px;border-top:1px solid var(--ink-soft)}
+.total span{font-weight:500;color:var(--ink-soft)}
+.total b{font-size:16px;font-weight:600;color:var(--ink)}
+.note{margin-top:-4px}
+.tray{padding:0 6px 6px;border-radius:18px;background:var(--inset);box-shadow:inset 0 0 0 1px var(--line)}
+.tray-title{padding:14px 12px 12px;font-size:15px;font-weight:500;color:var(--ink-soft);margin:0}
+.card{padding:4px 14px;border:1px solid var(--card-line);border-radius:14px;background:var(--surface);box-shadow:var(--shadow-sm)}
+.crow{display:grid;grid-template-columns:22px minmax(0,1fr) auto minmax(min-content,.8fr);align-items:center;gap:14px;min-height:60px;border-bottom:1px solid var(--line);font-size:14px;transition:opacity 220ms ease}
+.crow:last-child{border-bottom:0}
+.crow-head{min-height:46px;font-size:13px;color:var(--muted)}
+.crow.off .cname,.crow.off>.tnum{opacity:.75}
+.crow>.tnum{font-variant-numeric:tabular-nums;color:var(--ink)}
+.cname{min-width:0;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;overflow-wrap:break-word}
+.check{position:relative;display:grid;place-items:center;width:20px;height:20px;padding:0;border:0;border-radius:5px;background:var(--inset);box-shadow:inset 0 0 0 1px var(--card-line);color:#fff;cursor:pointer;transition:background-color 180ms ease,box-shadow 180ms ease}
+.check svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:20;stroke-dashoffset:20;transition:stroke-dashoffset 260ms ease}
+.check[aria-checked="true"]{background:var(--check);box-shadow:inset 0 0 0 1px var(--check)}
+.check[aria-checked="true"] svg{stroke-dashoffset:0}
+.check:disabled{cursor:default}
+.amt{display:flex;align-items:center;gap:6px;width:100%;min-width:150px;max-width:220px;margin-left:auto;height:44px;padding:0 12px 0 14px;border-radius:12px;background:var(--surface);box-shadow:inset 0 0 0 1px var(--card-line);transition:box-shadow 160ms ease,opacity 200ms ease}
+.amt:focus-within{box-shadow:inset 0 0 0 1px var(--muted)}
+.amt .sym{flex:none;color:var(--muted)}
+.amt input{flex:1;width:0;min-width:calc(var(--chars,4)*1ch + 1px);border:0;background:none;outline:none;text-align:right;font-size:14px;color:var(--ink);font-variant-numeric:tabular-nums}
+.amt.off{opacity:.55}
+.issue{display:flex;justify-content:flex-end;margin-top:24px;padding-bottom:6px}
+.ic-primary{height:38px;padding:0 14px 0 16px;border:0;border-radius:var(--radius);background:linear-gradient(180deg,#323137,#201e25);box-shadow:0 0 0 1px #0d0d0d,inset 0 1px 0 rgba(255,255,255,.12);font-size:14px;font-weight:500;color:#fff;cursor:pointer;transition:filter 160ms ease,opacity 200ms ease,transform 160ms ease}
+html[data-theme="dark"] .ic-primary{background:linear-gradient(180deg,#f4f4f5,#e4e4e7);box-shadow:0 0 0 1px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.6);color:#121213}
+.ic-primary:active:not(:disabled){transform:scale(.98)}
+.ic-primary:disabled{opacity:.4;cursor:default}
+.toast{margin:12px 6px 0;min-height:20px;font-size:12px;color:var(--muted)}
+.empty-note{padding:18px 0;font-size:14px;color:var(--muted);margin:0}
+@container (max-width:560px){
+  .sheet{padding:28px 20px 24px}
+  .big{font-size:clamp(22px,8.5cqi,30px)}
+  .sheet-head{flex-direction:column-reverse;margin-bottom:28px}
+  .parties{grid-template-columns:1fr}
+  .terms dl>div{grid-template-columns:120px 1fr}
+  .htable th:nth-child(4),.htable td:nth-child(4),.htable th:nth-child(3),.htable td:nth-child(3){display:none}
+  .htable th+th,.htable td+td{padding-left:12px}
+  .crow{grid-template-columns:22px minmax(0,1fr) minmax(min-content,.9fr)}
+  .amt{min-width:110px}
+  .crow>:nth-child(3){display:none}
+  .ic-actions .ic-btn:first-child{display:none}
+  .seg button{padding:0 11px}
+  .ic-btn{padding:0 10px 0 8px}
+}
+@container (max-width:400px){
+  .sheet{padding:24px 16px 20px}
+  .card{padding:4px 10px}
+  .crow{gap:10px}
+  .amt{gap:4px;padding:0 10px}
+  .terms dl>div{grid-template-columns:112px 1fr}
+}
+@media (pointer:coarse){
+  .seg button{height:36px}
+  .ic-btn{height:38px}
+  .ic-primary{height:42px;padding:0 18px}
+  .check::before{content:"";position:absolute;inset:-8px}
+  .amt input{font-size:16px}
+}
+@media (prefers-reduced-motion:reduce){
+  .sheet,.sheet>*,.seg-thumb,.check svg{transition:none}
+}
+@media (hover: hover) and (pointer: fine){
+  .ic-btn:hover{background:var(--accent-soft)}
+  .ic-primary:hover:not(:disabled){filter:brightness(1.12)}
+  .dueline a:hover{text-decoration:underline}
+  button.ref:hover{text-decoration:underline}
+  .seg button:hover{color:var(--ink)}
+  .theme-btn:hover{background:var(--accent-soft)}
+}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.ic input:not([type="checkbox"]):not([type="radio"]):focus-visible{outline:none}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="page-head">
+    <div class="title-wrap">
+      <p class="title">Invoice &amp; Credit Note<span class="pill">Billing</span></p>
+      <p class="sub">Stacked invoice and credit note with line selection, amount adjustment, issuing.</p>
+    </div>
+    <button class="theme-btn" id="theme-toggle" type="button" aria-label="Switch to dark theme" title="Toggle theme"><span id="theme-icon" aria-hidden="true">◐</span><span class="lbl" id="theme-label">Theme</span></button>
+  </div>
+
+  <section class="ic" id="ic" data-view="invoice" aria-label="Invoice and credit note">
+    <div class="ic-bar">
+      <div class="seg" role="tablist" aria-label="Document" id="seg">
+        <span class="seg-thumb" id="seg-thumb" aria-hidden="true"></span>
+        <button type="button" role="tab" id="tab-invoice" aria-selected="true" aria-controls="sheet-invoice" tabindex="0">Invoice</button>
+        <button type="button" role="tab" id="tab-credit" aria-selected="false" aria-controls="sheet-credit" tabindex="-1">Credit note</button>
+      </div>
+      <div class="ic-actions">
+        <button type="button" class="ic-btn" id="btn-pdf" title="Demo – connect your own PDF export" aria-description="Demo – connect your own PDF export"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 19.5h14"/></svg>PDF</button>
+        <button type="button" class="ic-btn" id="btn-to-credit"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14 4.5 9.5 9 5M4.5 9.5h10a5 5 0 0 1 0 10H12"/></svg>Credit invoice</button>
+      </div>
+    </div>
+
+    <div class="ic-stack">
+      <article class="sheet" id="sheet-invoice" data-doc="invoice" role="tabpanel" aria-labelledby="tab-invoice" aria-hidden="false">
+        <header class="sheet-head">
+          <div>
+            <p class="big" id="inv-big">$11,359.68</p>
+            <p class="dueline"><span>Due 31 Oct 2026</span><a href="#pay" id="pay-link">Pay online</a></p>
+          </div>
+          <span class="brand"><span class="logo" aria-hidden="true"></span><span class="brand-name">Lumen Labs, Inc.</span></span>
+        </header>
+        <div class="parties">
+          <div class="party"><p class="label">From</p><p>Lumen Labs, Inc.</p><p>48 Harbour Street</p><p>Bristol</p><p>BS1 4RN</p><p>United Kingdom</p></div>
+          <div class="party"><p class="label">To</p><p>Northwind Logistics GmbH</p><p>Speicherstraße 12</p><p>Hamburg</p><p>20457</p><p>Germany</p></div>
+        </div>
+        <div class="terms">
+          <p class="label">Terms</p>
+          <dl>
+            <div><dt>Invoice no</dt><dd><span class="ref" id="inv-no">INV-2041</span></dd></div>
+            <div><dt>Invoice date</dt><dd>1 Oct 2026</dd></div>
+            <div><dt>Due date</dt><dd>31 Oct 2026</dd></div>
+            <div><dt>Billing period</dt><dd>1 Sep – 30 Sep 2026</dd></div>
+          </dl>
+        </div>
+        <table class="htable" id="inv-table">
+          <thead><tr><th scope="col">Name</th><th scope="col">Qty</th><th scope="col" class="num">Rate</th><th scope="col" class="num">Tax</th><th scope="col" class="num">Price</th></tr></thead>
+          <tbody>
+            <tr><td>Growth plan</td><td>1</td><td class="num">$1,250.00</td><td class="num">20%</td><td class="num">$1,250.00</td></tr>
+            <tr><td>Extra seats</td><td>12</td><td class="num">$40.00</td><td class="num">20%</td><td class="num">$480.00</td></tr>
+            <tr class="group"><td colspan="5">Metered usage</td></tr>
+            <tr class="indent"><td>API calls (per 1k)</td><td>18,420</td><td class="num">$0.42</td><td class="num">20%</td><td class="num">$7,736.40</td></tr>
+          </tbody>
+        </table>
+        <div class="totals">
+          <div><span>Subtotal</span><span id="inv-sub">$9,466.40</span></div>
+          <div><span>Tax</span><span id="inv-tax">$1,893.28</span></div>
+          <div class="total"><span>Total</span><b id="inv-total">$11,359.68</b></div>
+        </div>
+      </article>
+
+      <article class="sheet" id="sheet-credit" data-doc="credit" role="tabpanel" aria-labelledby="tab-credit" aria-hidden="true">
+        <header class="sheet-head">
+          <div>
+            <p class="big">Credit note</p>
+            <p class="dueline"><span id="cr-due">$11,359.68 credited on 1 Oct 2026</span><span class="badge" id="cr-badge" hidden>Issued</span></p>
+          </div>
+          <span class="brand"><span class="logo" aria-hidden="true"></span><span class="brand-name">Lumen Labs, Inc.</span></span>
+        </header>
+        <div class="terms">
+          <p class="label">Terms</p>
+          <dl>
+            <div><dt>Credit note no</dt><dd><span class="ref">CN-0117</span></dd></div>
+            <div><dt>Related invoice</dt><dd><button type="button" class="ref" id="btn-to-invoice">INV-2041</button></dd></div>
+            <div><dt>Billing period</dt><dd>1 Sep – 30 Sep 2026</dd></div>
+            <div><dt>Date of issue</dt><dd>1 Oct 2026</dd></div>
+          </dl>
+        </div>
+        <div class="tray">
+          <p class="tray-title">Lines to credit</p>
+          <div class="card" id="tray-card">
+            <div class="crow crow-head" aria-hidden="true"><span></span><span>Name</span><span class="num tnum">Total</span><span class="num">Credit amount</span></div>
+            <div class="crow" id="row-plan">
+              <button type="button" class="check" id="check-plan" role="checkbox" aria-checked="true" aria-label="Credit Growth plan"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 12.5 4 4 8-9"/></svg></button>
+              <span class="cname" title="Growth plan">Growth plan</span>
+              <span class="num tnum" id="total-plan">$1,250.00</span>
+              <span class="num"><label class="amt" id="amt-plan"><span class="sym">$</span><input id="input-plan" inputmode="decimal" aria-label="Credit amount for Growth plan" value="1,250.00"></label></span>
+            </div>
+            <div class="crow" id="row-seats">
+              <button type="button" class="check" id="check-seats" role="checkbox" aria-checked="true" aria-label="Credit Extra seats"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 12.5 4 4 8-9"/></svg></button>
+              <span class="cname" title="Extra seats">Extra seats</span>
+              <span class="num tnum" id="total-seats">$480.00</span>
+              <span class="num"><label class="amt" id="amt-seats"><span class="sym">$</span><input id="input-seats" inputmode="decimal" aria-label="Credit amount for Extra seats" value="480.00"></label></span>
+            </div>
+            <div class="crow" id="row-api">
+              <button type="button" class="check" id="check-api" role="checkbox" aria-checked="true" aria-label="Credit API calls (per 1k)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 12.5 4 4 8-9"/></svg></button>
+              <span class="cname" title="API calls (per 1k)">API calls (per 1k)</span>
+              <span class="num tnum" id="total-api">$7,736.40</span>
+              <span class="num"><label class="amt" id="amt-api"><span class="sym">$</span><input id="input-api" inputmode="decimal" aria-label="Credit amount for API calls (per 1k)" value="7,736.40"></label></span>
+            </div>
+          </div>
+        </div>
+        <div class="totals">
+          <div><span>Subtotal</span><span id="cr-sub">$9,466.40</span></div>
+          <div><span>Tax</span><span id="cr-tax">$1,893.28</span></div>
+          <div class="total"><span>Adjustment total</span><b id="cr-total">-$11,359.68</b></div>
+          <div class="note"><span>Applied to invoice</span><span id="cr-note">-$11,359.68 USD</span></div>
+        </div>
+        <div class="issue" id="issue-wrap">
+          <button type="button" class="ic-primary" id="btn-issue">Issue credit note</button>
+        </div>
+      </article>
+    </div>
+    <p class="toast" id="toast" role="status" aria-live="polite"></p>
+  </section>
+</div>
+
+<script>
+(function(){
+"use strict";
+var LINES=[
+  {id:'plan',name:'Growth plan',qty:1,rate:1250,tax:0.2},
+  {id:'seats',name:'Extra seats',qty:12,rate:40,tax:0.2},
+  {id:'api',name:'API calls (per 1k)',qty:18420,rate:0.42,tax:0.2,group:'Metered usage'}
+];
+function $(id){return document.getElementById(id)}
+function round2(v){return Math.round(v*100)/100}
+function num(v){return (typeof v==='number'&&isFinite(v))?v:0}
+function lineTotal(l){return num(round2(num(l.qty)*num(l.rate)))}
+function clampAmt(v,max){var lo=Math.min(0,max),hi=Math.max(0,max);var r=round2(v);if(r<lo)r=lo;if(r>hi)r=hi;return r}
+var fmtInt=new Intl.NumberFormat('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+var fmtQty=new Intl.NumberFormat('en-US',{maximumFractionDigits:2});
+var fmtPct=new Intl.NumberFormat('en-US',{style:'percent',maximumFractionDigits:2});
+function money(v){return '$'+fmtInt.format(v)}
+function moneySigned(v,negate){var neg=negate?v>0:v<0;return (neg?'-':'')+'$'+fmtInt.format(Math.abs(v))}
+function precise(v){var f=new Intl.NumberFormat('en-US',{minimumFractionDigits:2,maximumFractionDigits:4});return '$'+f.format(v)}
+var state={view:'invoice',selected:{plan:true,seats:true,api:true},amounts:{},issued:false,editing:{}};
+LINES.forEach(function(l){state.amounts[l.id]=lineTotal(l)});
+function sel(id){return state.selected[id]!==false}
+function amt(id){var v=state.amounts[id];return (typeof v==='number'&&isFinite(v))?v:lineTotal(LINES.filter(function(l){return l.id===id})[0])}
+function totals(){
+  var j=0,y=0;
+  LINES.forEach(function(l){var t=lineTotal(l);j+=t;y+=t*num(l.tax)});
+  j=round2(j);y=round2(y);
+  var z=0,q=0;
+  LINES.forEach(function(l){if(sel(l.id)){var a=amt(l.id);z+=a;q+=a*num(l.tax)}});
+  z=round2(z);q=round2(q);
+  return {sub:j,tax:y,grand:round2(j+y),csub:z,ctax:round2(q),cgrand:round2(z+q)};
+}
+function setText(id,txt){var el=$(id);if(el&&el.textContent!==txt)el.textContent=txt}
+function setHidden(id,hide){var el=$(id);if(!el)return;if(hide)el.setAttribute('hidden','');else el.removeAttribute('hidden')}
+function paintTotals(){
+  var t=totals();
+  setText('inv-big',money(t.grand));
+  setText('inv-sub',money(t.sub));
+  setText('inv-tax',money(t.tax));
+  setText('inv-total',money(t.grand));
+  setText('cr-sub',money(t.csub));
+  setText('cr-tax',money(t.ctax));
+  setText('cr-total',moneySigned(t.cgrand,true));
+  setText('cr-note',moneySigned(t.cgrand,true)+' USD');
+  setText('cr-due',money(t.cgrand)+' credited on 1 Oct 2026');
+  var b=$('btn-issue');
+  if(b){var dis=t.cgrand<=0||state.issued;if(b.disabled!==dis)b.disabled=dis}
+  LINES.forEach(function(l){
+    var ed=state.editing[l.id];
+    var inp=$('input-'+l.id);
+    if(inp&&document.activeElement!==inp){
+      var shown=(ed!=null)?ed:fmtInt.format(amt(l.id));
+      if(inp.value!==shown)inp.value=shown;
+      var w=$('amt-'+l.id);
+      if(w)w.style.setProperty('--chars',String(Math.max(4,shown.length)));
+    }
+  });
+}
+function paintRows(){
+  LINES.forEach(function(l){
+    var on=sel(l.id);
+    var row=$('row-'+l.id),ch=$('check-'+l.id),box=$('amt-'+l.id),inp=$('input-'+l.id);
+    if(row){if(on)row.classList.remove('off');else row.classList.add('off')}
+    if(ch){ch.setAttribute('aria-checked',on?'true':'false');if(state.issued)ch.setAttribute('disabled','');else ch.removeAttribute('disabled');ch.disabled=!!state.issued}
+    if(box){if(!on||state.issued)box.classList.add('off');else box.classList.remove('off')}
+    if(inp){inp.disabled=!on||state.issued}
+  });
+}
+function paintBadge(){
+  setHidden('cr-badge',!state.issued);
+}
+function paintIssue(){
+  var wrap=$('issue-wrap');
+  if(!wrap)return;
+  var wantEdit=state.issued;
+  var hasEdit=$('btn-edit')!==null;
+  var hasIssue=$('btn-issue')!==null;
+  if(wantEdit&&!hasEdit){
+    var old=$('btn-issue');if(old)wrap.removeChild(old);
+    var btn=document.createElement('button');
+    btn.type='button';btn.className='ic-btn';btn.id='btn-edit';btn.textContent='Edit credit note';
+    btn.addEventListener('click',onEdit);
+    wrap.appendChild(btn);
+    var t=totals();
+    setToast('Credit note CN-0117 issued for '+money(t.cgrand)+'.');
+  }else if(!wantEdit&&!hasIssue){
+    var e=$('btn-edit');if(e)wrap.removeChild(e);
+    var nb=document.createElement('button');
+    nb.type='button';nb.className='ic-primary';nb.id='btn-issue';nb.textContent='Issue credit note';
+    nb.addEventListener('click',onIssue);
+    wrap.appendChild(nb);
+    setToast('');
+  }
+  paintTotals();paintRows();
+}
+var toastTimer=null;
+function setToast(msg){
+  var el=$('toast');if(!el)return;
+  if(el.textContent!==msg)el.textContent=msg;
+  if(toastTimer){try{clearTimeout(toastTimer)}catch(e){}toastTimer=null}
+  if(msg){try{toastTimer=setTimeout(function(){var t=$('toast');if(t&&t.textContent===msg)t.textContent=''},4000)}catch(e){}}
+}
+function setView(v,focusTab){
+  if(v!=='invoice'&&v!=='credit')return;
+  state.view=v;
+  var ic=$('ic');if(ic)ic.setAttribute('data-view',v);
+  var ti=$('tab-invoice'),tc=$('tab-credit');
+  if(ti){ti.setAttribute('aria-selected',v==='invoice'?'true':'false');ti.tabIndex=v==='invoice'?0:-1}
+  if(tc){tc.setAttribute('aria-selected',v==='credit'?'true':'false');tc.tabIndex=v==='credit'?0:-1}
+  var si=$('sheet-invoice'),sc=$('sheet-credit');
+  if(si)si.setAttribute('aria-hidden',v==='invoice'?'false':'true');
+  if(sc)sc.setAttribute('aria-hidden',v==='credit'?'false':'true');
+  var btc=$('btn-to-credit');
+  if(btc){if(v==='invoice')btc.removeAttribute('hidden');else btc.setAttribute('hidden','')}
+  if(focusTab){var t=v==='invoice'?ti:tc;if(t&&t.focus)t.focus()}
+}
+function onIssue(){
+  var t=totals();
+  if(t.cgrand<=0||state.issued)return;
+  state.issued=true;
+  paintBadge();paintIssue();
+  var wrap=$('issue-wrap');
+  if(wrap){var b=wrap.querySelector?wrap.querySelector('button'):null;if(b&&b.focus)b.focus()}
+}
+function onEdit(){
+  state.issued=false;
+  paintBadge();paintIssue();
+}
+function toggleLine(id){
+  if(state.issued)return;
+  state.selected[id]=!sel(id);
+  paintRows();paintTotals();
+}
+function commitAmount(id,raw){
+  var line=null;LINES.forEach(function(l){if(l.id===id)line=l});
+  if(!line)return;
+  var max=lineTotal(line);
+  var n=parseFloat(raw);
+  if(!isFinite(n))n=0;
+  state.amounts[id]=clampAmt(n,max);
+  delete state.editing[id];
+  paintTotals();paintRows();
+}
+function onSegKey(e){
+  var order=['invoice','credit'];
+  var idx=order.indexOf(state.view);
+  var k=e.key||'';
+  var next=-1;
+  if(k==='ArrowRight'||k==='ArrowDown')next=(idx+1)%order.length;
+  else if(k==='ArrowLeft'||k==='ArrowUp')next=(idx-1+order.length)%order.length;
+  else if(k==='Home')next=0;
+  else if(k==='End')next=order.length-1;
+  if(next<0)return;
+  if(e.preventDefault)e.preventDefault();
+  setView(order[next],true);
+}
+function setTheme(mode){
+  var root=document.documentElement;
+  var v=(mode==='dark')?'dark':'light';
+  root.setAttribute('data-theme',v);
+  try{localStorage.setItem('ic-theme',v)}catch(e){}
+  var t=$('theme-toggle');
+  if(t)t.setAttribute('aria-label',v==='dark'?'Switch to light theme':'Switch to dark theme');
+  var ic=$('theme-icon');if(ic)ic.textContent=(v==='dark')?'☾':'◐';
+}
+function initTheme(){
+  var btn=$('theme-toggle');
+  if(btn)btn.addEventListener('click',function(){
+    var cur=document.documentElement.getAttribute('data-theme');
+    setTheme(cur==='dark'?'light':'dark');
+  });
+  try{
+    var stored=null;try{stored=localStorage.getItem('ic-theme')}catch(e){}
+    if(stored==='light'||stored==='dark')setTheme(stored);
+    else if(window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)setTheme('dark');
+    else setTheme(document.documentElement.getAttribute('data-theme')||'light');
+  }catch(e){}
+}
+function bind(){
+  var ti=$('tab-invoice'),tc=$('tab-credit'),seg=$('seg');
+  if(ti)ti.addEventListener('click',function(){setView('invoice')});
+  if(tc)tc.addEventListener('click',function(){setView('credit')});
+  if(seg)seg.addEventListener('keydown',onSegKey);
+  var btc=$('btn-to-credit');if(btc)btc.addEventListener('click',function(){setView('credit',true)});
+  var bti=$('btn-to-invoice');if(bti)bti.addEventListener('click',function(){setView('invoice',true)});
+  var pay=$('pay-link');if(pay)pay.addEventListener('click',function(e){if(e.preventDefault)e.preventDefault();setToast('Demo checkout – connect your own payment link.')});
+  var pdf=$('btn-pdf');if(pdf)pdf.addEventListener('click',function(){setToast('Demo – connect your own PDF export.')});
+  var bi=$('btn-issue');if(bi)bi.addEventListener('click',onIssue);
+  LINES.forEach(function(l){
+    var ch=$('check-'+l.id);
+    if(ch)ch.addEventListener('click',function(){toggleLine(l.id)});
+    var inp=$('input-'+l.id);
+    if(inp){
+      inp.addEventListener('focus',function(){state.editing[l.id]=String(amt(l.id));inp.value=state.editing[l.id];var w=$('amt-'+l.id);if(w)w.style.setProperty('--chars',String(Math.max(4,inp.value.length)))});
+      inp.addEventListener('input',function(){var v=inp.value.replace(/[^\d.\-]/g,'');state.editing[l.id]=v;var w=$('amt-'+l.id);if(w)w.style.setProperty('--chars',String(Math.max(4,v.length||1)));});
+      inp.addEventListener('blur',function(){commitAmount(l.id,(state.editing[l.id]!=null)?state.editing[l.id]:inp.value)});
+      inp.addEventListener('keydown',function(e){
+        if(e.key==='Enter'){if(e.currentTarget&&e.currentTarget.blur)e.currentTarget.blur()}
+        else if(e.key==='Escape'){
+          if(state.editing[l.id]!=null&&state.editing[l.id]!==String(amt(l.id))){if(e.preventDefault)e.preventDefault();if(e.stopPropagation)e.stopPropagation();delete state.editing[l.id];inp.value=fmtInt.format(amt(l.id))}
+        }
+      });
+    }
+  });
+  initTheme();
+  setView('invoice',false);
+  paintRows();paintBadge();paintTotals();
+}
+if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',bind)}else{bind()}
+window.__ic={state:state,setView:setView,toggleLine:toggleLine,commitAmount:commitAmount,onIssue:onIssue,onEdit:onEdit,setTheme:setTheme,totals:totals,money:money,moneySigned:moneySigned,LINES:LINES};
+})();
+</script>
+</body>
+</html>

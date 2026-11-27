@@ -1,0 +1,941 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Integrations — App Directory</title>
+<script>/*noflash*/(function(){try{var k="appdir-theme";var v=null;try{v=localStorage.getItem(k)}catch(e){}if(!v){try{v=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}catch(e){v="light"}}if(v!=="light"&&v!=="dark"){v="light"}document.documentElement.setAttribute("data-theme",v)}catch(e){try{document.documentElement.setAttribute("data-theme","light")}catch(_){}}})();</script>
+<style>html{background:#fafaf9}html[data-theme="dark"]{background:#101012}</style>
+<style>
+:root{
+  --page:#fafaf9;
+  --surface:#ffffff;
+  --subtle:#f5f5f4;
+  --ink:#171717;
+  --ink-2:#1c1917;
+  --muted:#78716c;
+  --border:#e7e5e4;
+  --ring:#e7e5e4;
+  --field:#ffffff;
+  --field-hover:#f5f5f4;
+  --accent:#2563eb;
+  --accent-soft:#eff6ff;
+  --accent-ring:#bfdbfe;
+  --ok:#15803d;
+  --ok-bg:#f0fdf4;
+  --ok-ring:#bbf7d0;
+  --danger:#dc2626;
+  --danger-bg:#fef2f2;
+  --danger-edge:#fecaca;
+  --focus:rgba(37,99,235,.55);
+  --shadow:0 1px 2px rgba(0,0,0,.05),0 4px 16px rgba(0,0,0,.05);
+  --pop-shadow:0 0 0 1px var(--border),0 10px 28px -8px rgba(0,0,0,.18);
+  --tile-line:rgba(0,0,0,.1);
+  --radius-lg:16px;
+  --radius:10px;
+  --radius-sm:6px;
+}
+html[data-theme="dark"]{
+  --page:#101012;
+  --surface:#1c1c1f;
+  --subtle:#26262a;
+  --ink:#ededed;
+  --ink-2:#ededed;
+  --muted:#a1a1aa;
+  --border:#2e2e33;
+  --ring:rgba(255,255,255,.1);
+  --field:#26262a;
+  --field-hover:#2e2e33;
+  --accent:#60a5fa;
+  --accent-soft:rgba(96,165,250,.12);
+  --accent-ring:rgba(96,165,250,.35);
+  --ok:#4ade80;
+  --ok-bg:rgba(74,222,128,.12);
+  --ok-ring:rgba(74,222,128,.28);
+  --danger:#f87171;
+  --danger-bg:rgba(248,113,113,.14);
+  --danger-edge:rgba(248,113,113,.32);
+  --focus:rgba(96,165,250,.7);
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 4px 16px rgba(0,0,0,.4);
+  --pop-shadow:0 0 0 1px var(--border),0 10px 28px -8px rgba(0,0,0,.6);
+  --tile-line:rgba(255,255,255,.12);
+}
+html{-webkit-tap-highlight-color:transparent}
+body{
+  margin:0;
+  background:var(--page);
+  color:var(--ink);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:14px;
+  line-height:20px;
+  font-variant-numeric:tabular-nums;
+  -webkit-font-smoothing:antialiased;
+}
+.page{
+  max-width:1040px;
+  margin:0 auto;
+  padding:24px 20px 48px;
+}
+.topbar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:12px;
+}
+.topbar .crumb{
+  font-size:13px;
+  color:var(--muted);
+  display:flex;
+  align-items:center;
+  gap:8px;
+  min-width:0;
+}
+.topbar .crumb strong{
+  color:var(--ink);
+  font-weight:600;
+}
+/* theme toggle: icon side gets ~2px less padding for optical alignment */
+.theme-btn{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  height:36px;
+  padding:0 14px 0 12px;
+  border:1px solid var(--border);
+  border-radius:999px;
+  background:var(--surface);
+  box-shadow:var(--shadow);
+  color:var(--ink);
+  font:inherit;
+  font-size:13px;
+  font-weight:500;
+  cursor:pointer;
+  transition:background-color 160ms ease,border-color 160ms ease,transform 160ms ease;
+}
+.theme-btn .dot{
+  width:16px;
+  height:16px;
+  border-radius:50%;
+  border:1px solid var(--border);
+  background:linear-gradient(135deg,var(--accent) 50%,var(--subtle) 50%);
+  flex:none;
+}
+.theme-btn:focus-visible,.ad button:focus-visible,.ad a:focus-visible,.ad input:focus-visible{
+  outline:2px solid var(--focus);
+  outline-offset:2px;
+}
+/* tray uses concentric radius: outer = inner(16px) + padding(6px) */
+.ad{
+  background:var(--subtle);
+  border:1px solid var(--border);
+  border-radius:calc(var(--radius-lg) + 6px);
+  padding:6px;
+  box-shadow:var(--shadow);
+}
+.ad-bar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:11px 20px 10px;
+  font-size:14px;
+}
+.ad-bar-title{font-weight:500}
+.ad-bar-meta{font-size:13px;color:var(--muted)}
+.ad-card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius-lg);
+  box-shadow:0 1px 2px rgba(0,0,0,.05);
+  padding:40px 40px 44px;
+}
+.ad-title{
+  margin:0;
+  font-size:26px;
+  line-height:32px;
+  letter-spacing:-.02em;
+  font-weight:600;
+  overflow-wrap:anywhere;
+}
+.ad-sub{
+  margin:6px 0 0;
+  font-size:15px;
+  line-height:22px;
+  color:var(--muted);
+  overflow-wrap:anywhere;
+}
+.ad-link{
+  display:inline-flex;
+  align-items:center;
+  gap:2px;
+  color:var(--ink-2);
+  text-decoration:underline;
+  text-decoration-color:var(--border);
+  text-underline-offset:3px;
+}
+.ad-tools{
+  display:flex;
+  gap:10px;
+  margin-top:28px;
+}
+.ad-search{
+  display:flex;
+  flex:1;
+  min-width:0;
+  align-items:center;
+  gap:8px;
+  height:38px;
+  padding:0 12px;
+  border-radius:calc(var(--radius) + 1px);
+  background:var(--field);
+  border:1px solid var(--border);
+  color:var(--muted);
+  transition:border-color 160ms ease,background-color 160ms ease;
+}
+.ad-search:focus-within{border-color:var(--muted)}
+.ad-search input{
+  flex:1;
+  min-width:0;
+  border:0;
+  outline:none;
+  background:transparent;
+  font:inherit;
+  font-size:14px;
+  color:var(--ink);
+}
+.ad-search input::placeholder{color:var(--muted)}
+.ad-filter{position:relative;flex:none}
+.ad-btn{
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  height:38px;
+  padding:0 14px 0 12px;
+  border:1px solid var(--border);
+  border-radius:calc(var(--radius) + 1px);
+  background:var(--field);
+  font-size:14px;
+  font-weight:500;
+  white-space:nowrap;
+  cursor:pointer;
+  transition:background-color 160ms ease,border-color 160ms ease;
+}
+.ad-btn[data-active]{
+  color:var(--accent);
+  border-color:var(--accent-ring);
+}
+.ad-menu{
+  position:absolute;
+  top:calc(100% + 6px);
+  right:0;
+  z-index:5;
+  display:grid;
+  gap:2px;
+  min-width:180px;
+  padding:4px;
+  border:1px solid var(--border);
+  border-radius:calc(var(--radius-lg) - 4px);
+  background:var(--surface);
+  box-shadow:var(--pop-shadow);
+}
+.ad-menu[hidden]{display:none}
+.ad-menu-item{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  height:32px;
+  padding:0 10px;
+  border:0;
+  border-radius:calc(var(--radius-sm) + 1px);
+  background:transparent;
+  font-size:13px;
+  text-align:left;
+  cursor:pointer;
+  color:var(--ink);
+}
+.ad-layout{
+  display:grid;
+  grid-template-columns:200px minmax(0,1fr);
+  gap:32px;
+  margin-top:28px;
+}
+.ad-nav{
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+}
+.ad-nav-item{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  height:34px;
+  padding:0 10px;
+  border:1px solid transparent;
+  border-radius:calc(var(--radius-sm) + 3px);
+  background:transparent;
+  font-size:14px;
+  text-align:left;
+  color:var(--ink-2);
+  cursor:pointer;
+  transition:background-color 140ms ease;
+}
+.ad-nav-item[aria-current]{
+  background:var(--subtle);
+  border-color:var(--border);
+  font-weight:500;
+  color:var(--ink);
+}
+.ad-nav-icon{
+  display:grid;
+  place-items:center;
+  flex:none;
+  width:18px;
+  height:18px;
+  color:var(--muted);
+  font-size:14px;
+}
+.ad-nav-item[aria-current] .ad-nav-icon{color:var(--ink)}
+.ad-nav-label{
+  flex:1;
+  min-width:0;
+  overflow:hidden;
+  white-space:nowrap;
+  text-overflow:ellipsis;
+}
+.ad-nav-count{flex:none;font-size:12px;color:var(--muted)}
+.ad-heading{
+  display:flex;
+  align-items:baseline;
+  gap:8px;
+  margin:4px 0 14px;
+  font-size:17px;
+  font-weight:600;
+  line-height:24px;
+  min-height:24px;
+}
+.ad-heading-text{
+  min-width:0;
+  overflow:hidden;
+  white-space:nowrap;
+  text-overflow:ellipsis;
+}
+.ad-heading-count{flex:none;font-size:13px;font-weight:400;color:var(--muted)}
+.ad-grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:14px;
+  margin:0;
+  padding:0;
+  list-style:none;
+}
+.ad-app{
+  display:flex;
+  flex-direction:column;
+  padding:16px;
+  padding-bottom:18px;
+  border:1px solid var(--border);
+  border-radius:var(--radius-lg);
+  background:var(--surface);
+  box-shadow:0 1px 2px rgba(0,0,0,.04);
+  min-width:0;
+  transition:border-color 160ms ease,box-shadow 160ms ease;
+}
+.ad-app[hidden]{display:none}
+.ad-app-head{display:flex;align-items:center;gap:12px;min-width:0}
+/* tiles: content images get 1px inset outline in pure black/white at 10% */
+.ad-tile{
+  display:grid;
+  place-items:center;
+  flex:none;
+  width:40px;
+  height:40px;
+  border-radius:11px;
+  background:var(--subtle);
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.1);
+  font-size:16px;
+  font-weight:600;
+  color:var(--muted);
+  overflow:hidden;
+}
+html[data-theme="dark"] .ad-tile{box-shadow:inset 0 0 0 1px rgba(255,255,255,.1)}
+.ad-tile[data-filled]{color:#fff}
+.ad-app-name{display:grid;flex:1;min-width:0}
+.ad-name{
+  display:flex;
+  min-width:0;
+  align-items:center;
+  gap:5px;
+  font-size:15px;
+  font-weight:500;
+  line-height:20px;
+}
+.ad-name-text{min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.ad-verified{flex:none;color:var(--accent);font-size:13px;line-height:1}
+.ad-vendor{
+  overflow:hidden;
+  font-size:13px;
+  line-height:18px;
+  white-space:nowrap;
+  text-overflow:ellipsis;
+  color:var(--muted);
+}
+.ad-desc{
+  display:-webkit-box;
+  flex:1;
+  margin:10px 0 14px;
+  overflow:hidden;
+  -webkit-box-orient:vertical;
+  -webkit-line-clamp:2;
+  line-clamp:2;
+  font-size:13px;
+  line-height:19px;
+  min-height:38px;
+  overflow-wrap:anywhere;
+  color:var(--muted);
+}
+.ad-connect{
+  display:inline-flex;
+  align-items:center;
+  align-self:flex-start;
+  height:30px;
+  padding:0 12px;
+  border:1px solid var(--border);
+  border-radius:calc(var(--radius) - 1px);
+  background:var(--field);
+  font-size:13px;
+  font-weight:500;
+  white-space:nowrap;
+  cursor:pointer;
+  transition:background-color 160ms ease,color 160ms ease,border-color 160ms ease;
+}
+.ad-connect[data-state="busy"]{color:var(--muted);cursor:progress}
+.ad-connect[data-state="on"]{color:var(--ok);background:var(--ok-bg);border-color:var(--ok-ring)}
+.ad-connect[data-state="on"][data-armed],.ad-connect[data-state="on"].armed{
+  color:var(--danger);
+  background:var(--danger-bg);
+  border-color:var(--danger-edge);
+}
+.ad-spinner{
+  width:12px;
+  height:12px;
+  border:1.5px solid var(--border);
+  border-top-color:var(--ink);
+  border-radius:50%;
+  animation:ad-spin 700ms linear infinite;
+  flex:none;
+}
+.ad-discover{
+  justify-content:space-between;
+  border-style:dashed;
+  background:transparent;
+}
+.ad-discover[hidden]{display:none}
+.ad-discover-head{display:flex;justify-content:space-between;gap:12px}
+.ad-stack{display:flex}
+.ad-stack .ad-tile{
+  width:34px;
+  height:34px;
+  border-radius:10px;
+  font-size:13px;
+  box-shadow:0 0 0 2px var(--surface),inset 0 0 0 1px rgba(0,0,0,.1);
+}
+html[data-theme="dark"] .ad-stack .ad-tile{box-shadow:0 0 0 2px var(--surface),inset 0 0 0 1px rgba(255,255,255,.1)}
+.ad-stack .ad-tile + .ad-tile{margin-left:-10px}
+.ad-discover .ad-btn{align-self:flex-start;height:30px;margin-top:18px;font-size:13px;border-radius:calc(var(--radius) - 1px)}
+.ad-empty{
+  display:grid;
+  justify-items:center;
+  gap:12px;
+  padding:48px 16px;
+  border:1px dashed var(--border);
+  border-radius:var(--radius-lg);
+  font-size:14px;
+  color:var(--muted);
+  text-align:center;
+}
+.ad-empty[hidden]{display:none}
+.ad-empty p{margin:0}
+@keyframes ad-spin{to{transform:rotate(360deg)}}
+@keyframes ad-in{from{opacity:0;transform:translateY(4px)}}
+.ad-app{animation:ad-in 420ms cubic-bezier(.22,1,.36,1) both}
+@media (prefers-reduced-motion:reduce){.ad-app,.ad-spinner{animation:none}}
+@media (max-width:820px){
+  .ad-layout{grid-template-columns:minmax(0,1fr);gap:18px}
+  .ad-nav{flex-direction:row;overflow-x:auto;scrollbar-width:none;margin:-4px;padding:4px}
+  .ad-nav-item{flex:none;max-width:240px}
+  .ad-nav-count{display:none}
+  .ad-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:560px){
+  .ad-card{padding:24px 18px 28px}
+  .ad-grid{grid-template-columns:minmax(0,1fr)}
+  .ad-tools{flex-direction:column}
+}
+@media (pointer:coarse){
+  .ad-search,.ad-btn{height:42px}
+  .ad-search input{font-size:16px}
+  .ad-nav-item{height:40px}
+  .ad-menu-item{height:42px}
+  .ad-connect,.ad-discover .ad-btn{height:38px}
+}
+/* v5: hover only on precise pointers */
+@media (hover:hover) and (pointer:fine){
+  .theme-btn:hover{background:var(--field-hover)}
+  .ad-link:hover{color:var(--ink);text-decoration-color:currentColor}
+  .ad-btn:hover{background:var(--field-hover)}
+  .ad-menu-item:hover{background:var(--subtle)}
+  .ad-nav-item:hover{background:var(--subtle)}
+  .ad-app:hover{border-color:var(--muted);box-shadow:0 6px 18px -10px rgba(0,0,0,.18)}
+  .ad-connect:hover{background:var(--field-hover)}
+  .ad-connect[data-state="on"]:hover{color:var(--danger);background:var(--danger-bg);border-color:var(--danger-edge)}
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="topbar">
+    <div class="crumb"><strong>App Directory</strong><span>·</span><span>Integrations</span></div>
+    <button class="theme-btn" id="themeBtn" type="button" aria-label="Switch to dark theme"><span class="dot" aria-hidden="true"></span><span id="themeLabel">Light</span></button>
+  </div>
+  <section class="ad" aria-label="Integrations">
+    <header class="ad-bar"><span class="ad-bar-title">Apps</span><span class="ad-bar-meta" id="connectedMeta">1 connected</span></header>
+    <div class="ad-card">
+      <div>
+        <h2 class="ad-title" id="pageTitle">Integrations</h2>
+        <p class="ad-sub"><span>Connect the tools your team already works in. </span><a class="ad-link" href="#" id="learnLink">Learn more <span aria-hidden="true">↗</span></a></p>
+      </div>
+      <div class="ad-tools">
+        <label class="ad-search" for="searchInput"><span aria-hidden="true">⌕</span><input id="searchInput" type="search" placeholder="Search apps" autocomplete="off"></label>
+        <div class="ad-filter" id="filterWrap">
+          <button class="ad-btn" id="filterBtn" type="button" aria-haspopup="menu" aria-expanded="false"><span aria-hidden="true">☰</span><span id="filterLabel">Filter</span></button>
+          <div class="ad-menu" id="filterMenu" role="menu" aria-label="Show" hidden></div>
+        </div>
+      </div>
+      <div class="ad-layout">
+        <nav class="ad-nav" id="catNav" aria-label="Categories"></nav>
+        <div>
+          <h3 class="ad-heading" aria-live="polite"><span class="ad-heading-text" id="headingText">Essentials</span><span class="ad-heading-count" id="headingCount">8</span></h3>
+          <ul class="ad-grid" id="appGrid"></ul>
+          <div class="ad-empty" id="emptyBox" hidden><p id="emptyText">No apps match.</p><button class="ad-btn" id="clearBtn" type="button">Clear search</button></div>
+        </div>
+      </div>
+    </div>
+  </section>
+  <p style="color:var(--muted);font-size:12px;margin:12px 4px 0">Standalone clean-room replica · demo data verbatim · open index.html in a browser</p>
+</div>
+<script>
+(function(){
+"use strict";
+/* verbatim demo data (names/vendors/descriptions/categories/flags/tiles) */
+var CATS=[
+ {id:"essentials",label:"Essentials",icon:"★"},
+ {id:"all",label:"All apps",icon:"▦"},
+ {id:"analytics",label:"Analytics",icon:"▤"},
+ {id:"automation",label:"Automation",icon:"⚡"},
+ {id:"billing",label:"Billing",icon:"◍"},
+ {id:"communication",label:"Communication",icon:"✉"},
+ {id:"crm",label:"CRM",icon:"◐"},
+ {id:"design",label:"Design",icon:"✎"},
+ {id:"development",label:"Development",icon:"⌨"},
+ {id:"docs",label:"Docs",icon:"▭"},
+ {id:"product",label:"Product",icon:"▥"},
+ {id:"scheduling",label:"Scheduling",icon:"◳"},
+ {id:"storage",label:"Storage",icon:"⛁"}
+];
+var APPS=[
+ {id:"slack",name:"Slack",vendor:"Slack",description:"Get alerts in your channels and act on them without leaving the conversation.",categories:["communication"],connected:true,essential:true,tile:null},
+ {id:"notion",name:"Notion",vendor:"Notion",description:"Turn records into pages and keep project docs in sync both ways.",categories:["docs"],connected:false,essential:true,tile:null},
+ {id:"linear",name:"Linear",vendor:"Linear",description:"Create issues from customer feedback and track them to release.",categories:["product"],connected:false,essential:true,tile:"#5E6AD2"},
+ {id:"figma",name:"Figma",vendor:"Figma",description:"Preview designs inline and link frames to the work they belong to.",categories:["design"],connected:false,essential:true,tile:null},
+ {id:"github",name:"GitHub",vendor:"GitHub",description:"Link pull requests and see deploy status next to every task.",categories:["development"],connected:false,essential:true,tile:"#171717"},
+ {id:"stripe",name:"Stripe",vendor:"Stripe",description:"Sync customers, invoices and subscriptions in real time.",categories:["billing"],connected:false,essential:true,tile:"#635BFF"},
+ {id:"zapier",name:"Zapier",vendor:"Zapier",description:"Connect 6,000 apps with no-code workflows and triggers.",categories:["automation"],connected:false,essential:true,tile:"#FF4F00"},
+ {id:"hubspot",name:"HubSpot",vendor:"HubSpot",description:"Keep contacts, companies and deals matched across both tools.",categories:["crm"],connected:false,essential:true,tile:null},
+ {id:"zoom",name:"Zoom",vendor:"Zoom",description:"Start meetings from any record and save the recording link.",categories:["communication","scheduling"],connected:false,essential:false,tile:"#0B5CFF"},
+ {id:"discord",name:"Discord",vendor:"Discord",description:"Post updates to community channels when something ships.",categories:["communication"],connected:false,essential:false,tile:"#5865F2"},
+ {id:"calendly",name:"Calendly",vendor:"Calendly",description:"Log booked meetings and the answers people gave when booking.",categories:["scheduling"],connected:false,essential:false,tile:"#006BFF"},
+ {id:"google-calendar",name:"Google Calendar",vendor:"Google",description:"See upcoming meetings with every contact in one timeline.",categories:["scheduling"],connected:false,essential:false,tile:null},
+ {id:"make",name:"Make",vendor:"Make",description:"Build visual multi-step automations with branches and filters.",categories:["automation"],connected:false,essential:false,tile:"#6D00CC"},
+ {id:"mixpanel",name:"Mixpanel",vendor:"Mixpanel",description:"Send product events and build reports from real usage.",categories:["analytics"],connected:false,essential:false,tile:"#7856FF"},
+ {id:"google-analytics",name:"Google Analytics",vendor:"Google",description:"Attribute signups to the campaigns and pages that brought them.",categories:["analytics"],connected:false,essential:false,tile:null},
+ {id:"paddle",name:"Paddle",vendor:"Paddle",description:"Handle checkout, tax and subscriptions as merchant of record.",categories:["billing"],connected:false,essential:false,tile:"#FDDD35"},
+ {id:"dropbox",name:"Dropbox",vendor:"Dropbox",description:"Attach files from Dropbox and keep shared folders linked.",categories:["storage"],connected:false,essential:false,tile:null},
+ {id:"google-drive",name:"Google Drive",vendor:"Google",description:"Pick files from Drive and preview them without downloading.",categories:["storage","docs"],connected:false,essential:false,tile:null},
+ {id:"typeform",name:"Typeform",vendor:"Typeform",description:"Create records from form answers the moment they come in.",categories:["product"],connected:false,essential:false,tile:"#262627"},
+ {id:"jira",name:"Jira",vendor:"Atlassian",description:"Sync issues, statuses and assignees with your Jira projects.",categories:["product","development"],connected:false,essential:false,tile:null},
+ {id:"intercom",name:"Intercom",vendor:"Intercom",description:"See conversations next to the customer and reply from one place.",categories:["communication","crm"],connected:false,essential:false,tile:"#1F8DED"},
+ {id:"airtable",name:"Airtable",vendor:"Airtable",description:"Mirror bases as tables and keep fields in sync automatically.",categories:["storage"],connected:false,essential:false,tile:null}
+];
+function fmt(n){try{return new Intl.NumberFormat().format(n)}catch(e){return String(n)}}
+function initial(name){var t=(name||"").trim();if(!t)return"?";return Array.from(t)[0].toLocaleUpperCase()}
+function $(id){return document.getElementById(id)}
+var connected=new Set(APPS.filter(function(a){return a.connected}).map(function(a){return a.id}));
+var busy=new Set();
+var armed=new Set();
+var armedTimers={};
+var currentCat="essentials";
+var query="";
+var showFilter="all";
+var menuOpen=false;
+/* refs built once */
+var navBtns={};
+var navCounts={};
+var cards={};
+var cardBtn={};
+var cardBtnLabel={};
+var cardBtnIcon={};
+var discoverEl=null,discoverCountEl=null;
+var headingText,headingCount,connectedMeta,filterLabel,filterBtn,filterMenu,emptyBox,emptyText,searchInput,grid,clearBtn;
+function matchesCat(app,cat){
+ if(cat==="all")return true;
+ if(cat==="essentials")return !!app.essential;
+ return app.categories.indexOf(cat)>=0;
+}
+function visibleApps(){
+ var q=query.trim().toLowerCase();
+ return APPS.filter(function(a){
+  if(q){
+   var hay=(a.name+" "+a.vendor+" "+a.description).toLowerCase();
+   if(hay.indexOf(q)<0)return false;
+  }else{
+   if(!matchesCat(a,currentCat))return false;
+  }
+  if(showFilter==="connected"&&!connected.has(a.id))return false;
+  if(showFilter==="available"&&connected.has(a.id))return false;
+  return true;
+ });
+}
+function headingFor(){
+ if(query.trim()){
+  return 'Results for \u201C'+query.trim()+'\u201D';
+ }
+ for(var i=0;i<CATS.length;i++){if(CATS[i].id===currentCat)return CATS[i].label}
+ return "Apps";
+}
+function catCount(id){
+ if(id==="all")return APPS.length;
+ if(id==="essentials")return APPS.filter(function(a){return a.essential}).length;
+ return APPS.filter(function(a){return a.categories.indexOf(id)>=0}).length;
+}
+/* IN-PLACE updates only: never rebuild, only mutate existing nodes */
+function refresh(){
+ var list=visibleApps();
+ var q=query.trim();
+ /* heading + counts in place */
+ headingText.textContent=headingFor();
+ headingText.setAttribute("title",headingFor());
+ headingCount.textContent=fmt(list.length);
+ connectedMeta.textContent=fmt(connected.size)+" connected";
+ /* nav counts + current in place */
+ for(var i=0;i<CATS.length;i++){
+  var c=CATS[i];
+  navCounts[c.id].textContent=fmt(catCount(c.id));
+  if(!q&&currentCat===c.id){navBtns[c.id].setAttribute("aria-current","true")}
+  else{navBtns[c.id].removeAttribute("aria-current")}
+ }
+ /* filter label in place */
+ var label = showFilter==="all"?"Filter":(showFilter==="connected"?"Connected":"Not connected");
+ filterLabel.textContent=label;
+ if(showFilter!=="all"){filterBtn.setAttribute("data-active","true")}
+ else{filterBtn.removeAttribute("data-active")}
+ /* cards: toggle hidden in place, update buttons in place */
+ var visibleIds={};
+ for(var k=0;k<list.length;k++){visibleIds[list[k].id]=true}
+ for(var j=0;j<APPS.length;j++){
+  var app=APPS[j];
+  var el=cards[app.id];
+  var show=!!visibleIds[app.id];
+  el.hidden=!show;
+  updateButton(app);
+ }
+ /* discover card: only on essentials + all + no query */
+ var nonEss=APPS.filter(function(a){return !a.essential}).length;
+ var showDisc=!q&&currentCat==="essentials"&&showFilter==="all"&&nonEss>0&&list.length>0;
+ if(discoverEl){
+  discoverEl.hidden=!showDisc;
+  if(showDisc){
+   discoverCountEl.textContent="+"+fmt(nonEss)+" "+(nonEss===1?"app":"apps");
+  }
+ }
+ /* empty state in place */
+ var isEmpty=list.length===0;
+ emptyBox.hidden=!isEmpty;
+ if(isEmpty){
+  var msg;
+  if(q||showFilter!=="all"){msg="No apps match."}
+  else if(APPS.length){msg="No apps in this category yet."}
+  else{msg="No apps yet."}
+  emptyText.textContent=msg;
+ }
+ updateMenuChecks();
+}
+function updateButton(app){
+ var btn=cardBtn[app.id];
+ var lab=cardBtnLabel[app.id];
+ var ic=cardBtnIcon[app.id];
+ if(!btn)return;
+ var isBusy=busy.has(app.id);
+ var isOn=connected.has(app.id);
+ var isArmed=armed.has(app.id);
+ if(isBusy){
+  btn.setAttribute("data-state","busy");
+  btn.removeAttribute("data-armed");
+  btn.setAttribute("aria-label","Connecting "+app.name);
+  ic.textContent="";
+  ic.className="ad-spinner";
+  lab.textContent=" Connecting\u2026";
+ }else if(isOn){
+  btn.setAttribute("data-state","on");
+  if(isArmed){btn.setAttribute("data-armed","true")}else{btn.removeAttribute("data-armed")}
+  btn.setAttribute("aria-label",(isArmed?"Tap again to disconnect ":"Disconnect ")+app.name);
+  ic.className="";
+  ic.textContent="✓";
+  lab.textContent=isArmed?" Disconnect":" Connected";
+ }else{
+  btn.setAttribute("data-state","off");
+  btn.removeAttribute("data-armed");
+  btn.setAttribute("aria-label","Connect "+app.name);
+  ic.className="";
+  ic.textContent="";
+  lab.textContent="Connect";
+ }
+}
+function toggleConnect(app){
+ if(busy.has(app.id))return;
+ if(connected.has(app.id)){
+  var touch=false;
+  try{touch=window.matchMedia&&window.matchMedia("(hover: none)").matches}catch(e){}
+  if(touch&&!armed.has(app.id)){
+   armed.add(app.id);
+   updateButton(app);
+   refreshCountsOnly();
+   if(armedTimers[app.id]){clearTimeout(armedTimers[app.id])}
+   armedTimers[app.id]=setTimeout(function(){armed.delete(app.id);updateButton(app)},3000);
+   return;
+  }
+  if(armedTimers[app.id]){clearTimeout(armedTimers[app.id]);delete armedTimers[app.id]}
+  armed.delete(app.id);
+  connected.delete(app.id);
+  refresh();
+  return;
+ }
+ busy.add(app.id);
+ refreshButtonAndCounts(app);
+ setTimeout(function(){
+  busy.delete(app.id);
+  connected.add(app.id);
+  armed.delete(app.id);
+  refresh();
+ },900);
+}
+function refreshCountsOnly(){
+ connectedMeta.textContent=fmt(connected.size)+" connected";
+}
+function refreshButtonAndCounts(app){
+ updateButton(app);
+ refreshCountsOnly();
+}
+function updateMenuChecks(){
+ if(!filterMenu)return;
+ var items=filterMenu.querySelectorAll?filterMenu.querySelectorAll('[role="menuitemradio"]'):[];
+ for(var i=0;i<items.length;i++){
+  var v=items[i].getAttribute("data-val");
+  items[i].setAttribute("aria-checked",v===showFilter?"true":"false");
+  var chk=items[i].querySelector?items[i].querySelector(".chk"):null;
+  if(chk){chk.textContent=(v===showFilter?"✓":"")}
+ }
+}
+function closeMenu(focusBtn){
+ menuOpen=false;
+ filterMenu.hidden=true;
+ filterBtn.setAttribute("aria-expanded","false");
+ if(focusBtn&&filterBtn.focus){try{filterBtn.focus()}catch(e){}}
+}
+function openMenu(){
+ menuOpen=true;
+ filterMenu.hidden=false;
+ filterBtn.setAttribute("aria-expanded","true");
+ var items=filterMenu.querySelectorAll('[role="menuitemradio"]');
+ var cur=null;
+ for(var i=0;i<items.length;i++){if(items[i].getAttribute("data-val")===showFilter){cur=items[i];break}}
+ var t=cur||items[0];
+ if(t&&t.focus){try{t.focus()}catch(e){}}
+}
+function build(){
+ headingText=$("headingText");headingCount=$("headingCount");connectedMeta=$("connectedMeta");
+ filterLabel=$("filterLabel");filterBtn=$("filterBtn");filterMenu=$("filterMenu");
+ emptyBox=$("emptyBox");emptyText=$("emptyText");searchInput=$("searchInput");grid=$("appGrid");clearBtn=$("clearBtn");
+ var nav=$("catNav");
+ for(var i=0;i<CATS.length;i++){
+  (function(c){
+   var b=document.createElement("button");
+   b.type="button";
+   b.className="ad-nav-item";
+   var ic=document.createElement("span");
+   ic.className="ad-nav-icon";
+   ic.setAttribute("aria-hidden","true");
+   ic.textContent=c.icon;
+   var lb=document.createElement("span");
+   lb.className="ad-nav-label";
+   lb.setAttribute("title",c.label);
+   lb.textContent=c.label;
+   var ct=document.createElement("span");
+   ct.className="ad-nav-count";
+   ct.textContent=fmt(catCount(c.id));
+   b.appendChild(ic);b.appendChild(lb);b.appendChild(ct);
+   b.addEventListener("click",function(){currentCat=c.id;query="";searchInput.value="";refresh()});
+   nav.appendChild(b);
+   navBtns[c.id]=b;navCounts[c.id]=ct;
+  })(CATS[i]);
+ }
+ /* filter menu items built once */
+ var opts=[["all","All apps"],["connected","Connected"],["available","Not connected"]];
+ for(var m=0;m<opts.length;m++){
+  (function(val,label){
+   var it=document.createElement("button");
+   it.type="button";
+   it.setAttribute("role","menuitemradio");
+   it.setAttribute("data-val",val);
+   it.setAttribute("aria-checked",val===showFilter?"true":"false");
+   it.className="ad-menu-item";
+   it.tabIndex=-1;
+   var tx=document.createElement("span");tx.textContent=label;
+   var ch=document.createElement("span");ch.className="chk";ch.setAttribute("aria-hidden","true");ch.textContent=(val===showFilter?"✓":"");
+   it.appendChild(tx);it.appendChild(ch);
+   it.addEventListener("click",function(){showFilter=val;closeMenu(true);refresh()});
+   filterMenu.appendChild(it);
+  })(opts[m][0],opts[m][1]);
+ }
+ /* app cards built once */
+ for(var a=0;a<APPS.length;a++){
+  (function(app){
+   var li=document.createElement("li");
+   li.className="ad-app";
+   li.style.animationDelay=Math.min(a,12)*30+"ms";
+   var head=document.createElement("div");head.className="ad-app-head";
+   var tile=document.createElement("span");tile.className="ad-tile";
+   if(app.tile){tile.setAttribute("data-filled","true");tile.style.background=app.tile}
+   tile.textContent=initial(app.name);
+   tile.setAttribute("aria-hidden","true");
+   var nm=document.createElement("span");nm.className="ad-app-name";
+   var row=document.createElement("span");row.className="ad-name";
+   var nt=document.createElement("span");nt.className="ad-name-text";nt.setAttribute("title",app.name);nt.textContent=app.name;
+   var vf=document.createElement("span");vf.className="ad-verified";vf.setAttribute("role","img");vf.setAttribute("aria-label","Verified");vf.textContent="✓";
+   row.appendChild(nt);row.appendChild(vf);
+   var vn=document.createElement("span");vn.className="ad-vendor";vn.setAttribute("title","By "+app.vendor);vn.textContent="By "+app.vendor;
+   nm.appendChild(row);nm.appendChild(vn);
+   head.appendChild(tile);head.appendChild(nm);
+   var desc=document.createElement("p");desc.className="ad-desc";desc.setAttribute("title",app.description);desc.textContent=app.description;
+   var btn=document.createElement("button");btn.type="button";btn.className="ad-connect";
+   var ic2=document.createElement("span");ic2.setAttribute("aria-hidden","true");
+   var lb2=document.createElement("span");lb2.className="ad-connect-label";
+   /* keep icon + label as separate in-place nodes */
+   btn.appendChild(ic2);btn.appendChild(lb2);
+   btn.addEventListener("click",function(){toggleConnect(app)});
+   btn.addEventListener("blur",function(){if(armed.has(app.id)){armed.delete(app.id);updateButton(app)}});
+   li.appendChild(head);li.appendChild(desc);li.appendChild(btn);
+   grid.appendChild(li);
+   cards[app.id]=li;cardBtn[app.id]=btn;cardBtnLabel[app.id]=lb2;cardBtnIcon[app.id]=ic2;
+  })(APPS[a]);
+ }
+ /* discover card built once */
+ (function(){
+  var li=document.createElement("li");
+  li.className="ad-app ad-discover";
+  var hd=document.createElement("div");hd.className="ad-discover-head";
+  var left=document.createElement("span");
+  var nm=document.createElement("span");nm.className="ad-name";nm.textContent="Discover more";
+  var vn=document.createElement("span");vn.className="ad-vendor";vn.textContent="+14 apps";
+  left.appendChild(nm);left.appendChild(vn);
+  var stack=document.createElement("span");stack.className="ad-stack";stack.setAttribute("aria-hidden","true");
+  var nonEss=APPS.filter(function(x){return !x.essential}).slice(0,3);
+  for(var s=0;s<nonEss.length;s++){
+   var t=document.createElement("span");t.className="ad-tile";
+   if(nonEss[s].tile){t.setAttribute("data-filled","true");t.style.background=nonEss[s].tile}
+   t.textContent=initial(nonEss[s].name);
+   stack.appendChild(t);
+  }
+  hd.appendChild(left);hd.appendChild(stack);
+  var vb=document.createElement("button");vb.type="button";vb.className="ad-btn";vb.textContent="View all";
+  vb.addEventListener("click",function(){currentCat="all";query="";searchInput.value="";refresh()});
+  li.appendChild(hd);li.appendChild(vb);
+  grid.appendChild(li);
+  discoverEl=li;discoverCountEl=vn;
+ })();
+ /* events: all in-place, no rebuild */
+ searchInput.addEventListener("input",function(e){query=e.target.value;refresh()});
+ clearBtn.addEventListener("click",function(){query="";searchInput.value="";showFilter="all";refresh();try{searchInput.focus()}catch(e){}});
+ filterBtn.addEventListener("click",function(){if(menuOpen){closeMenu(false)}else{openMenu()}});
+ filterMenu.addEventListener("keydown",function(e){
+  var items=filterMenu.querySelectorAll('[role="menuitemradio"]');
+  var idx=-1;
+  for(var i=0;i<items.length;i++){if(items[i]===document.activeElement){idx=i;break}}
+  var n=items.length-1,next=-1;
+  if(e.key==="ArrowDown"){next=idx<n?idx+1:0}
+  else if(e.key==="ArrowUp"){next=idx>0?idx-1:n}
+  else if(e.key==="Home"){next=0}
+  else if(e.key==="End"){next=n}
+  if(next>=0){e.preventDefault();try{items[next].focus()}catch(_){}}
+  else if(e.key==="Tab"){closeMenu(false)}
+ });
+ document.addEventListener("pointerdown",function(e){
+  if(!menuOpen)return;
+  var w=$("filterWrap");
+  if(w&&w.contains&&!w.contains(e.target)){closeMenu(false)}
+ });
+ document.addEventListener("keydown",function(e){
+  if(!menuOpen)return;
+  if(e.key==="Escape"){closeMenu(true)}
+ });
+ var ll=$("learnLink");
+ if(ll){ll.addEventListener("click",function(e){e.preventDefault()})}
+ /* theme */
+ var tb=$("themeBtn"),tl=$("themeLabel");
+ function paintTheme(){
+  var cur=document.documentElement.getAttribute("data-theme")||"light";
+  tl.textContent=cur==="dark"?"Dark":"Light";
+  tb.setAttribute("aria-label",cur==="dark"?"Switch to light theme":"Switch to dark theme");
+ }
+ if(tb){tb.addEventListener("click",function(){
+  var cur=document.documentElement.getAttribute("data-theme")||"light";
+  var nx=cur==="dark"?"light":"dark";
+  document.documentElement.setAttribute("data-theme",nx);
+  try{localStorage.setItem("appdir-theme",nx)}catch(e){}
+  paintTheme();
+ })}
+ paintTheme();
+ try{
+  if(window.matchMedia){
+   var mq=window.matchMedia("(prefers-color-scheme: dark)");
+   if(mq&&mq.addEventListener){
+    mq.addEventListener("change",function(ev){
+     var stored=null;try{stored=localStorage.getItem("appdir-theme")}catch(e){}
+     if(stored)return;
+     document.documentElement.setAttribute("data-theme",ev.matches?"dark":"light");
+     paintTheme();
+    });
+   }
+  }
+ }catch(e){}
+ refresh();
+ /* test hooks: expose without rebuilding */
+ try{
+  window.__ad={
+   apps:APPS,cats:CATS,cards:cards,buttons:cardBtn,
+   getState:function(){return {cat:currentCat,q:query,filter:showFilter,connected:Array.from(connected).sort(),busy:Array.from(busy)}},
+   setCategory:function(id){currentCat=id;query="";try{searchInput.value=""}catch(e){}refresh()},
+   setQuery:function(q){query=q;try{searchInput.value=q}catch(e){}refresh()},
+   setFilter:function(f){showFilter=f;refresh()},
+   toggle:function(id){var f=null;for(var i=0;i<APPS.length;i++){if(APPS[i].id===id){f=APPS[i];break}}if(f){toggleConnect(f)}},
+   refresh:refresh,
+   grid:grid
+  };
+ }catch(e){}
+}
+if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",build)}else{build()}
+})();
+</script>
+</body>
+</html>

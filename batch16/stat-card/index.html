@@ -1,297 +1,715 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en" data-theme="light">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
-<title>Stat Card — Monthly recurring revenue</title>
-<script>/*noflash*/(function(){try{var k="stat-card-theme";var t=null;try{t=localStorage.getItem(k)}catch(e){}if(!t){try{t=(window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches)?"dark":"light"}catch(e){t="light"}}if(t!=="light"&&t!=="dark")t="light";document.documentElement.setAttribute("data-theme",t)}catch(e){}})();</script>
+<script>/*noflash*/(function(){try{var k='affectui-stat-card-theme';var t=null;try{t=localStorage.getItem(k);}catch(e){t=null;}if(!t){try{t=(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light';}catch(e){t='light';}}document.documentElement.setAttribute('data-theme',t||'light');}catch(e){document.documentElement.setAttribute('data-theme','light');}})();</script>
 <style>html{background:#fafaf9}html[data-theme="dark"]{background:#101012}</style>
+<title>Stat Card — Usage</title>
 <style>
-:root{color-scheme:light dark}
-:root,[data-theme="light"]{
---page:#fafaf9;--surface:#ffffff;--ink:#171717;--ink2:#1c1917;--muted:#78716c;
---subtle:#f5f5f4;--border:#e7e5e4;--radius-lg:16px;--radius:10px;--radius-sm:6px;
---shadow:0 1px 2px rgba(0,0,0,.05),0 4px 16px rgba(0,0,0,.05);
---amber:#f59e0b;--amber-bg:#fef3c7;--amber-tx:#92400e;
---up:#1e8a4f;--up-bg:#e7f6ec;--down:#dc2626;--down-bg:#fdecec;
---spark:#4f46e5;--spark-soft:rgba(79,70,229,.12);--grid:#f0f0f0;
---focus:rgba(0,96,226,.7);--tip:#ffffff;
---tip-shadow:0 8px 24px -6px rgba(0,0,0,.12),0 2px 6px rgba(0,0,0,.04);
---ease:cubic-bezier(.22,1,.36,1);
+/* Design tokens (light = original demo "classic" appearance) */
+:root{
+  --surface:#ffffff;
+  --page:#fafaf9;
+  --ink:#1c1917;
+  --muted:#78716c;
+  --subtle:#f5f5f4;
+  --border:#e7e5e4;
+  --radius-lg:16px;   /* card shell: inner 10px + 6px inset (concentric) */
+  --radius:10px;      /* inner surfaces */
+  --radius-sm:6px;    /* pills-in-card, chart box */
+  --pill:999px;
+  --shadow:0 1px 2px rgba(0,0,0,.05),0 4px 16px rgba(0,0,0,.05);
+  --shadow-lift:0 2px 4px rgba(0,0,0,.06),0 12px 28px rgba(0,0,0,.10);
+  --accent:#2563eb;
+  --accent-soft:rgba(37,99,235,.12);
+  --good:#15803d; --good-bg:#dcfce7;
+  --bad:#b91c1c; --bad-bg:#fee2e2;
+  --flat:#57534e; --flat-bg:#f5f5f4;
+  --amber:#f59e0b; --amber-bg:#fef3c7; --amber-text:#92400e;
+  --focus:#2563eb;
+  --img-outline:rgba(0,0,0,.10);
 }
-[data-theme="dark"]{
---page:#101012;--surface:#1c1c1f;--ink:#ededed;--ink2:#ededed;--muted:#a1a1aa;
---subtle:#26262a;--border:#2e2e33;
---shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
---amber:#fbbf24;--amber-bg:#451a03;--amber-tx:#fde68a;
---up:#5fc88a;--up-bg:rgba(95,200,138,.14);--down:#ff6b5f;--down-bg:rgba(255,107,95,.14);
---spark:#818cf8;--spark-soft:rgba(129,140,248,.16);--grid:rgba(255,255,255,.06);
---focus:rgba(77,141,255,.8);--tip:#2a2a2d;
---tip-shadow:0 8px 24px -6px rgba(0,0,0,.5),0 2px 6px rgba(0,0,0,.35);
+html[data-theme="dark"]{
+  --surface:#1c1c1f;
+  --page:#101012;
+  --ink:#ededed;
+  --muted:#a1a1aa;
+  --subtle:#26262a;
+  --border:#2e2e33;
+  --shadow:0 1px 2px rgba(0,0,0,.45),0 8px 24px rgba(0,0,0,.35);
+  --shadow-lift:0 2px 6px rgba(0,0,0,.5),0 16px 36px rgba(0,0,0,.45);
+  --accent:#60a5fa;
+  --accent-soft:rgba(96,165,250,.16);
+  --good:#86efac; --good-bg:#052e16;
+  --bad:#fca5a5; --bad-bg:#450a0a;
+  --flat:#d6d3d1; --flat-bg:#26262a;
+  --amber:#fbbf24; --amber-bg:#451a03; --amber-text:#fde68a;
+  --focus:#60a5fa;
+  --img-outline:rgba(255,255,255,.10);
 }
+html{-webkit-tap-highlight-color:transparent}
+[hidden]{display:none !important}
 *{box-sizing:border-box}
-[hidden]{display:none!important}
-html,body{margin:0;padding:0}
-body{background:var(--page);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased}
-.page{max-width:560px;margin:0 auto;padding:20px 16px 48px}
-.page-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin:4px 0 16px}
-.head-eyebrow{margin:0;font-size:12px;color:var(--muted);letter-spacing:.02em}
-.head-title{margin:2px 0 0;font-size:16px;font-weight:600;letter-spacing:-.01em;color:var(--ink)}
-.head-meta{margin:4px 0 0;font-size:12px;color:var(--muted)}
-.theme-btn{flex:none;width:36px;height:36px;border-radius:999px;border:1px solid var(--border);background:var(--surface);color:var(--ink);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;box-shadow:var(--shadow);transition:transform 150ms ease,box-shadow 150ms ease,background 150ms ease}
-@media (hover: hover) and (pointer: fine) {
-.theme-btn:hover{transform:translateY(-1px);box-shadow:0 2px 4px rgba(0,0,0,.06),0 8px 20px rgba(0,0,0,.07)}
+body{
+  margin:0;
+  background:var(--page);
+  color:var(--ink);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:14px;
+  line-height:1.45;
+  font-variant-numeric:tabular-nums;
 }
-.theme-btn:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
-.theme-btn svg{width:18px;height:18px}
-.stage{display:grid;gap:12px;justify-items:center}
-.ui-stat{width:100%;max-width:440px;background:var(--surface);border:1px solid var(--border);border-radius:calc(var(--radius-lg) + 4px);box-shadow:var(--shadow);padding:18px 18px 14px;color:var(--ink);transition:transform 150ms ease,box-shadow 150ms ease}
-@media (hover: hover) and (pointer: fine) {
-.ui-stat:hover{transform:translateY(-1px)}
+img{outline:1px solid var(--img-outline);outline-offset:-1px}
+.page{max-width:1060px;margin:0 auto;padding:24px 20px 40px}
+.stat-demo__bar{
+  display:flex;align-items:center;gap:12px;
+  margin:0 0 16px;
 }
-.ui-stat:focus-within{outline:2px solid var(--focus);outline-offset:2px}
-.ui-stat__top{display:flex;align-items:center;justify-content:space-between;gap:10px}
-.ui-stat__label{margin:0;font-size:13px;font-weight:500;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ui-stat__live{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
-.ui-stat__dot{width:8px;height:8px;border-radius:999px;background:var(--up);box-shadow:0 0 0 3px var(--up-bg);animation:ui-stat-pulse 2.4s ease-in-out infinite}
-@keyframes ui-stat-pulse{0%,100%{opacity:1}50%{opacity:.45}}
-.ui-stat__periods{display:inline-flex;gap:4px;background:var(--subtle);border:1px solid var(--border);border-radius:999px;padding:3px}
-.ui-stat__period{border:0;border-radius:999px;background:transparent;color:var(--muted);font:inherit;font-size:12px;font-weight:600;padding:4px 10px;cursor:pointer;transition:background 150ms ease,color 150ms ease}
-@media (hover: hover) and (pointer: fine) {
-.ui-stat__period:hover{background:var(--surface);color:var(--ink)}
+.stat-demo__title{font-size:16px;font-weight:650;letter-spacing:-.01em}
+.stat-demo__seg{
+  display:inline-flex;gap:2px;padding:2px;
+  background:var(--subtle);
+  border:1px solid var(--border);
+  border-radius:var(--pill);
+  margin-left:auto;
 }
-.ui-stat__period[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
-.ui-stat__period:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
-.ui-stat__value{display:flex;flex-wrap:wrap;align-items:baseline;gap:10px;margin:10px 0 0}
-.ui-stat__amount{font-size:30px;font-weight:600;letter-spacing:-.02em;line-height:36px;font-variant-numeric:tabular-nums}
-.ui-stat__delta{display:inline-flex;align-items:center;gap:5px;font-size:13px;font-weight:600;padding:3px 9px;border-radius:999px;white-space:nowrap}
-.ui-stat__delta[data-trend="up"]{color:var(--up);background:var(--up-bg)}
-.ui-stat__delta[data-trend="down"]{color:var(--down);background:var(--down-bg)}
-.ui-stat__delta svg{width:12px;height:12px}
-.ui-stat__note{margin:6px 0 0;font-size:12px;color:var(--muted)}
-.ui-stat__chart{margin-top:14px}
-.ui-stat__plot{position:relative;height:96px;border-radius:6px;outline:none;cursor:crosshair;touch-action:pan-y}
-.ui-stat__plot:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
-.ui-stat__grid{position:absolute;left:0;right:0;height:1px;background:var(--grid)}
-.ui-stat__svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
-.ui-stat__marker{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity 160ms ease}
-.ui-stat__marker[data-open]{opacity:1}
-.ui-stat__guide{position:absolute;top:-2px;bottom:0;width:1px;background:var(--muted);opacity:.5}
-.ui-stat__dot2{position:absolute;width:10px;height:10px;margin:-5px 0 0 -5px;border-radius:999px;background:var(--spark);box-shadow:0 0 0 3px var(--surface)}
-.ui-stat__tip{position:absolute;top:-8px;z-index:2;min-width:132px;padding:8px 10px;background:var(--tip);border:1px solid var(--border);border-radius:10px;box-shadow:var(--tip-shadow);pointer-events:none;opacity:0;transition:left 200ms var(--ease),opacity 160ms ease}
-.ui-stat__tip[data-open]{opacity:1}
-.ui-stat__tip[data-side="right"]{transform:translateX(12px)}
-.ui-stat__tip[data-side="left"]{transform:translateX(calc(-100% - 12px))}
-.ui-stat__tipdate{margin:0;font-size:11px;color:var(--muted)}
-.ui-stat__tipval{margin:2px 0 0;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums}
-.ui-stat__x{display:flex;justify-content:space-between;margin-top:6px;font-size:12px;color:var(--muted)}
-.ui-stat__foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border)}
-.ui-stat__updated{margin:0;font-size:12px;color:var(--muted)}
-.ui-stat__link{font-size:13px;font-weight:600;color:var(--spark);text-decoration:none;border-radius:6px}
-@media (hover: hover) and (pointer: fine) {
-.ui-stat__link:hover{text-decoration:underline}
+.stat-demo__seg button{
+  appearance:none;border:1px solid transparent;background:transparent;color:var(--muted);
+  font:inherit;font-size:12.5px;font-weight:600;
+  padding:5px 14px 5px 12px; /* optical: glyph side gets ~2px less */
+  border-radius:var(--pill);cursor:pointer;
+  transition:background 160ms ease,color 160ms ease,box-shadow 160ms ease,border-color 160ms ease;
 }
-.ui-stat__link:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
-.ui-stat__dialog{margin-top:12px;border:1px solid var(--border);border-radius:var(--radius);background:var(--subtle);padding:12px}
-.ui-stat__dialog h4{margin:0;font-size:13px}
-.ui-stat__dialog ul{margin:8px 0 0;padding:0;list-style:none;display:grid;gap:6px}
-.ui-stat__dialog li{display:flex;align-items:center;gap:8px;font-size:13px}
-.ui-stat__swatch{flex:none;width:10px;height:10px;border-radius:3px;background:var(--spark)}
-.ui-stat__num{margin-left:auto;font-weight:600;font-variant-numeric:tabular-nums}
-.ui-stat__close{margin-top:10px;border:1px solid var(--border);background:var(--surface);color:var(--ink);border-radius:999px;font:inherit;font-size:12px;font-weight:600;padding:6px 12px;cursor:pointer}
-@media (hover: hover) and (pointer: fine) {
-.ui-stat__close:hover{transform:translateY(-1px)}
+.stat-demo__seg button[aria-checked="true"]{
+  background:var(--surface);color:var(--ink);
+  border-color:var(--border);
+  box-shadow:var(--shadow);
 }
-.ui-stat__close:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
-.ui-stat--mini{max-width:440px}
-.ui-stat--mini .ui-stat__amount{font-size:24px;line-height:30px}
-.variants{display:grid;gap:12px;width:100%;max-width:440px}
-@media (max-width:480px){.page{padding:16px 12px 40px}.ui-stat{padding:16px 14px 12px}.ui-stat__amount{font-size:26px;line-height:32px}}
-@media (prefers-reduced-motion:reduce){.ui-stat__dot,.ui-stat__svg path{animation:none}.ui-stat__marker,.ui-stat__tip{transition:none}}
+.stat-demo__seg button:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.theme-toggle{
+  appearance:none;display:inline-flex;align-items:center;justify-content:center;
+  width:32px;height:32px;border-radius:50%;
+  background:var(--surface);border:1px solid var(--border);color:var(--ink);
+  cursor:pointer;box-shadow:var(--shadow);
+  padding:0 0 0 2px; /* optical: nudge glyph by eye */
+  transition:box-shadow 160ms ease,transform 160ms ease,background 160ms ease;
+}
+.theme-toggle svg{display:block;width:17px;height:17px}
+.theme-toggle:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.stat-demo__grid{
+  display:grid;gap:12px;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+}
+.stat-card{
+  background:var(--surface);
+  border:1px solid var(--border); /* structure */
+  border-radius:var(--radius-lg);
+  box-shadow:var(--shadow); /* elevation */
+  padding:14px 14px 16px; /* roomy bottom so text never sits under controls */
+  cursor:pointer;
+  transition:box-shadow 180ms ease,transform 180ms ease,border-color 180ms ease,opacity 180ms ease;
+  position:relative;
+}
+.stat-card:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.stat-card__top{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0}
+.stat-card__label{
+  font-size:13px;font-weight:600;color:var(--muted);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.stat-card__change{
+  display:inline-flex;align-items:center;gap:4px;flex:none;
+  font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;
+  border-radius:var(--pill);padding:2px 8px;
+  border:1px solid transparent;
+}
+.stat-card__change.is-good{background:var(--good-bg);color:var(--good)}
+.stat-card__change.is-bad{background:var(--bad-bg);color:var(--bad)}
+.stat-card__change.is-flat{background:var(--flat-bg);color:var(--flat);border-color:var(--border)}
+.stat-card__arrow{font-size:10px;line-height:1}
+.stat-card__value{
+  margin-top:6px;font-size:24px;font-weight:700;letter-spacing:-.02em;
+  font-variant-numeric:tabular-nums;white-space:nowrap;
+}
+.stat-card__vs{margin-top:2px;font-size:12px;color:var(--muted);white-space:nowrap}
+.stat-card__chart{position:relative;margin-top:10px;height:44px;border-radius:var(--radius-sm)}
+.stat-card__chart svg{display:block;width:100%;height:40px;overflow:visible}
+.chart-tip{
+  position:absolute;left:0;top:0;transform:translate(-50%,-115%);
+  background:var(--surface);color:var(--ink);
+  border:1px solid var(--border);border-radius:var(--radius-sm);
+  box-shadow:var(--shadow);
+  font-size:12px;font-weight:600;font-variant-numeric:tabular-nums;
+  padding:3px 8px;white-space:nowrap;pointer-events:none;z-index:2;
+}
+.stat-card.is-loading .stat-card__value,
+.stat-card.is-loading .stat-card__chart{opacity:.55}
+.stat-card.is-loading .stat-card__value::after{
+  content:"";display:block;height:10px;margin-top:6px;border-radius:var(--radius-sm);
+  background:linear-gradient(90deg,var(--subtle) 25%,var(--border) 50%,var(--subtle) 75%);
+  background-size:200% 100%;
+  animation:skimmer 900ms ease-in-out infinite;
+}
+@keyframes skimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.foot{margin:16px 2px 0;font-size:12.5px;color:var(--muted)}
+/* Detail dialog (opened on pointerdown/mousedown capture + click, keyboard accessible) */
+.detail-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:40}
+.detail{
+  position:fixed;z-index:41;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:min(420px,calc(100vw - 32px));max-height:min(72vh,560px);overflow:auto;
+  background:var(--surface);color:var(--ink);
+  border:1px solid var(--border);border-radius:var(--radius-lg);
+  box-shadow:var(--shadow-lift);padding:16px;
+}
+.detail__head{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.detail__title{font-size:15px;font-weight:650}
+.detail__close{
+  margin-left:auto;appearance:none;cursor:pointer;
+  border:1px solid var(--border);background:var(--subtle);color:var(--ink);
+  border-radius:var(--pill);font:inherit;font-size:12.5px;font-weight:600;padding:5px 12px;
+  transition:background 160ms ease,box-shadow 160ms ease;
+}
+.detail__close:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.detail table{width:100%;border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums}
+.detail th,.detail td{text-align:right;padding:5px 4px;border-top:1px solid var(--border)}
+.detail th:first-child,.detail td:first-child{text-align:left}
+.detail thead th{border-top:0;color:var(--muted);font-weight:600;font-size:12px}
+@media (max-width:920px){.stat-demo__grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:560px){.stat-demo__grid{grid-template-columns:minmax(0,1fr)}.page{padding:16px 12px 32px}}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms !important;transition-duration:.01ms !important}
+}
+/* v5: hover affordances only on devices with a real hover pointer */
+@media (hover:hover) and (pointer:fine){
+  .stat-demo__seg button:hover{color:var(--ink)}
+  .stat-demo__seg button[aria-checked="true"]:hover{box-shadow:var(--shadow-lift)}
+  .stat-card:hover{transform:translateY(-1px);box-shadow:var(--shadow-lift)}
+  .theme-toggle:hover{transform:translateY(-1px);box-shadow:var(--shadow-lift)}
+  .detail__close:hover{background:var(--surface);box-shadow:var(--shadow)}
+}
 </style>
-<style>/*polish*/html{-webkit-tap-highlight-color:transparent}</style></head>
+</head>
 <body>
 <div class="page">
-<header class="page-head">
-<div>
-<p class="head-eyebrow">Metrics</p>
-<h1 class="head-title">Monthly recurring revenue</h1>
-<p class="head-meta">Single stat card · animated · live demo</p>
+  <div class="stat-demo" data-style="classic">
+    <div class="stat-demo__bar">
+      <span class="stat-demo__title">Usage</span>
+      <div class="stat-demo__seg" role="radiogroup" aria-label="Range" id="seg">
+        <button type="button" role="radio" aria-checked="true" id="seg-7d" data-range="7d">7D</button>
+        <button type="button" role="radio" aria-checked="false" id="seg-30d" data-range="30d">30D</button>
+      </div>
+      <button type="button" class="theme-toggle" id="theme-toggle" aria-pressed="false" aria-label="Switch to dark theme">
+        <svg id="icon-moon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M13.5 9.5A5.5 5.5 0 0 1 6.5 2.5a5.5 5.5 0 1 0 7 7Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+        <svg id="icon-sun" viewBox="0 0 16 16" fill="none" aria-hidden="true" hidden><circle cx="8" cy="8" r="3.2" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.5v1.6M8 12.9v1.6M1.5 8h1.6M12.9 8h1.6M3.4 3.4l1.1 1.1M11.5 11.5l1.1 1.1M12.6 3.4l-1.1 1.1M4.5 11.5l-1.1 1.1" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div class="stat-demo__grid" id="grid">
+      <article class="stat-card" id="card-spend" data-metric="spend" tabindex="0" role="button" aria-label="Spend details">
+        <div class="stat-card__top">
+          <span class="stat-card__label">Spend</span>
+          <span class="stat-card__change is-good" id="ch-spend"><span class="stat-card__arrow" id="cha-spend" aria-hidden="true">▲</span><span id="chv-spend">16.5%</span></span>
+        </div>
+        <div class="stat-card__value" id="val-spend">$2.7k</div>
+        <div class="stat-card__vs" id="vs-spend">vs last week</div>
+        <div class="stat-card__chart" id="chart-spend" role="img" aria-label="Spend per day"><div class="chart-tip" id="tip-spend" hidden></div></div>
+      </article>
+      <article class="stat-card" id="card-tokens" data-metric="tokens" tabindex="0" role="button" aria-label="Tokens details">
+        <div class="stat-card__top">
+          <span class="stat-card__label">Tokens</span>
+          <span class="stat-card__change is-good" id="ch-tokens"><span class="stat-card__arrow" id="cha-tokens" aria-hidden="true">▲</span><span id="chv-tokens">8.2%</span></span>
+        </div>
+        <div class="stat-card__value" id="val-tokens">257.7M</div>
+        <div class="stat-card__vs" id="vs-tokens">vs last week</div>
+        <div class="stat-card__chart" id="chart-tokens" role="img" aria-label="Tokens per day"><div class="chart-tip" id="tip-tokens" hidden></div></div>
+      </article>
+      <article class="stat-card" id="card-latency" data-metric="latency" tabindex="0" role="button" aria-label="Avg. latency details">
+        <div class="stat-card__top">
+          <span class="stat-card__label">Avg. latency</span>
+          <span class="stat-card__change is-good" id="ch-latency"><span class="stat-card__arrow" id="cha-latency" aria-hidden="true">▼</span><span id="chv-latency">6.1%</span></span>
+        </div>
+        <div class="stat-card__value" id="val-latency">1.18s</div>
+        <div class="stat-card__vs" id="vs-latency">vs last week</div>
+        <div class="stat-card__chart" id="chart-latency" role="img" aria-label="Latency per day"><div class="chart-tip" id="tip-latency" hidden></div></div>
+      </article>
+      <article class="stat-card" id="card-errors" data-metric="errors" tabindex="0" role="button" aria-label="Error rate details">
+        <div class="stat-card__top">
+          <span class="stat-card__label">Error rate</span>
+          <span class="stat-card__change is-bad" id="ch-errors"><span class="stat-card__arrow" id="cha-errors" aria-hidden="true">▲</span><span id="chv-errors">12.3%</span></span>
+        </div>
+        <div class="stat-card__value" id="val-errors">0.35%</div>
+        <div class="stat-card__vs" id="vs-errors">vs last week</div>
+        <div class="stat-card__chart" id="chart-errors" role="img" aria-label="Errors per day"><div class="chart-tip" id="tip-errors" hidden></div></div>
+      </article>
+    </div>
+  </div>
+  <p class="foot" id="foot">Range switches after a short load. Select any card for its per-day breakdown.</p>
 </div>
-<button class="theme-btn" id="themeToggle" type="button" aria-label="Switch to dark theme" title="Toggle theme">
-<svg id="iconMoon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"></path></svg>
-<svg id="iconSun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg>
-</button>
-</header>
-<main class="stage">
-<section class="ui-stat" id="statCard" aria-label="Monthly recurring revenue stat card">
-<div class="ui-stat__top">
-<p class="ui-stat__label" id="statLabel" title="Monthly recurring revenue" dir="auto">Monthly recurring revenue</p>
-<div class="ui-stat__periods" id="periodGroup" role="group" aria-label="Time period">
-<button class="ui-stat__period" id="perBtn0" type="button" data-p="0" aria-pressed="true">7D</button>
-<button class="ui-stat__period" id="perBtn1" type="button" data-p="1" aria-pressed="false">30D</button>
-<button class="ui-stat__period" id="perBtn2" type="button" data-p="2" aria-pressed="false">12M</button>
-</div>
-</div>
-<p class="ui-stat__value"><span class="ui-stat__amount" id="statAmount">$48,290</span><span class="ui-stat__delta" id="statDelta" data-trend="up"><svg id="statDeltaArrow" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path id="statDeltaPath" d="M6 10V2M2.5 5.5 6 2l3.5 3.5"></path></svg><span id="statDeltaNum">+12.4%</span></span></p>
-<p class="ui-stat__note" id="statNote">vs last week · Jun 9 – Jun 15</p>
-<div class="ui-stat__chart">
-<div class="ui-stat__plot" id="statPlot" tabindex="0" role="group" aria-label="Revenue sparkline – use the arrow keys to read daily values">
-<span class="ui-stat__grid" style="top:0%"></span><span class="ui-stat__grid" style="top:50%"></span><span class="ui-stat__grid" style="top:100%"></span>
-<svg class="ui-stat__svg" id="statSvg" viewBox="0 0 100 32" preserveAspectRatio="none" aria-hidden="true"><path id="statArea" d="" fill="var(--spark-soft)" stroke="none"></path><path id="statLine" d="" fill="none" stroke="#4f46e5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"></path></svg>
-<div class="ui-stat__marker" id="statMarker" aria-hidden="true"><span class="ui-stat__guide" id="statGuide" style="left:100%"></span><span class="ui-stat__dot2" id="statDot" style="left:100%;top:10%"></span></div>
-<div class="ui-stat__tip" id="statTip" role="status" aria-live="polite" data-side="left" style="left:100%"><p class="ui-stat__tipdate" id="statTipDate">Sun, Jun 15</p><p class="ui-stat__tipval" id="statTipVal">$48,300</p></div>
-</div>
-<div class="ui-stat__x" aria-hidden="true"><span id="statX0">Mon Jun 9</span><span id="statX1">Sun Jun 15</span></div>
-</div>
-<div class="ui-stat__foot">
-<p class="ui-stat__updated" id="statUpdated">Updated just now</p>
-<a class="ui-stat__link" id="statLink" href="#report">View report</a>
-</div>
-<div class="ui-stat__dialog" id="statDialog" role="dialog" aria-label="Revenue breakdown" hidden>
-<h4>Revenue breakdown</h4>
-<ul>
-<li><span class="ui-stat__swatch"></span><span>Pro plan</span><span class="ui-stat__num">$31,200</span></li>
-<li><span class="ui-stat__swatch"></span><span>Team plan</span><span class="ui-stat__num">$12,460</span></li>
-<li><span class="ui-stat__swatch"></span><span>Starter plan</span><span class="ui-stat__num">$4,630</span></li>
-</ul>
-<button class="ui-stat__close" id="statDialogClose" type="button">Close details</button>
-</div>
-</section>
-<div class="variants">
-<section class="ui-stat ui-stat--mini" aria-label="Active trials stat card">
-<div class="ui-stat__top"><p class="ui-stat__label" title="Active trials" dir="auto">Active trials</p><span class="ui-stat__live"><span class="ui-stat__dot" aria-hidden="true"></span>Live</span></div>
-<p class="ui-stat__value"><span class="ui-stat__amount">1,284</span><span class="ui-stat__delta" data-trend="up"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 10V2M2.5 5.5 6 2l3.5 3.5"></path></svg><span>+3.2%</span></span></p>
-<p class="ui-stat__note">vs yesterday · no chart variant</p>
-<div class="ui-stat__foot"><p class="ui-stat__updated">Updated 5 min ago</p><a class="ui-stat__link" href="#trials">View trials</a></div>
-</section>
-<section class="ui-stat ui-stat--mini" aria-label="Churn rate stat card">
-<div class="ui-stat__top"><p class="ui-stat__label" title="Churn rate" dir="auto">Churn rate</p></div>
-<p class="ui-stat__value"><span class="ui-stat__amount">2.4%</span><span class="ui-stat__delta" data-trend="down"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2v8M2.5 6.5 6 10l3.5-3.5"></path></svg><span>-0.6pts</span></span></p>
-<p class="ui-stat__note">vs last month · down is good here</p>
-<div class="ui-stat__foot"><p class="ui-stat__updated">Updated 1 hr ago</p><a class="ui-stat__link" href="#churn">View churn</a></div>
-</section>
-</div>
-</main>
+<div class="detail-backdrop" id="detail-backdrop" hidden></div>
+<div class="detail" id="detail" hidden role="dialog" aria-modal="true" aria-labelledby="detail-title">
+  <div class="detail__head">
+    <span class="detail__title" id="detail-title">Details</span>
+    <button type="button" class="detail__close" id="detail-close">Close</button>
+  </div>
+  <table aria-label="Per-day values">
+    <thead><tr><th scope="col">Day</th><th scope="col">Value</th></tr></thead>
+    <tbody id="detail-rows"></tbody>
+  </table>
 </div>
 <script>
 (function(){
-"use strict";
-var PERIODS=[
-{id:"7d",label:"7D",note:"vs last week · Jun 9 – Jun 15",value:48290,delta:"+12.4%",trend:"up",
-spark:[41200,43800,42500,46100,47300,45900,48300],
-labels:["Mon Jun 9","Tue Jun 10","Wed Jun 11","Thu Jun 12","Fri Jun 13","Sat Jun 14","Sun Jun 15"],
-tips:["Mon, Jun 9","Tue, Jun 10","Wed, Jun 11","Thu, Jun 12","Fri, Jun 13","Sat, Jun 14","Sun, Jun 15"]},
-{id:"30d",label:"30D",note:"vs prior 30 days · May 17 – Jun 15",value:52140,delta:"+8.2%",trend:"up",
-spark:[38400,39800,39100,41200,42600,41900,44300,45200,44800,47500,49800,52140],
-labels:["May 17","Jun 15"],
-tips:["May 17","May 20","May 23","May 26","May 29","Jun 1","Jun 4","Jun 7","Jun 9","Jun 11","Jun 13","Jun 15"]},
-{id:"12m",label:"12M",note:"vs last year · Jul – Jun",value:61880,delta:"-1.8%",trend:"down",
-spark:[64200,63800,65100,62900,61500,60800,59400,60100,61200,60500,61300,61880],
-labels:["Jul","Jun"],
-tips:["Jul","Aug","Sep","Oct","Nov","Dec","Jan","Feb","Mar","Apr","May","Jun"]}
-];
-function fmtMoney(v){try{return "$"+Math.round(v).toString().replace(/\B(?=(\d{3})+(?!\d))/g,",")}catch(e){return "$"+Math.round(v)}}
-function xp(i,n){return n>1?i/(n-1)*100:50}
-function bounds(vals){var lo=Math.min.apply(null,vals),hi=Math.max.apply(null,vals);if(hi===lo){lo-=1;hi+=1}var pad=(hi-lo)*0.15;return{lo:lo-pad,hi:hi+pad}}
-function yp(v,b){return (b.hi-v)/(b.hi-b.lo)*32}
-function lineD(vals){var b=bounds(vals),d="";for(var i=0;i<vals.length;i++){d+=(d?(vals[i-1]==null?"M":"L"):"M")+xp(i,vals.length)+","+yp(vals[i],b).toFixed(2)}return d}
-function areaD(vals){var b=bounds(vals),d="M"+xp(0,vals.length)+",32";for(var i=0;i<vals.length;i++){d+="L"+xp(i,vals.length)+","+yp(vals[i],b).toFixed(2)}return d+"L"+xp(vals.length-1,vals.length)+",32Z"}
-var card=document.getElementById("statCard");
-var amount=document.getElementById("statAmount");
-var delta=document.getElementById("statDelta");
-var deltaNum=document.getElementById("statDeltaNum");
-var deltaPath=document.getElementById("statDeltaPath");
-var note=document.getElementById("statNote");
-var plot=document.getElementById("statPlot");
-var line=document.getElementById("statLine");
-var area=document.getElementById("statArea");
-var marker=document.getElementById("statMarker");
-var guide=document.getElementById("statGuide");
-var dot=document.getElementById("statDot");
-var tip=document.getElementById("statTip");
-var tipDate=document.getElementById("statTipDate");
-var tipVal=document.getElementById("statTipVal");
-var x0=document.getElementById("statX0");
-var x1=document.getElementById("statX1");
-var updated=document.getElementById("statUpdated");
-var link=document.getElementById("statLink");
-var dialog=document.getElementById("statDialog");
-var dialogClose=document.getElementById("statDialogClose");
-var perBtns=[document.getElementById("perBtn0"),document.getElementById("perBtn1"),document.getElementById("perBtn2")];
-var UP_D="M6 10V2M2.5 5.5 6 2l3.5 3.5";
-var DOWN_D="M6 2v8M2.5 6.5 6 10l3.5-3.5";
-var state={period:0,displayed:0,target:PERIODS[0].value,hover:null,dialog:false};
-var raf=window.requestAnimationFrame||function(cb){return setTimeout(function(){cb(Date.now())},16)};
-var caf=window.cancelAnimationFrame||function(id){clearTimeout(id)};
-var rafId=null;
-function reduced(){try{return window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches}catch(e){return false}}
-function paintDelta(p){delta.setAttribute("data-trend",p.trend);deltaNum.textContent=p.delta;deltaPath.setAttribute("d",p.trend==="up"?UP_D:DOWN_D)}
-function paintChart(p,hoverIdx){
-var d=lineD(p.spark);line.setAttribute("d",d);area.setAttribute("d",areaD(p.spark));
-x0.textContent=p.labels[0];x1.textContent=p.labels[p.labels.length-1];
-var k=hoverIdx==null?p.spark.length-1:hoverIdx;
-var n=p.spark.length;var left=xp(k,n)+"%";
-guide.style.left=left;dot.style.left=left;
-var b=bounds(p.spark);dot.style.top=(yp(p.spark[k],b)/32*100)+"%";
-tip.style.left=left;
-tip.setAttribute("data-side",xp(k,n)>50?"left":"right");
-tipDate.textContent=p.tips[k];tipVal.textContent=fmtMoney(p.spark[k]);
+'use strict';
+/* Clean-room rebuild of the "Stat Card" demo.
+   Data + behaviour ground truth: demo-original.js in this directory.
+   DOM is built once at init; every later update touches changed nodes in place. */
+var DAY_MS = 864e5;
+var ANCHOR = Date.UTC(2026, 2, 9);
+var RANGE_MS = 650;
+var THEME_KEY = 'affectui-stat-card-theme';
+var SVG_NS = 'http://www.w3.org/2000/svg';
+var CH_W = 120, CH_H = 40, CH_PAD = 4;
+
+function dayLabels(n){
+  return Array.from({length:n}, function(_, i){
+    return new Date(ANCHOR - (n - 1 - i) * DAY_MS)
+      .toLocaleDateString('en-US', {month:'short', day:'numeric', timeZone:'UTC'});
+  });
 }
-function paintPeriodButtons(){for(var i=0;i<perBtns.length;i++){perBtns[i].setAttribute("aria-pressed",i===state.period?"true":"false")}}
-function animateTo(target,instant){
-state.target=target;
-if(rafId!=null){try{caf(rafId)}catch(e){}rafId=null}
-if(instant||reduced()){state.displayed=target;amount.textContent=fmtMoney(target);return}
-var from=state.displayed,to=target,dur=850,t0=null;
-function step(ts){if(t0==null)t0=ts;var t=Math.min(1,(ts-t0)/dur);var e=1-Math.pow(1-t,4);state.displayed=from+(to-from)*e;amount.textContent=fmtMoney(state.displayed);if(t<1){rafId=raf(step)}else{state.displayed=to;amount.textContent=fmtMoney(to);rafId=null}}
-rafId=raf(step);
+function genSeries(n, base, seed, growth){
+  if(growth === undefined) growth = 0.012;
+  return Array.from({length:n}, function(_, i){
+    var wk = (i + seed) % 7 >= 5 ? 0.72 : 1;
+    var osc = 1 + 0.09 * Math.sin(i * 1.7 + seed) + 0.05 * Math.cos(i * 0.6 + seed * 2);
+    return +(base * wk * osc * (1 + growth * i)).toFixed(3);
+  });
+}
+function sum(a){ return a.reduce(function(s, v){ return s + v; }, 0); }
+function avg(a){ return sum(a) / a.length; }
+
+var RANGES = {
+  '7d':  {label:'7D',  n:7,  vs:'vs last week'},
+  '30d': {label:'30D', n:30, vs:'vs last month'}
+};
+function buildRange(key){
+  var n = RANGES[key].n;
+  var spend = genSeries(n, 412, 1);
+  var tokens = genSeries(n, 384e5, 2);
+  var lat = genSeries(n, 1.31, 3, -0.004);
+  var err = genSeries(n, 0.38, 4, 0.01);
+  return {
+    labels: dayLabels(n),
+    spend:   {total: sum(spend), values: spend, change: key === '7d' ? 16.5 : 24.1},
+    tokens:  {total: sum(tokens), values: tokens, change: key === '7d' ? 8.2 : 11.7},
+    latency: {total: avg(lat), values: lat, change: key === '7d' ? -6.1 : -9.4},
+    errors:  {total: avg(err), values: err, change: key === '7d' ? 12.3 : 0}
+  };
+}
+function fmtSpend(v){ return v >= 1e3 ? '$' + (v / 1e3).toFixed(1) + 'k' : '$' + Math.round(v); }
+function fmtTokens(v){
+  if(v >= 1e9) return (v / 1e9).toFixed(2) + 'B';
+  if(v >= 1e6) return (v / 1e6).toFixed(1) + 'M';
+  return '' + Math.round(v);
+}
+function fmtLatency(v){ return v.toFixed(2) + 's'; }
+function fmtErrors(v){ return v.toFixed(2) + '%'; }
+
+var METRICS = [
+  {id:'spend',   label:'Spend',        fmt:fmtSpend,   kind:'sparkline', chartLabel:'Spend per day'},
+  {id:'tokens',  label:'Tokens',       fmt:fmtTokens,  kind:'bar',       chartLabel:'Tokens per day'},
+  {id:'latency', label:'Avg. latency', fmt:fmtLatency, kind:'sparkline', chartLabel:'Latency per day', lowerIsBetter:true},
+  {id:'errors',  label:'Error rate',   fmt:fmtErrors,  kind:'sparkline', chartLabel:'Errors per day',  lowerIsBetter:true}
+];
+function changeTone(change, lowerIsBetter){
+  if(change === 0) return 'flat';
+  var good = lowerIsBetter ? change < 0 : change > 0;
+  return good ? 'good' : 'bad';
+}
+function changeText(change){
+  if(change === 0) return '0.0%';
+  return (change > 0 ? '+' : '\u2212') + Math.abs(change).toFixed(1) + '%';
+}
+function changeArrow(change){
+  if(change === 0) return '\u25AA';
+  return change > 0 ? '\u25B2' : '\u25BC';
+}
+
+/* ---- state (single source of truth; DOM updated in place from here) ---- */
+var pendingKey = '7d';
+var committedKey = '7d';
+var loading = false;
+var hoverIndex = null;
+var displayed = {};   /* metric id -> currently shown numeric value */
+var rangeTimer = null;
+var rafIds = {};
+var cache = {};
+function dataFor(key){
+  if(!cache[key]) cache[key] = buildRange(key);
+  return cache[key];
+}
+
+/* ---- element handles (grabbed once at init) ---- */
+var D = document, W = window;
+var els = {};
+function grab(){
+  els.seg7 = D.getElementById('seg-7d');
+  els.seg30 = D.getElementById('seg-30d');
+  els.seg = D.getElementById('seg');
+  els.toggle = D.getElementById('theme-toggle');
+  els.iconSun = D.getElementById('icon-sun');
+  els.iconMoon = D.getElementById('icon-moon');
+  els.detail = D.getElementById('detail');
+  els.backdrop = D.getElementById('detail-backdrop');
+  els.detailTitle = D.getElementById('detail-title');
+  els.detailClose = D.getElementById('detail-close');
+  els.detailRows = D.getElementById('detail-rows');
+  els.cards = {}; els.vals = {}; els.chs = {}; els.charrows = {}; els.chvals = {};
+  els.vs = {}; els.charts = {}; els.tips = {}; els.svg = {};
+  METRICS.forEach(function(m){
+    els.cards[m.id] = D.getElementById('card-' + m.id);
+    els.vals[m.id] = D.getElementById('val-' + m.id);
+    els.chs[m.id] = D.getElementById('ch-' + m.id);
+    els.charrows[m.id] = D.getElementById('cha-' + m.id);
+    els.chvals[m.id] = D.getElementById('chv-' + m.id);
+    els.vs[m.id] = D.getElementById('vs-' + m.id);
+    els.charts[m.id] = D.getElementById('chart-' + m.id);
+    els.tips[m.id] = D.getElementById('tip-' + m.id);
+  });
+}
+
+/* ---- charts: SVG built ONCE at init, geometry updated in place ---- */
+var chartNodes = {}; /* id -> {svg, line, area, dot, guide, bars[]} */
+function svgEl(tag, attrs){
+  var n = D.createElementNS(SVG_NS, tag);
+  if(attrs) for(var k in attrs) n.setAttribute(k, attrs[k]);
+  return n;
+}
+function xPos(i, n){ return CH_PAD + (i * (CH_W - CH_PAD * 2)) / Math.max(n - 1, 1); }
+function yPos(v, min, span){
+  return (CH_H - CH_PAD) - ((v - min) / (span || 1)) * (CH_H - CH_PAD * 2 - 4);
+}
+function lineD(vals, min, span){
+  var p = '';
+  for(var i = 0; i < vals.length; i++){
+    p += (i === 0 ? 'M' : 'L') + xPos(i, vals.length).toFixed(2) + ' ' + yPos(vals[i], min, span).toFixed(2);
+  }
+  return p;
+}
+function buildCharts(){
+  METRICS.forEach(function(m){
+    var box = els.charts[m.id];
+    var svg = svgEl('svg', {viewBox:'0 0 ' + CH_W + ' ' + CH_H, height:'40', 'aria-hidden':'true'});
+    svg.setAttribute('class', 'chart-svg chart-svg--' + m.kind);
+    var rec = {svg:svg, bars:[]};
+    if(m.kind === 'bar'){
+      for(var i = 0; i < 30; i++){
+        var r = svgEl('rect', {rx:'1.5', opacity:'0.65'});
+        r.setAttribute('class', 'chart-bar');
+        svg.appendChild(r);
+        rec.bars.push(r);
+      }
+      rec.guide = svgEl('line', {y1:String(CH_PAD), y2:String(CH_H - CH_PAD), stroke:'currentColor', 'stroke-opacity':'0.35', 'stroke-width':'1'});
+      rec.guide.setAttribute('class', 'chart-guide');
+      svg.appendChild(rec.guide);
+    }else{
+      rec.area = svgEl('path', {fill:'currentColor', 'fill-opacity':'0.12', stroke:'none'});
+      rec.area.setAttribute('class', 'chart-area');
+      rec.line = svgEl('path', {fill:'none', stroke:'currentColor', 'stroke-width':'1.8', 'stroke-linecap':'round', 'stroke-linejoin':'round'});
+      rec.line.setAttribute('class', 'chart-line');
+      rec.guide = svgEl('line', {y1:String(CH_PAD), y2:String(CH_H - CH_PAD), stroke:'currentColor', 'stroke-opacity':'0.35', 'stroke-width':'1'});
+      rec.guide.setAttribute('class', 'chart-guide');
+      rec.dot = svgEl('circle', {r:'2.6', fill:'currentColor', stroke:'none'});
+      rec.dot.setAttribute('class', 'chart-dot');
+      svg.appendChild(rec.area);
+      svg.appendChild(rec.line);
+      svg.appendChild(rec.guide);
+      svg.appendChild(rec.dot);
+    }
+    /* tooltip stays last so it paints above the svg */
+    box.appendChild(svg);
+    box.appendChild(els.tips[m.id]);
+    chartNodes[m.id] = rec;
+  });
+}
+function chartMinMax(vals){
+  var min = vals[0], max = vals[0], i;
+  for(i = 1; i < vals.length; i++){ if(vals[i] < min) min = vals[i]; if(vals[i] > max) max = vals[i]; }
+  if(max - min < 1e-9){ min -= 1; max += 1; }
+  return {min:min, span:max - min};
+}
+function paintChart(m, d){
+  var rec = chartNodes[m.id];
+  var vals = d[m.id].values, n = vals.length;
+  var mm = chartMinMax(vals);
+  var i, b;
+  if(m.kind === 'bar'){
+    var slot = (CH_W - CH_PAD * 2) / n;
+    var bw = Math.max(slot * 0.62, 1.4);
+    for(i = 0; i < rec.bars.length; i++){
+      b = rec.bars[i];
+      if(i >= n){ b.hidden = true; continue; }
+      b.hidden = false;
+      var h = 4 + ((vals[i] - mm.min) / mm.span) * (CH_H - CH_PAD * 2 - 8);
+      b.setAttribute('x', (xPos(i, n) - bw / 2).toFixed(2));
+      b.setAttribute('y', (CH_H - CH_PAD - h).toFixed(2));
+      b.setAttribute('width', bw.toFixed(2));
+      b.setAttribute('height', h.toFixed(2));
+      b.setAttribute('opacity', (hoverIndex === null || hoverIndex === i) ? '1' : '0.45');
+    }
+  }else{
+    var dd = lineD(vals, mm.min, mm.span);
+    rec.line.setAttribute('d', dd);
+    var base = (CH_H - CH_PAD).toFixed(2);
+    var lastX = xPos(n - 1, n).toFixed(2), firstX = xPos(0, n).toFixed(2);
+    rec.area.setAttribute('d', dd + 'L' + lastX + ' ' + base + 'L' + firstX + ' ' + base + 'Z');
+  }
+  paintMarker(m, d);
+}
+function paintMarker(m, d){
+  var rec = chartNodes[m.id];
+  var vals = d[m.id].values, n = vals.length;
+  var tip = els.tips[m.id];
+  var idx = (hoverIndex === null || hoverIndex < 0 || hoverIndex >= n) ? null : hoverIndex;
+  if(idx === null){
+    if(m.kind === 'bar'){ /* opacities reset above */ }
+    else{
+      rec.guide.setAttribute('x1', '-10'); rec.guide.setAttribute('x2', '-10');
+      rec.dot.setAttribute('cx', '-10'); rec.dot.setAttribute('cy', '-10');
+    }
+    tip.hidden = true;
+    return;
+  }
+  var mm = chartMinMax(vals);
+  var x = xPos(idx, n);
+  if(m.kind === 'bar'){
+    for(var i = 0; i < n; i++) rec.bars[i].setAttribute('opacity', i === idx ? '1' : '0.45');
+    rec.guide.setAttribute('x1', x.toFixed(2)); rec.guide.setAttribute('x2', x.toFixed(2));
+  }else{
+    rec.guide.setAttribute('x1', x.toFixed(2)); rec.guide.setAttribute('x2', x.toFixed(2));
+    rec.dot.setAttribute('cx', x.toFixed(2));
+    rec.dot.setAttribute('cy', yPos(vals[idx], mm.min, mm.span).toFixed(2));
+  }
+  tip.textContent = d.labels[idx] + ' \u00B7 ' + m.fmt(vals[idx]);
+  tip.hidden = false;
+  var pct = n === 1 ? 50 : (idx / (n - 1)) * 100;
+  tip.style.left = Math.min(Math.max(pct, 14), 86) + '%';
+}
+function paintAllCharts(){
+  var d = dataFor(committedKey);
+  METRICS.forEach(function(m){ paintChart(m, d); });
 }
 function setHover(idx){
-var p=PERIODS[state.period];
-if(idx==null){state.hover=null;marker.removeAttribute("data-open");tip.removeAttribute("data-open")}
-else{state.hover=idx;marker.setAttribute("data-open","");tip.setAttribute("data-open","")}
-paintChart(p,state.hover);
+  if(idx === hoverIndex) return;
+  hoverIndex = idx;
+  paintAllCharts(); /* in-place marker/tooltip updates only */
 }
-function renderPeriod(i,instant){
-state.period=i;var p=PERIODS[i];
-note.textContent=p.note;
-paintDelta(p);paintPeriodButtons();paintChart(p,state.hover);
-animateTo(p.value,instant);
-var n=p.spark.length-1;
-if(state.hover!=null&&state.hover>n)state.hover=n;
+
+/* ---- values: animated numbers, textContent updated in place ---- */
+function raf(fn){
+  if(W.requestAnimationFrame) return W.requestAnimationFrame(fn);
+  return W.setTimeout(function(){ fn(W.performance && W.performance.now ? W.performance.now() : Date.now()); }, 16);
 }
-function nextPeriod(){renderPeriod((state.period+1)%PERIODS.length,false);try{updated.textContent="Updated just now · "+PERIODS[state.period].label}catch(e){}}
-var timer=null;
-try{timer=setInterval(nextPeriod,3000)}catch(e){timer=null}
-function idxFromEvent(e){try{var r=plot.getBoundingClientRect();if(!r.width)return null;var f=(e.clientX-r.left)/r.width;f=Math.min(1,Math.max(0,f));var n=PERIODS[state.period].spark.length;return Math.min(n-1,Math.max(0,Math.round(f*(n-1))))}catch(err){return null}}
-plot.addEventListener("pointermove",function(e){var i=idxFromEvent(e);if(i==null)return;if(i!==state.hover)setHover(i)});
-plot.addEventListener("pointerdown",function(e){var i=idxFromEvent(e);if(i==null)return;setHover(i)});
-plot.addEventListener("pointerleave",function(){if(state.hover!==null)setHover(null)});
-plot.addEventListener("blur",function(){if(state.hover!==null)setHover(null)});
-plot.addEventListener("keydown",function(e){
-var n=PERIODS[state.period].spark.length;
-if(e.key==="ArrowRight"){var b=state.hover==null?-1:state.hover;setHover(Math.min(n-1,b+1));e.preventDefault()}
-else if(e.key==="ArrowLeft"){var b2=state.hover==null?n:state.hover;setHover(Math.max(0,b2-1));e.preventDefault()}
-else if(e.key==="Escape"){if(state.hover!==null){setHover(null);e.preventDefault()}}
-});
-for(var bi=0;bi<perBtns.length;bi++)(function(b,idx){b.addEventListener("click",function(){if(state.period!==idx){state.hover=null;marker.removeAttribute("data-open");tip.removeAttribute("data-open");renderPeriod(idx,false)}})})(perBtns[bi],bi);
-function openDialog(){state.dialog=true;dialog.hidden=false;dialog.setAttribute("data-open","");try{dialogClose.focus()}catch(e){}}
-function closeDialog(){state.dialog=false;dialog.hidden=true;dialog.removeAttribute("data-open")}
-link.addEventListener("pointerdown",function(e){if(dialog.hidden){openDialog()}});
-link.addEventListener("click",function(e){try{e.preventDefault()}catch(err){}if(dialog.hidden)openDialog()});
-link.addEventListener("keydown",function(e){if((e.key==="Enter"||e.key===" ")&&dialog.hidden){openDialog();e.preventDefault()}});
-dialogClose.addEventListener("click",function(){closeDialog();try{link.focus()}catch(e){}});
-document.addEventListener("keydown",function(e){if(e.key==="Escape"&&state.dialog){closeDialog();e.preventDefault()}});
-renderPeriod(0,true);
-try{window.__statTest={state:state,periods:PERIODS,next:nextPeriod,render:renderPeriod,hover:setHover,els:{amount:amount,delta:delta,deltaNum:deltaNum,note:note,line:line,area:area,tip:tip,tipDate:tipDate,tipVal:tipVal,marker:marker,dialog:dialog,buttons:perBtns,plot:plot,link:link}}}catch(e){}
-var btn=document.getElementById("themeToggle");
-var moon=document.getElementById("iconMoon");var sun=document.getElementById("iconSun");
-function paintToggle(){var dark=document.documentElement.getAttribute("data-theme")==="dark";moon.hidden=dark;sun.hidden=!dark;btn.setAttribute("aria-label",dark?"Switch to light theme":"Switch to dark theme")}
-function setTheme(t){document.documentElement.setAttribute("data-theme",t);try{localStorage.setItem("stat-card-theme",t)}catch(e){}paintToggle()}
-btn.addEventListener("click",function(){setTheme(document.documentElement.getAttribute("data-theme")==="dark"?"light":"dark")});
-paintToggle();
+function cancelRaf(id){
+  if(W.cancelAnimationFrame) W.cancelAnimationFrame(id);
+  else W.clearTimeout(id);
+}
+function animateValue(id, fmt, from, to){
+  var node = els.vals[id];
+  if(rafIds[id] !== undefined){ cancelRaf(rafIds[id]); delete rafIds[id]; }
+  if(from === to || !(W.requestAnimationFrame || W.setTimeout)){ node.textContent = fmt(to); displayed[id] = to; return; }
+  var dur = 520, t0 = null;
+  node.textContent = fmt(from);
+  function frame(t){
+    if(t0 === null) t0 = t;
+    var k = Math.min(((t - t0) / dur), 1);
+    var e = 1 - Math.pow(1 - k, 3);
+    var v = from + (to - from) * e;
+    node.textContent = fmt(v);
+    if(k < 1){ rafIds[id] = raf(frame); }
+    else{ node.textContent = fmt(to); displayed[id] = to; delete rafIds[id]; }
+  }
+  rafIds[id] = raf(frame);
+}
+function renderChange(m, d){
+  var tone = changeTone(d[m.id].change, m.lowerIsBetter);
+  var pill = els.chs[m.id];
+  pill.setAttribute('class', 'stat-card__change is-' + tone);
+  els.charrows[m.id].textContent = changeArrow(d[m.id].change);
+  els.chvals[m.id].textContent = d[m.id].change === 0 ? '0.0%'
+    : (m.lowerIsBetter && d[m.id].change < 0 ? '' : (d[m.id].change > 0 ? '+' : '\u2212'))
+      + Math.abs(d[m.id].change).toFixed(1) + '%';
+  /* latency shows direction without a redundant plus: "-6.1%" reads as ▼ 6.1% */
+  if(m.lowerIsBetter && d[m.id].change < 0) els.chvals[m.id].textContent = Math.abs(d[m.id].change).toFixed(1) + '%';
+  els.cards[m.id].setAttribute('aria-label', m.label + ' details');
+}
+
+/* ---- range switching: pending select now, commit after 650ms load ---- */
+function paintSeg(){
+  var a = pendingKey === '7d';
+  els.seg7.setAttribute('aria-checked', a ? 'true' : 'false');
+  els.seg30.setAttribute('aria-checked', a ? 'false' : 'true');
+}
+function setLoading(on){
+  loading = on;
+  METRICS.forEach(function(m){
+    var card = els.cards[m.id];
+    if(on) card.classList.add('is-loading');
+    else card.classList.remove('is-loading');
+    card.setAttribute('aria-busy', on ? 'true' : 'false');
+  });
+}
+function commitRange(key){
+  committedKey = key;
+  setLoading(false);
+  var d = dataFor(key);
+  METRICS.forEach(function(m){
+    els.vs[m.id].textContent = RANGES[key].vs;
+    renderChange(m, d);
+    animateValue(m.id, m.fmt, displayed[m.id], d[m.id].total);
+    paintChart(m, d);
+  });
+}
+function selectRange(key){
+  if(key !== '7d' && key !== '30d') return;
+  if(key === pendingKey && key === committedKey && !loading) return;
+  pendingKey = key;
+  paintSeg();
+  if(key === committedKey){ setLoading(false); return; }
+  setLoading(true);
+  if(rangeTimer !== null){ W.clearTimeout(rangeTimer); rangeTimer = null; }
+  rangeTimer = W.setTimeout(function(){
+    rangeTimer = null;
+    commitRange(pendingKey);
+  }, RANGE_MS);
+}
+
+/* ---- detail dialog: rows built once, updated in place ---- */
+var detailRows = [];
+var detailFor = null;
+function buildDetailRows(){
+  var tb = els.detailRows;
+  for(var i = 0; i < 30; i++){
+    var tr = D.createElement('tr');
+    var tdD = D.createElement('td');
+    var tdV = D.createElement('td');
+    tr.appendChild(tdD);
+    tr.appendChild(tdV);
+    tb.appendChild(tr);
+    detailRows.push({tr:tr, d:tdD, v:tdV});
+  }
+}
+function openDetail(id){
+  var m = null;
+  for(var i = 0; i < METRICS.length; i++) if(METRICS[i].id === id) m = METRICS[i];
+  if(!m) return;
+  if(!els.detail.hidden && detailFor === id && committedKey === openDetail._key) return;
+  var d = dataFor(committedKey);
+  els.detailTitle.textContent = m.label + ' \u2014 per day (' + RANGES[committedKey].label + ')';
+  for(var r = 0; r < detailRows.length; r++){
+    if(r < d.labels.length){
+      detailRows[r].tr.hidden = false;
+      detailRows[r].d.textContent = d.labels[r];
+      detailRows[r].v.textContent = m.fmt(d[m.id].values[r]);
+    }else{
+      detailRows[r].tr.hidden = true;
+    }
+  }
+  detailFor = id;
+  openDetail._key = committedKey;
+  els.detail.hidden = false;
+  els.backdrop.hidden = false;
+  if(els.detailClose && els.detailClose.focus) els.detailClose.focus();
+}
+function closeDetail(){
+  els.detail.hidden = true;
+  els.backdrop.hidden = true;
+  detailFor = null;
+}
+
+/* ---- theme toggle ---- */
+function currentTheme(){ return D.documentElement.getAttribute('data-theme') || 'light'; }
+function applyTheme(t){
+  D.documentElement.setAttribute('data-theme', t);
+  try{ W.localStorage.setItem(THEME_KEY, t); }catch(e){}
+  var dark = t === 'dark';
+  els.toggle.setAttribute('aria-pressed', dark ? 'true' : 'false');
+  els.toggle.setAttribute('aria-label', dark ? 'Switch to light theme' : 'Switch to dark theme');
+  els.iconSun.hidden = !dark;
+  els.iconMoon.hidden = dark;
+}
+function toggleTheme(){ applyTheme(currentTheme() === 'dark' ? 'light' : 'dark'); }
+
+/* ---- init: wire everything once ---- */
+function init(){
+  grab();
+  buildCharts();
+  buildDetailRows();
+  var d0 = dataFor('7d');
+  METRICS.forEach(function(m){
+    displayed[m.id] = 0;
+    els.vs[m.id].textContent = RANGES['7d'].vs;
+    renderChange(m, d0);
+    animateValue(m.id, m.fmt, 0, d0[m.id].total);
+    paintChart(m, d0);
+  });
+  paintSeg();
+  applyTheme(currentTheme());
+
+  els.seg7.addEventListener('click', function(){ selectRange('7d'); });
+  els.seg30.addEventListener('click', function(){ selectRange('30d'); });
+  els.seg.addEventListener('keydown', function(e){
+    if(e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+    var next = (e.key === 'ArrowRight')
+      ? (pendingKey === '7d' ? '30d' : '7d')
+      : (pendingKey === '7d' ? '30d' : '7d');
+    if(e.preventDefault) e.preventDefault();
+    selectRange(next);
+    var btn = next === '7d' ? els.seg7 : els.seg30;
+    if(btn && btn.focus) btn.focus();
+  });
+  els.toggle.addEventListener('click', toggleTheme);
+
+  METRICS.forEach(function(m){
+    (function(mm){
+      var card = els.cards[mm.id];
+      var box = els.charts[mm.id];
+      /* capture-phase open so a real click still survives dialog focus work */
+      card.addEventListener('pointerdown', function(){ openDetail(mm.id); }, true);
+      card.addEventListener('mousedown', function(){ openDetail(mm.id); }, true);
+      card.addEventListener('click', function(){ openDetail(mm.id); });
+      card.addEventListener('keydown', function(e){
+        if(e.key === 'Enter' || e.key === ' '){ if(e.preventDefault) e.preventDefault(); openDetail(mm.id); }
+      });
+      /* hover/focus only move markers + tooltip text: never a re-render */
+      box.addEventListener('mousemove', function(e){
+        var n = dataFor(committedKey).labels.length;
+        var frac = 0.5;
+        if(e && typeof e.offsetX === 'number') frac = e.offsetX / CH_W;
+        var idx = Math.round(frac * (n - 1));
+        if(idx < 0) idx = 0;
+        if(idx > n - 1) idx = n - 1;
+        setHover(idx);
+      });
+      box.addEventListener('mouseleave', function(){ setHover(null); });
+      card.addEventListener('blur', function(){ /* no re-render on focus loss */ });
+    })(m);
+  });
+  els.detailClose.addEventListener('click', closeDetail);
+  els.backdrop.addEventListener('click', closeDetail);
+  D.addEventListener('keydown', function(e){
+    if(e.key === 'Escape' && !els.detail.hidden) closeDetail();
+  });
+
+  /* test hooks (used by the in-dir harness; harmless in browsers) */
+  W.__stat = {
+    metrics: METRICS, ranges: RANGES,
+    data: dataFor,
+    state: function(){ return {pending:pendingKey, committed:committedKey, loading:loading, hover:hoverIndex, displayed:displayed}; },
+    select: selectRange, hover: setHover, open: openDetail, close: closeDetail,
+    theme: function(t){ if(t) applyTheme(t); return currentTheme(); },
+    els: els
+  };
+}
+init();
 })();
 </script>
 </body>

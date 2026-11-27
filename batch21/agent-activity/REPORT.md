@@ -1,24 +1,47 @@
-# Agent / Activity — replica report
+# Agent / Activity — rebuild report
 
 ## What was built
-ONE self-contained `index.html` (22.5KB, inline CSS+JS, system fonts, no network) in this directory.
-Daily grouped agent-activity log: Today / Yesterday / Last week, each entry with agent 3×3 pixel-mark, action title, time, approval source, reason, status pill, circular tool icon, reversible Undo/Restore, expandable “Why?” detail (pointerdown-capture toggle).
+ONE self-contained `index.html` (41KB, no network, system fonts) replicating the **Agent Activity** daily grouped log from `demo-original.js`. Clean-room code from observed behaviour; no compiled source copied.
 
-Header follows v3 pattern: `Atlas Launch · 2 working · 4 agents` + right-aligned token context `44k / 200k` with thin 3px bar + sun/moon theme toggle (top-right).
-Live loop: every 3s a live entry prepends to Today (4 templates), token +0.4k, working 2→1→2; 5th tick resets in place to the initial 4 items. All updates are in-place text/class/style/append/remove — zero `innerHTML` anywhere.
+Layout: header (`Activity` + segmented tabs + search) + scrollable grouped list + sticky detail panel (`Step details`). Responsive: two columns ≥900px, stacked below. Theme toggle top-right (`Light`/`Dark`, `localStorage` key `affectui-activity-theme`).
 
-## Matched data / behaviour
-- `demo-original.js` in this directory is a 404 page (`<title>Page not found</title>`, no demo data, no timings). So per spec (“if data is unknown, use plausible demo data in same shape”) all names/numbers are plausible, same shape: 4 agents (Scout/Patch/Relay/Scribe), 9 entries with approval source (Maya Chen via Slack #ship, Auto-approved · low-risk, Waiting · needs Priya review, Jonas via Dashboard, Failed checks · quarantined), reasons, reversible undo, token `44k / 200k`.
-- Default theme = original appearance: the 404 shell advertises light (`theme-color #ffffff`), so default is light; noflash guard still respects stored `theme` or `prefers-color-scheme`, toggle overrides and persists.
-- v3–v5 rules applied: deterministic pixel-marks (exactly 9 `<i>` cells, working twinkle), circular tool SVGs (class via `setAttribute` only), dimmed opacity 0.92 (≥0.75), single-line ellipsis titles, `[hidden]{display:none!important}`, all `:hover` inside `@media (hover:hover) and (pointer:fine)`, `html{-webkit-tap-highlight-color:transparent}`, `body{font-variant-numeric:tabular-nums}`, concentric radii (outer 16 = inner 10 + 6 pad), shadows for elevation / borders for structure, icon-side 2px-less button padding, focus-visible outline, 150–200ms transitions, narrow stacked layout.
+## Matched data (verbatim from demo-original.js)
+- Apps: Gmail `alex@fieldwork.co`, Slack `Fieldwork workspace`, GitHub `fieldwork-labs`, Google Drive `Shared drive · Clients`, Stripe `Fieldwork GmbH`, Google Calendar `alex@fieldwork.co`, Web `Browser`.
+- 9 items with exact texts, tasks, rules, details, previews, undo `how`, finals, costs:
+  - `a1` Sent the weekly update to Priya Shah / Weekly update / approved / Send email to clients / To `priya.shah@northwind.com`, Subject `Northwind – week 46` / preview `Hi Priya – three things…` / undo `Recalls the email – it’s still unread` (30min) / €0.04
+  - `a2` Refunded 38 € to Hannah Kim / Billing webhooks / auto / Issue refunds · up to 50 € / Customer/Amount `38,00 €`/Reason `Charged twice on Nov 18` / final `Refunds can’t be taken back…` / €0.02
+  - `a3` Posted the staging link in #platform / auto / Post in project channels / preview `Staging is up…48 of 48 tests pass…` / undo `Deletes the message from #platform` (24h) / €0.01
+  - `a4` Opened pull request #482 – Retry failed billing webhooks / auto / Open pull requests / Repository `fieldwork-labs/platform`, Changes `6 files · +214 −38` / undo `Closes the pull request` (7d) / €0.31
+  - `a5` Booked a review call with Tom Becker for Thursday 10:30 / Onboarding emails / approved / Book meetings with clients / undo `Cancels the meeting and tells Tom` (2d) / €0.01
+  - `a6` Created “Northwind – ingest design” in Clients / Ingest pipeline / auto / Create documents / undo `Moves the document to the trash` (30d) / €0.12
+  - `b1` Merged #479 – Move our apps to API v2 / API migration / approved / Merge to main / final `Merged code can’t be unmerged here…` / €0.08
+  - `b2` Sent an invoice reminder to Lumen Studio / approved / undone:true / final `Recalled – Lumen Studio paid an hour later` / €0.03
+  - `b3` Asked Tom Becker for the staging keys / approved / final `Too long ago to take back` / €0.01
+- Labels verbatim: Activity, All, On its own, You approved, Undone, Search activity, Undo, Undone, Final, Today, Yesterday, What happened, Why it could, Taking it back, Task, When, Cost, `You approved it {when}`, `It asked first…`, `It did this on its own – the rule allows it`, Rule, Permissions, Open task, `Possible for {left}`, `Taken back just now`, `Nothing open…`, `Nothing yet…`, `Nothing matches…`, `Show all`, etc.
+- Behaviour: sort newest-first, tabs with counts (9/4/5/1), search across text+task+app name, grouping by calendar day (`Today`/`Yesterday`/weekday), 30s `now` tick updating relative times (`just now`, `x minutes ago`, `Possible for…`) and undo expiry, undo sets `undone`, strike animation 520ms + tag pop, live-region `Undone: …`, struck cleared after 1200ms, keyboard `/`, `j`/`k`, `u`, `ArrowUp/Down`, `Esc`, preview clamp 6 lines with `Show all`/`Show less` when overflow, costs via `Intl EUR`.
 
-## Could not verify
-- Original demo visuals/timings (source was 404); loop timing (3s) and copy are invented but plausible.
-- Real-browser paint/first-frame: no browser installed per instructions; verified with node only.
+## Design / polish (spec v2–v5)
+- Tokens for all colours; light default (original demo light): surface `#ffffff`, page `#fafaf9`, ink `#171717`, muted `#78716c`, subtle `#f5f5f4`, border `#e7e5e4`; dark: `#1c1c1f`/`#101012`/`#ededed`/`#a1a1aa`/`#26262a`/`#2e2e33`; amber preserved per theme.
+- `/*noflash*/` guard first in `<head>`, inline `html{background…}`, `meta color-scheme`.
+- In-place updates only: DOM built once at init, timer/hover/focus never call `innerHTML`; rows/sections reused, panel fields updated via `textContent`/hidden/attributes; loop restart updates in place.
+- v5: all `:hover` inside `@media (hover:hover) and (pointer:fine)`, `html{-webkit-tap-highlight-color:transparent}`, `body{font-variant-numeric:tabular-nums}`, concentric radii (outer = inner + padding), shadows for elevation / borders for structure, `[hidden]{display:none}`, SVG created via `createElementNS` + `setAttribute` only.
+- No agent pixel-marks: component identities are apps (letter tiles), not agent IDs — original uses app logos/tiles, so no 3×3 marks added.
+
+## Verification
+- `node --check extracted.js` (extracted from `index.html`): **PASS**.
+- In-dir harness `node verify-harness.cjs` (DOM stub, no external deps):
+  - static: noflash, color-scheme, `[hidden]`, tap-highlight, tabular-nums, hover-media, data-theme — PASS
+  - page runs, 23 visible strings (titles, Today/Yesterday, tabs, search placeholder, a1 details/preview/undo, approved/auto texts) — PASS
+  - counts 9/4/5/1; a3/a4/a6 detail selects — PASS
+  - 32-day loop with `tick()`: node identity preserved, zero `innerHTML` writes after init — PASS
+  - expiry → `Final`, undo → `undone` + strike + identity preserved — PASS
+  - search, no-match `Show all`, undone tab — PASS
+  - dark theme visible intact, light theme visible intact, tokens for both — PASS
+  - `ALL HARNESS CHECKS PASSED`
+- Light AND dark checked via attribute switch + token presence; open `index.html` in a browser to confirm visually.
 
 ## How to test
-Open `index.html` in a browser. Click Undo/Restore, Why? toggles, theme toggle; watch live entries arrive every 3s then loop-restart.
-
-## Verification (node only, in-dir files)
-- `node --check` on extracted page script: OK.
-- `node harness.js` (DOM-stub in this dir): 50/50 PASS — loads script, asserts visible text (`Merged PR #482 — auth refresh`, `44k / 200k`), advances 4 ticks (Today 4→8, token advances), 5th tick resets (Today→4, token→44k), yesterday/week/initial-today nodes keep `===` identity, zero `innerHTML` writes after init, undo→Restore→Undo in place, theme light→dark→light toggles, dark CSS present. Light AND dark checked.
+1. `cd` to this directory.
+2. `python3 -c "import pathlib,re;html=pathlib.Path('index.html').read_text();open('extracted.js','w').write(list(re.finditer(r'<script>(.*?)</script>',html,re.S))[-1].group(1))" && node --check extracted.js`
+3. `node verify-harness.cjs`
+4. Open `index.html` in a browser, toggle theme, try search/tabs/undo/keyboard.

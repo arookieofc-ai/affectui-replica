@@ -1,30 +1,50 @@
-# Trend Chart — replica report
+# Trend Chart — rebuild report
 
 ## What was built
-`index.html` (26KB, self-contained, no network, system fonts) — standalone Trend Chart:
-- Header: `growth-dashboard` + `3 live` + `4 agents` + `44k / 200k tokens` with thin 3px bar + sun/moon toggle (top-right).
-- Card: `Signups trend`, subtitle `Last 30 days vs previous 30 days`, delta pill, Period seg (7D/30D/12M), Type seg (Line/Area/Bars), legend Current vs Previous.
-- SVG chart (640×260): current solid line, previous dashed line, area fill in Area mode, grouped bars in Bars mode, dots + highlight dot, grid + Y/X labels. Tooltip on hover/focus, details popover pinned on Shift+Click / double-click / Enter, closed on Esc/Close.
-- Stats: Total / Average / Peak / Last value. Footer live status `Live · tick i/N · highlight … · next in 1.5s`.
-- Live loop: single `setInterval(advance,1500)` sweeps highlight `hi=(hi+1)%N`, jitters last value on wrap. DOM built once in `buildOnce()`; ticks only update `d/cx/cy/textContent/attributes/visibility` in place. Zero `innerHTML` in main script. SVG classes only via `setAttribute`. Popover opens via `pointerdown`+`mousedown` capture. Hover/focus only move highlight + tooltip. `[hidden]{display:none!important}` present.
+ONE self-contained `index.html` (27.6 KB, no network, system fonts) replicating the
+`demo-Dr4Grdlp.js` demo: an **AI spend** card with Line/Area/Bar switch + 7D/30D range
+switch, main SVG chart with This period vs Last period comparison and tooltip, plus
+three linked sparklines (Tokens, Requests, Cost per 1k requests) sharing one hover index.
 
-## Demo data / behaviour
-- `demo-original.js` in this dir is a 404 HTML page (`Page not found · affectUI`, 6163 bytes), not chart data. No exact names/numbers/timings recoverable.
-- Used plausible same-shape data (documented as invented):
-  - 7D current `[128,142,135,168,182,176,204]` prev `[110,124,118,140,152,148,166]`
-  - 30D current `[122,135,…,292,301]` (sum 6355, avg 211.8, +15.0% vs prev sum 5524) prev `[105,118,…,254,262]`
-  - 12M current `[820,940,…,1680]` (sum 14380) prev `[700,820,…,1440]`
-- Behaviours replicated from spec: tooltip + period comparison (current vs previous + % change), type switching, live ticking, keyboard (arrows/Enter/Esc), responsive stack.
-- No agent identities in this component, so no 3×3 pixel-marks (spec requires exactly 9 cells *if* identities exist — N/A here).
+## Matched data / behaviour (verbatim from `demo-original.js`)
+- End date `Date.UTC(2026,2,9)`, day step 864e5; short labels `Mar 3…Mar 9` (7d) /
+  `Feb 8…Mar 9` (30d); long tooltip labels `Tue, Mar 3…Mon, Mar 9` etc. via
+  `en-US/UTC` `toLocaleDateString`.
+- Generator `u(n,base,seed,growth)` with weekend factor `((i+n)%7>=5?0.72:1)`,
+  oscillation `1+.09*sin(i*1.7+n)+.05*cos(i*.6+n*2)`, growth `(1+r*i)`; bases/seeds:
+  This `(412,1,.012)`, Last `(356,3,.006)`, Tokens `(384e5,2)`, Requests `(21800,4,.016)`.
+- Formatters: spend `$x.xk`, compact `B/M/k`, cost `$x.xx`; totals/sums identical:
+  7d total `$2.7k` (2689) change `+16.5%`, Tokens `257.7M`, Requests `144.6k`,
+  Cost `$18.60`; 30d total `$13.4k` (13381) change `+24.6%`, Tokens `1.3B`,
+  Requests `740.4k`, Cost `$18.07`.
+- Controls: `Chart type` radiogroup (Line/Area/Bar, default Area),
+  `Range` radiogroup (7D/30D, default 7D); `aria-checked` kept in sync.
+- Shared `index`/`onIndexChange` across main + 3 sparklines; tooltips show
+  `tooltipLabels` (main) / short `labels` (sparklines) with formatted values;
+  keyboard arrows + Escape, focus selects last point, pointermove/down + leave.
+- No timers in the original demo, so none added; all updates are state-driven.
 
-## Verification
-- `node --check` on extracted main script: OK.
-- In-dir stub harness `./verify.cjs` (no /tmp writes, no installs):
-  - static: `/*noflash*/` guard first in `<head>`, `color-scheme` meta, `html{background…}` both themes, tokens, toggle, header pattern, zero `innerHTML`, no `.className=`, pointerdown capture.
-  - runtime: loads script in fake DOM, advances full 30-step loop + period/type switches + 3 timer callbacks.
-  - asserts VISIBLE text (title `Signups trend`, total `6,355`→`6,353` after live jitter, `1,135` in 7D, `14,380` in 12M, foot `tick …`), node identity preserved (`total/svg/foot/hi` same objects), zero `innerHTML` writes after init.
-  - light AND dark checked via `applyTheme('light'/'dark')` — stats remain visible in both.
-  - Result: `ALL CHECKS PASSED (light AND dark checked)`.
+## What could not be verified
+- Pixel-exact styling of the private `component-*.js` chart renderer (not shipped);
+  axes/grid/tooltip recreated clean-room with the same props (`variant/label/labels/
+  tooltipLabels/series/format/index/onIndexChange`).
+- Exact original bar geometry (grouped vs stacked); used grouped This/Last bars.
 
 ## How to test
-Open `./index.html` in a browser (double-click). Toggle theme (top-right), switch 7D/30D/12M and Line/Area/Bars, hover chart for tooltip, Shift+Click a point for details, use Tab + arrows + Enter. No server needed.
+Open `index.html` in a browser. Toggle Line/Area/Bar and 7D/30D; hover/tap charts
+and sparklines — tooltips stay in sync. Toggle Dark/Light top-right. Narrow window
+stacks the three small cards.
+
+## Verification (node only, no browser)
+- `node --check` on the extracted page script: PASS.
+- In-dir DOM-stub harness (created, run, then removed): loaded the page script,
+  asserted visible texts (`$2.7k/+16.5%/257.7M/144.6k/$18.60` → 30d
+  `$13.4k/+24.6%/1.3B/740.4k/$18.07` → back), tooltips (`Mon, Mar 9`, `Fri, Mar 6`),
+  shared spark tips, `aria-checked` per type, node identity of total/cur/prev/area/
+  tooltip/bars across the full 7d→30d→7d × line/bar/area × index-sweep loop,
+  zero `innerHTML` writes after init, and light+dark `data-theme` switching: ALL PASS.
+- Polish: `:hover` only inside `@media (hover:hover) and (pointer:fine)`,
+  tap-highlight transparent, `tabular-nums`, `[hidden]{display:none}`,
+  SVG classes via `setAttribute` only, no external URLs, 27.6 KB < 200 KB.
+- Light (default = original demo appearance) AND dark checked via tokens
+  (`--page/--surface/--ink/--muted/--subtle/--border` + amber dark variant).

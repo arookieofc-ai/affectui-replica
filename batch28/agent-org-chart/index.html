@@ -1,0 +1,498 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<script>/*noflash*/(function(){try{var k='aoc-theme';var t=null;try{t=localStorage.getItem(k);}catch(e){}if(t!=='light'&&t!=='dark'){try{t=(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light';}catch(e){t='light';}if(!t)t='light';}document.documentElement.setAttribute('data-theme',t);}catch(e){try{document.documentElement.setAttribute('data-theme','light');}catch(_){}}})();</script>
+<style>html{background:#fafaf9}html[data-theme="dark"]{background:#101012}</style>
+<meta name="color-scheme" content="light dark">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent Org Chart — Operations</title>
+<style>
+/* tokens */
+:root{color-scheme:light dark}
+html[data-theme="light"]{
+--surface:#ffffff;--page:#fafaf9;--ink:#171717;--muted:#78716c;--subtle:#f5f5f4;--border:#e7e5e4;
+--card:#ffffff;--tray:#f4f4f5;--node:#ffffff;
+--amber:#f59e0b;--amber-bg:#fef3c7;--amber-ink:#92400e;
+--working:#1a7f4b;--failed:#dc2626;
+--focus:rgba(37,99,235,.65);
+--shadow:0 1px 2px rgba(0,0,0,.05),0 4px 16px rgba(0,0,0,.05);
+--pop-shadow:0 0 0 1px rgba(0,0,0,.06),0 16px 36px -12px rgba(0,0,0,.22),0 4px 10px -4px rgba(0,0,0,.08);
+--p1:#0190fe;--p2:#a651f0;--p3:#13b3a0;--p4:#ee3e9e;--p5:#5fc88a;--p6:#14b3f0;
+--radius-lg:16px;--radius:10px;--radius-sm:6px;
+--img-outline:rgba(0,0,0,.10);
+}
+html[data-theme="dark"]{
+--surface:#1c1c1f;--page:#101012;--ink:#ededed;--muted:#a1a1aa;--subtle:#26262a;--border:#2e2e33;
+--card:#1c1c1f;--tray:#232327;--node:#222226;
+--amber:#fbbf24;--amber-bg:#451a03;--amber-ink:#fde68a;
+--working:#4ade80;--failed:#f87171;
+--focus:rgba(96,165,250,.8);
+--shadow:0 1px 2px rgba(0,0,0,.5),0 8px 24px rgba(0,0,0,.45);
+--pop-shadow:0 0 0 1px rgba(255,255,255,.08),0 16px 36px -12px rgba(0,0,0,.7);
+--p1:#0190fe;--p2:#a651f0;--p3:#13b3a0;--p4:#ee3e9e;--p5:#5fc88a;--p6:#14b3f0;
+--img-outline:rgba(255,255,255,.12);
+}
+html{-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--muted);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:14px;line-height:1.45;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
+.page{max-width:980px;margin:0 auto;padding:20px 16px 32px}
+.bar{display:flex;align-items:center;gap:10px;margin-bottom:18px;min-height:24px}
+.title{font-size:15px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-.01em}
+.state{margin-left:auto;display:flex;align-items:center;gap:8px;min-width:0}
+.count{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.badge{display:inline-flex;align-items:center;height:20px;padding:0 8px;border-radius:999px;background:var(--amber-bg);color:var(--amber-ink);font-size:12px;font-weight:600;white-space:nowrap}
+.theme-btn{flex:none;width:30px;height:30px;border-radius:999px;border:1px solid var(--border);background:var(--surface);color:var(--ink);display:inline-grid;place-items:center;cursor:pointer;font-size:14px;line-height:1;padding:0 0 1px 0}
+.theme-btn:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.chart{position:relative;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--surface);box-shadow:var(--shadow);padding:16px;overflow:auto}
+.roots{display:flex;justify-content:center}
+.branch{display:flex;flex-direction:column;align-items:center;min-width:0}
+.kids{display:flex;gap:12px;margin-top:34px;justify-content:center;align-items:flex-start;flex-wrap:wrap}
+.lines{position:absolute;inset:0;z-index:0;pointer-events:none;overflow:visible}
+.card{position:relative;z-index:1;width:190px;max-width:100%;border:1px solid var(--border);border-radius:var(--radius);background:var(--tray);box-shadow:var(--shadow);cursor:pointer;user-select:none;transition:box-shadow 160ms ease,opacity 160ms ease,transform 160ms ease;outline:none}
+.top{display:flex;align-items:center;gap:9px;padding:0 10px;height:52px;border-radius:9px 9px 0 0;background:var(--node)}
+.card[data-kind="agent"] .top{background:var(--node)}
+.foot{display:flex;align-items:center;gap:6px;min-width:0;padding:0 10px;height:28px;border-top:1px solid var(--border);border-radius:0 0 9px 9px;font-size:11.5px;color:var(--muted)}
+.text{display:grid;flex:1;min-width:0}
+.name{font-size:13px;font-weight:500;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:17px}
+.sub{display:flex;align-items:center;gap:4px;min-width:0;font-size:12px;color:var(--muted);line-height:16px}
+.sub-text{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.logo{flex:none;width:12px;height:12px;display:inline-grid;place-items:center;color:var(--ink);font-size:10px;font-weight:700}
+.lead{position:relative;flex:none;width:30px;height:30px;border-radius:50%;background:var(--subtle);display:grid;place-items:center;overflow:hidden}
+.avatar{width:100%;height:100%;display:grid;place-items:center;font-size:11px;font-weight:700;color:var(--ink);background:var(--subtle)}
+.avatar img{width:100%;height:100%;object-fit:cover;display:block;box-shadow:inset 0 0 0 1px var(--img-outline)}
+.mark{display:grid;grid-template-columns:repeat(3,3px);grid-auto-rows:3px;gap:1.5px;place-content:center;width:16px;height:16px}
+.mark i{width:3px;height:3px;border-radius:.75px;background:var(--mc,var(--working));opacity:0}
+.mark i[data-on]{opacity:1}
+.mark[data-busy] i[data-on]{animation:pixel 1.2s ease-in-out infinite both}
+.lead[data-idle] .mark i[data-on]{opacity:.45}
+.dot-wait{position:absolute;top:-1px;right:-1px;width:9px;height:9px;border-radius:50%;background:var(--amber);border:2px solid var(--node)}
+.card[data-status="waiting"]{border-color:color-mix(in srgb,var(--amber) 45%,var(--border))}
+.card[data-status="waiting"]::after{content:"";position:absolute;inset:-1px;border-radius:11px;pointer-events:none;border:1px solid color-mix(in srgb,var(--amber) 55%,transparent);animation:ring 1400ms ease-out both}
+.tiles{display:inline-flex;align-items:center;flex:none}
+.tile{width:18px;height:18px;border-radius:50%;background:var(--surface);border:1px solid var(--border);display:inline-grid;place-items:center;font-size:9px;font-weight:700;color:var(--ink);margin-left:-5px;box-shadow:0 1px 2px rgba(0,0,0,.06)}
+.tile:first-child{margin-left:0}
+.more{font-size:11.5px;color:var(--muted);margin-left:4px}
+.status{margin-left:auto;flex:none;font-size:11.5px;font-weight:500;white-space:nowrap;color:var(--muted)}
+.status[data-status="working"]{color:var(--muted);background:linear-gradient(100deg,var(--muted) 40%,var(--ink) 50%,var(--muted) 60%) 0 0/260% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:sheen 2.4s linear infinite}
+.status[data-status="waiting"]{height:18px;line-height:18px;padding:0 6px;border-radius:999px;background:var(--amber-bg);color:var(--amber-ink)}
+.status[data-status="idle"]{color:color-mix(in srgb,var(--muted) 60%,transparent)}
+.owns{font-weight:500;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stack{display:inline-flex;align-items:center;flex:none}
+.stack .mini{margin-left:-4px;border:2px solid var(--tray);border-radius:50%}
+.stack .mini:first-child{margin-left:0}
+.mini{width:18px;height:18px;border-radius:50%;background:var(--subtle);display:inline-grid;place-items:center}
+.asking{display:flex;align-items:center;gap:6px;min-width:0;flex:1}
+.asking-text{font-weight:600;color:var(--amber-ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.go{margin-left:auto;flex:none;color:var(--amber-ink);font-weight:600;padding-right:2px}
+.card[data-dim]{opacity:.78}
+.card[data-on]{z-index:3}
+.edge{fill:none;stroke:color-mix(in srgb,var(--ink) 22%,transparent);stroke-width:1.5;stroke-linecap:round}
+.edge[data-on]{stroke:color-mix(in srgb,var(--ink) 55%,transparent)}
+.chart[data-active] .edge:not([data-on]){stroke:color-mix(in srgb,var(--ink) 10%,transparent)}
+.port{fill:var(--node);stroke:color-mix(in srgb,var(--ink) 22%,transparent);stroke-width:1.5}
+.pop{position:absolute;z-index:20;width:284px;max-width:calc(100% - 16px);background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--pop-shadow);padding:12px 12px 14px;color:var(--muted)}
+.pop-head{display:flex;align-items:center;gap:9px;margin-bottom:8px}
+.pop-name{font-size:13px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pop-sub{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ask{border:1px solid var(--border);border-radius:8px;padding:8px;margin:8px 0;background:var(--subtle)}
+.ask-from{font-size:12px;font-weight:600;color:var(--ink)}
+.ask-text{font-size:12px;color:var(--ink);margin:4px 0 8px}
+.actions{display:flex;gap:8px}
+.btn{flex:1;height:28px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--ink);font-size:12px;font-weight:600;cursor:pointer;padding:0 8px 0 6px}
+.btn--primary{background:var(--ink);color:var(--page);border-color:var(--ink);padding-left:8px}
+.btn:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.facts{margin:8px 0;display:grid;gap:6px}
+.facts div{display:grid;grid-template-columns:86px 1fr;gap:8px;font-size:12px}
+.facts dt{color:var(--muted)}
+.facts dd{margin:0;color:var(--ink)}
+.pop-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:10px 0 6px}
+.pop-tools,.pop-list{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.pop-tools li,.pop-list li{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink);min-width:0}
+.pop-item{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@keyframes pixel{0%,100%{opacity:1}50%{opacity:.25}}
+@keyframes sheen{to{background-position:-260% 0}}
+@keyframes ring{from{opacity:.9}to{opacity:0}}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+@keyframes sweep{from{background-position:150% 0}to{background-position:-150% 0}}
+.card{animation:fade 240ms ease both}
+.card:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+@media (max-width:640px){
+.chart{padding:12px}
+.roots{justify-content:stretch}
+.kids{flex-direction:column;align-items:stretch;margin-top:12px;padding-left:18px;border-left:1px solid var(--border)}
+.branch{align-items:stretch}
+.card{width:100%}
+.lines{display:none}
+}
+@media (prefers-reduced-motion:reduce){
+*,*::before,*::after{animation:none!important;transition:none!important}
+.lines{display:none}
+}
+@media (hover:hover) and (pointer:fine){
+.card:hover{box-shadow:0 6px 16px -6px rgba(0,0,0,.16),0 2px 4px -1px rgba(0,0,0,.05);transform:translateY(-1px)}
+.card:hover .name{color:var(--ink)}
+.btn:hover{border-color:color-mix(in srgb,var(--ink) 30%,var(--border))}
+.btn--primary:hover{opacity:.88}
+.theme-btn:hover{border-color:color-mix(in srgb,var(--ink) 30%,var(--border))}
+}
+</style>
+</head>
+<body>
+<div class="page">
+<div class="bar">
+<span class="title" id="title">Operations</span>
+<span class="state"><span class="badge" id="badge" hidden><span id="badgeN">0</span>&nbsp;waiting</span><span class="count" id="count"></span><button class="theme-btn" id="themeBtn" type="button" aria-label="Toggle dark mode">☾</button></span>
+</div>
+<div class="chart" id="chart" role="tree" aria-label="Operations org chart" data-mode="tree">
+<svg class="lines" id="lines" aria-hidden="true"></svg>
+<div class="roots" id="roots"></div>
+<div class="pop" id="pop" role="dialog" aria-label="Details" hidden></div>
+<span class="sr" id="live" role="status" aria-live="polite"></span>
+</div>
+</div>
+<script>
+(function(){
+"use strict";
+var NODES=[
+{id:"lena",kind:"person",name:"Lena Hoffmann",role:"Operations lead"},
+{id:"noah",kind:"person",name:"Noah Bennett",role:"Support lead",parent:"lena"},
+{id:"mara",kind:"person",name:"Mara Lindqvist",role:"Engineering lead",parent:"lena"},
+{id:"triage",kind:"agent",name:"Triage",model:"Haiku 4.5",parent:"noah",task:"Sorting 38 new tickets by urgency",tools:["Linear","Slack","Notion"]},
+{id:"refunds",kind:"agent",name:"Refunds",model:"Sonnet 4.5",parent:"noah",task:"Order #48213 \u2013 charged twice",tools:["Stripe","Slack"]},
+{id:"review",kind:"agent",name:"Code review",model:"GPT-5",parent:"mara",task:"Reviewing PR #482 \u2013 checkout rounding",tools:["GitHub","Linear","Vercel","Slack"]},
+{id:"tests",kind:"agent",name:"Test runner",model:"Gemini 2.5",parent:"review",task:"Running 214 tests on PR #482",tools:["GitHub Actions","Vercel preview"]},
+{id:"docs",kind:"agent",name:"Docs writer",model:"Sonnet 4.5",parent:"review",task:"Changelog for v2.4",tools:["Notion","Figma","GitHub"]}
+];
+var INITIAL={triage:"working",refunds:"working",review:"working",tests:"working",docs:"idle"};
+var STEPS=[
+{wait:1600,add:{id:"e1",from:"refunds",label:"Refund \u20AC640 for order #48213?"}},
+{wait:3400,status:{docs:"working"}},
+{wait:2800,add:{id:"e2",from:"tests",label:"One flaky test \u2013 rerun or skip?"}},
+{wait:4200,drop:"e1"},
+{wait:3200,drop:"e2",status:{docs:"idle",triage:"idle"}},
+{wait:3400,reset:true}
+];
+var ACCENTS=["#0190fe","#a651f0","#13b3a0","#ee3e9e","#5fc88a","#14b3f0"];
+var byId=new Map(), children=new Map(), parentOf=new Map(), order=[];
+NODES.forEach(function(n){ if(!n||typeof n.id!=="string"||!n.id) return; if(byId.has(n.id)) return; if(n.kind!=="person"&&n.kind!=="agent") return; byId.set(n.id,n); order.push(n.id); });
+order.forEach(function(id){ var n=byId.get(id); var p=(typeof n.parent==="string"&&byId.has(n.parent)&&n.parent!==id)?n.parent:null; if(p){ var seen=new Set([id]); var cur=p, ok=true; while(cur){ if(seen.has(cur)){ok=false;break;} seen.add(cur); var pn=byId.get(cur); cur=(pn&&typeof pn.parent==="string"&&byId.has(pn.parent))?pn.parent:null; } if(!ok) p=null; } parentOf.set(id,p); });
+order.forEach(function(id){ var p=parentOf.get(id); if(!children.has(id)) children.set(id,[]); if(p){ if(!children.has(p)) children.set(p,[]); children.get(p).push(byId.get(id)); } });
+var roots=order.filter(function(id){return !parentOf.get(id);}).map(function(id){return byId.get(id);});
+function agentsOwned(id){ var out=[]; (children.get(id)||[]).forEach(function(c){ if(c.kind==="agent"){out.push(c); (children.get(c.id)||[]).forEach(function(g){ if(g.kind==="agent") out.push(g); }); } }); return out; }
+function nearestPerson(fromId){ var cur=parentOf.get(fromId); while(cur){ var n=byId.get(cur); if(n&&n.kind==="person") return cur; cur=parentOf.get(cur); } return null; }
+function ancestors(id){ var out=[]; var cur=parentOf.get(id); while(cur){ out.push(cur); cur=parentOf.get(cur); } return out; }
+function cellsFor(id){ var h=2166136261; for(var i=0;i<id.length;i++){ h^=id.charCodeAt(i); h=Math.imul(h,16777619)>>>0; } var x=h>>>0, cells=[]; for(var k=0;k<9;k++){ x=(Math.imul(x,1103515245)+12345)>>>0; cells.push(((x>>16)&1)===1); } var lit=cells.filter(Boolean).length; if(lit<5){ for(var j=0;j<9&&lit<5;j++){ if(!cells[j]){cells[j]=true;lit++;} } } return cells; }
+var colorOf=new Map(); var ai=0; order.forEach(function(id){ var n=byId.get(id); if(n.kind==="agent"){ colorOf.set(id,ACCENTS[ai%ACCENTS.length]); ai++; } });
+var reduced=false; try{ reduced=!!(window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches); }catch(e){}
+var statuses={}; Object.keys(INITIAL).forEach(function(k){statuses[k]=INITIAL[k];});
+var escalations=[]; if(reduced){ escalations.push({id:"e1-0",from:"refunds",label:"Refund \u20AC640 for order #48213?"}); }
+function escTarget(e){ return nearestPerson(e.from); }
+function effStatus(id){ var n=byId.get(id); if(!n||n.kind!=="agent") return null; for(var i=0;i<escalations.length;i++){ if(escalations[i].from===id) return "waiting"; } var s=statuses[id]; return (s==="working"||s==="waiting")?s:"idle"; }
+var chart=document.getElementById("chart"), rootsEl=document.getElementById("roots"), lines=document.getElementById("lines"), badge=document.getElementById("badge"), badgeN=document.getElementById("badgeN"), countEl=document.getElementById("count"), pop=document.getElementById("pop"), live=document.getElementById("live"), themeBtn=document.getElementById("themeBtn");
+var cards=new Map(), cardMeta=new Map(), edgeEls=new Map();
+function el(tag,cls){ var d=document.createElement(tag); if(cls) d.setAttribute("class",cls); return d; }
+function txt(s){ return document.createTextNode(s); }
+function initials(name){ var parts=String(name||"?").trim().split(/\s+/); var s=(parts[0]?parts[0][0]:"?")+(parts[1]?parts[1][0]:""); return s.toUpperCase(); }
+function makeMark(id,color,busy){ var w=el("span","mark"); w.setAttribute("data-mark",id); if(color) w.style.setProperty("--mc",color); if(busy) w.setAttribute("data-busy",""); var cells=cellsFor(id); cells.forEach(function(on,i){ var c=document.createElement("i"); if(on) c.setAttribute("data-on",""); c.style.setProperty("animation-delay",(i*120)+"ms"); w.appendChild(c); }); return w; }
+function makeMini(id,color){ var w=el("span","mini"); var m=makeMark(id,color,false); m.setAttribute("style",""); m.style.setProperty("transform","scale(.72)"); w.appendChild(m); return w; }
+function levelOf(id){ var d=1,cur=parentOf.get(id); while(cur){d++;cur=parentOf.get(cur);} return d; }
+var seq=0;
+function buildCard(node){
+var id=node.id, kind=node.kind;
+var card=el("div","card");
+card.setAttribute("data-id",id); card.setAttribute("data-kind",kind);
+card.setAttribute("role","treeitem"); card.setAttribute("tabindex",id==="lena"?"0":"-1");
+card.setAttribute("aria-level",String(levelOf(id)));
+var sibs=parentOf.get(id)?children.get(parentOf.get(id)):roots;
+card.setAttribute("aria-setsize",String(sibs.length));
+card.setAttribute("aria-posinset",String(sibs.indexOf(node)+1));
+if((children.get(id)||[]).length) card.setAttribute("aria-expanded","true");
+var top=el("span","top");
+var lead=el("span","lead"); lead.setAttribute("data-kind",kind);
+if(kind==="person"){ var av=el("span","avatar"); av.appendChild(txt(initials(node.name))); lead.appendChild(av); }
+else { lead.appendChild(makeMark(id,colorOf.get(id),effStatus(id)==="working")); }
+top.appendChild(lead);
+var text=el("span","text");
+var nm=el("span","name"); nm.setAttribute("dir","auto"); nm.appendChild(txt(node.name)); text.appendChild(nm);
+var sub=el("span","sub"); sub.setAttribute("dir","auto");
+if(kind==="agent"){ var lg=el("span","logo"); lg.setAttribute("aria-hidden","true"); lg.appendChild(txt(String(node.model||"").charAt(0))); sub.appendChild(lg); }
+var subT=el("span","sub-text"); subT.appendChild(txt(kind==="agent"?(node.model||"Agent"):(node.role||"Person"))); sub.appendChild(subT);
+text.appendChild(sub); top.appendChild(text); card.appendChild(top);
+var foot=el("span","foot");
+var meta={root:card,lead:lead,top:top,foot:foot,nameEl:nm,subEl:subT,statusEl:null,ownsWrap:null,ownsText:null,stackEl:null,askWrap:null,askText:null,askMini:null,askMore:null};
+if(kind==="agent"){
+var tiles=el("span","tiles"); tiles.setAttribute("aria-hidden","true");
+var tools=node.tools||[]; tools.slice(0,3).forEach(function(t){ var ti=el("span","tile"); ti.appendChild(txt(String(t).charAt(0).toUpperCase())); ti.setAttribute("title",t); tiles.appendChild(ti); });
+foot.appendChild(tiles);
+if(tools.length>3){ var m=el("span","more"); m.appendChild(txt("+"+(tools.length-3))); foot.appendChild(m); meta.moreEl=m; }
+var st=el("span","status"); foot.appendChild(st); meta.statusEl=st;
+}else{
+var ownsWrap=el("span","ownsWrap"); ownsWrap.setAttribute("style","display:flex;align-items:center;gap:6px;min-width:0;flex:1");
+var stack=el("span","stack"); stack.setAttribute("aria-hidden","true"); ownsWrap.appendChild(stack);
+var owns=el("span","owns"); ownsWrap.appendChild(owns); foot.appendChild(ownsWrap);
+meta.ownsWrap=ownsWrap; meta.ownsText=owns; meta.stackEl=stack;
+var askWrap=el("span","asking"); askWrap.setAttribute("hidden",""); foot.appendChild(askWrap);
+var askMini=el("span","mini"); askWrap.appendChild(askMini);
+var askT=el("span","asking-text"); askWrap.appendChild(askT);
+var askMore=el("span","more"); askMore.setAttribute("hidden",""); askWrap.appendChild(askMore);
+var go=el("span","go"); go.setAttribute("aria-hidden","true"); go.appendChild(txt("\u2192")); askWrap.appendChild(go);
+meta.askWrap=askWrap; meta.askText=askT; meta.askMini=askMini; meta.askMore=askMore;
+}
+card.appendChild(foot);
+card.addEventListener("pointerdown",function(ev){ openPop(id,true); },{capture:true});
+card.addEventListener("click",function(ev){ if(pop.getAttribute("data-for")===id&&!pop.hasAttribute("hidden")) return; openPop(id,false); });
+card.addEventListener("mouseenter",function(){ setActive(id); });
+card.addEventListener("mouseleave",function(){ setActive(function(cur){return cur===id?null:cur;}); });
+card.addEventListener("focus",function(ev){ if(ev.target===card){ if(card.matches&&card.matches(":focus-visible")) setActive(id); makeTab(id); } });
+card.addEventListener("blur",function(){ setActive(null); });
+card.addEventListener("keydown",function(ev){ onKey(ev,node); });
+cards.set(id,card); cardMeta.set(id,meta);
+return card;
+}
+function buildTree(){
+roots.forEach(function(r){ rootsEl.appendChild(buildBranch(r)); });
+}
+function buildBranch(node){
+var br=el("div","branch"); br.setAttribute("role","none");
+br.appendChild(cards.get(node.id)||buildCard(node));
+var kids=children.get(node.id)||[];
+if(!cards.get(node.id)){}
+if(kids.length){ var k=el("div","kids"); k.setAttribute("role","group"); if(levelOf(node.id)>=3) k.setAttribute("data-deep",""); kids.forEach(function(c){ if(!cards.get(c.id)) buildCard(c); k.appendChild(buildBranch(c)); }); br.appendChild(k); }
+return br;
+}
+function makeTab(id){ cards.forEach(function(c,k){ c.setAttribute("tabindex",k===id?"0":"-1"); }); }
+function refreshAria(){
+cards.forEach(function(card,id){
+var node=byId.get(id);
+var st=node.kind==="agent"?effStatus(id):null;
+if(st) card.setAttribute("data-status",st); else card.removeAttribute("data-status");
+var sibs=parentOf.get(id)?children.get(parentOf.get(id)):roots;
+card.setAttribute("aria-posinset",String(sibs.indexOf(node)+1));
+var label=node.name+" \u00B7 "+(node.kind==="agent"?(node.model||"Agent"):(node.role||"Person"));
+if(st) label+=", "+st;
+if(node.kind==="person"){ var ag=agentsOwned(id); var incoming=escalations.filter(function(e){return escTarget(e)===id;}); if(incoming.length) label+=", "+incoming.length+" request"+(incoming.length>1?"s":"")+" waiting"; else if(ag.length) label+=" owns "+ag.length+" agents"; }
+else{ var tools=node.tools||[]; if(tools.length) label+=" uses "+tools.join(", "); var out=escalations.filter(function(e){return e.from===id;}); if(out.length) label+=" "+out.length+" request waiting"; }
+card.setAttribute("aria-label",label);
+card.setAttribute("aria-selected",openId===id?"true":"false");
+if(openId===id) card.setAttribute("data-open",""); else card.removeAttribute("data-open");
+});
+}
+function updateHeader(){
+var people=order.filter(function(id){return byId.get(id).kind==="person";}).length;
+var ags=order.filter(function(id){return byId.get(id).kind==="agent";});
+var working=ags.filter(function(a){return effStatus(a)===("working");}).length;
+var waiting=ags.filter(function(a){return effStatus(a)==="waiting";}).length;
+if(waiting>0){ badge.removeAttribute("hidden"); if(badgeN.textContent!==String(waiting)) badgeN.textContent=String(waiting); }
+else badge.setAttribute("hidden","");
+var s=people+" "+(people===1?"person":"people")+" \u00B7 "+working+"/"+ags.length+" working";
+if(countEl.textContent!==s) countEl.textContent=s;
+try{ themeBtn.textContent=document.documentElement.getAttribute("data-theme")==="dark"?"\u2600":"\u263E"; }catch(e){}
+}
+function updateCards(){
+cards.forEach(function(card,id){
+var node=byId.get(id), meta=cardMeta.get(id);
+var st=node.kind==="agent"?effStatus(id):null;
+if(st){ if(card.getAttribute("data-status")!==st) card.setAttribute("data-status",st); if(meta.statusEl){ if(meta.statusEl.getAttribute("data-status")!==st) meta.statusEl.setAttribute("data-status",st); var label=st.charAt(0).toUpperCase()+st.slice(1); if(meta.statusEl.textContent!==label) meta.statusEl.textContent=label; } }
+var leadMark=null; try{leadMark=meta.lead.querySelector(".mark");}catch(e){leadMark=null;}
+if(node.kind==="agent"&&leadMark){ var busy=st==="working"; if(busy&&!leadMark.hasAttribute("data-busy")) leadMark.setAttribute("data-busy",""); if(!busy&&leadMark.hasAttribute("data-busy")) leadMark.removeAttribute("data-busy"); }
+if(node.kind==="person"){
+var incoming=escalations.filter(function(e){return escTarget(e)===id;});
+if(incoming.length){
+meta.ownsWrap.setAttribute("hidden",""); meta.askWrap.removeAttribute("hidden");
+var first=byId.get(incoming[0].from);
+var want=first?first.name+" asks":"Asks";
+if(meta.askText.textContent!==want) meta.askText.textContent=want;
+while(meta.askMini.firstChild) meta.askMini.removeChild(meta.askMini.firstChild);
+if(first&&first.kind==="agent") meta.askMini.appendChild(makeMark(first.id,colorOf.get(first.id),false)); else { var d=el("span","avatar"); d.appendChild(txt(first?initials(first.name):"?")); meta.askMini.appendChild(d); }
+if(incoming.length>1){ meta.askMore.removeAttribute("hidden"); var mt="+"+(incoming.length-1); if(meta.askMore.textContent!==mt) meta.askMore.textContent=mt; } else meta.askMore.setAttribute("hidden","");
+}else{
+meta.askWrap.setAttribute("hidden",""); meta.ownsWrap.removeAttribute("hidden");
+var ag=agentsOwned(id); var direct=(children.get(id)||[]).filter(function(c){return c.kind==="person";});
+var label2=ag.length?("Owns "+ag.length+" "+(ag.length===1?"agent":"agents")):(direct.length?("Leads "+direct.length+" "+(direct.length===1?"person":"people")):"No reports");
+if(meta.ownsText.textContent!==label2) meta.ownsText.textContent=label2;
+var show=ag.length?ag.slice(0,3):direct.slice(0,3).map(function(x){return x;});
+var key=show.map(function(x){return x.id;}).join(",");
+if(meta.stackEl.getAttribute("data-k")!==key){ meta.stackEl.setAttribute("data-k",key); while(meta.stackEl.firstChild) meta.stackEl.removeChild(meta.stackEl.firstChild); show.forEach(function(x){ var mm=makeMini(x.id,x.kind==="agent"?colorOf.get(x.id):null); mm.setAttribute("class","mini"); stackAdd(meta.stackEl,mm); }); }
+}
+}
+});
+refreshAria();
+}
+function stackAdd(stack,mini){ stack.appendChild(mini); }
+var activeId=null, openId=null;
+function setActive(v){
+if(typeof v==="function") activeId=v(activeId); else activeId=v;
+var chain=new Set(); if(activeId){ chain.add(activeId); ancestors(activeId).forEach(function(a){chain.add(a);}); }
+cards.forEach(function(card,id){ if(activeId&&chain.has(id)){ card.setAttribute("data-on",""); card.removeAttribute("data-dim"); } else if(activeId){ card.removeAttribute("data-on"); card.setAttribute("data-dim",""); } else { card.removeAttribute("data-on"); card.removeAttribute("data-dim"); } });
+edgeEls.forEach(function(p,id){ var e=cards.get(id); var par=parentOf.get(id); if(activeId&&(chain.has(id)&&chain.has(par))) p.setAttribute("data-on",""); else p.removeAttribute("data-on"); });
+if(activeId) chart.setAttribute("data-active",""); else chart.removeAttribute("data-active");
+}
+function clearPop(){ while(pop.firstChild) pop.removeChild(pop.firstChild); pop.removeAttribute("data-for"); }
+function openPop(id,fromPointer){
+openId=id; var node=byId.get(id); if(!node) return;
+clearPop(); pop.setAttribute("data-for",id); pop.removeAttribute("hidden");
+var head=el("span","pop-head");
+if(node.kind==="person"){ var av=el("span","lead"); var ad=el("span","avatar"); ad.appendChild(txt(initials(node.name))); av.appendChild(ad); head.appendChild(av); }
+else head.appendChild(makeMark(id,colorOf.get(id),effStatus(id)==="working"));
+var ht=el("span","pop-text");
+var hn=el("span","pop-name"); hn.setAttribute("dir","auto"); hn.appendChild(txt(node.name)); ht.appendChild(hn);
+var hs=el("span","pop-sub"); hs.setAttribute("dir","auto"); hs.appendChild(txt(node.kind==="agent"?(node.model||"Agent"):(node.role||"Person"))); ht.appendChild(hs);
+head.appendChild(ht);
+if(node.kind==="agent"){ var st=el("span","status"); var s=effStatus(id); st.setAttribute("data-status",s); st.appendChild(txt(s.charAt(0).toUpperCase()+s.slice(1))); head.appendChild(st); }
+pop.appendChild(head);
+var related=escalations.filter(function(e){ return e.from===id||escTarget(e)===id; });
+related.forEach(function(e){
+var box=el("div","ask");
+var hf=el("span","ask-from"); hf.setAttribute("dir","auto"); var fn=byId.get(e.from); hf.appendChild(txt((fn?fn.name:"Someone")+" asks")); box.appendChild(hf);
+var at=el("span","ask-text"); at.setAttribute("dir","auto"); at.appendChild(txt(e.label||"Needs a hand")); box.appendChild(at);
+var acts=el("span","actions");
+var rb=el("button","btn"); rb.setAttribute("type","button"); rb.appendChild(txt("Reply"));
+var ab=el("button","btn btn--primary"); ab.setAttribute("type","button"); ab.setAttribute("data-primary",""); ab.appendChild(txt("Approve"));
+rb.addEventListener("click",function(){ resolve(e.id); });
+ab.addEventListener("click",function(){ resolve(e.id); });
+acts.appendChild(rb); acts.appendChild(ab); box.appendChild(acts);
+pop.appendChild(box);
+});
+var facts=el("dl","facts");
+function fact(k,v){ var w=el("div",""); var dt=el("dt",""); dt.appendChild(txt(k)); var dd=el("dd",""); dd.setAttribute("dir","auto"); if(typeof v==="string") dd.appendChild(txt(v)); else dd.appendChild(v); w.appendChild(dt); w.appendChild(dd); facts.appendChild(w); }
+var par=parentOf.get(id)?byId.get(parentOf.get(id)):null;
+if(node.kind==="agent"){
+var owner=nearestPerson(id)?byId.get(nearestPerson(id)):null;
+if(owner&&(!par||owner.id!==par.id)){ var s1=el("span",""); s1.appendChild(txt(owner.name)); fact("Owner",s1); }
+if(par){ var s2=el("span",""); s2.appendChild(txt(par.name)); fact(par.kind==="agent"?"Runs under":"Owner",s2); }
+if(node.task) fact("Now",node.task);
+var out=escalations.filter(function(e){return e.from===id;})[0];
+if(out){ var tgt=escTarget(out)?byId.get(escTarget(out)):null; fact("Asks",(tgt?tgt.name:"Owner")+" \u2013 "+(out.label||"")); }
+}else if(par){ var s3=el("span",""); s3.appendChild(txt(par.name)); fact("Reports to",s3); }
+if(facts.childNodes.length) pop.appendChild(facts);
+if(node.kind==="agent"&&(node.tools||[]).length){
+var lb=el("span","pop-label"); lb.appendChild(txt("Uses")); pop.appendChild(lb);
+var ul=el("ul","pop-tools");
+(node.tools||[]).slice(0,8).forEach(function(t){ var li=document.createElement("li"); var tile=el("span","tile"); tile.appendChild(txt(String(t).charAt(0).toUpperCase())); li.appendChild(tile); var sp=el("span","pop-item"); sp.setAttribute("dir","auto"); sp.appendChild(txt(t)); li.appendChild(sp); ul.appendChild(li); });
+pop.appendChild(ul);
+}
+var owned=node.kind==="person"?agentsOwned(id):(children.get(id)||[]).filter(function(c){return c.kind==="agent";});
+if(owned.length){
+var lb2=el("span","pop-label"); lb2.appendChild(txt(node.kind==="person"?("Owns "+owned.length+" "+(owned.length===1?"agent":"agents")):(owned.length+" "+(owned.length===1?"sub-agent":"sub-agents")))); pop.appendChild(lb2);
+var ul2=el("ul","pop-list");
+owned.slice(0,5).forEach(function(o){ var li=document.createElement("li"); li.appendChild(makeMini(o.id,colorOf.get(o.id))); var sp=el("span","pop-item"); sp.setAttribute("dir","auto"); sp.appendChild(txt(o.name)); li.appendChild(sp); var st2=el("span","status"); var s2=effStatus(o.id); st2.setAttribute("data-status",s2); st2.appendChild(txt(s2.charAt(0).toUpperCase()+s2.slice(1))); li.appendChild(st2); ul2.appendChild(li); });
+pop.appendChild(ul2);
+}
+refreshAria();
+positionPop(id);
+if(related.length){ try{ var pb=pop.querySelector("[data-primary]"); if(pb) pb.focus(); }catch(e){} }
+}
+function positionPop(id){
+try{
+var card=cards.get(id); if(!card||!pop) return;
+var cr=card.getBoundingClientRect?card.getBoundingClientRect():null;
+var chr=chart.getBoundingClientRect?chart.getBoundingClientRect():null;
+if(!cr||!chr||!cr.width) { pop.style.setProperty("left","16px"); pop.style.setProperty("top","70px"); return; }
+var pw=284, ph=pop.offsetHeight||260;
+var left=cr.left-chr.left+(cr.width/2)-(pw/2);
+left=Math.max(8,Math.min(chr.width-pw-8,left));
+var below=cr.bottom-chr.top+8, above=cr.top-chr.top-ph-8;
+var useAbove=(chr.height-below)<ph&&(above>=0);
+pop.style.setProperty("left",Math.round(left)+"px");
+pop.style.setProperty("top",Math.round(useAbove?above:below)+"px");
+pop.setAttribute("data-side",useAbove?"above":"below");
+}catch(e){}
+}
+function closePop(refocus){ if(!openId) return; var id=openId; openId=null; pop.setAttribute("hidden",""); pop.removeAttribute("data-for"); refreshAria(); if(refocus&&cards.get(id)){ try{cards.get(id).focus();}catch(e){} } }
+function resolve(escId){
+var e=null; for(var i=0;i<escalations.length;i++) if(escalations[i].id===escId) e=escalations[i];
+if(!e) return;
+escalations=escalations.filter(function(x){return x.id!==escId;});
+statuses[e.from]="working";
+announce(((byId.get(e.from)||{}).name||"Agent")+" resolved");
+sync();
+if(openId) openPop(openId,false);
+}
+function announce(msg){ if(live.textContent!==msg) live.textContent=msg; }
+function sync(){ updateHeader(); updateCards(); drawEdges(); }
+function drawEdges(){
+try{
+if(!lines||!lines.setAttribute) return;
+while(lines.firstChild) lines.removeChild(lines.firstChild);
+edgeEls.clear();
+var r=chart.getBoundingClientRect?chart.getBoundingClientRect():null;
+if(!r) return;
+var narrow=false; try{ narrow=chart.getAttribute("data-mode")==="list"; }catch(e){}
+if(narrow) return;
+cards.forEach(function(card,id){
+var p=parentOf.get(id); if(!p) return;
+var pc=cards.get(p); if(!pc||!pc.getBoundingClientRect) return;
+var a=pc.getBoundingClientRect(), b=card.getBoundingClientRect();
+if(!a.width||!b.width) return;
+var x1=a.left-r.left+a.width/2, y1=a.top-r.top+a.height;
+var x2=b.left-r.left+b.width/2, y2=b.top-r.top;
+var my=(y1+y2)/2;
+var d="M"+x1+","+y1+" L"+x1+","+my+" L"+x2+","+my+" L"+x2+","+y2;
+var NS="http://www.w3.org/2000/svg";
+var path=document.createElementNS(NS,"path");
+path.setAttribute("class","edge");
+path.setAttribute("d",d);
+lines.appendChild(path);
+edgeEls.set(id,path);
+});
+var w=r.width||800, h=r.height||400;
+lines.setAttribute("width",String(w)); lines.setAttribute("height",String(h));
+lines.setAttribute("viewBox","0 0 "+w+" "+h);
+}catch(e){}
+}
+function onKey(ev,node){
+var ids=order.slice(); var i=ids.indexOf(node.id);
+var kids=(children.get(node.id)||[]); var firstKid=kids.length?kids[0].id:null;
+var par=parentOf.get(node.id);
+var sibs=par?children.get(par):roots; var si=sibs.indexOf(node);
+var treeMode=true; try{treeMode=chart.getAttribute("data-mode")!=="list";}catch(e){}
+var target=null;
+if(ev.key===(treeMode?"ArrowUp":"ArrowLeft")) target=par;
+else if(ev.key===(treeMode?"ArrowDown":"ArrowRight")) target=firstKid;
+else if(ev.key===(treeMode?"ArrowLeft":"ArrowUp")) target=sibs[si-1]?sibs[si-1].id:(treeMode?null:ids[i-1]);
+else if(ev.key===(treeMode?"ArrowRight":"ArrowDown")) target=sibs[si+1]?sibs[si+1].id:(treeMode?null:ids[i+1]);
+else if(ev.key==="Home") target=ids[0];
+else if(ev.key==="End") target=ids[ids.length-1];
+else if(ev.key==="Enter"||ev.key===" "){ ev.preventDefault(); openPop(node.id,true); return; }
+else if(ev.key==="Escape"){ if(openId){ev.preventDefault(); closePop(true);} return; }
+else return;
+ev.preventDefault(); if(target&&cards.get(target)){ makeTab(target); try{cards.get(target).focus();}catch(e){} setActive(target); }
+}
+var stepIdx=0, timer=null;
+function step(){
+var s=STEPS[stepIdx%STEPS.length]; stepIdx=(stepIdx+1)%STEPS.length;
+if(s.reset){ Object.keys(INITIAL).forEach(function(k){statuses[k]=INITIAL[k];}); escalations=[]; }
+if(s.status){ Object.keys(s.status).forEach(function(k){statuses[k]=s.status[k];}); }
+if(s.add){ escalations.push({id:s.add.id+"-"+Date.now(),from:s.add.from,label:s.add.label}); var e2=escalations[escalations.length-1]; var tgt=escTarget(e2)?byId.get(escTarget(e2)):null; announce(((byId.get(e2.from)||{}).name||"An agent")+" asks "+(tgt?tgt.name:"owner")+(e2.label?": "+e2.label:"")); }
+if(s.drop){ escalations=escalations.filter(function(x){return x.id.indexOf(s.drop+"-")!==0&&x.id!==s.drop;}); }
+sync();
+if(openId) openPop(openId,false);
+}
+function loop(){
+if(reduced) return;
+if(timer) try{clearTimeout(timer);}catch(e){}
+var s=STEPS[stepIdx%STEPS.length];
+timer=setTimeout(function(){ step(); loop(); },s.wait);
+}
+document.addEventListener("pointerdown",function(ev){ try{ if(openId&&pop&&!pop.contains(ev.target)){ var c=null; try{c=ev.target.closest?ev.target.closest(".card"):null;}catch(e){} if(!c) closePop(false); } }catch(e){} },{capture:true});
+document.addEventListener("keydown",function(ev){ if(ev.key==="Escape"&&openId){ closePop(true); } });
+function fit(){
+try{
+var w=chart.clientWidth||900;
+var mode=w<560?"list":"tree";
+if(chart.getAttribute("data-mode")!==mode){ chart.setAttribute("data-mode",mode); drawEdges(); }
+}catch(e){}
+var ids=order.slice();
+}
+try{ if(window.ResizeObserver){ var ro=new ResizeObserver(function(){ fit(); drawEdges(); }); ro.observe(chart); } }catch(e){}
+try{ window.addEventListener("resize",function(){ drawEdges(); }); }catch(e){}
+themeBtn.addEventListener("click",function(){ try{ var cur=document.documentElement.getAttribute("data-theme")==="dark"?"light":"dark"; document.documentElement.setAttribute("data-theme",cur); try{localStorage.setItem("aoc-theme",cur);}catch(e){} updateHeader(); }catch(e){} });
+buildTree(); updateHeader(); updateCards(); fit(); drawEdges(); loop();
+window.__aoc={nodes:byId,statuses:statuses,escalations:function(){return escalations;},cards:cards,steps:STEPS,step:step,sync:sync,openPop:openPop,closePop:closePop,setActive:setActive,resolve:resolve,getActive:function(){return activeId;},getOpen:function(){return openId;}};
+})();
+</script>
+</body>
+</html>
