@@ -357,26 +357,38 @@ tray.appendChild(root);
 /* ---------- in-place updaters (never rebuild) ---------- */
 function refreshBarActive(){var active=S.copied||S.busy||S.speaking||S.panel||S.vote==='up'||S.versions>1;
   if(active)root.setAttribute('data-active','');else root.removeAttribute('data-active');}
-function setSwapText(wrap,item,txt){if(item.textContent!==txt){item.textContent=txt;
-    /* re-insert the same node: replays the blur-in keyframes in a real
-       browser, no-op for the stub; wrapper keeps object identity */
-    wrap.appendChild(item);}}
-function setAnswer(i){S.version=i;answerLine.textContent=VERSIONS[i];
-  answerLine.classList.remove('swap-in');void answerLine.offsetWidth;answerLine.classList.add('swap-in');
-  setSwapText(countNow,countNowIn,(i+1).toLocaleString('en-US'));
-  count.setAttribute('aria-label','Version '+(i+1).toLocaleString('en-US')+' of '+S.versions.toLocaleString('en-US'));
-  prevBtn.disabled=(i===0);
-  nextBtn.disabled=(i>=S.versions-1);}
+function noteLoopError(kind,err){try{var m=String((err&&err.message)||err||'error').slice(0,120);
+  root.setAttribute('data-loop-error',kind+':'+m);}catch(e){}
+  try{if(window.console&&window.console.error)window.console.error('[loop]',kind,err);}catch(e){}}
+function setSwapText(wrap,item,txt){txt=String(txt);
+  /* settle synchronously first: text is correct even if animation re-insert fails */
+  try{if(!wrap||!item)return;
+    if(item.textContent!==txt)item.textContent=txt;}catch(e){try{if(item)item.textContent=txt;}catch(_){}}
+  /* best-effort animation replay only: re-insert same node, never wedge text */
+  try{if(wrap&&item&&item.parentNode===wrap)wrap.appendChild(item);}catch(e){}}
+function setAnswer(i){try{i=Math.max(0,Math.min(S.versions-1,Math.floor(i)||0));}catch(e){i=0;}
+  S.version=i;
+  var txt=VERSIONS[i];if(typeof txt!=='string')txt=VERSIONS[0]||'';
+  try{answerLine.textContent=txt;}catch(e){}
+  try{answerLine.classList.remove('swap-in');void answerLine.offsetWidth;answerLine.classList.add('swap-in');}catch(e){}
+  try{setSwapText(countNow,countNowIn,(i+1).toLocaleString('en-US'));}catch(e){try{countNowIn.textContent=String(i+1);}catch(_){}}
+  try{count.setAttribute('aria-label','Version '+(i+1).toLocaleString('en-US')+' of '+S.versions.toLocaleString('en-US'));}catch(e){}
+  try{prevBtn.disabled=(i===0);}catch(e){}
+  try{nextBtn.disabled=(i>=S.versions-1);}catch(e){}}
 function refreshVersions(){/* pager painted state: theme-independent — both click and auto-demo regen must end here.
     Remove inert BEFORE adding data-open and force a synchronous layout so a real
     browser flushes grid/opacity/visibility without needing hover/focus (auto-demo
-    is untouched; click gets focus which flushes). Matches setAnswer's offsetWidth pattern. */
-  setSwapText(countTotal,countTotalIn,S.versions.toLocaleString('en-US'));
-  if(S.versions>1){versionsWrap.removeAttribute('inert');versionsWrap.setAttribute('data-open','');void versionsWrap.offsetWidth;}
-  else{versionsWrap.removeAttribute('data-open');versionsWrap.setAttribute('inert','');}
-  setAnswer(S.versions-1); /* regenerating always lands on the newest version */
-  count.setAttribute('aria-label','Version '+(S.version+1).toLocaleString('en-US')+' of '+S.versions.toLocaleString('en-US'));
-  refreshBarActive();}
+    is untouched; click gets focus which flushes). Matches setAnswer's offsetWidth pattern.
+    FIX: synchronous settle — total text + open state + answer are each best-effort
+    with fallbacks so a throwing swap/animation step can never wedge the pager. */
+  try{setSwapText(countTotal,countTotalIn,S.versions.toLocaleString('en-US'));}catch(e){try{countTotalIn.textContent=String(S.versions);}catch(_){}}
+  try{
+    if(S.versions>1){versionsWrap.removeAttribute('inert');versionsWrap.setAttribute('data-open','');void versionsWrap.offsetWidth;}
+    else{versionsWrap.removeAttribute('data-open');versionsWrap.setAttribute('inert','');}
+  }catch(e){try{if(S.versions>1)versionsWrap.setAttribute('data-open','');else versionsWrap.removeAttribute('data-open');}catch(_){}}
+  try{setAnswer(S.versions-1);}catch(e){try{setAnswer(0);}catch(_){}} /* regenerating always lands on the newest version */
+  try{count.setAttribute('aria-label','Version '+(S.version+1).toLocaleString('en-US')+' of '+S.versions.toLocaleString('en-US'));}catch(e){}
+  try{refreshBarActive();}catch(e){}}
 function refreshCopy(){if(S.copied){cCopy.btn.setAttribute('data-done','');
     cCopy.btn.setAttribute('aria-label','Copied');cCopy.tip.textContent='Copied';
     cCopy.item.setAttribute('data-flash','');
@@ -396,11 +408,15 @@ function refreshRegen(){if(S.busy){cRegen.btn.setAttribute('data-busy','');cRege
 function doRegenerate(){if(S.busy)return;S.busy=true;S.spin++;
   spinWrap.setAttribute('data-spin','');refreshRegen();announce('Regenerating');
   answerLine.setAttribute('data-writing','');
-  later(function(){S.busy=false;spinWrap.removeAttribute('data-spin');
-    answerLine.removeAttribute('data-writing');refreshRegen();
+  later(function(){try{S.busy=false;try{spinWrap.removeAttribute('data-spin');}catch(e){}
+    try{answerLine.removeAttribute('data-writing');}catch(e){}
+    try{refreshRegen();}catch(e){}
     if(S.versions<3){S.versions++;S.vote=null;S.panel=false;S.reason=null;S.detail='';S.sent=false;
-      otherInput.value='';refreshVote();refreshPanel();refreshVersions();}
-    else{setAnswer(S.versions-1);}},1000);}
+      try{if(otherInput)otherInput.value='';}catch(e){}
+      try{refreshVote();}catch(e){noteLoopError('regen-vote',e);}
+      try{refreshPanel();}catch(e){noteLoopError('regen-panel',e);}
+      try{refreshVersions();}catch(e){noteLoopError('regen-versions',e);}}
+    else{try{setAnswer(S.versions-1);}catch(e){noteLoopError('regen-answer',e);}}}catch(e){noteLoopError('regen',e);}},1000);}
 function gotoVersion(i){i=Math.max(0,Math.min(S.versions-1,i));if(i===S.version)return;setAnswer(i);
   announce('Version '+(i+1).toLocaleString('en-US')+' of '+S.versions.toLocaleString('en-US'));}
 function refreshVote(){cUp.btn.setAttribute('aria-pressed',S.vote==='up'?'true':'false');
@@ -417,9 +433,12 @@ function doDown(){if(S.vote==='down'){S.vote=null;S.panel=false;}
   else{S.vote='down';S.panel=true;S.sent=false;S.reason=null;S.detail='';otherInput.value='';
     announce('Marked as bad response. Tell us what went wrong below');}
   refreshVote();refreshPanel();}
-function refreshPanel(){if(S.panel){fold.setAttribute('data-open','');fold.removeAttribute('inert');}
-  else{fold.removeAttribute('data-open');fold.setAttribute('inert','');}
-  refreshChips();refreshBarActive();}
+function refreshPanel(){try{
+    if(S.panel){fold.setAttribute('data-open','');fold.removeAttribute('inert');}
+    else{fold.removeAttribute('data-open');fold.setAttribute('inert','');}
+  }catch(e){noteLoopError('panel',e);}
+  try{refreshChips();}catch(e){noteLoopError('chips',e);}
+  try{refreshBarActive();}catch(e){}}
 function refreshChips(){for(var i=0;i<chipBtns.length;i++){var r=REASONS[i];
     chipBtns[i].setAttribute('aria-pressed',S.reason===r?'true':'false');
     if(S.sent)chipBtns[i].setAttribute('disabled','');else chipBtns[i].removeAttribute('disabled');}
@@ -438,9 +457,9 @@ var sendCheck=svgGlyph(GLYPHS.check);
 var sendThanks=document.createTextNode('Thanks!');
 function selectReason(r){if(S.sent)return;S.reason=(S.reason===r)?null:r;refreshChips();}
 function doSend(){if(!S.reason||S.sent)return;
-  var label=(S.reason==='Other')?(otherInput.value.trim()||'Other'):S.reason;
-  S.sent=true;refreshChips();announce('Thanks for the feedback');
-  later(function(){S.panel=false;refreshPanel();},REDUCED?1200:1500);}
+  var label=S.reason;try{label=(S.reason==='Other')?((otherInput&&otherInput.value.trim())||'Other'):S.reason;}catch(e){label=S.reason;}
+  S.sent=true;try{refreshChips();}catch(e){noteLoopError('send-chips',e);}announce('Thanks for the feedback');
+  later(function(){try{S.panel=false;refreshPanel();}catch(e){noteLoopError('send-close',e);}},REDUCED?1200:1500);}
 function closePanel(){if(!S.panel)return;S.panel=false;refreshPanel();try{cDown.btn.focus();}catch(e){}}
 function speakDuration(){var words=VERSIONS[S.version].trim().split(/\s+/).length;
   return Math.max(2600,words*380);}
@@ -482,18 +501,30 @@ demoRoot.addEventListener('pointerdown',stopLoop,true);
 demoRoot.addEventListener('keydown',stopLoop,true);
 demoRoot.addEventListener('focus',stopLoop,true);
 function fireStep(kind){
-  if(kind==='copy')cCopy.btn.click();
-  else if(kind==='down')cDown.btn.click();
-  else if(kind==='chip')chipBtns[1].click();
-  else if(kind==='send')sendBtn.click();
-  else if(kind==='regen')cRegen.btn.click();
-  else if(kind==='prev')prevBtn.click();
-  else if(kind==='next')nextBtn.click();
-  else if(kind==='reset'){S.versions=1;S.vote=null;S.panel=false;S.reason=null;S.sent=false;S.detail='';
-    otherInput.value='';refreshVote();refreshPanel();refreshVersions();setAnswer(0);S.run++;}}
-function scheduleLoop(idx){if(S.interrupted)return;if(idx>=LOOP.length){loopTimer=later(function(){if(S.interrupted)return;scheduleLoop(0);},1600);return;}
+  try{
+    if(kind==='copy'){cCopy.btn.click();}
+    else if(kind==='down'){cDown.btn.click();}
+    else if(kind==='chip'){var ch=chipBtns&&chipBtns[1];if(ch)ch.click();}
+    else if(kind==='send'){try{sendBtn.click();}catch(e){noteLoopError(kind,e);}}
+    else if(kind==='regen'){cRegen.btn.click();}
+    else if(kind==='prev'){try{prevBtn.click();}catch(e){noteLoopError(kind,e);}}
+    else if(kind==='next'){try{nextBtn.click();}catch(e){noteLoopError(kind,e);}}
+    else if(kind==='reset'){
+      try{S.versions=1;}catch(e){}
+      try{S.vote=null;S.panel=false;S.reason=null;S.sent=false;S.detail='';}catch(e){}
+      try{if(otherInput)otherInput.value='';}catch(e){}
+      try{refreshVote();}catch(e){noteLoopError('reset-vote',e);}
+      try{refreshPanel();}catch(e){noteLoopError('reset-panel',e);}
+      try{refreshVersions();}catch(e){noteLoopError('reset-versions',e);try{setAnswer(0);}catch(_){}}
+      try{setAnswer(0);}catch(e){noteLoopError('reset-answer',e);}
+      try{S.run++;}catch(e){}
+    }
+  }catch(e){noteLoopError(kind||'step',e);}}
+function scheduleLoop(idx){if(S.interrupted)return;if(idx>=LOOP.length){loopTimer=later(function(){try{if(S.interrupted)return;scheduleLoop(0);}catch(e){noteLoopError('restart',e);try{if(!S.interrupted)scheduleLoop(0);}catch(_){}}},1600);return;}
+  var step=(LOOP[idx]&&LOOP[idx][1])||'';var delay=(LOOP[idx]&&LOOP[idx][0])||0;
   loopTimer=later(function(){if(S.interrupted)return;
-    fireStep(LOOP[idx][1]);scheduleLoop(idx+1);},LOOP[idx][0]);}
+    try{fireStep(step);}catch(e){noteLoopError(step,e);}
+    try{scheduleLoop(idx+1);}catch(e){noteLoopError('schedule',e);try{scheduleLoop(idx+1);}catch(_){}}},delay);}
 /* ---------- init (DOM already built; only in-place writes) ---------- */
 cCopy.btn.setAttribute('aria-label','Copy message');cCopy.tip.textContent='Copy';
 cRegen.btn.setAttribute('aria-label','Regenerate response');cRegen.tip.textContent='Regenerate';
