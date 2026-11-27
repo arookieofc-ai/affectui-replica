@@ -128,9 +128,10 @@ html[data-theme="dark"] .ui-ma__btn:hover{background:rgba(255,255,255,.08)}
 .ui-ma__regen{display:inline-flex;align-items:center;flex:none}
 .ui-ma__versions{display:grid;grid-template-columns:0fr;opacity:0;visibility:hidden;min-width:0;transition:grid-template-columns 420ms var(--ease),opacity 220ms ease,visibility 220ms ease}
 .ui-ma__versions[data-open]{grid-template-columns:1fr;opacity:1;visibility:visible;transition:grid-template-columns 420ms var(--ease),opacity 320ms ease 100ms,visibility 320ms ease 100ms}
-/* dark must paint the pager identically to light: explicit override so a
-   theme toggle never re-applies the hidden base style when [data-open] is present */
-html[data-theme="dark"] .ui-ma__versions[data-open]{grid-template-columns:1fr;opacity:1;visibility:visible}
+/* pager is theme-independent (matches demo-original.js: no dark-only pager rule).
+   The previous dark-only override added an extra cascade layer requiring a user-gesture
+   reflow to flush visibility in dark-from-load auto-demo; removing it so light/dark
+   compute identically from the single [data-open] rule above. */
 .ui-ma__versions-clip{display:flex;align-items:center;min-width:0;overflow:hidden;padding-right:2px}
 .ui-ma__step{display:grid;flex:none;place-items:center;width:20px;height:30px;border-radius:7px;color:var(--muted);transition:background-color 160ms ease,color 160ms ease,opacity 160ms ease}
 .ui-ma__step .ui-ma__glyph{width:14px;height:14px}
@@ -190,6 +191,12 @@ html[data-theme="dark"] .ui-ma__chip[aria-pressed="true"]{color:var(--accent-sof
   .ui-ma__close{width:32px;height:32px}
   .ui-ma__input{height:38px}
 }
+/* pager-open must paint identically to click-focus: bar at full opacity whenever
+   versions are open, on all pointers/themes, with or without hover/focus.
+   Click reaches opacity:1 via :focus-within; auto-demo (untouched, no focus) must
+   reach the same via [data-active] (set when S.versions>1) and via :has. */
+.ui-ma[data-quiet][data-active] .ui-ma__bar{opacity:1}
+.ui-ma:has(.ui-ma__versions[data-open]) .ui-ma__bar{opacity:1}
 @media (prefers-reduced-motion:reduce){
   .ui-ma *,.ui-ma *::before,.ui-ma *::after{animation:none !important;transition:none !important}
   .ui-ma__eq[data-on] i:nth-child(odd){transform:scaleY(.8)}
@@ -348,7 +355,7 @@ fold.appendChild(clip);
 root.appendChild(bar);root.appendChild(fold);root.appendChild(live);
 tray.appendChild(root);
 /* ---------- in-place updaters (never rebuild) ---------- */
-function refreshBarActive(){var active=S.copied||S.busy||S.speaking||S.panel||S.vote==='up';
+function refreshBarActive(){var active=S.copied||S.busy||S.speaking||S.panel||S.vote==='up'||S.versions>1;
   if(active)root.setAttribute('data-active','');else root.removeAttribute('data-active');}
 function setSwapText(wrap,item,txt){if(item.textContent!==txt){item.textContent=txt;
     /* re-insert the same node: replays the blur-in keyframes in a real
@@ -360,12 +367,16 @@ function setAnswer(i){S.version=i;answerLine.textContent=VERSIONS[i];
   count.setAttribute('aria-label','Version '+(i+1).toLocaleString('en-US')+' of '+S.versions.toLocaleString('en-US'));
   prevBtn.disabled=(i===0);
   nextBtn.disabled=(i>=S.versions-1);}
-function refreshVersions(){/* pager painted state: theme-independent — both click and auto-demo regen must end here */
+function refreshVersions(){/* pager painted state: theme-independent — both click and auto-demo regen must end here.
+    Remove inert BEFORE adding data-open and force a synchronous layout so a real
+    browser flushes grid/opacity/visibility without needing hover/focus (auto-demo
+    is untouched; click gets focus which flushes). Matches setAnswer's offsetWidth pattern. */
   setSwapText(countTotal,countTotalIn,S.versions.toLocaleString('en-US'));
-  if(S.versions>1){versionsWrap.setAttribute('data-open','');versionsWrap.removeAttribute('inert');}
+  if(S.versions>1){versionsWrap.removeAttribute('inert');versionsWrap.setAttribute('data-open','');void versionsWrap.offsetWidth;}
   else{versionsWrap.removeAttribute('data-open');versionsWrap.setAttribute('inert','');}
   setAnswer(S.versions-1); /* regenerating always lands on the newest version */
-  count.setAttribute('aria-label','Version '+(S.version+1).toLocaleString('en-US')+' of '+S.versions.toLocaleString('en-US'));}
+  count.setAttribute('aria-label','Version '+(S.version+1).toLocaleString('en-US')+' of '+S.versions.toLocaleString('en-US'));
+  refreshBarActive();}
 function refreshCopy(){if(S.copied){cCopy.btn.setAttribute('data-done','');
     cCopy.btn.setAttribute('aria-label','Copied');cCopy.tip.textContent='Copied';
     cCopy.item.setAttribute('data-flash','');
@@ -498,8 +509,9 @@ function paintToggle(){var dark=document.documentElement.getAttribute('data-them
   toggle.setAttribute('aria-label',dark?'Switch to light theme':'Switch to dark theme');}
 toggle.addEventListener('click',function(){var dark=document.documentElement.getAttribute('data-theme')==='dark';
   var next=dark?'light':'dark';document.documentElement.setAttribute('data-theme',next);
-  try{localStorage.setItem('ma-theme',next);}catch(e){}/* fix: theme must never un-paint the pager — re-assert painted state when versions>1 */
-  if(S.versions>1){versionsWrap.setAttribute('data-open','');versionsWrap.removeAttribute('inert');}
+  try{localStorage.setItem('ma-theme',next);}catch(e){}/* fix: theme must never un-paint the pager — re-assert painted state when versions>1, preserve version */
+  if(S.versions>1){versionsWrap.removeAttribute('inert');versionsWrap.setAttribute('data-open','');void versionsWrap.offsetWidth;}
+  refreshBarActive();
   paintToggle();});
 paintToggle();
 })();

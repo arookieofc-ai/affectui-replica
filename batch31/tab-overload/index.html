@@ -171,14 +171,14 @@ html[data-theme="dark"] .art-well{box-shadow:inset 0 0 0 1px rgba(255,255,255,.1
 /* SVG element defaults scoped narrowly so hide rules keep working */
 .stage-svg rect,.stage-svg circle,.stage-svg ellipse,.stage-svg path{shape-rendering:geometricPrecision}
 .to-bar{animation:to-shimmer 2.4s ease-in-out infinite}
-@keyframes to-shimmer{0%,100%{fill:#EFF1F4}50%{fill:#DDE1E5}}
+@keyframes to-shimmer{0%,100%{fill:#EFF1F4}50%{fill:#C4CAD0}}
 html[data-theme="dark"] .to-frame{fill:#1b1b1d;stroke:rgba(255,255,255,.1)}
 html[data-theme="dark"] .to-dot{fill:#3a3a3f}
 html[data-theme="dark"] .to-page{fill:#232326;stroke:rgba(255,255,255,.08)}
 html[data-theme="dark"] .to-bar{fill:#2e2e32;animation-name:to-shimmer-dark}
-@keyframes to-shimmer-dark{0%,100%{fill:#2e2e32}50%{fill:#3a3a3f}}
+@keyframes to-shimmer-dark{0%,100%{fill:#2e2e32}50%{fill:#54555e}}
 .to-blobs,.to-front{opacity:0;pointer-events:none;transition:opacity .3s ease}
-.to-content{opacity:.2;pointer-events:none;transition:opacity .3s ease}
+.to-content{opacity:.55;pointer-events:none;transition:opacity .3s ease}
 .to-blobs-3,.to-front-3,.to-content-3{opacity:1}
 .to-tab{cursor:pointer;outline:none}
 .to-tab:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
@@ -244,7 +244,7 @@ html[data-theme="dark"] .to-bar{fill:#2e2e32;animation-name:to-shimmer-dark}
   .stage-svg:has(.to-tab-2:hover) .to-content-2{opacity:1}
   .stage-svg:has(.to-tab-1:hover,.to-tab-2:hover) .to-blobs-3,
   .stage-svg:has(.to-tab-1:hover,.to-tab-2:hover) .to-front-3{opacity:0}
-  .stage-svg:has(.to-tab-1:hover,.to-tab-2:hover) .to-content-3{opacity:.2}
+  .stage-svg:has(.to-tab-1:hover,.to-tab-2:hover) .to-content-3{opacity:.55}
 }
 </style>
 </head>
@@ -282,7 +282,7 @@ html[data-theme="dark"] .to-bar{fill:#2e2e32;animation-name:to-shimmer-dark}
         <li><button type="button" class="win-btn" data-win="2" aria-pressed="false">Window 2</button></li>
         <li><button type="button" class="win-btn" data-win="3" aria-pressed="true">Window 3</button></li>
       </ul>
-      <div class="timing">Shimmer 2.4s · Fade 0.3s · Offsets (30, 68) · (125, 56) · (220, 44)</div>
+      <div class="timing">Shimmer 2.4s · Fade 0.3s · Auto-cycle 2.6s · Offsets (30, 68) · (125, 56) · (220, 44)</div>
     </section>
   </main>
   <footer class="page-foot">Clean-room replica. Highlight follows the hovered window; the front window is active by default.</footer>
@@ -441,10 +441,10 @@ function paint(force){
   for(var i=1;i<=3;i++){
     var on=(i===active);
     var b=blobs[i], f=fronts[i], c=contents[i];
-    var bo=on?"1":"0", co=on?"1":"0.2";
+    var bo=on?"1":"0", co=on?"1":"0.55";
     if(force||b.getAttribute("data-o")!==bo){b.style.opacity=on?"1":"0";b.setAttribute("data-o",bo)}
     if(force||f.getAttribute("data-o")!==bo){f.style.opacity=on?"1":"0";f.setAttribute("data-o",bo)}
-    if(force||c.getAttribute("data-o")!==co){c.style.opacity=on?"1":"0.2";c.setAttribute("data-o",co)}
+    if(force||c.getAttribute("data-o")!==co){c.style.opacity=on?"1":"0.55";c.setAttribute("data-o",co)}
   }
   var txt="Window "+active+" active";
   if(activeLabel.textContent!==txt)activeLabel.textContent=txt;
@@ -493,15 +493,36 @@ function initList(){
     })(list[i]);
   }
 }
+/* Auto-demo: visibly cycle the highlight so the scene changes without hover.
+   In-place only (reuses setActive/paint, keeps node identity); pauses while the
+   user hovers/focuses the stage, when the tab is hidden, or under reduced motion. */
+var demoTimer=null, hovering=false, reduceMotion=false;
+try{reduceMotion=!!(window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches)}catch(e){reduceMotion=false}
+function demoTick(){setActive(active===3?1:active+1);return active}
+function initDemo(){
+  stage.addEventListener("pointerenter",function(){hovering=true});
+  stage.addEventListener("pointerleave",function(){hovering=false});
+  stage.addEventListener("focusin",function(){hovering=true});
+  stage.addEventListener("focusout",function(){hovering=false});
+  if(reduceMotion)return;
+  demoTimer=setInterval(function(){
+    if(hovering)return;
+    try{if(document.hidden)return}catch(e){}
+    demoTick();
+  },2600);
+}
 buildOnce();
 paint(true);
 initList();
 initTheme();
+initDemo();
 stage.setAttribute("aria-label",LABEL);
 /* harness hook: read-only state, in-place setters */
 window.__tabOverload={
   get active(){return active},
   setActive:setActive,
+  tick:demoTick,
+  isAuto:function(){return !!demoTimer},
   windows:WINDOWS,
   label:LABEL,
   nodes:function(){return {stage:stage,blobs:blobs,fronts:fronts,contents:contents,tabs:tabs,activeLabel:activeLabel}}

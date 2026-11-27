@@ -500,26 +500,18 @@ function build(){
   panel.appendChild(panelInner);
   root.appendChild(panel);
   mount.appendChild(root);
-  /* listeners: open on pointerdown capture so the click survives outside-close */
-  trigger.addEventListener('pointerdown',function(){ onTriggerPointer(); },true);
+  /* listeners: click-only toggle (matches original onClick toggle; no pointerdown race) */
   trigger.addEventListener('click',function(){ onTriggerClick(); });
-  trigger.addEventListener('keydown',function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); onTriggerClick(); } });
   panel.addEventListener('keydown',function(e){ if(e.key==='Escape'){ e.stopPropagation(); closePanel(true); } });
   document.addEventListener('pointerdown',function(e){ if(e.target&&e.target.closest){try{if(e.target.closest('#themeBtn,.theme-btn'))return;}catch(_){}} if(S.open && R.root && !R.root.contains(e.target)) closePanel(true); },true);
   updateAll();
   try{ window.__drp={state:S,refs:R,presetIndex:presetIndex,fmtRange:fmtRange,openPanel:openPanel,closePanel:closePanel,onPreset:onPreset,onApply:onApply,updateAll:updateAll}; window.__drpReady=true; }catch(e){}
 }
-function onTriggerPointer(){
-  /* capture-phase open ensures a real click is not swallowed by the outside closer */
-  if(!S.open) openPanel();
-}
 function onTriggerClick(){
-  if(S.open && !S._ptrOpened){ closePanel(true); }
-  else if(!S.open){ openPanel(); }
-  S._ptrOpened=false;
+  if(S.open){ closePanel(true); }
+  else{ openPanel(); }
 }
 function openPanel(){
-  S._ptrOpened=true;
   S.draft={start:S.committed.start,end:S.committed.end};
   S.draftCompare=S.compareId;
   S.hover=null;
@@ -527,7 +519,6 @@ function openPanel(){
   S.focusDate=strip(S.committed.end);
   S.open=true;
   updateAll();
-  setTimeout(function(){ S._ptrOpened=false; },0);
 }
 function closePanel(focusTrigger){
   S.open=false;

@@ -1,60 +1,154 @@
-# Date Range Picker — targeted fix report
+# TARGETED FIX — date-range-picker panel one-shot reopen (fix-repair2-date-range-picker)
 
-## What was fixed (2 defects; 1 left as-is per original)
+## Hashes (MUST differ — checked mechanically)
+- BEFORE (./original-backup.html): 94e3e619ae810a81d42a72910b22c169  (md5sum ./index.html BEFORE editing)
+- AFTER  (./index.html): 23252f71cb625cd8eb2a4e1e69f13a73
+- Command: md5sum ./index.html ./original-backup.html
+  - 23252f71cb625cd8eb2a4e1e69f13a73  ./index.html
+  - 94e3e619ae810a81d42a72910b22c169  ./original-backup.html
+- Differ: YES
 
-### (1) Compare radio group in LIGHT theme — FIXED
-**Symptom (real-browser QA):** `OffPrevious periodPrevious year` — three labels jammed with no spacing and no visible selected affordance.
+## Defect (real-browser QA)
+PARTIAL FIX REGRESSION: Compare radios now paint correctly and the panel survives
+a theme toggle while open — BUT once the panel is CLOSED it can NEVER be reopened:
+in fresh tabs in both themes, after closing (Cancel or any close path), clicking the
+trigger does nothing; only a page refresh restores it.
 
-**Root cause(s) in `./index.html`:**
-- `.drp button{padding:0}` (specificity `0,1,1`) overrode `.drp__segment{padding:0 8px}` (specificity `0,1,0`), collapsing horizontal padding to `0`.
-- `.drp__segments` had no `gap`, so the three `role=radio` buttons touched.
-- Selected state was pill-only (`background:var(--subtle)` `#f5f5f4` on `var(--surface)` `#ffffff` with `1px var(--line)` `#ececec`), very low contrast in light; no radio-circle affordance.
+## Check of ./demo-original.js BEFORE changing (required)
+- Original trigger: onClick=()=>A?K():Oe() — pure click toggle (open if closed, close if open). NO pointerdown listener, NO _ptrOpened flag, NO once.
+- Original outside closer: document.addEventListener(pointerdown, e=>{V.current && !V.current.contains(e.target) && close}) with cleanup (removeEventListener) on close via useEffect [A] — re-subscribes each open, never one-shot for trigger.
+- Original defaultOpen: useState(de) with de=!1 in replica default true — panel open by default, absolute overlay by design.
+- Conclusion: original does NOT behave the same way (original reopens repeatedly). The one-shot is a replica-only regression. Fix is warranted (not a mis-fix).
 
-**Note on `./demo-original.js`:** the original also uses a segmented `radiogroup` (`role=radiogroup` + `button role=radio` + sliding `.ui-drp__pill`), not native radio circles, and has the same `padding:0` override. QA explicitly requires “visible circles + proper spacing in both themes”, so a minimal circle affordance was added (original pill + demo data unchanged).
+## Root cause (in ./index.html BEFORE fix)
+- Replica added capture-phase pointerdown open + _ptrOpened flag + setTimeout(0) clearance:
+  trigger pointerdown: if(!S.open) openPanel() // sets _ptrOpened=true, schedules timeout to false
+  trigger click: if(S.open && !_ptrOpened) close else if(!S.open) open; _ptrOpened=false
+- Real-browser timing: setTimeout(0) fires (~4ms) BEFORE the following click (which follows pointerup, typically 50ms+ later, or after focus). So pointerdown opens (_ptrOpened=true), timeout clears it (false), then click sees S.open && !_ptrOpened => closePanel(). Net: open then instantly close — trigger appears dead.
+- DOM-stub harnesses that dispatch pointerdown+click synchronously (no timer flush) never see the race, so they falsely pass.
+- Extra trigger keydown (Enter/Space => onTriggerClick + preventDefault) duplicates native button click activation, risking double-toggle for keyboard.
+- Document outside-closer already excludes trigger via R.root.contains, so pointerdown workaround was unnecessary.
 
-**Fix (CSS only, tokens preserved):**
-- `.drp__segments` → `display:inline-flex;align-items:center;gap:4px` (spacing).
-- `.drp__segments .drp__segment` (`0,2,0`, beats `.drp button`) → `display:inline-flex;align-items:center;gap:6px;padding:0 10px 0 8px`.
-- `.drp__segments .drp__segment::before` → `12px` circle, `border-radius:50%`, `border:1.5px solid var(--muted)`, transparent fill.
-- `.drp__segments .drp__segment[aria-checked="true"]::before` → `border-color:var(--accent);background:var(--accent);box-shadow:inset 0 0 0 2px var(--surface)` (dot).
-- Light: `--muted #78716c` ring on `#ffffff`, selected `--accent #0284c7`. Dark: `--muted #a1a1aa` on `#1c1c1f`, selected `--accent #4fb0fe`. Both contrast; no `display:none`/`visibility:hidden`/`opacity:0`.
-
-### (2) Theme toggle closes panel + kills trigger — FIXED
-**Symptom:** clicking `◐ Theme`/`☀ Light` closes the open panel; afterwards mouse click and Enter both fail to reopen (dark and back to light).
-
-**Root cause(s):**
-- `document` `pointerdown` outside-close (`if(S.open && !R.root.contains(e.target)) closePanel(true)`) treated the theme button (`#themeBtn`, outside `R.root`) as an outside click, so every theme toggle forced `S.open=false`.
-- `onTriggerClick()` only handled close (`if(S.open && !_ptrOpened) closePanel`), never open. Mouse reopen relied on `pointerdown→openPanel`, but keyboard (Enter/Space → `click` without `pointerdown`) had no open path, so Enter could never reopen.
-
-**Fix (JS only, no rebuild, handlers preserved):**
-- Outside-close now ignores the toggle: `if(e.target&&e.target.closest){try{if(e.target.closest('#themeBtn,.theme-btn'))return;}catch(_){}}`.
-- `onTriggerClick()` now toggles: `if(S.open && !_ptrOpened){closePanel} else if(!S.open){openPanel}` + clear flag. Mouse flow unchanged (`pointerdown` opens, `click` with `_ptrOpened` no-ops); keyboard `Enter`/`Space` → `click` now opens when closed, closes when open.
-- Theme handler still only flips `data-theme` + `localStorage` + label (in-place `textContent`, no `build()`, no `innerHTML`), so trigger/panel node identity survives.
-
-### (3) Default-open panel covers explanatory text — LEFT AS-IS (matches original)
-**Check of `./demo-original.js`:** panel CSS is `position:absolute;z-index:30;top:calc(100% + 8px);left:0`, and the demo exports `defaultOpen:!0` (`le({defaultOpen:!0})`). The original therefore overlays content below the trigger when open by design.
-**Action:** no placement change. Replica keeps `position:absolute` + default `S.open=true`, matching the original. `demo-note` text unchanged.
+## Fix in ./index.html ONLY (targeted, no rebuild, 36619 -> 36136 bytes)
+1. Removed trigger pointerdown listener and onTriggerPointer() entirely.
+2. Simplified onTriggerClick() to pure toggle matching original: if(S.open) closePanel(true); else openPanel();
+3. Simplified openPanel() to remove _ptrOpened set + setTimeout clearance.
+4. Removed trigger keydown dup (rely on native button click for Enter/Space, like original onClick). Kept panel Escape + months grid keydown.
+5. Kept prior correct fixes: Compare radio circles/gaps/tokens, theme-toggle exclusion (closest(#themeBtn,.theme-btn) => open survives theme toggle).
+- No CSS/layout rebuild; handlers preserved (trigger click, panel Escape, document outside-close).
+- Kept /*noflash*/ guard + meta color-scheme + html background, in-place updates only (build once, updateAll mutates text/attrs/styles), zero innerHTML writes after init, demo data verbatim (Off/Previous period/Previous year, presets, Last 30 days + Previous period defaults).
 
 ## Preserved guardrails
-- `/*noflash*/` guard + `<meta name=color-scheme>` + `html{background}` untouched.
-- In-place updates only; `build()` once at init; `updateAll()` mutates `textContent`/attributes/styles on existing nodes.
-- Zero `innerHTML` writes after init (static + runtime harness count `0`).
-- Demo data verbatim: `Off` / `Previous period` / `Previous year`, presets (`Today`, `Yesterday`, `Last 7 days`, `Last 30 days`, `90d`, `This month`, `Last month`, `This quarter`, `Year to date`), `Last 30 days + Previous period` defaults.
-- CSS tokens for all colours; `:hover` stays inside `@media (hover:hover) and (pointer:fine)`; `html{-webkit-tap-highlight-color:transparent}`; `tabular-nums` for counts.
-
-## How to test
-- `open index.html` in a browser. Panel is open by default.
-- Light: Compare shows three spaced pills each with a visible ring; `Previous period` selected (filled accent dot).
-- Click `◐ Dark` → panel stays open, trigger `aria-expanded=true`, panel not `hidden`; click again → back to light, still open.
-- Close via outside click or `Cancel`/`Apply`, then reopen via mouse click and via focusing trigger + `Enter`/`Space` — all reopen in both themes.
-- Narrow width stacks; `Esc` closes; day hover preview and compare band unchanged.
+- /*noflash*/ present, 0x innerHTML in source and runtime, demo data verbatim, CSS tokens for all colours, :hover inside @media (hover:hover) and (pointer:fine), html tap-highlight transparent, tabular-nums.
 
 ## Verification (node only, no installs)
-- `node --check ./extracted-check.js` (scripts extracted from `./index.html`) — OK.
-- `node --check ./harness.cjs` — OK.
-- `node ./harness.cjs` — ALL PASS: noflash/meta, circle CSS + gaps, visible (no `display:none`/`visibility:hidden`/`opacity:0`), light vars (`#78716c`/`#0284c7`/`#ffffff`) + dark vars (`#a1a1aa`/`#4fb0fe`/`#1c1c1f`), theme exclusion + keyboard toggle present, zero `innerHTML`, build OK, default-open visible, 3× `role=radio` with one `aria-checked=true`, full-loop node identity (`root`/`trigger`/`panel`/segs same after `updateAll×2`), theme-toggle preserves open, outside-click still closes, mouse + Enter reopen, dark/light reopen visible + identity preserved.
+- node --check ./harness.js — OK
+- node --check on extracted inline scripts (./.inline-check.js) — OK
+- node ./harness.js ./index.html => ALL PASS (35/0)
+- node ./harness.js ./original-backup.html => FAIL as expected (20/15) — proves harness detects the regression.
 
-## Files
-- `./index.html` (targeted fix, `36.6KB`, `<200KB`)
-- `./REPORT.md` (this file)
-- `./harness.cjs` (in-dir DOM-stub harness)
+### Harness design (in-dir DOM-stub, VISIBLE-state asserts)
+- Simulates REAL timing: pointerdown -> flush timers -> click. Buggy file opens then instantly closes; fixed stays open.
+- Per theme (light AND dark): default-open VISIBLE, then 3x open->close->open via different paths (Cancel, Apply/selection, outside click), asserting visibly open after EVERY trigger click via hidden/aria-expanded/data-open + computed display/visibility/opacity (block/visible/1) + geometry (w=652,h=300) + colours (muted/accent vs surface per theme).
+- Plus full-loop node identity (root/trigger/panel same) and zero innerHTML writes after init.
+
+### harness-fixed.log (./index.html) — PASTED
+---
+PASS: noflash guard present
+PASS: meta color-scheme present
+PASS: first-paint background style present
+PASS: zero innerHTML in source (found 0)
+PASS: Compare segments present
+PASS: Compare radio circles (::before) present
+PASS: accent tokens light+dark present
+PASS: muted tokens light+dark present
+PASS: outside-closer excludes theme toggle (open survives theme toggle)
+PASS: trigger has NO pointerdown listener (no race)
+PASS: no _ptrOpened flag (no one-shot race)
+PASS: trigger has NO keydown dup (native click handles Enter/Space)
+MODE: FIXED (click-only toggle) for ./index.html
+== theme light ==
+PASS: [light] default-open panel VISIBLE (display=block,opacity=1,w=652)
+PASS: [light] cycle1 closed via Cancel (hidden, aria-expanded=false)
+PASS: [light] cycle1 trigger reopens visibly after Cancel (display=block,opacity=1,expanded=true)
+PASS: [light] cycle1 geometry non-zero (w=652,h=300)
+PASS: [light] cycle2 closed via Apply (selection) (hidden, aria-expanded=false)
+PASS: [light] cycle2 trigger reopens visibly after Apply (selection) (display=block,opacity=1,expanded=true)
+PASS: [light] cycle2 geometry non-zero (w=652,h=300)
+PASS: [light] cycle3 closed via outside click (hidden, aria-expanded=false)
+PASS: [light] cycle3 trigger reopens visibly after outside click (display=block,opacity=1,expanded=true)
+PASS: [light] cycle3 geometry non-zero (w=652,h=300)
+PASS: [light] node identity preserved across full loop (root/trigger/panel same)
+== theme dark ==
+PASS: [dark] default-open panel VISIBLE (display=block,opacity=1,w=652)
+PASS: [dark] cycle1 closed via Cancel (hidden, aria-expanded=false)
+PASS: [dark] cycle1 trigger reopens visibly after Cancel (display=block,opacity=1,expanded=true)
+PASS: [dark] cycle1 geometry non-zero (w=652,h=300)
+PASS: [dark] cycle2 closed via Apply (selection) (hidden, aria-expanded=false)
+PASS: [dark] cycle2 trigger reopens visibly after Apply (selection) (display=block,opacity=1,expanded=true)
+PASS: [dark] cycle2 geometry non-zero (w=652,h=300)
+PASS: [dark] cycle3 closed via outside click (hidden, aria-expanded=false)
+PASS: [dark] cycle3 trigger reopens visibly after outside click (display=block,opacity=1,expanded=true)
+PASS: [dark] cycle3 geometry non-zero (w=652,h=300)
+PASS: [dark] node identity preserved across full loop (root/trigger/panel same)
+PASS: zero innerHTML writes after init (runtime count 0)
+
+HARNESS RESULT: 35 pass / 0 fail for ./index.html
+---
+
+### harness-original.log (./original-backup.html) — PASTED (MUST FAIL)
+---
+PASS: noflash guard present
+PASS: meta color-scheme present
+PASS: first-paint background style present
+PASS: zero innerHTML in source (found 0)
+PASS: Compare segments present
+PASS: Compare radio circles (::before) present
+PASS: accent tokens light+dark present
+PASS: muted tokens light+dark present
+PASS: outside-closer excludes theme toggle (open survives theme toggle)
+FAIL: trigger has NO pointerdown listener (no race)
+FAIL: no _ptrOpened flag (no one-shot race)
+FAIL: trigger has NO keydown dup (native click handles Enter/Space)
+MODE: BUGGY (pointerdown+_ptrOpened race) for ./original-backup.html
+== theme light ==
+PASS: [light] default-open panel VISIBLE (display=block,opacity=1,w=652)
+PASS: [light] cycle1 closed via Cancel (hidden, aria-expanded=false)
+FAIL: [light] cycle1 trigger reopens visibly after Cancel (display=none,opacity=0,expanded=false)
+FAIL: [light] cycle1 geometry non-zero (w=0,h=0)
+PASS: [light] cycle2 closed via Apply (selection) (hidden, aria-expanded=false)
+FAIL: [light] cycle2 trigger reopens visibly after Apply (selection) (display=none,opacity=0,expanded=false)
+FAIL: [light] cycle2 geometry non-zero (w=0,h=0)
+PASS: [light] cycle3 closed via outside click (hidden, aria-expanded=false)
+FAIL: [light] cycle3 trigger reopens visibly after outside click (display=none,opacity=0,expanded=false)
+FAIL: [light] cycle3 geometry non-zero (w=0,h=0)
+PASS: [light] node identity preserved across full loop (root/trigger/panel same)
+== theme dark ==
+PASS: [dark] default-open panel VISIBLE (display=block,opacity=1,w=652)
+PASS: [dark] cycle1 closed via Cancel (hidden, aria-expanded=false)
+FAIL: [dark] cycle1 trigger reopens visibly after Cancel (display=none,opacity=0,expanded=false)
+FAIL: [dark] cycle1 geometry non-zero (w=0,h=0)
+PASS: [dark] cycle2 closed via Apply (selection) (hidden, aria-expanded=false)
+FAIL: [dark] cycle2 trigger reopens visibly after Apply (selection) (display=none,opacity=0,expanded=false)
+FAIL: [dark] cycle2 geometry non-zero (w=0,h=0)
+PASS: [dark] cycle3 closed via outside click (hidden, aria-expanded=false)
+FAIL: [dark] cycle3 trigger reopens visibly after outside click (display=none,opacity=0,expanded=false)
+FAIL: [dark] cycle3 geometry non-zero (w=0,h=0)
+PASS: [dark] node identity preserved across full loop (root/trigger/panel same)
+PASS: zero innerHTML writes after init (runtime count 0)
+
+HARNESS RESULT: 20 pass / 15 fail for ./original-backup.html
+---
+
+## How to test (browser)
+- open ./index.html. Panel open by default.
+- Light: Compare shows three spaced pills each with visible ring; Previous period selected.
+- Click trigger to close, click again to reopen — repeats indefinitely. Close via Cancel, via Apply, via outside click — each time trigger reopens visibly.
+- Click theme toggle while open => stays open; close then reopen in both themes; Enter/Space on focused trigger toggles; Esc closes.
+- Narrow width stacks; day hover preview and compare band unchanged.
+
+## Files (all in THIS directory)
+- ./index.html (targeted fix)
+- ./original-backup.html (pre-fix, for before/after proof)
+- ./harness.js (node --check + node ./harness.js [file])
+- ./REPORT.md (this file)

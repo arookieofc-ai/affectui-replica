@@ -1,41 +1,118 @@
-# Voice Orb — Replica Report
+# Voice Orb — Thinking-ring collapse fix (TARGETED FIX)
 
-## What was built
-`index.html` (18.8 KB, self-contained, no network, system fonts) replicating the Voice Orb assistant sphere:
-- Canvas sphere of dots: breathing idle, level-driven listening swell, thinking ring collapse with travelling bright arc, speaking ripple, depth shading + radial glow, pointer repel.
-- Label below orb with `aria-live="polite"`: `Tap to speak` / `Listening` / `Thinking` / `Speaking`, animated `...` dots when not idle.
-- Orb is a `<button>` (click advances state); segmented `radiogroup` with `Idle / Listening / Thinking / Speaking`; auto-cycle loop with manual override pausing auto-cycle.
-- Page chrome: top bar with `Voice Assistant` + working count (`0 working` idle / `1 working` active) + `1 agent`, theme toggle (sun/moon, top-right). Footer note.
+## What was built / fixed
+TARGETED FIX of existing `./index.html` (2 lines, no rebuild).
+Defect from real-browser QA: in THINKING state the 520-point sphere collapsed
+into a thin diagonal line (~160x15px) in both themes and never opened into the
+thinking ring, even 2s after manually selecting Thinking. Idle/Listening rendered normally.
 
-## Matched data / behaviour (verbatim from demo-original.js)
-- Labels: `Tap to speak`, `Listening`, `Thinking`, `Speaking`; button labels `Idle`, `Listening`, `Thinking`, `Speaking`.
-- Order: `idle → listening → thinking → speaking → loop`.
-- Timings: idle 2000 ms, listening 3200 ms, thinking 2600 ms, speaking 3600 ms.
-- Geometry: size 220, dots 520, Fibonacci sphere with golden angle `PI*(3-sqrt(5))`, DPR cap 2.5.
-- Speeds: idle 0.16, listening 0.3, thinking 1.9, speaking 0.42 (blended spin).
-- Level synthesis: listening `0.35+0.35*sin(2.1t)*sin(5.3t)+0.3*sin(9.7t+1)*sin(0.9t)`; others `0.3+0.7*|sin(4.1t)|*(0.5+0.5*sin(1.3t+2))`; smoothing `12/s`, spin blend `5/s`, pointer `8/s`.
-- Displacements: idle breath `0.022*sin(1.3t+y*2)`; listening `level*0.3*max(0,noise)^1.4`; speaking `level*0.13*sin(y*7.5-7t)`; thinking ring (`y*0.2`, xz normalised, `cos^6` arc).
-- Glow: `(listening+speaking)*level*0.16 + thinking*0.05`; colours ink `#171717`→accent `#2f6bff` (dark `#ededed`→`#6f9bff`).
-- Reduced-motion, IntersectionObserver + visibility pause, pointer repel radius `0.2*size`.
-- Clean-room: own variable names/structure; no verbatim copy of compiled source.
+Root cause (formation positions collapse):
+- `drawFrame` yaw step was correct (`rx=qx*cS+qz*sS`, `rz=-qx*sS+qz*cS`),
+  but the pitch/tilt step reused `rx` twice:
+  `var dy=qy*cT-rx*sT, dz=qy*sT+rx*cT;`
+  Both `dy` and `dz` were linear functions of the SAME variable `rx`
+  (plus tiny `qy`), so all thinking points (`qy=py*0.2` small, `qx,qz` on circle)
+  were projected onto a 1-D line `sy-mid = -sT*(sx-mid)`.
+  PCA: corr `|r|~0.99`, minor/major `~0.004`. Axis-aligned bbox still looked
+  large (~158x130) because the line is diagonal; orthogonal thickness is ~15px,
+  matching QA.
+- Secondary deviation: `Math.atan2(px,pz)` swapped args vs original
+  `Math.atan2(a,n)` = `atan2(z,x)`, misplacing the bright comet arc.
 
-## What was not / could not be verified
-- Pixel-exact canvas vs original (no browser; verified behaviour markers + code formulas only).
-- No agent identities in this component, so 3x3 pixel-marks N/A (spec requires them only if identities exist).
-- No content images, so image outline rule N/A; no SVG used (setAttribute rule vacuously satisfied); no dialogs (pointerdown-capture listeners added on orb + radiogroup so clicks survive).
+Fix (matches `./demo-original.js`):
+- `var dy=qy*cT-rz*sT, dz=qy*sT+rz*cT;`
+- `var ang=Math.atan2(pz,px)+spin;`
+- State buttons / auto-cycle / timings untouched and still working.
 
-## Spec compliance
-- Tokens via CSS vars; light (`surface #ffffff`, `page #fafaf9`, `ink #171717`, `muted #78716c`, `subtle #f5f5f4`, `border #e7e5e4`) and dark (`#1c1c1f/#101012/#ededed/#a1a1aa/#26262a/#2e2e33`); amber waiting tokens present; radius-lg 16 / radius 10 / radius-sm 6; soft shadows; 14 px base, 15–16 px titles, 12–13 px muted meta; pills 999 px; card 1 px border + shadow, focus-visible outline, 150–200 ms transitions.
-- Default theme = original demo (light); toggle overrides via `localStorage voice-orb-theme`, else `prefers-color-scheme`.
-- `/*noflash*/` guard first in `<head>` + `html{background…}` + `meta color-scheme`.
-- In-place updates only: DOM built once; timers update text/attrs/classes/styles; zero `innerHTML` after init; harness asserts node identity across full loop.
-- v5: all `:hover` inside `@media (hover:hover) and (pointer:fine)`; `html{-webkit-tap-highlight-color:transparent}`; `body{font-variant-numeric:tabular-nums}`; concentric radii (card 16 px = stage 10 px + 6 px padding); shadows for elevation / borders for structure; theme button optical nudge (icon side 6 px vs 10 px).
-- `[hidden]{display:none !important}`; no broad `svg{display:block}` rule.
+## Original behaviour check (`./demo-original.js`)
+Read with relative path before changing anything. Original thinking block:
+`p+=(n/t*r-p)*o, g+=(i*.2-g)*o, y+=(a/t*r-y)*o` (ring formation, radius `r~1`),
+then `T=p*I+y*F, E=-p*F+y*I, D=g*P-E*N, O=g*N+E*P` — i.e. second rotation uses
+`E` (z') not `T` (x'), and `Math.atan2(a,n)` = `atan2(z,x)`.
+So the original forms a visible tilted ring/disc, NOT a thin line.
+The collapse is a transcription error in `./index.html`, not original behaviour,
+so fixing is warranted (not noting as "same as original").
 
-## How to test
-- Open `index.html` in a browser. Orb auto-cycles; click orb or state buttons (manual pauses auto-cycle). Toggle theme top-right; reload persists.
-- Node only: `node --check` on extracted script + `node ./harness-check.js` (in-dir DOM stub, advances timers through full loop, asserts visible text/state, node identity, zero innerHTML writes, light+dark).
+## What matches / demo data verbatim
+- `SIZE=220, COUNT=520`, Fibonacci sphere, `SPEEDS={idle:0.16,listening:0.30,thinking:1.9,speaking:0.42}`
+- States + timings verbatim: Idle 2000ms / Listening 3200ms / Thinking 2600ms / Speaking 3600ms
+- Captions `Tap to speak / Listening / Thinking / Speaking`, footer
+  `Canvas sphere · 520 dots · breathing / listening swell / thinking ring / speaking ripple`
+- `/*noflash*/` guard kept first in `<head>` + `html{background:#fafaf9}html[data-theme="dark"]{background:#101012}` + `<meta name="color-scheme">`
+- In-place updates only: `paintState` updates text/attrs/classes/styles on existing nodes; full loop keeps node identity (harness asserts); zero `innerHTML` writes after init (static grep 0 + runtime setter count 0).
 
-## Verification results
-- `node --check` on extracted main script: PASS.
-- `node ./harness-check.js`: ALL CHECKS PASSED — initial idle/`Tap to speak`, loop `idle>listening>thinking>speaking>idle`, visible labels `Tap to speak | Listening | Thinking | Speaking | Tap to speak`, per-state dots/working/radiogroup, node identity preserved, zero `innerHTML` writes, timings 2000/3200/2600/3600 + 520 dots, theme toggle light↔dark with persistence, dark tokens present. Light AND dark checked.
+## How to test (node only, no installs/downloads)
+- `node --check ./harness.cjs` — harness syntax
+- Extract inline main script and `node --check` it (both passed, see below)
+- `node ./harness.cjs ./original-backup.html` — MUST FAIL (thin line)
+- `node ./harness.cjs ./index.html` — MUST PASS (real ring, light+dark)
+- Open `./index.html` in a browser, click Thinking, wait 2s, check ring in light + dark (theme toggle top-right).
+
+## HARD PROOF (a) md5 BEFORE/AFTER — MUST differ
+- BEFORE (`./original-backup.html`, copy of pre-fix `./index.html`): `ab947db0716c7574730f33a7c6a40767`
+- AFTER (`./index.html` fixed): `586d15011df8db6d37b02f44603a1c1f`
+- `md5sum ./index.html ./original-backup.html`:
+  `586d15011df8db6d37b02f44603a1c1f  ./index.html`
+  `ab947db0716c7574730f33a7c6a40767  ./original-backup.html`
+- Diff is exactly 2 lines (see harness section); no rebuild.
+
+## HARD PROOF (b) harness FAIL on original, PASS on fixed
+Harness: `./harness.cjs` (in-dir DOM-stub, node only). Stubs document/canvas/window/performance/rAF,
+runs the real inline script via `vm`, selects Thinking via `window.__voiceOrb.goTo(2,true)`,
+pumps 2.2s of frames, records per-dot `ctx.arc` positions + `fillStyle` colours.
+Asserts as VISIBLE state (not DOM presence): arc count>300, bbox w>100/h>30,
+correlation `|r|<0.9`, PCA minor/major `>0.20`, parsed colours, light-vs-dark delta,
+`data-state`, dots visibility, label text, blend convergence, full-loop node identity,
+zero runtime `innerHTML`, state-button `goTo` response. Light AND dark both tested.
+
+### `node --check` results
+- `node --check ./harness.cjs` → OK
+- inline main script extracted to temp in-dir file → `node --check` → OK (temp file removed afterwards)
+
+### FAIL against original (`node ./harness.cjs ./original-backup.html`, exit 1)
+```
+HARNESS target: ./original-backup.html
+static innerHTML writes: 0
+[light] dots hidden? false (want false)
+[light] label="Thinking" status="Thinking — reasoning in a ring"
+[light] blend.thinking after 2.2s = 1.000
+[light] arcs=502 bbox w=157.9 h=130.1 corr=-0.991 pcaRatio=0.004 (l1=4187 l2=17) meanRGB=(27,36,59)
+[dark] dots hidden? false (want false)
+[dark] label="Thinking" status="Thinking — reasoning in a ring"
+[dark] blend.thinking after 2.2s = 1.000
+[dark] arcs=501 bbox w=156.1 h=129.8 corr=-0.991 pcaRatio=0.004 (l1=4199 l2=17) meanRGB=(217,224,240)
+mean-R light vs dark delta = 190.6
+innerHTML writes at runtime: 0
+FAIL ./original-backup.html
+ - [light] dots collapsed to diagonal line (|corr|=0.991 want <0.9)
+ - [light] ring not 2-D (pca minor/major=0.004 want >0.20) — thin-line collapse
+ - [dark] dots collapsed to diagonal line (|corr|=0.991 want <0.9)
+ - [dark] ring not 2-D (pca minor/major=0.004 want >0.20) — thin-line collapse
+```
+
+### PASS against fixed (`node ./harness.cjs ./index.html`, exit 0)
+```
+HARNESS target: ./index.html
+static innerHTML writes: 0
+[light] dots hidden? false (want false)
+[light] label="Thinking" status="Thinking — reasoning in a ring"
+[light] blend.thinking after 2.2s = 1.000
+[light] arcs=502 bbox w=152.2 h=128.5 corr=-0.000 pcaRatio=0.618 (l1=2546 l2=1574) meanRGB=(27,36,59)
+[dark] dots hidden? false (want false)
+[dark] label="Thinking" status="Thinking — reasoning in a ring"
+[dark] blend.thinking after 2.2s = 1.000
+[dark] arcs=501 bbox w=153.0 h=129.8 corr=-0.003 pcaRatio=0.614 (l1=2554 l2=1569) meanRGB=(217,224,240)
+mean-R light vs dark delta = 190.6
+innerHTML writes at runtime: 0
+PASS ./index.html
+```
+
+## Light AND dark
+Both themes pass geometry (ring 2-D, ~152x129, 501-502 dots) and colours differ
+correctly (light mean ~27,36,59 ink-dark-on-light; dark mean ~217,224,240; deltaR 190.6).
+Theme toggle (`data-theme` light/dark) verified via stub + `currentTheme()`.
+
+## Could not verify
+Real-browser pixel screenshot (no browser here); harness uses stub canvas recording
+`arc()` geometry + `fillStyle` colours as computed visible state. No Tailwind/build step (none used).
+
