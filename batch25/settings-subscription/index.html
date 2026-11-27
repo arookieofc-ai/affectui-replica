@@ -238,7 +238,7 @@ html[data-theme="dark"] img{outline-color:rgba(255,255,255,.10)}
 <b class="bill-total" id="billTotal">$294</b>
 </span>
 <dl class="bill-lines" id="billLines" hidden>
-<div><dt>Pro · 6 seats × $49</dt><dd>$294</dd></div>
+<div><dt id="billLineLabel">Pro · 6 seats × $49</dt><dd id="billLineTotal">$294</dd></div>
 <div><dt>Workflows · Starter</dt><dd>Included</dd></div>
 <div><dt>Tax</dt><dd>Added at checkout</dd></div>
 </dl>
@@ -460,7 +460,7 @@ setTimeout(function(){if(d.parentNode===box)box.removeChild(d);},3400);
 var state={period:"monthly",details:false,compare:false,flow:"40k",cancel:false,flowOpen:false};
 var N={};
 function cache(){
-["themeBtn","themeIcon","planSub","exploreBtn","detailsBtn","detailsLabel","billTotal","billLines","renewsLine","perMonthly","perYearly","currentPrice","currentPer","teamPrice","teamYearly","bizPrice","bizYearly","compareBtn","compareLabel","compareTable","flowPrice","flowLabel","flowRuns","flowSelect","flowList","upFlow","addrView","addrForm","addrEmail","addrCompany","addrStreet","addrVat","fEmail","fCompany","fStreet","fVat","addrCancel","cancelBtn","cancelPop","previewBill","overview","plansAnchor","toasts","memberCount","manageMembers","manageFlows","upTeam","upBiz","contactSales","addSeats","addCard","editAddr","keepPlan","doCancel","docsLink"].forEach(function(id){N[id]=$(id);});
+["themeBtn","themeIcon","planSub","exploreBtn","detailsBtn","detailsLabel","billTotal","billLines","billLineLabel","billLineTotal","renewsLine","perMonthly","perYearly","currentPrice","currentPer","teamPrice","teamYearly","bizPrice","bizYearly","compareBtn","compareLabel","compareTable","flowPrice","flowLabel","flowRuns","flowSelect","flowList","upFlow","addrView","addrForm","addrEmail","addrCompany","addrStreet","addrVat","fEmail","fCompany","fStreet","fVat","addrCancel","cancelBtn","cancelPop","previewBill","overview","plansAnchor","toasts","memberCount","manageMembers","manageFlows","upTeam","upBiz","contactSales","addSeats","addCard","editAddr","keepPlan","doCancel","docsLink"].forEach(function(id){N[id]=$(id);});
 N.dlBtns=Array.prototype.slice.call(document.querySelectorAll?document.querySelectorAll(".dl"):[]);
 N.flowOpts=Array.prototype.slice.call(document.querySelectorAll?document.querySelectorAll("#flowList button"):[]);
 }
@@ -474,10 +474,15 @@ if(!quiet)toast(t==="dark"?"Dark theme on":"Light theme on");
 }
 function updatePeriod(){
 var y=state.period==="yearly";
+var proUnit=y?yearly(DATA.plan.price):DATA.plan.price;
+var proTotal=DATA.plan.seats*proUnit;
 if(N.perMonthly)N.perMonthly.setAttribute("aria-pressed",y?"false":"true");
 if(N.perYearly)N.perYearly.setAttribute("aria-pressed",y?"true":"false");
-if(N.planSub)N.planSub.textContent=fmtUSD(DATA.plan.price)+" per member / month, billed "+(y?"yearly":"monthly");
-if(N.currentPrice)N.currentPrice.textContent=fmtUSD(y?yearly(DATA.plan.price):DATA.plan.price);
+if(N.planSub)N.planSub.textContent=fmtUSD(proUnit)+" per member / month, billed "+(y?"yearly":"monthly");
+if(N.currentPrice)N.currentPrice.textContent=fmtUSD(proUnit);
+if(N.billTotal)N.billTotal.textContent=fmtUSD(proTotal);
+if(N.billLineLabel)N.billLineLabel.textContent=DATA.plan.name+" · "+DATA.plan.seats+" seats × "+fmtUSD(proUnit);
+if(N.billLineTotal)N.billLineTotal.textContent=fmtUSD(proTotal);
 if(N.teamPrice)N.teamPrice.textContent=fmtUSD(y?yearly(69):69);
 if(N.bizPrice)N.bizPrice.textContent=fmtUSD(y?yearly(89):89);
 if(N.teamYearly)N.teamYearly.hidden=!y;
@@ -565,7 +570,7 @@ on(N.editAddr,"click",function(){setAddrEditing(true);});
 on(N.addrCancel,"click",function(){setAddrEditing(false);});
 on(N.addrForm,"submit",function(e){if(e&&e.preventDefault)e.preventDefault();saveAddr();});
 on(N.addrForm,"keydown",function(e){if(e&&e.key==="Escape")setAddrEditing(false);});
-on(N.previewBill,"click",function(){setDetails(true);var o=$("overview");if(o&&o.scrollIntoView)try{o.scrollIntoView({behavior:"smooth"});}catch(e){}toast("Upcoming invoice preview — $294 due Dec 6, 2026");});
+on(N.previewBill,"click",function(){setDetails(true);var o=$("overview");if(o&&o.scrollIntoView)try{o.scrollIntoView({behavior:"smooth"});}catch(e){}toast("Upcoming invoice preview — "+fmtUSD(DATA.plan.seats*(state.period==="yearly"?yearly(DATA.plan.price):DATA.plan.price))+" due Dec 6, 2026");});
 if(N.dlBtns)N.dlBtns.forEach(function(b){on(b,"click",function(){toast(b.getAttribute("data-id")+".pdf downloaded");});});
 on(N.cancelBtn,"click",function(){setCancel(!state.cancel);if(state.cancel){var k=$("keepPlan");if(k&&k.focus)try{k.focus();}catch(e){}}});
 on(N.keepPlan,"click",function(){setCancel(false);if(N.cancelBtn&&N.cancelBtn.focus)try{N.cancelBtn.focus();}catch(e){}});
