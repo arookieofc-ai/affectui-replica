@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script>/*noflash*/(function(){try{var k='ghosted-chat-theme';var v=null;try{v=localStorage.getItem(k)}catch(e){}if(!v){try{v=window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}catch(e){v='light'}}if(v!=='light'&&v!=='dark'){v='light'}document.documentElement.setAttribute('data-theme',v)}catch(e){}})();</script>
+<style>html{background:#fafaf9}html[data-theme="dark"]{background:#101012}</style>
+<meta name="color-scheme" content="light dark">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ghosted Chat — affectUI replica</title>
+<style>
+:root{
+  --page:#fafaf9;
+  --surface:#ffffff;
+  --ink:#1c1917;
+  --muted:#78716c;
+  --subtle:#f5f5f4;
+  --border:#e7e5e4;
+  --radius-lg:16px;
+  --radius:10px;
+  --radius-sm:6px;
+  --shadow:0 1px 2px rgba(0,0,0,.05),0 4px 16px rgba(0,0,0,.05);
+  --shadow-lift:0 2px 4px rgba(0,0,0,.06),0 10px 28px rgba(0,0,0,.08);
+  --focus:#155eef;
+  --amber:#f59e0b;
+  --amber-bg:#fef3c7;
+  --amber-ink:#92400e;
+  --ok:#16a34a;
+  --bad:#dc2626;
+  --idle:#78716c;
+  --chat-bubble:#ffffff;
+  --chat-edge:#ededed;
+  --chat-shade:0 2px 6px rgba(28,29,31,.08),0 1px 2px rgba(28,29,31,.05);
+  --chat-text:#4a4c52;
+  --chat-strong:#202020;
+  --chat-faint:#9a9da3;
+  --chat-read:#a8abb1;
+  --reply-bg:#155eef;
+  --reply-edge:#155eef;
+  --reply-ink:#ffffff;
+  --reply-shade:0 4px 12px rgba(21,94,239,.22),0 1px 2px rgba(21,94,239,.18);
+  --shine:#ff4d47;
+  --glow-1:#ffa0ab;
+  --glow-2:#ffb89e;
+  --glow-3:#c8a8e5;
+  --glow-4:#a8b5ff;
+  --img-line:rgba(0,0,0,.1);
+}
+html[data-theme="dark"]{
+  --page:#101012;
+  --surface:#1c1c1f;
+  --ink:#ededed;
+  --muted:#a1a1aa;
+  --subtle:#26262a;
+  --border:#2e2e33;
+  --shadow:0 1px 2px rgba(0,0,0,.5),0 8px 24px rgba(0,0,0,.45);
+  --shadow-lift:0 2px 6px rgba(0,0,0,.55),0 14px 34px rgba(0,0,0,.5);
+  --amber:#fbbf24;
+  --amber-bg:#451a03;
+  --amber-ink:#fde68a;
+  --chat-bubble:#232326;
+  --chat-edge:rgba(255,255,255,.08);
+  --chat-shade:0 2px 6px rgba(0,0,0,.35),0 1px 2px rgba(0,0,0,.4);
+  --chat-text:#c4c4c4;
+  --chat-strong:#ededed;
+  --chat-faint:#8f8f8f;
+  --chat-read:#8f8f8f;
+  --reply-shade:0 4px 12px rgba(0,0,0,.4),0 1px 2px rgba(0,0,0,.4);
+  --img-line:rgba(255,255,255,.1);
+}
+html{-webkit-tap-highlight-color:transparent}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:14px;
+  line-height:1.5;
+  color:var(--ink);
+  background:var(--page);
+  font-variant-numeric:tabular-nums;
+}
+img{outline:1px solid var(--img-line);outline-offset:-1px}
+.page{max-width:760px;margin:0 auto;padding:20px 16px 40px}
+.topbar{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px}
+.brand{display:flex;gap:10px;align-items:center;min-width:0}
+.mark{width:28px;height:28px;border-radius:8px;background:var(--subtle);border:1px solid var(--border);display:grid;place-items:center;font-size:15px;flex:none}
+.brand h1{font-size:16px;line-height:1.25;margin:0;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brand p{margin:2px 0 0;font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.actions{display:flex;gap:8px;align-items:center;flex:none}
+.btn{
+  appearance:none;border:1px solid var(--border);background:var(--surface);color:var(--ink);
+  border-radius:999px;padding:7px 12px 7px 10px;font:inherit;font-size:13px;font-weight:600;cursor:pointer;
+  display:inline-flex;align-items:center;gap:6px;
+  box-shadow:var(--shadow);
+  transition:transform 160ms ease,box-shadow 160ms ease,background 160ms ease,border-color 160ms ease;
+}
+.btn .ico{display:inline-block;transform:translateX(1px)}
+.btn:active{transform:translateY(1px)}
+.btn:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.btn-icon{padding:7px 9px 7px 11px}
+.counts{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 12px}
+.pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:3px 10px;font-size:12px;font-weight:600;border:1px solid var(--border);background:var(--surface);color:var(--muted)}
+.pill-live{background:var(--amber-bg);border-color:var(--amber-bg);color:var(--amber-ink)}
+.pill .dot{width:7px;height:7px;border-radius:999px;background:var(--amber)}
+.card{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);
+  box-shadow:var(--shadow);padding:16px;
+  transition:transform 180ms ease,box-shadow 180ms ease;
+}
+.card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;min-height:24px}
+.card-head h2{font-size:15px;margin:0;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.meta{font-size:12px;color:var(--muted);white-space:nowrap}
+/* nested frame: outer 16 = inner 10 + 6 inset (concentric) */
+.frame{
+  background:var(--page);border:1px solid var(--border);border-radius:var(--radius);
+  padding:6px;overflow:hidden;
+}
+.chat{
+  position:relative;width:100%;aspect-ratio:3/2;overflow:hidden;border-radius:6px;
+  background:var(--surface);border:1px solid var(--border);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+.viewport{position:absolute;inset:0;overflow:hidden}
+.stage{
+  position:absolute;left:0;top:0;width:360px;height:240px;padding:22px 22px 0;
+  transform-origin:0 0;display:flex;flex-direction:column;align-items:center;gap:14px;
+}
+.inner{
+  position:relative;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;gap:14px;
+  transform:scale(.86);transform-origin:50% 45%;
+}
+.status{font-size:11px;line-height:1.4;color:var(--chat-faint);letter-spacing:.01em;transition:color 180ms ease;min-height:16px}
+.bubbles{width:100%;padding-right:14px;display:flex;flex-direction:column;align-items:flex-end;gap:5px;transition:transform 180ms ease}
+.bubble{
+  max-width:min(68%,26ch);width:fit-content;padding:7px 12px;
+  background:var(--chat-bubble);border:1px solid var(--chat-edge);border-radius:14px 14px 4px 14px;
+  box-shadow:var(--chat-shade);font-size:12.5px;line-height:1.3;font-weight:500;color:var(--chat-text);
+  opacity:0;transform:translateY(10px) scale(.92);filter:blur(2px);
+  transition:opacity 320ms ease-out,transform 380ms cubic-bezier(.22,1,.36,1),filter 320ms ease-out;
+}
+.bubble.is-on{opacity:1;transform:none;filter:none}
+.status.is-on{opacity:1}
+.status{opacity:0;transition:opacity 320ms ease-out,color 180ms ease}
+.status.is-on{opacity:1}
+.alert{
+  display:inline-block;font-weight:500;
+  background-image:linear-gradient(90deg,var(--chat-strong) 0%,var(--chat-strong) 38%,var(--shine) 50%,var(--chat-strong) 62%,var(--chat-strong) 100%);
+  background-size:300% 100%;background-position:100% 0;background-repeat:no-repeat;
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;
+  animation:shine 4.5s ease-in-out infinite;
+}
+@keyframes shine{0%{background-position:100% 0}35%,100%{background-position:0% 0}}
+.last{position:relative;isolation:isolate;padding:6px 11px;margin-bottom:6px;background:transparent;border-color:transparent;box-shadow:none}
+.last::before{
+  content:"";position:absolute;inset:-1px;z-index:-1;background:var(--chat-bubble);
+  border:1px solid var(--chat-edge);border-radius:inherit;box-shadow:var(--chat-shade);
+}
+.last::after{
+  content:"";position:absolute;left:50%;bottom:-6px;transform:translateX(-50%);
+  width:100%;height:22px;border-radius:50%;pointer-events:none;z-index:-2;
+  background:linear-gradient(90deg,var(--glow-1) 0%,var(--glow-2) 33%,var(--glow-3) 66%,var(--glow-4) 100%);
+  opacity:.6;filter:blur(12px);
+}
+html[data-theme="dark"] .last::after{opacity:.45}
+.read{font-size:10.5px;line-height:1.4;color:var(--chat-read);margin-top:2px;min-height:15px;opacity:0;transition:opacity 320ms ease-out,color 180ms ease}
+.read.is-on{opacity:1}
+.reply{
+  position:absolute;left:64px;bottom:68px;max-width:none;width:auto;padding:6px 12px 6px 10px;
+  background:var(--reply-bg);border:1px solid var(--reply-edge);border-radius:14px 14px 14px 4px;
+  color:var(--reply-ink);font-size:15px;line-height:1.1;
+  box-shadow:var(--reply-shade);opacity:0;transform:translateY(14px) scale(.92);transform-origin:bottom left;
+  transition:opacity 180ms ease,transform 200ms cubic-bezier(.34,1.4,.64,1);
+  pointer-events:none;
+}
+.reply .t{transform:translateX(1px);display:inline-block}
+.chat.is-peek .status,.chat.is-peek .read{color:transparent}
+.chat.is-peek .bubbles{transform:translateY(-12px)}
+.chat.is-peek .reply{opacity:1;transform:none}
+.chat:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.chat:focus-within .status,.chat:focus-within .read{color:transparent}
+.chat:focus-within .bubbles{transform:translateY(-12px)}
+.chat:focus-within .reply{opacity:1;transform:none}
+.controls{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;align-items:center}
+.hint{font-size:12.5px;color:var(--muted);margin:10px 2px 0}
+details{margin-top:12px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);padding:10px 12px}
+details summary{cursor:pointer;font-weight:650;font-size:13.5px}
+details summary:focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:var(--radius-sm)}
+details p{font-size:13px;color:var(--muted);margin:8px 0 2px;padding-bottom:8px}
+.bar{height:3px;border-radius:999px;background:var(--subtle);overflow:hidden;margin-top:12px}
+.bar i{display:block;height:100%;width:0%;background:var(--amber);border-radius:inherit;transition:width 200ms ease}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+@media (max-width:560px){
+  .page{padding:14px 12px 28px}
+  .topbar{flex-direction:column;align-items:stretch}
+  .actions{justify-content:flex-start}
+  .card{padding:12px}
+}
+@media (prefers-reduced-motion:reduce){
+  .alert{animation:none}
+  .bubble,.status,.read,.reply,.bubbles,.card,.btn{transition:none}
+}
+@media (hover: hover) and (pointer: fine){
+  .card:hover{transform:translateY(-1px);box-shadow:var(--shadow-lift)}
+  .btn:hover{background:var(--subtle)}
+  .chat:hover .status,.chat:hover .read{color:transparent}
+  .chat:hover .bubbles{transform:translateY(-12px)}
+  .chat:hover .reply{opacity:1;transform:translateY(0) scale(1)}
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="topbar">
+    <div class="brand">
+      <span class="mark" aria-hidden="true">&#x1F47B;</span>
+      <div>
+        <h1>ghosted-chat</h1>
+        <p>3 unanswered &middot; marked read &middot; 1 reply on hover</p>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn" id="replayBtn" type="button"><span class="ico" aria-hidden="true">&#x25B6;</span> Replay</button>
+      <button class="btn btn-icon" id="themeBtn" type="button" aria-label="Switch to dark theme" aria-pressed="false"><span id="themeIco" aria-hidden="true">&#x2600;</span></button>
+    </div>
+  </header>
+  <div class="counts" aria-label="Conversation state">
+    <span class="pill pill-live"><span class="dot" aria-hidden="true"></span> 3 unanswered</span>
+    <span class="pill">marked read</span>
+    <span class="pill">hover for 👎</span>
+  </div>
+  <main class="card" aria-label="Ghosted chat replica">
+    <div class="card-head">
+      <h2>Unanswered thread</h2>
+      <span class="meta" id="loopMeta">loop 1 &middot; 0 / 5 shown</span>
+    </div>
+    <div class="frame">
+      <div class="chat" id="chatRoot" tabindex="0" role="img" aria-label="A chat with three unanswered messages marked as read">
+        <div class="viewport" id="chatView">
+          <div class="stage" id="chatStage">
+            <div class="inner">
+              <span class="status" id="chatStatus">No new messages</span>
+              <div class="bubbles" id="chatBubbles">
+                <div class="bubble" id="bubble1"><span>Hi team!</span></div>
+                <div class="bubble" id="bubble2"><span>Are you by any chance looking for a recruiter?</span></div>
+                <div class="bubble last" id="bubble3"><span class="alert">Hello?</span></div>
+              </div>
+              <span class="read" id="chatRead">Read</span>
+            </div>
+            <div class="reply" id="chatReply" aria-hidden="true"><span class="t">👎</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="bar" aria-hidden="true"><i id="loopBar"></i></div>
+    <div class="controls">
+      <button class="btn" id="peekBtn" type="button" aria-pressed="false">Hold to peek reply</button>
+      <button class="btn" id="loopBtn" type="button" aria-pressed="true">Auto-loop: on</button>
+    </div>
+    <p class="hint">Hover or focus the chat to reveal the thumbs-down reply. Timers update only the nodes that change; the loop restarts in place.</p>
+    <details id="whyBox">
+      <summary>Why “ghosted”?</summary>
+      <p>Three outbound messages arrive one by one, each marked Read with no answer. On hover the “No new messages” and “Read” labels fade via colour, the thread lifts, and a blue thumbs-down bubble pops in — the only reply.</p>
+    </details>
+  </main>
+</div>
+<script>
+(function(){
+  var KEY='ghosted-chat-theme';
+  function $(id){return document.getElementById(id)}
+  var root=$('chatRoot'),view=$('chatView'),stage=$('chatStage'),
+      status=$('chatStatus'),b1=$('bubble1'),b2=$('bubble2'),b3=$('bubble3'),
+      read=$('chatRead'),reply=$('chatReply'),bubbles=$('chatBubbles'),
+      replayBtn=$('replayBtn'),themeBtn=$('themeBtn'),themeIco=$('themeIco'),
+      peekBtn=$('peekBtn'),loopBtn=$('loopBtn'),loopMeta=$('loopMeta'),loopBar=$('loopBar');
+  var order=[status,b1,b2,b3,read];
+  var timers=[];var loopCount=1;var shown=0;var autoLoop=true;var started=false;
+  var reduce=false;try{reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches}catch(e){}
+  function clearTimers(){for(var i=0;i<timers.length;i++){clearTimeout(timers[i])}timers=[]}
+  function setShown(n){
+    shown=n;
+    loopMeta.textContent='loop '+loopCount+' \u00B7 '+shown+' / 5 shown';
+    loopBar.style.width=(shown/5*100)+'%';
+  }
+  function showAt(idx){
+    var el=order[idx];
+    if(!el){return}
+    if(!el.classList.contains('is-on')){el.classList.add('is-on')}
+    setShown(idx+1);
+  }
+  function hideAll(){
+    for(var i=0;i<order.length;i++){order[i].classList.remove('is-on')}
+    setShown(0);
+  }
+  function schedule(){
+    clearTimers();
+    if(reduce){for(var k=0;k<order.length;k++){if(!order[k].classList.contains('is-on')){order[k].classList.add('is-on')}}setShown(5);loopBar.style.width='100%';return}
+    var delays=[100,500,1300,2300,3200];
+    for(var i=0;i<order.length;i++){
+      (function(i){
+        timers.push(setTimeout(function(){showAt(i)},delays[i]));
+      })(i);
+    }
+    if(autoLoop){
+      timers.push(setTimeout(function(){
+        loopCount+=1;
+        hideAll();
+        schedule();
+      },7800));
+    }else{
+      timers.push(setTimeout(function(){setShown(5)},3600));
+    }
+  }
+  function restart(){
+    hideAll();
+    schedule();
+  }
+  function fit(){
+    try{
+      var w=view.clientWidth||view.parentNode.clientWidth||0;
+      if(!w||w<10){return}
+      var s=w/360;
+      stage.style.transform='scale('+s+')';
+      stage.style.visibility=s>0?'visible':'hidden';
+    }catch(e){}
+  }
+  function getTheme(){return document.documentElement.getAttribute('data-theme')||'light'}
+  function setTheme(t){
+    if(t!=='light'&&t!=='dark'){t='light'}
+    document.documentElement.setAttribute('data-theme',t);
+    try{localStorage.setItem(KEY,t)}catch(e){}
+    var dark=t==='dark';
+    themeIco.textContent=dark?'\u263E':'\u2600';
+    themeBtn.setAttribute('aria-label',dark?'Switch to light theme':'Switch to dark theme');
+    themeBtn.setAttribute('aria-pressed',dark?'true':'false');
+    return t;
+  }
+  replayBtn.addEventListener('click',function(){restart();root.focus()});
+  themeBtn.addEventListener('click',function(){setTheme(getTheme()==='dark'?'light':'dark')});
+  peekBtn.addEventListener('click',function(){
+    var on=root.classList.toggle('is-peek');
+    peekBtn.setAttribute('aria-pressed',on?'true':'false');
+    peekBtn.textContent=on?'Release peek':'Hold to peek reply';
+  });
+  loopBtn.addEventListener('click',function(){
+    autoLoop=!autoLoop;
+    loopBtn.setAttribute('aria-pressed',autoLoop?'true':'false');
+    loopBtn.textContent='Auto-loop: '+(autoLoop?'on':'off');
+    restart();
+  });
+  root.addEventListener('keydown',function(ev){
+    if(ev.key==='Escape'&&root.classList.contains('is-peek')){
+      root.classList.remove('is-peek');
+      peekBtn.setAttribute('aria-pressed','false');
+      peekBtn.textContent='Hold to peek reply';
+    }
+    if(ev.key==='r'||ev.key==='R'){restart()}
+  });
+  try{
+    if('IntersectionObserver' in window&&root){
+      var io=new IntersectionObserver(function(entries){
+        for(var i=0;i<entries.length;i++){
+          if(entries[i].isIntersecting&&!started){started=true;schedule();try{io.disconnect()}catch(e){}}
+        }
+      },{threshold:.35});
+      io.observe(root);
+      setTimeout(function(){if(!started){started=true;schedule()}},1200);
+    }else{schedule()}
+  }catch(e){schedule()}
+  try{
+    if('ResizeObserver' in window&&view){
+      var ro=new ResizeObserver(function(){fit()});
+      ro.observe(view);
+    }
+    if(window.addEventListener){window.addEventListener('resize',fit)}
+  }catch(e){}
+  setTheme(getTheme());
+  setShown(0);
+  fit();
+  window.__ghosted={
+    root:root,stage:stage,status:status,bubbles:[b1,b2,b3],read:read,reply:reply,
+    reset:function(){hideAll()},
+    showAll:function(){for(var i=0;i<order.length;i++){if(!order[i].classList.contains('is-on')){order[i].classList.add('is-on')}}setShown(5)},
+    showAt:showAt,restart:restart,setTheme:setTheme,getTheme:getTheme,fit:fit,
+    getVisibleText:function(){
+      var out=[];
+      var nodes=[status,b1,b2,b3,read,reply];
+      for(var i=0;i<nodes.length;i++){
+        var n=nodes[i];
+        var vis=n.style&&n.style.display==='none'?false:true;
+        if(n.style&&n.style.visibility==='hidden'){vis=false}
+        if(vis&&n.textContent){out.push(n.textContent)}
+      }
+      return out;
+    }
+  };
+})();
+</script>
+</body>
+</html>

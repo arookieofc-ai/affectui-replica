@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script>/*noflash*/(function(){try{var k="glow-cloud-theme";var t=localStorage.getItem(k);if(t!=="light"&&t!=="dark"){t=(window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches)?"dark":"light";}document.documentElement.setAttribute("data-theme",t);}catch(e){try{document.documentElement.setAttribute("data-theme","light");}catch(_){}}})();</script>
+<style>html{background:#fafaf9}html[data-theme="dark"]{background:#101012}</style>
+<meta name="color-scheme" content="light dark">
+<title>Glow Cloud · affectUI replica</title>
+<style>
+:root, html[data-theme="light"]{
+  --surface:#ffffff; --page:#fafaf9; --ink:#1c1917; --ink-2:#171717;
+  --muted:#78716c; --subtle:#f5f5f4; --border:#e7e5e4;
+  --radius-lg:16px; --radius:10px; --radius-sm:6px;
+  --shadow:0 1px 2px rgba(0,0,0,.05), 0 4px 16px rgba(0,0,0,.05);
+  --accent:#2475ea; --accent-ink:#ffffff;
+  --amber-bg:#fef3c7; --amber:#f59e0b; --amber-text:#92400e;
+  --ok:#16a34a; --fail:#dc2626;
+  --img-outline:rgba(0,0,0,.1);
+}
+html[data-theme="dark"]{
+  --surface:#1c1c1f; --page:#101012; --ink:#ededed; --ink-2:#ededed;
+  --muted:#a1a1aa; --subtle:#26262a; --border:#2e2e33;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
+  --accent:#4ac8f5; --accent-ink:#101012;
+  --amber-bg:#451a03; --amber:#fbbf24; --amber-text:#fde68a;
+  --ok:#4ade80; --fail:#f87171;
+  --img-outline:rgba(255,255,255,.1);
+}
+html{-webkit-tap-highlight-color:transparent}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--page); color:var(--ink);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:14px; line-height:1.5; font-variant-numeric:tabular-nums;
+}
+.wrap{max-width:880px;margin:0 auto;padding:20px 16px 48px}
+.topbar{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.brand{font-size:16px;font-weight:650;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brand small{display:block;font-size:12px;font-weight:500;color:var(--muted);letter-spacing:0}
+.count-pill{font-size:12px;color:var(--muted);background:var(--subtle);border:1px solid var(--border);border-radius:999px;padding:3px 10px;white-space:nowrap}
+.spacer{flex:1}
+.icon-btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  min-width:38px;height:38px;padding:0 10px;border-radius:999px;
+  background:var(--surface);color:var(--ink);border:1px solid var(--border);
+  box-shadow:var(--shadow);cursor:pointer;font-size:14px;line-height:1;
+  transition:transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
+  padding-left:8px;
+}
+.icon-btn .glyph{width:20px;text-align:center;padding-right:0;margin-right:-2px}
+.icon-btn .lbl{font-size:13px;color:var(--muted);padding-left:0}
+.icon-btn:focus-visible, button:focus-visible, [tabindex]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.card{
+  background:var(--surface);border:1px solid var(--border);border-radius:16px;
+  box-shadow:var(--shadow);padding:16px;
+}
+.card + .card{margin-top:12px}
+.stage-head{display:flex;align-items:baseline;gap:10px;margin:2px 2px 0}
+.stage-head h1{font-size:15px;font-weight:650;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stage-head .meta{margin-left:auto;font-size:12px;color:var(--muted);white-space:nowrap}
+.grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);gap:16px;margin-top:12px}
+@media (max-width:680px){.grid{grid-template-columns:1fr}}
+.viewer{
+  border:1px solid var(--border);border-radius:10px;background:var(--subtle);
+  padding:14px;display:grid;place-items:center;min-height:340px;
+}
+/* ---- glow cloud palette (demo data verbatim) ---- */
+.ui-glw{
+  --ui-glw-sky-top:#2475ea; --ui-glw-sky-bottom:#4ac8f5;
+  --ui-glw-sky-light:rgba(110,225,255,.55);
+  --ui-glw-white:#ffffff; --ui-glw-rim:#f4fcff;
+  --ui-glw-body-1:#06a3ff; --ui-glw-body-2:#18b2ff; --ui-glw-body-3:#58cdff;
+  --ui-glw-eye:#cdeeff; --ui-glw-eye-shade:rgba(30,140,230,.3);
+  --ui-glw-halo:rgba(30,150,255,.2); --ui-glw-edge:rgba(20,120,240,.4);
+  --ui-glw-shadow:rgba(10,90,200,.55); --ui-glw-ground:rgba(10,80,190,.4);
+  position:relative;display:grid;place-items:center;width:100%;aspect-ratio:1;
+  max-width:320px;margin:0 auto;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;
+  touch-action:manipulation;border-radius:10px;
+}
+.ui-glw[data-color="orange"]{
+  --ui-glw-sky-top:#e94135; --ui-glw-sky-bottom:#fa9842;
+  --ui-glw-sky-light:rgba(255,205,150,.5);
+  --ui-glw-rim:#fff9f5;
+  --ui-glw-body-1:#f45434; --ui-glw-body-2:#fa7342; --ui-glw-body-3:#ffb175;
+  --ui-glw-eye:#ffe8db; --ui-glw-eye-shade:rgba(230,90,50,.3);
+  --ui-glw-halo:rgba(240,100,60,.2); --ui-glw-edge:rgba(220,80,40,.4);
+  --ui-glw-shadow:rgba(170,50,20,.5); --ui-glw-ground:rgba(150,30,10,.36);
+}
+.ui-glw svg{display:block;width:100%;max-width:320px;overflow:visible;outline:1px solid var(--img-outline);outline-offset:-1px;border-radius:6px}
+.ui-glw__halo{fill:var(--ui-glw-halo)}
+.ui-glw__edge{fill:var(--ui-glw-edge)}
+.ui-glw__shadow{fill:var(--ui-glw-shadow)}
+.ui-glw__eye-shade{stroke:var(--ui-glw-eye-shade)}
+.ui-glw[data-bg]{
+  --ui-glw-halo:rgba(255,255,255,.55); --ui-glw-edge:rgba(255,255,255,.3);
+  --ui-glw-shadow:var(--ui-glw-ground);
+  background:radial-gradient(60% 55% at 62% 42%, var(--ui-glw-sky-light), transparent 70%),linear-gradient(180deg, var(--ui-glw-sky-top), var(--ui-glw-sky-bottom));
+}
+:where(.dark,[data-theme="dark"]) .ui-glw{
+  --ui-glw-sky-top:#1659c8; --ui-glw-sky-bottom:#2aa6e6;
+  --ui-glw-sky-light:rgba(90,205,255,.45); --ui-glw-ground:rgba(5,50,140,.5);
+}
+:where(.dark,[data-theme="dark"]) .ui-glw[data-color="orange"]{
+  --ui-glw-sky-top:#bf2722; --ui-glw-sky-bottom:#ed701d;
+  --ui-glw-sky-light:rgba(255,175,120,.42); --ui-glw-ground:rgba(110,15,5,.5);
+}
+:where(.dark,[data-theme="dark"]) .ui-glw:not([data-bg]){
+  --ui-glw-halo:rgba(255,255,255,.35); --ui-glw-edge:rgba(255,255,255,.25);
+}
+/* ---- panel ---- */
+.panel h2{font-size:15px;font-weight:650;margin:0 0 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.panel p.desc{margin:0 0 12px;color:var(--muted);font-size:13px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:10px 0}
+.seg{display:inline-flex;background:var(--subtle);border:1px solid var(--border);border-radius:999px;padding:3px;gap:2px}
+.seg button{border:0;background:transparent;color:var(--muted);border-radius:999px;padding:6px 12px;font-size:13px;cursor:pointer;transition:background 160ms ease,color 160ms ease}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
+.btn{
+  border:1px solid var(--border);background:var(--surface);color:var(--ink);
+  border-radius:999px;padding:7px 13px 7px 11px;font-size:13px;cursor:pointer;
+  display:inline-flex;align-items:center;gap:6px;
+  transition:transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
+}
+.btn .dot{width:8px;height:8px;border-radius:999px;background:var(--muted);flex:none}
+.btn.primary{background:var(--ink);color:var(--page);border-color:transparent}
+.btn.primary .dot{background:var(--amber)}
+.check{display:inline-flex;align-items:center;gap:7px;font-size:13px;color:var(--ink);cursor:pointer;user-select:none}
+.check input{accent-color:var(--accent);width:15px;height:15px}
+.status{
+  margin-top:12px;border-top:1px solid var(--border);padding-top:10px;
+  font-size:13px;color:var(--muted);min-height:44px;
+}
+.status strong{color:var(--ink);font-weight:600}
+.counters{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+.counter{font-size:12px;color:var(--muted);background:var(--subtle);border:1px solid var(--border);border-radius:999px;padding:3px 10px}
+.counter b{color:var(--ink);font-weight:650}
+kbd{font-family:inherit;font-size:11px;background:var(--subtle);border:1px solid var(--border);border-radius:6px;padding:1px 5px;color:var(--muted)}
+.hint{font-size:12px;color:var(--muted);margin-top:10px}
+.live{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+@media (hover: hover) and (pointer: fine){
+  .card:hover{transform:translateY(-1px)}
+  .icon-btn:hover{background:var(--subtle)}
+  .btn:hover{background:var(--subtle)}
+  .btn.primary:hover{filter:brightness(1.06)}
+  .seg button:hover{color:var(--ink)}
+  .ui-glw:hover{filter:saturate(1.04)}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <div class="brand">affectUI · Glow Cloud<small>glowing cloud with eyes · floating, looking, blinking</small></div>
+    <span class="count-pill" id="loopPill">loop 0 · idle</span>
+    <span class="spacer"></span>
+    <button class="icon-btn" id="themeBtn" type="button" aria-label="Toggle dark mode"><span class="glyph" id="themeGlyph" aria-hidden="true">◐</span><span class="lbl" id="themeLabel">Theme</span></button>
+  </div>
+
+  <div class="card">
+    <div class="stage-head">
+      <h1>Glow Cloud — interactive replica</h1>
+      <span class="meta" id="ctxLabel">240 × 240 viewBox · 60 fps loop</span>
+    </div>
+    <div class="grid">
+      <div class="viewer">
+        <div class="ui-glw" id="glow" data-bg data-color="orange" role="img" tabindex="0"
+             aria-label="A glowing cloud with eyes that floats, looks around and blinks">
+        </div>
+      </div>
+      <div class="panel">
+        <h2>Cloud controls</h2>
+        <p class="desc" id="descLine">A glowing cloud with eyes that floats, looks around and blinks. Click the cloud to poke it — it squashes and winks.</p>
+        <div class="row" role="group" aria-label="Cloud colour">
+          <div class="seg" id="colorSeg">
+            <button type="button" data-c="orange" aria-pressed="true">Red-orange</button>
+            <button type="button" data-c="blue" aria-pressed="false">Blue</button>
+          </div>
+        </div>
+        <div class="row">
+          <label class="check"><input type="checkbox" id="bgChk" checked> Sky background</label>
+          <label class="check"><input type="checkbox" id="followChk" checked> Follow pointer</label>
+          <label class="check"><input type="checkbox" id="motionChk" checked> Motion</label>
+        </div>
+        <div class="row">
+          <button class="btn primary" id="pokeBtn" type="button"><span class="dot"></span>Poke + wink</button>
+          <button class="btn" id="blinkBtn" type="button"><span class="dot"></span>Blink now</button>
+        </div>
+        <div class="status" aria-live="polite">
+          <div>Status: <strong id="statusText">Floating · looking around…</strong></div>
+          <div class="counters">
+            <span class="counter">blinks <b id="blinkCount">0</b></span>
+            <span class="counter">winks <b id="winkCount">0</b></span>
+            <span class="counter">looks <b id="lookCount">0</b></span>
+          </div>
+        </div>
+        <p class="hint">Keys: <kbd>Space</kbd> poke · <kbd>B</kbd> blink · <kbd>W</kbd> wink · <kbd>C</kbd> colour. Hover moves its gaze; leave to resume wandering.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="panel">
+      <h2>How this replica works</h2>
+      <p class="desc">Single self-contained file. The cloud body is five merged circles plus a belly rect through a goo filter; eyes track the pointer with springs, blink on a timer, and wink when poked. Animation ticks update only transform and opacity attributes in place — nodes are never rebuilt.</p>
+    </div>
+  </div>
+</div>
+<div class="live" id="live" aria-live="polite"></div>
+<noscript><p style="text-align:center;color:#78716c">This replica needs JavaScript for the floating animation.</p></noscript>
+<script>
+(function(){
+"use strict";
+/* Demo data (verbatim values from demo-original.js) */
+var CIRCLES=[{cx:115,cy:93,r:43},{cx:163,cy:111,r:39},{cx:156,cy:155,r:31},{cx:107,cy:155,r:35},{cx:72,cy:126,r:34}];
+var BELLY={x:80,y:100,width:80,height:65};
+var EYES={y:106,w:18,h:31,left:96.5,right:127.5};
+var CX=120, CY_EYE=120, CY_BODY=180, CY_SHADOW=210;
+var LOOKS=[{x:0,y:0},{x:-1,y:.05},{x:1,y:-.05},{x:0,y:0},{x:.65,y:-.55},{x:-.7,y:.35}];
+var LABEL="A glowing cloud with eyes that floats, looks around and blinks";
+var SVGNS="http://www.w3.org/2000/svg";
+
+var root=document.getElementById("glow");
+var statusText=document.getElementById("statusText");
+var blinkCountEl=document.getElementById("blinkCount");
+var winkCountEl=document.getElementById("winkCount");
+var lookCountEl=document.getElementById("lookCount");
+var loopPill=document.getElementById("loopPill");
+var live=document.getElementById("live");
+var bgChk=document.getElementById("bgChk");
+var followChk=document.getElementById("followChk");
+var motionChk=document.getElementById("motionChk");
+
+/* ---- theme toggle ---- */
+var themeBtn=document.getElementById("themeBtn");
+var themeGlyph=document.getElementById("themeGlyph");
+function paintThemeBtn(){
+  var t=document.documentElement.getAttribute("data-theme")||"light";
+  themeGlyph.textContent=(t==="dark")?"☾":"☀";
+  themeBtn.setAttribute("aria-label", t==="dark" ? "Switch to light mode" : "Switch to dark mode");
+}
+function toggleTheme(){
+  var cur=document.documentElement.getAttribute("data-theme")||"light";
+  var nxt=(cur==="dark")?"light":"dark";
+  document.documentElement.setAttribute("data-theme",nxt);
+  try{localStorage.setItem("glow-cloud-theme",nxt);}catch(e){}
+  paintThemeBtn();
+}
+themeBtn.addEventListener("click",toggleTheme);
+paintThemeBtn();
+
+/* ---- build SVG once (no innerHTML anywhere) ---- */
+function el(name,attrs,parent){
+  var n=document.createElementNS(SVGNS,name);
+  if(attrs) for(var k in attrs){ n.setAttribute(k,attrs[k]); }
+  if(parent) parent.appendChild(n);
+  return n;
+}
+function stopEl(parent,offset,varName){
+  var s=document.createElementNS(SVGNS,"stop");
+  s.setAttribute("offset",offset);
+  s.style.stopColor="var(--ui-glw-"+varName+")";
+  if(varName==="white") s.style.stopOpacity="1";
+  parent.appendChild(s);
+  return s;
+}
+var uid="g"+String(Math.floor(Math.random()*1e6));
+function gid(n){return uid+"-"+n;}
+
+var svg=el("svg",{viewBox:"0 0 240 240","aria-hidden":"true"},root);
+var defs=el("defs",null,svg);
+function blurFilter(id,std){
+  var f=el("filter",{id:gid(id),x:"0",y:"0",width:"240",height:"240",filterUnits:"userSpaceOnUse"},defs);
+  el("feGaussianBlur",{stdDeviation:String(std)},f);
+  return f;
+}
+(function(){
+  var g=el("filter",{id:gid("goo"),x:"0",y:"0",width:"240",height:"240",filterUnits:"userSpaceOnUse"},defs);
+  el("feGaussianBlur",{stdDeviation:"3.5"},g);
+  el("feColorMatrix",{values:"1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 28 -12"},g);
+})();
+blurFilter("soft",7); blurFilter("halo",9); blurFilter("edge",1.6); blurFilter("shade",5);
+
+var shapeG=el("g",{id:gid("shape"),filter:"url(#"+gid("goo")+")"},defs);
+var shapeCircles=CIRCLES.map(function(c){ return el("circle",{cx:String(c.cx),cy:String(c.cy),r:String(c.r)},shapeG); });
+var shapeRect=el("rect",{x:String(BELLY.x),y:String(BELLY.y),width:String(BELLY.width),height:String(BELLY.height)},shapeG);
+
+var mask=el("mask",{id:gid("mask"),maskUnits:"userSpaceOnUse",x:"0",y:"0",width:"240",height:"240"},defs);
+el("use",{href:"#"+gid("shape"),fill:"#fff"},mask);
+
+var rimG=el("linearGradient",{id:gid("rim"),x1:"0",y1:"56",x2:"0",y2:"182",gradientUnits:"userSpaceOnUse"},defs);
+stopEl(rimG,"0","rim"); stopEl(rimG,"1","white");
+var bodyG=el("radialGradient",{id:gid("body"),cx:"120",cy:"108",r:"78",gradientUnits:"userSpaceOnUse"},defs);
+stopEl(bodyG,"0","body-1"); stopEl(bodyG,"0.6","body-2"); stopEl(bodyG,"1","body-3");
+var eyeG=el("linearGradient",{id:gid("eye"),x1:"0",y1:"0",x2:"0",y2:"1"},defs);
+stopEl(eyeG,"0","white"); stopEl(eyeG,"1","eye");
+
+var shadowEl=el("ellipse",{class:"ui-glw__shadow",cx:String(CX),cy:String(CY_SHADOW),rx:"54",ry:"7",filter:"url(#"+gid("shade")+")"},svg);
+var floatG=el("g",null,svg);
+var tiltG=el("g",null,floatG);
+el("use",{href:"#"+gid("shape"),class:"ui-glw__halo",filter:"url(#"+gid("halo")+")"},tiltG);
+el("use",{href:"#"+gid("shape"),class:"ui-glw__edge",filter:"url(#"+gid("edge")+")"},tiltG);
+var bodyClip=el("g",{mask:"url(#"+gid("mask")+")"},tiltG);
+el("rect",{width:"240",height:"240",fill:"url(#"+gid("rim")+")"},bodyClip);
+var softBody=el("g",{filter:"url(#"+gid("soft")+")",fill:"url(#"+gid("body")+")",transform:"translate(0 2) translate(120 120) scale(0.9 0.87) translate(-120 -120)"},bodyClip);
+CIRCLES.forEach(function(c){ el("circle",{cx:String(c.cx),cy:String(c.cy),r:String(c.r)},softBody); });
+el("rect",{x:String(BELLY.x),y:String(BELLY.y),width:String(BELLY.width),height:String(BELLY.height)},softBody);
+var shineEl=el("ellipse",{cx:"104",cy:"80",rx:"30",ry:"12",fill:"#fff",opacity:"0.32",filter:"url(#"+gid("shade")+")"},bodyClip);
+
+function makeEye(ex,clipId){
+  var g=el("g",null,null);
+  var r=el("rect",{x:String(ex),y:String(EYES.y),width:String(EYES.w),height:String(EYES.h),rx:String(EYES.w/2),fill:"url(#"+gid("eye")+")"},g);
+  var cp=el("clipPath",{id:gid(clipId)},g);
+  el("rect",{x:String(ex),y:String(EYES.y),width:String(EYES.w),height:String(EYES.h)},cp);
+  el("rect",{x:String(ex),y:String(EYES.y+2.5),width:String(EYES.w),height:String(EYES.h),class:"ui-glw__eye-shade",fill:"none","stroke-width":"5",filter:"url(#"+gid("edge")+")",clipPath:"url(#"+gid(clipId)+")"},g);
+  return {group:g,face:r};
+}
+var pupilG=el("g",null,tiltG);
+var eyeL=makeEye(EYES.left,"clip-l"); pupilG.appendChild(eyeL.group);
+var eyeR=makeEye(EYES.right,"clip-r"); pupilG.appendChild(eyeR.group);
+
+function around(x,y,inner){ return "translate("+x+" "+y+") "+inner+" translate("+(-x)+" "+(-y)+")"; }
+function f2(n){ return (Math.round(n*100)/100).toFixed(2); }
+function f4(n){ return (Math.round(n*10000)/10000).toFixed(4); }
+function f3(n){ return (Math.round(n*1000)/1000).toFixed(3); }
+
+/* ---- animation state ---- */
+var reduced=window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+var look={x:0,y:0,vx:0,vy:0}, target={x:0,y:0}, squash={p:0,v:0};
+var pointerHeld=false, followOn=true, motionOn=!reduced;
+var nextLook=1.2, nextBlink=1.8, lastBlink=-1, doubleBlink=false, lastWink=-1;
+var raf=0, lastTs=0, T=0, frames=0;
+var blinks=0, winks=0, looks=0;
+var lastStatus="";
+
+function lidScale(dt,width){
+  if(dt<0||dt>width) return 1;
+  return 1-0.9*Math.sin(dt/width*Math.PI);
+}
+function setStatus(s){
+  if(s===lastStatus) return;
+  lastStatus=s;
+  statusText.textContent=s;
+  live.textContent=s;
+}
+function paint(dtNow){
+  var bob=motionOn?Math.sin(T*1.1)*5:0;
+  var wob=motionOn?Math.sin(T*1.1+Math.PI/2)*0.012:0;
+  var sy=1+wob-squash.p*0.12, sx=1-wob+squash.p*0.1;
+  floatG.setAttribute("transform","translate(0 "+f2(bob)+") "+around(CX,CY_BODY,"scale("+f4(sx)+" "+f4(sy)+")"));
+  tiltG.setAttribute("transform","translate("+f2(look.x*4)+" "+f2(look.y*2)+") "+around(CX,CY_EYE,"rotate("+f2(look.x*2.5)+") scale("+f4(1-Math.abs(look.x)*0.025)+" 1)"));
+  pupilG.setAttribute("transform","translate("+f2(look.x*12)+" "+f2(look.y*7)+")");
+  shineEl.setAttribute("transform","translate("+f2(-look.x*7)+" "+f2(-look.y*3)+")");
+  var blinkL=lastBlink<0?1:Math.min(lidScale(T-lastBlink,0.16),doubleBlink?lidScale(T-lastBlink-0.26,0.16):1);
+  var winkR=lidScale(T-lastWink,0.34);
+  var midY=EYES.y+EYES.h/2;
+  eyeL.group.setAttribute("transform",around(EYES.left+EYES.w/2,midY,"scale(1 "+f3(blinkL)+")"));
+  eyeR.group.setAttribute("transform",around(EYES.right+EYES.w/2,midY,"scale(1 "+f3(Math.min(blinkL,winkR))+")"));
+  var k=(bob+5)/10;
+  shadowEl.setAttribute("transform",around(CX,CY_SHADOW,"scale("+f3(1-k*0.12)+" 1)"));
+  shadowEl.setAttribute("opacity",f3(0.34-k*0.1));
+}
+function tick(ts){
+  var dt=Math.min(0.05,(ts-(lastTs||ts))/1000);
+  lastTs=ts; T+=dt; frames++;
+  if(!pointerHeld&&T>nextLook){
+    var pick=LOOKS[Math.floor(Math.random()*LOOKS.length)];
+    target.x=pick.x; target.y=pick.y; looks++;
+    lookCountEl.textContent=String(looks);
+    nextLook=T+1.4+Math.random()*2.2;
+    var dir=pick.x<-0.3?"left":(pick.x>0.3?"right":(pick.y<-0.3?"up":(pick.y>0.2?"down":"ahead")));
+    setStatus("Floating · gazing "+dir+"…");
+  }
+  if(T>nextBlink){
+    lastBlink=T; doubleBlink=Math.random()<0.25; blinks++;
+    blinkCountEl.textContent=String(blinks);
+    setStatus(doubleBlink?"Double blink!":"Blinking…");
+    nextBlink=T+2.4+Math.random()*3;
+  }
+  /* springs: gaze (70/13), squash (220/9) */
+  look.vx+=((target.x-look.x)*70-look.vx*13)*dt;
+  look.vy+=((target.y-look.y)*70-look.vy*13)*dt;
+  look.x+=look.vx*dt; look.y+=look.vy*dt;
+  squash.v+=(-squash.p*220-squash.v*9)*dt;
+  squash.p+=squash.v*dt;
+  paint(dt);
+  if(frames%20===0){ loopPill.textContent="loop "+frames+" · "+(pointerHeld?"held":(T-lastBlink<0.3?"blink":"idle")); }
+  raf=requestAnimationFrame(tick);
+}
+function start(){ if(!raf&&motionOn!==false){ lastTs=0; raf=requestAnimationFrame(tick);} if(!raf&&!motionOn){ paint(0);} }
+function stop(){ if(raf){cancelAnimationFrame(raf);} raf=0; }
+function doBlink(){
+  lastBlink=T; doubleBlink=false; blinks++;
+  blinkCountEl.textContent=String(blinks);
+  setStatus("Blinking…");
+  nextBlink=T+2.4+Math.random()*3;
+  paint(0);
+}
+function doWink(){
+  lastWink=T+0.12; winks++;
+  winkCountEl.textContent=String(winks);
+  setStatus("Wink! · poked the cloud");
+  paint(0);
+}
+function doPoke(){
+  squash.p=0.9; squash.v=0;
+  doWink();
+}
+root.setAttribute("aria-label",LABEL);
+paint(0);
+start();
+
+/* pointer gaze */
+root.addEventListener("pointermove",function(ev){
+  if(!followOn) return;
+  var r=root.getBoundingClientRect();
+  if(r.width===0) return;
+  pointerHeld=true;
+  var nx=((ev.clientX-r.left)/r.width-0.5)*2.4;
+  var ny=((ev.clientY-r.top)/r.height-0.5)*2.4;
+  target.x=Math.max(-1,Math.min(1,nx));
+  target.y=Math.max(-1,Math.min(1,ny));
+  setStatus("Watching your pointer…");
+});
+root.addEventListener("pointerleave",function(){
+  pointerHeld=false; target.x=0; target.y=0; nextLook=T+1.2;
+  setStatus("Floating · looking around…");
+});
+root.addEventListener("pointerdown",function(){
+  doPoke();
+  if(!motionOn){ start(); window.setTimeout(stop,1200); }
+});
+root.addEventListener("keydown",function(ev){
+  if(ev.key===" "||ev.key==="Enter"){ ev.preventDefault(); doPoke(); }
+  else if(ev.key==="b"||ev.key==="B"){ doBlink(); }
+  else if(ev.key==="w"||ev.key==="W"){ doWink(); }
+  else if(ev.key==="c"||ev.key==="C"){ toggleColor(); }
+});
+
+/* controls — all mutate existing nodes in place */
+var seg=document.getElementById("colorSeg");
+var segBtns=seg.querySelectorAll("button");
+function toggleColor(){
+  var cur=root.getAttribute("data-color")==="blue"?"blue":"orange";
+  setColor(cur==="orange"?"blue":"orange");
+}
+function setColor(c){
+  root.setAttribute("data-color",c);
+  for(var i=0;i<segBtns.length;i++){
+    segBtns[i].setAttribute("aria-pressed",segBtns[i].getAttribute("data-c")===c?"true":"false");
+  }
+  setStatus(c==="orange"?"Warm red-orange glow":"Cool blue glow");
+}
+for(var i=0;i<segBtns.length;i++){
+  segBtns[i].addEventListener("click",function(){ setColor(this.getAttribute("data-c")); });
+}
+bgChk.addEventListener("change",function(){
+  if(bgChk.checked){ root.setAttribute("data-bg",""); }
+  else{ root.removeAttribute("data-bg"); }
+});
+followChk.addEventListener("change",function(){
+  followOn=followChk.checked;
+  if(!followOn){ pointerHeld=false; target.x=0; target.y=0; }
+});
+motionChk.checked=motionOn;
+motionChk.addEventListener("change",function(){
+  motionOn=motionChk.checked;
+  if(motionOn){ start(); setStatus("Floating · looking around…"); }
+  else{ stop(); paint(0); setStatus("Paused · motion off"); loopPill.textContent="loop "+frames+" · paused"; }
+});
+document.getElementById("pokeBtn").addEventListener("click",doPoke);
+document.getElementById("blinkBtn").addEventListener("click",doBlink);
+
+/* pause offscreen */
+if("IntersectionObserver" in window){
+  new IntersectionObserver(function(entries){
+    if(entries[0].isIntersecting){ if(motionOn) start(); }
+    else{ stop(); }
+  }).observe(root);
+}
+/* expose tiny API for the node harness */
+window.__glow={root:root,floatG:floatG,tiltG:tiltG,pupilG:pupilG,eyeL:eyeL.group,eyeR:eyeR.group,shadow:shadowEl,status:statusText,setColor:setColor,doBlink:doBlink,doWink:doWink,doPoke:doPoke,tick:tick,paint:paint,get T(){return T;},get frames(){return frames;}};
+})();
+</script>
+</body>
+</html>
