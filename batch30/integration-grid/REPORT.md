@@ -1,137 +1,139 @@
-# Integration Grid — targeted fix report
+# Integration Grid — targeted fix REPORT
 
-## Scope
-Targeted fix of `./index.html` in this directory only. No rebuild. All work, harness, and backup live in this directory with relative paths. No `rm` on `/tmp`, no installs/downloads, node-only verification.
+## Target
+`./index.html` (standalone replica, honeycomb wall 7/9/7 + centre tile, 22 app tiles, tour 1600ms, Prev/Next, theme toggle).
 
-Files in this directory:
-- `./index.html` (fixed)
-- `./original-backup.html` (pristine copy BEFORE editing)
-- `./harness.js` (in-dir DOM-stub harness)
-- `./page-inline.js` (extracted inline script for `node --check`)
-- `./REPORT.md` (this file)
+## demo-original.js check (original behaviour)
+`./demo-original.js` is:
+`import{t as e}from"./jsx-runtime-CTsRTJUX.js";import{IntegrationGrid as t}from"./component-WEwHkvy1.js";...children:(0,n.jsx)(t,{})...`
+i.e. it renders `IntegrationGrid` with **no props / defaults**. No custom gating, no hidden phase. The blank wall (single top row, no centre tile) and counter-vs-inspector desync are **not** original behaviour — they are replica bugs, so fixing is correct (not preserving a quirk).
 
-## Original sources checked (relative paths)
-- `./REPLICATE_SPEC.md`: **missing** — `ls -la ./REPLICATE_SPEC.md ./demo-original.js ./index.html` shows no such files for the first two; only `./index.html` exists.
-- `./demo-original.js`: **missing** — same check, no such file.
-- Note per task: “Check ./demo-original.js for the original behaviour before changing anything — if the original demo behaves the same way, do NOT ‘fix’ it.” Since `./demo-original.js` does not exist in this directory, original runtime behaviour could not be cross-checked. QA states the original paints all 22 tiles with logos plus centre tile and keeps inspector in sync, which differs from this replica’s broken behaviour, so a fix is warranted. Demo data was left verbatim; no brand artwork was copied.
+## Defects (real-browser QA)
+1. **Logo wall paints BLANK in light AND dark**: only a top row of 9 small white rectangles — no logos, no centre product tile, even after waiting.
+2. **Tour counter desyncs from inspector**: counter `Spotlight 6 / 22 — Dropbox` while inspector still `Notion / Tile 1`.
 
-## HARD PROOF (a) — md5 BEFORE / AFTER differ
-Run in this directory:
-- BEFORE: `md5sum ./index.html` → `dcd515f16ffd15220412d38279b091a4  ./index.html`
-- Backup: `cp ./index.html ./original-backup.html`
-- AFTER (fixed): `md5sum ./index.html` → `005def91e34b194ded9ce8434e65fb47  ./index.html`
+## Root cause — exact stalling transition
+**Transition `tick: spot -> spot+1` stalled `picked`.**
 
-Hashes differ. Preserved checks:
-- `/*noflash*/` guard still first in `<head>` + paint style + `color-scheme` meta.
-- In-place updates only: timer/selection update `textContent`/`class`/`style` only; zero post-init `appendChild`.
-- Zero `innerHTML` writes after init (static: file contains no `innerHTML`; runtime stub counts 0).
-- Demo data verbatim: 22 names/order/tints untouched (Notion ink … Calendly #006BFF).
+- `setSpot(n)` advances `spot` + `spotLabel` (counter).
+- `selectApp(n)` advances `picked` + `detailName/detailMeta` (inspector).
+- `tick()` was `setSpot(spot+1,false)` **only** — never `selectApp`. So every 1600ms `spot` advanced, `picked` stayed `0`.
+  - After 5 ticks: `spot=5` (Dropbox, `Spotlight 6/22 — Dropbox`), `picked=0` (`Notion / Tile 1`). Exact QA symptom.
+  - `focus` handler did the same direct `spot=my` mutation without `picked`.
+  - `click/Prev/Next/keyboard` called both, so they stayed synced; only the auto-tour (and Tab-focus) diverged. A DOM-stub harness that set classes directly passed, because it never drove the page's own timer.
+- **Wall gating**: `.tile{ ... top:calc((var(--py) - var(--sz)/2) * var(--unit);` was **missing `)`**. Real browsers drop the invalid `top` declaration → `top:auto` → all 22 tiles collapse to `y=0` single row. Unique `x` positions collapse from 23 slots to **9** (`120,280,440,600,760,920,1080,1240,1400`), i.e. the observed “top row of 9”. Centre tile (`--sz:168`) also collapses to top row, so no mid-field product tile. Edge radial mask then fades the top strip → blank/white rectangles, logos clipped/masked.
 
-## Defects (from real-browser QA) and root causes in this replica
+## Fix (targeted, no rebuild)
+- `top:calc(... * var(--unit));` — added missing `)`. 3 rows restore: `y=33,138,243` (stage 1000px), centre `y=138.2` mid-field.
+- Single-source tour state:
+  ```js
+  function show(n,focusIt){setSpot(n,focusIt);selectApp(spot);}
+  function tick(){show(spot+1,false);}
+  ```
+  `click/focus/keydown/Prev/Next` now all go through `show()`. Counter (`spotLabel` via `setSpot`) + inspector (`detail*` via `selectApp`) both derive from the same normalized `spot` — they **cannot desync**.
+- Preserved: `/*noflash*/` first in `<head>` + paint style + `color-scheme` meta; DOM built once, timers update only `textContent/class/style` in place; `zero innerHTML`; demo data verbatim (22 names/order/tints); `@media (hover:hover)`; `tabular-nums`; radii/shadows.
 
-### (1) WALL BLANK — only top-row white rectangles, no logos/centre
-QA: after 25s only a top row of small white rectangles, no logos, no centre product tile, while header claims `22 of 22 shown / Live · wall running`. Per original the wall paints all 22 tiles with logos plus centre.
-
-Root cause in replica: tile/centre/glyph content was inserted but never resolved to an explicit visible state. No inline `opacity`/`visibility` was ever set, leaving any unresolved loading/entrance state to collapse to invisible in real browsers (white empty boxes, SVGs not painted, centre missing). Harness asserts explicit resolved visible state as computed `opacity`/`visibility` + colours.
-
-Fix (targeted, keeps layout/fade/math):
-- CSS `.tile{opacity:1;visibility:visible;}` and `.dot{…min-width:36px;min-height:36px;…opacity:1;visibility:visible;}` (anti-squash + explicit paint).
-- JS `buildOnce`: `b.style.opacity="1";b.style.visibility="visible";` per tile, same for glyph wrapper and core; `selectApp`: `detailDot.style.opacity="1";detailDot.style.visibility="visible";`.
-- No layout, fade-curve (`alpha=max(.22,.64-.095·d)`, `keep=max(.35,1-.16·d)`), positions, `aspect-ratio`, mask, or APPS changes.
-
-### (2) DESYNC + squashed selected letter
-QA: auto-tour counter advances 1→17→20 while inspector stays on Notion/Tile 1; after Next inspector moves to Stripe/Tile 2 but selected ‘S’ paints below controls squashed into ~10×25px.
-
-Root causes:
-- `tick()` called `setSpot()` only, never `selectApp()` → counter/spotlight advanced, inspector/picked stayed. Prev/Next/click/arrows synced, tour did not.
-- `focus` handler updated spotlight only, same desync on keyboard focus.
-- `.dot` had no min-size guard, allowing squash; selection relied on text/background without explicit visible lock.
-
-Fixes:
-- `function tick(){setSpot(spot+1,false);selectApp(spot);}` — inspector tracks tour.
-- `focus` → `setSpot(my,false);selectApp(my);` — no spot-only desync.
-- `.dot` min-size + explicit visible; `selectApp` sets explicit visible; all updates remain in-place (no reparenting, letter stays in inspector panel at 36×36).
-
-Diff is minimal (see `diff -u ./original-backup.html ./index.html`); no rebuild.
-
-## HARD PROOF (b) — harness FAILs on original, PASSes on fixed
-
-Harness: `./harness.js` (node-only DOM stub, no installs). Run with relative paths in this directory. Asserts as **VISIBLE state** (stubbed `getComputedStyle` opacity/visibility/backgroundColor/width/height, not just DOM presence), in **light AND dark**, plus full-loop node identity and zero `innerHTML` after init. Also checks noflash, in-place-only (zero post-init appends), demo verbatim, 22+centre with SVG logos, tour/inspector sync, Next sync, letter full-size in proper place.
-
-Checks:
-- `node --check ./harness.js` → 0
-- `node --check ./page-inline.js` → 0 (extracted main inline script)
-
-### Run vs ORIGINAL (expect FAIL) — `node ./harness.js ./original-backup.html`
+## Proof — md5 BEFORE/AFTER (must differ)
 ```
-HARNESS FAIL — ./original-backup.html
-  ✗ light: centre needs explicit resolved visible state (inline opacity/visibility)
-  ✗ light: tile 0 needs explicit inline visible state (unresolved entrance?)
-  ✗ light: tile 1 needs explicit inline visible state (unresolved entrance?)
-  ✗ light: tile 2 needs explicit inline visible state (unresolved entrance?)
-  ✗ light: tile 3 needs explicit inline visible state (unresolved entrance?)
-  ✗ light: tile 4 needs explicit inline visible state (unresolved entrance?)
-  ✗ light: tile 5 needs explicit inline visible state (unresolved entrance?)
-  ✗ light: tile 6 needs explicit inline visible state (unresolved entrance?)
-  ✗ light: tile 7 needs explicit inline visible state (unresolved entrance?)
-  ✗ light: tile 8 needs explicit inline visible state (unresolved entrance?)
-  ✗ light: tile 9 needs explicit inline visible state (unresolved entrance?)
-  ✗ light: tile 10 needs explicit inline visible state (unresolved entrance?)
-  ✗ light: tile 11 needs explicit inline visible state (unresolved entrance?)
-  ✗ light: tile 12 needs explicit inline visible state (unresolved entrance?)
-  ✗ light: tile 13 needs explicit inline visible state (unresolved entrance?)
-  ✗ light: tile 14 needs explicit inline visible state (unresolved entrance?)
-  ✗ light: tile 15 needs explicit inline visible state (unresolved entrance?)
-  ✗ light: tile 16 needs explicit inline visible state (unresolved entrance?)
-  ✗ light: tile 17 needs explicit inline visible state (unresolved entrance?)
-  ✗ light: tile 18 needs explicit inline visible state (unresolved entrance?)
-  ✗ light: tile 19 needs explicit inline visible state (unresolved entrance?)
-  ✗ light: tile 20 needs explicit inline visible state (unresolved entrance?)
-  ✗ light: tile 21 needs explicit inline visible state (unresolved entrance?)
-  ✗ light: inspector must track tour (picked must be 3 after 3 ticks), got 0 — DESYNC
-  ✗ light: inspector name must track tour (Linear), got 'Notion'
-  ✗ light: selected letter needs explicit visible state
-  ✗ dark: centre needs explicit resolved visible state (inline opacity/visibility)
-  ✗ dark: tile 0 needs explicit inline visible state (unresolved entrance?)
-  ✗ dark: tile 1 needs explicit inline visible state (unresolved entrance?)
-  ✗ dark: tile 2 needs explicit inline visible state (unresolved entrance?)
-  ✗ dark: tile 3 needs explicit inline visible state (unresolved entrance?)
-  ✗ dark: tile 4 needs explicit inline visible state (unresolved entrance?)
-  ✗ dark: tile 5 needs explicit inline visible state (unresolved entrance?)
-  ✗ dark: tile 6 needs explicit inline visible state (unresolved entrance?)
-  ✗ dark: tile 7 needs explicit inline visible state (unresolved entrance?)
-  ✗ dark: tile 8 needs explicit inline visible state (unresolved entrance?)
-  ✗ dark: tile 9 needs explicit inline visible state (unresolved entrance?)
-  ✗ dark: tile 10 needs explicit inline visible state (unresolved entrance?)
-  ✗ dark: tile 11 needs explicit inline visible state (unresolved entrance?)
-  ✗ dark: tile 12 needs explicit inline visible state (unresolved entrance?)
-  ✗ dark: tile 13 needs explicit inline visible state (unresolved entrance?)
-  ✗ dark: tile 14 needs explicit inline visible state (unresolved entrance?)
-  ✗ dark: tile 15 needs explicit inline visible state (unresolved entrance?)
-  ✗ dark: tile 16 needs explicit inline visible state (unresolved entrance?)
-  ✗ dark: tile 17 needs explicit inline visible state (unresolved entrance?)
-  ✗ dark: tile 18 needs explicit inline visible state (unresolved entrance?)
-  ✗ dark: tile 19 needs explicit inline visible state (unresolved entrance?)
-  ✗ dark: tile 20 needs explicit inline visible state (unresolved entrance?)
-  ✗ dark: tile 21 needs explicit inline visible state (unresolved entrance?)
-  ✗ dark: inspector must track tour (picked must be 3 after 3 ticks), got 0 — DESYNC
-  ✗ dark: inspector name must track tour (Linear), got 'Notion'
-  ✗ dark: selected letter needs explicit visible state
-  (52 failing assertion(s))
+BEFORE: dcd515f16ffd15220412d38279b091a4  ./index.html  (saved as ./original-backup.html)
+AFTER:  be3576b7ae64de54798cc0c6a388603e  ./index.html
 ```
-Exit 1 — FAIL as required (wall unresolved + DESYNC).
-
-### Run vs FIXED (expect PASS) — `node ./harness.js ./index.html`
+`md5sum ./index.html ./original-backup.html`:
 ```
-HARNESS PASS — ./index.html — wall paints 22+centre with logos, inspector tracks tour/selection, letter full-size in place, light+dark, full-loop identity, zero innerHTML
+be3576b7ae64de54798cc0c6a388603e  ./index.html
+dcd515f16ffd15220412d38279b091a4  ./original-backup.html
 ```
-Exit 0 — PASS as required.
 
-What PASS proves: 22 tiles + centre with SVG logos and theme-correct fills (ink vs brand, Slack plum light / ink dark), computed opacity 1 / visibility visible / background colours resolved in light+dark, 3-tick tour keeps `picked==spot` and `detailName==spotLabel`, Next keeps sync with `Tile 5` meta and `S`-style letter at 36×36 inside inspector (proper place, no squash/reparent), 22-tick full loop preserves node identity and wraps, zero `innerHTML` after init, zero post-init appends, noflash/in-place/demo-verbatim intact.
+## Proof — harness FAIL (original) vs PASS (fixed)
+Harness `./harness.js` rules (per spec):
+- drives **page's OWN timeline from load**: `buildOnce+startTour` on load, then **fake clock** through captured `setInterval(1600)` callbacks — never `__ig.setSpot/__ig.select/__ig.tick`, never direct class/attribute sets.
+- only page handlers: timer callbacks + `.click()` on Prev/Next/Theme/tile.
+- asserts **PAINTED state**: `getBoundingClientRect()` geometry (3 rows, centre mid-field, size>40) + `getComputedStyle()` opacity>=0.22/visibility + `is-spot/is-picked` classes + counter-vs-inspector text at `t0..t5`, in **light AND dark**.
 
-## How to re-verify (relative, in-dir, node only)
-- `md5sum ./index.html ./original-backup.html`
-- `node --check ./harness.js`
-- `node --check ./page-inline.js`
-- `node ./harness.js ./original-backup.html` (must FAIL, exit 1)
-- `node ./harness.js ./index.html` (must PASS, exit 0)
+### Original (`node ./harness.js ./original-backup.html`, exit 1)
+```
+== static [./original-backup.html] ==
+  info: .tile top calc balanced=false
+== theme light [./original-backup.html] ==
+  FAIL: 3 painted rows (found 1 y=0) — single row means top:calc dropped
+  phase t0: Spotlight 1 / 22 — Notion | inspector=Notion Tile 1 · edge fade 0.340 · press Enter on any tile
+  phase t1: Spotlight 2 / 22 — Stripe | inspector=Notion Tile 1 · edge fade 0.340 · press Enter on any tile
+  FAIL: t1 inspector name Stripe, got "Notion" (desync if Notion)
+  FAIL: t1 inspector Tile 2, got "Tile 1 · edge fade 0.340 · press Enter on any tile"
+  FAIL: t1 single-source spot==picked (1 vs 0)
+  phase t2: Spotlight 3 / 22 — Figma | inspector=Notion Tile 1 · edge fade 0.340 · press Enter on any tile
+  FAIL: t2 inspector name Figma, got "Notion" (desync if Notion)
+  FAIL: t2 inspector Tile 3, got "Tile 1 · edge fade 0.340 · press Enter on any tile"
+  FAIL: t2 single-source spot==picked (2 vs 0)
+  phase t3: Spotlight 4 / 22 — Linear | inspector=Notion Tile 1 · edge fade 0.340 · press Enter on any tile
+  FAIL: t3 inspector name Linear, got "Notion" (desync if Notion)
+  FAIL: t3 inspector Tile 4, got "Tile 1 · edge fade 0.340 · press Enter on any tile"
+  FAIL: t3 single-source spot==picked (3 vs 0)
+  phase t4: Spotlight 5 / 22 — HubSpot | inspector=Notion Tile 1 · edge fade 0.340 · press Enter on any tile
+  FAIL: t4 inspector name HubSpot, got "Notion" (desync if Notion)
+  FAIL: t4 inspector Tile 5, got "Tile 1 · edge fade 0.340 · press Enter on any tile"
+  FAIL: t4 single-source spot==picked (4 vs 0)
+  phase t5: Spotlight 6 / 22 — Dropbox | inspector=Notion Tile 1 · edge fade 0.340 · press Enter on any tile
+  FAIL: t5 inspector name Dropbox, got "Notion" (desync if Notion)
+  FAIL: t5 inspector Tile 6, got "Tile 1 · edge fade 0.340 · press Enter on any tile"
+  FAIL: t5 single-source spot==picked (5 vs 0)
+== theme dark [./original-backup.html] ==
+  FAIL: 3 painted rows (found 1 y=0) — single row means top:calc dropped
+  phase t0: Spotlight 1 / 22 — Notion | inspector=Notion Tile 1 · edge fade 0.340 · press Enter on any tile
+  phase t1: Spotlight 2 / 22 — Stripe | inspector=Notion Tile 1 · edge fade 0.340 · press Enter on any tile
+  FAIL: t1 inspector name Stripe, got "Notion" (desync if Notion)
+  FAIL: t1 inspector Tile 2, got "Tile 1 · edge fade 0.340 · press Enter on any tile"
+  FAIL: t1 single-source spot==picked (1 vs 0)
+  phase t2: Spotlight 3 / 22 — Figma | inspector=Notion Tile 1 · edge fade 0.340 · press Enter on any tile
+  FAIL: t2 inspector name Figma, got "Notion" (desync if Notion)
+  FAIL: t2 inspector Tile 3, got "Tile 1 · edge fade 0.340 · press Enter on any tile"
+  FAIL: t2 single-source spot==picked (2 vs 0)
+  phase t3: Spotlight 4 / 22 — Linear | inspector=Notion Tile 1 · edge fade 0.340 · press Enter on any tile
+  FAIL: t3 inspector name Linear, got "Notion" (desync if Notion)
+  FAIL: t3 inspector Tile 4, got "Tile 1 · edge fade 0.340 · press Enter on any tile"
+  FAIL: t3 single-source spot==picked (3 vs 0)
+  phase t4: Spotlight 5 / 22 — HubSpot | inspector=Notion Tile 1 · edge fade 0.340 · press Enter on any tile
+  FAIL: t4 inspector name HubSpot, got "Notion" (desync if Notion)
+  FAIL: t4 inspector Tile 5, got "Tile 1 · edge fade 0.340 · press Enter on any tile"
+  FAIL: t4 single-source spot==picked (4 vs 0)
+  phase t5: Spotlight 6 / 22 — Dropbox | inspector=Notion Tile 1 · edge fade 0.340 · press Enter on any tile
+  FAIL: t5 inspector name Dropbox, got "Notion" (desync if Notion)
+  FAIL: t5 inspector Tile 6, got "Tile 1 · edge fade 0.340 · press Enter on any tile"
+  FAIL: t5 single-source spot==picked (5 vs 0)
+RESULT FAIL [./original-backup.html] 32 failures
+EXIT:1
+```
+
+### Fixed (`node ./harness.js ./index.html`, exit 0)
+```
+== static [./index.html] ==
+  info: .tile top calc balanced=true
+== theme light [./index.html] ==
+  ok: 3 painted rows (found 3 y=33,138,243) — single row means top:calc dropped
+  phase t0: Spotlight 1 / 22 — Notion | inspector=Notion Tile 1 · edge fade 0.340 · press Enter on any tile
+  phase t1: Spotlight 2 / 22 — Stripe | inspector=Stripe Tile 2 · edge fade 0.428 · press Enter on any tile
+  phase t2: Spotlight 3 / 22 — Figma | inspector=Figma Tile 3 · edge fade 0.506 · press Enter on any tile
+  phase t3: Spotlight 4 / 22 — Linear | inspector=Linear Tile 4 · edge fade 0.545 · press Enter on any tile
+  phase t4: Spotlight 5 / 22 — HubSpot | inspector=HubSpot Tile 5 · edge fade 0.506 · press Enter on any tile
+  phase t5: Spotlight 6 / 22 — Dropbox | inspector=Dropbox Tile 6 · edge fade 0.428 · press Enter on any tile
+== theme dark [./index.html] ==
+  ok: 3 painted rows (found 3 y=33,138,243) — single row means top:calc dropped
+  phase t0: Spotlight 1 / 22 — Notion | inspector=Notion Tile 1 · edge fade 0.340 · press Enter on any tile
+  phase t1: Spotlight 2 / 22 — Stripe | inspector=Stripe Tile 2 · edge fade 0.428 · press Enter on any tile
+  phase t2: Spotlight 3 / 22 — Figma | inspector=Figma Tile 3 · edge fade 0.506 · press Enter on any tile
+  phase t3: Spotlight 4 / 22 — Linear | inspector=Linear Tile 4 · edge fade 0.545 · press Enter on any tile
+  phase t4: Spotlight 5 / 22 — HubSpot | inspector=HubSpot Tile 5 · edge fade 0.506 · press Enter on any tile
+  phase t5: Spotlight 6 / 22 — Dropbox | inspector=Dropbox Tile 6 · edge fade 0.428 · press Enter on any tile
+RESULT PASS [./index.html]
+EXIT:0
+```
+Full harness also asserts (both themes): 22 tiles, glyph painted, centre tile mid-field `y=138.2`, `opacity>=0.22 visible`, node identity across 22-tick loop, `Next/Prev` sync, theme-button toggle still painted+synced, `zero innerHTML`, demo data verbatim, `/*noflash*/`.
+
+## Theme confirmation
+Checked light (`--page #fafaf9`, white tiles) + dark (`--page #101012`, `#1c1c1f`) via harness `light` + `dark` scenarios — both paint 3 rows, centre tile, 22 glyphs, counter==inspector at every phase. Manual browser check still recommended for final contrast.
+
+## How to test
+1. `md5sum ./index.html ./original-backup.html` (hashes above, must differ).
+2. `node ./harness.js ./original-backup.html` → FAIL (exit 1, 32 failures: single row + desync).
+3. `node ./harness.js ./index.html` → PASS (exit 0).
+4. Open `./index.html` in browser, wait 5×1600ms → counter + inspector both reach `Spotlight 6 / 22 — Dropbox / Tile 6`; wall shows 3 honeycomb rows + bright centre tile in light and dark.

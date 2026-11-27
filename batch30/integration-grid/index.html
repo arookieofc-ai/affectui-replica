@@ -107,7 +107,7 @@ body{
 }
 .tile{
   --sz:140;
-  position:absolute;left:calc((var(--px) - var(--sz) / 2) * var(--unit));top:calc((var(--py) - var(--sz) / 2) * var(--unit);
+  position:absolute;left:calc((var(--px) - var(--sz) / 2) * var(--unit));top:calc((var(--py) - var(--sz) / 2) * var(--unit));
   width:calc(var(--sz) * var(--unit));height:calc(var(--sz) * var(--unit));
   display:grid;place-items:center;border:0;border-radius:calc(22 * var(--unit));cursor:pointer;padding:0;
   background:rgb(var(--tile-rgb) / var(--ta, .5));
@@ -366,7 +366,9 @@ function selectApp(n){
   detailDot.style.background=paintFor(app);
   detailTag.textContent="Ready to connect";
 }
-function tick(){setSpot(spot+1,false);}
+/* Single-source tour state: counter (spotLabel via setSpot) + inspector (detail via selectApp) advance together through show(), so they cannot desync. Previous tick() advanced spot only, leaving picked at 0 (Notion) while counter reached Dropbox. */
+function show(n,focusIt){setSpot(n,focusIt);selectApp(spot);}
+function tick(){show(spot+1,false);}
 function startTour(){if(timer) return;timer=setInterval(tick,1600);playing=true;playLabel.textContent="Pause tour";playIcon.textContent="❚❚ ";}
 function stopTour(){if(timer){clearInterval(timer);timer=null;}playing=false;playLabel.textContent="Play tour";playIcon.textContent="▶ ";}
 function buildOnce(){
@@ -405,16 +407,16 @@ function buildOnce(){
       b.appendChild(wrap);
       if(ai===0){b.classList.add("is-spot","is-picked");}
       var my=ai;
-      b.addEventListener("click",function(){selectApp(my);setSpot(my,false);});
-      b.addEventListener("focus",function(){if(cells[spot]) cells[spot].classList.remove("is-spot");spot=my;cells[spot].classList.add("is-spot");spotLabel.textContent="Spotlight "+(spot+1)+" / "+cells.length+" — "+APPS[spot].name;});
+      b.addEventListener("click",function(){show(my,false);});
+      b.addEventListener("focus",function(){show(my,false);});
       b.addEventListener("keydown",function(ev){
         var t=cells.length, nx=null;
         if(ev.key==="ArrowRight") nx=(my+1)%t;
         else if(ev.key==="ArrowLeft") nx=(my-1+t)%t;
-        else if(ev.key==="Home"){ev.preventDefault();setSpot(0,true);selectApp(0);return;}
-        else if(ev.key==="End"){ev.preventDefault();setSpot(t-1,true);selectApp(t-1);return;}
+        else if(ev.key==="Home"){ev.preventDefault();show(0,true);return;}
+        else if(ev.key==="End"){ev.preventDefault();show(t-1,true);return;}
         else return;
-        ev.preventDefault();setSpot(nx,true);selectApp(nx);
+        ev.preventDefault();show(nx,true);
       });
       stage.appendChild(b);
       cells.push(b);
@@ -466,8 +468,8 @@ themeBtn.addEventListener("click",function(){
   selectApp(picked);
 });
 playBtn.addEventListener("click",function(){if(playing){stopTour();}else{startTour();}});
-document.getElementById("prevBtn").addEventListener("click",function(){setSpot(spot-1,false);selectApp(spot);});
-document.getElementById("nextBtn").addEventListener("click",function(){setSpot(spot+1,false);selectApp(spot);});
+document.getElementById("prevBtn").addEventListener("click",function(){show(spot-1,false);});
+document.getElementById("nextBtn").addEventListener("click",function(){show(spot+1,false);});
 document.addEventListener("keydown",function(ev){
   if(ev.key!==" "||ev.target===playBtn||/INPUT|TEXTAREA/.test(ev.target.tagName)) return;
 });
