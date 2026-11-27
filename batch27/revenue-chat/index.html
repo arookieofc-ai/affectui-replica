@@ -75,7 +75,7 @@ html[data-theme="dark"] .theme-btn .moon{display:block}
 .thread{flex:1;min-height:0;overflow-y:auto}
 .col{width:min(760px,calc(100% - 48px));margin:0 auto;padding:32px 0 24px}
 .turns{display:flex;flex-direction:column;gap:28px}
-.colhead{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:0 0 -8px;font-size:12px;color:var(--muted);min-height:18px}
+.colhead{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:0 0 14px;font-size:12px;color:var(--muted);min-height:18px}
 .colhead .ctx{margin-left:auto}
 /* start card */
 .start{display:grid;min-height:46vh;place-items:center}
@@ -311,7 +311,7 @@ var thinkMark=el("span","mark busy");for(var mi=0;mi<9;mi++){var mqt=document.cr
 var thinkTxt=el("span","thinking","Reading Stripe and HubSpot\u2026");
 thinkRow.appendChild(thinkMark);thinkRow.appendChild(thinkTxt);turnsHost.appendChild(thinkRow);
 function setBusy(b){busy=b;thinkRow.hidden=!b;projMark.classList.toggle("working",b);if(b){live.textContent="Working on it";try{thread.scrollTo({top:thread.scrollHeight,behavior:"auto"});}catch(e){}} }
-function setCount(){try{countNum.textContent=String(turnSeq.length);}catch(e){}}
+function setCount(){try{var n=turnSeq.length;countNum.textContent=String(n);var tn2=hdrCount.childNodes[1];if(tn2)tn2.nodeValue=(n===1?" message":" messages");}catch(e){}}
 /* charts */
 function seriesFor(chart){
   if(chart.kind==="trend")return [{label:"This year",values:chart.current,color:"var(--blue)",dash:null},{label:"Last year",values:chart.previous,color:"currentColor",dash:true}];
@@ -521,7 +521,7 @@ function copyText(t){try{if(navigator.clipboard&&navigator.clipboard.writeText)n
 function downloadChart(sh,turn){try{var svg=sh.askable?sh.askable.querySelector("svg"):null;var s=svg?new XMLSerializer().serializeToString(svg):("<svg xmlns='http://www.w3.org/2000/svg'/>");var blob=new Blob([s],{type:"image/svg+xml"});var a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="revenue-chart.svg";document.body.appendChild(a);a.click();window.setTimeout(function(){try{URL.revokeObjectURL(a.href);}catch(e){}if(a.parentNode)a.parentNode.removeChild(a);},400);}catch(e){}}
 /* turns */
 function addUser(text,quote){var w=el("div","urow");if(quote)w.appendChild(el("p","quote",quote));var b=el("p","ubub",text);b.setAttribute("dir","auto");w.appendChild(b);turnsHost.insertBefore(w,thinkRow);turnSeq.push({kind:"user",el:w});setCount();try{thread.scrollTo({top:thread.scrollHeight,behavior:"smooth"});}catch(e){}return w;}
-function addAnswer(turn,liveId){var sh=buildAnswerShell();turnsHost.insertBefore(sh.art,thinkRow);fillStatic(sh,turn);turnSeq.push({kind:"ans",el:sh.art,sh:sh,turn:turn});setCount();typeInto(sh,turn,function(){try{thread.scrollTo({top:thread.scrollHeight,behavior:"smooth"});}catch(e){}});if(liveId!=null){try{var h=document.getElementById("live");}catch(e){}}return sh;}
+function addAnswer(turn,liveId){var sh=buildAnswerShell();turnsHost.insertBefore(sh.art,thinkRow);fillStatic(sh,turn);turnSeq.push({kind:"ans",el:sh.art,sh:sh,turn:turn});setCount();typeInto(sh,turn,function(){try{thread.scrollTo({top:thread.scrollHeight,behavior:"smooth"});}catch(e){}maybeAutoSplit();});if(liveId!=null){try{var h=document.getElementById("live");}catch(e){}}return sh;}
 var C={"Split it by region":null,"Forecast Q4":null};
 function answerFor(q,quote){
   var t=(q||"").trim();
@@ -563,8 +563,20 @@ function setTheme(t){try{document.documentElement.setAttribute("data-theme",t);t
 themeBtn.addEventListener("click",function(){setTheme(curTheme()==="dark"?"light":"dark");});
 try{themeBtn.setAttribute("aria-label",curTheme()==="dark"?"Switch to light theme":"Switch to dark theme");}catch(e){}
 /* expose for harness */
-try{window.__rcb={send:send,answerFor:answerFor,turns:function(){return turnSeq;},root:turnsHost,setTheme:setTheme,curTheme:curTheme,start:startWrap,selInfo:selInfo};}catch(e){}
-/* seed nothing: start screen stays until user asks */
+try{window.__rcb={send:send,answerFor:answerFor,turns:function(){return turnSeq;},root:turnsHost,setTheme:setTheme,curTheme:curTheme,start:startWrap,selInfo:selInfo,count:function(){try{return hdrCount.textContent;}catch(e){return "";}}};}catch(e){}
+/* auto-demo (matches demo-original: Q1 pre-seeded, auto-advances to Split unless the user interacts) */
+var autoCancelled=false, autoSplitDone=false;
+function cancelAuto(){autoCancelled=true;}
+try{document.addEventListener("pointerdown",cancelAuto,true);document.addEventListener("keydown",cancelAuto,true);}catch(e){}
+function maybeAutoSplit(){
+  if(autoSplitDone||autoCancelled||busy)return;
+  if(turnSeq.length!==2)return;
+  var last=turnSeq[1];
+  if(!last||last.kind!=="ans"||!last.turn||!last.turn.chart||last.turn.chart.kind!=="trend")return;
+  autoSplitDone=true;
+  window.setTimeout(function(){if(!autoCancelled&&!busy)send("Split it by region",null);},2200);
+}
+window.setTimeout(function(){if(!autoCancelled&&!busy&&turnSeq.length===0)send("How did revenue develop last quarter?",null);},900);
 })();
 </script>
 </body>

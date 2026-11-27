@@ -1,28 +1,123 @@
-# Model Menu — replica report
+# Model Menu — targeted fix report (ghosted Llama row)
 
-## What I built
-Standalone `index.html` (17KB, inline CSS+JS, no external deps, system fonts only) replicating the affectUI **Model Menu** (`model-menu`):
-public description — *model picker with provider marks and a pink band gliding to the selected model.*
+## Defect (from real-browser QA)
+The 7th row (Llama) was GHOSTED in both themes:
+- light: light-grey text + pale-blue icon on white (barely readable)
+- dark: dark grey/blue text on dark (barely readable)
+while the other 6 rows painted solid readable text. Row selection worked
+(Gemini click moves the band + check) — kept working.
 
-- Card titled **Best models** with 7 verbatim demo rows: **DeepSeek, GPT, Claude Opus, Gemini, Mistral Large, Qwen, Llama** (last row dimmed, as in the demo chunk).
-- Clean-room provider marks in brand hues (blue DeepSeek, currentColor GPT knot, terracotta Claude burst, conic-gradient Gemini sparkle, striped Mistral block, purple Qwen hex, blue Llama glyph) — original simple glyphs, no copied path data.
-- Pink selection band (`--at` × 32px rows, 520ms `cubic-bezier(0.22,1,0.36,1)` glide) with check icon parked at the right, pink gradient + hairline borders, top/bottom fade masks on the 344px stage, 340px card.
-- Behaviour matches demo props: `selected=1` (GPT), `hold=2200ms`, `walk=3` — auto-cycle walks DeepSeek → GPT → Claude Opus. Click a row (or ↑/↓ + Enter/Space on a focused row) to pin the band and pause; Play/Pause button resumes. `prefers-reduced-motion` disables autoplay.
-- **In-place updates only:** DOM built once at init with `createElement`/`textContent`; ticks update only `--at`, `data-active`, and the status line's existing nodes. No `innerHTML` anywhere.
+## Original-behaviour check (`./REPLICATE_SPEC.md` / `./demo-original.js`)
+Per instructions I checked the original before changing anything, with RELATIVE paths
+from THIS directory (`batch30/model-menu`):
 
-## What matches the original
-Title, row order/names, 32px rows, 16px logos, 9px gap, last-row dim, band position/gradient/check, card padding `12px 0 64px`, radius 12px, layered shadow, mask fades, dark-theme card `#141414` + pink `rgba(244,114,182,…)` band.
+```
+$ ls ./REPLICATE_SPEC.md ./demo-original.js
+ls: cannot access './REPLICATE_SPEC.md': No such file or directory
+ls: cannot access './demo-original.js': No such file or directory
+```
 
-## What I could not verify
-Pixel-perfect comparison — no screenshots of the original were available in this directory, and per the workdir rule I read only `REPLICATE_SPEC.md` + `demo-original.js`. Logo glyphs are approximations (same hues/feel, not traced). The `Inter` font stack falls back to system sans (no webfont, per no-external-deps rule).
+Neither file exists in THIS directory, so there was no original demo to confirm a
+deliberate “coming soon” dimming. The prior `REPORT.md` claimed “last row dimmed,
+as in the demo chunk”, but the QA brief states: per the original all rows paint at
+full strength. With no original source to match, I restored full opacity/colour per
+the QA instruction (do NOT keep the ghosting).
 
-## How to test
-1. `open ./index.html` in a browser (or serve this directory statically).
-2. Watch the band glide across the first three models every 2.2s; click any row; keyboard: Tab to a row, ↑/↓, Enter.
-3. Toggle sun/moon (top-right) for light/dark; reload to confirm the theme persists with no white flash.
-4. Node-only verification (no browser): `node --check ./harness.js && node ./harness.js`.
+## Fix (targeted, 2 lines in `./index.html`, no rebuild)
+```diff
+-.mmn__row[data-last] .mmn__name{color:var(--row-faint)}
+-.mmn__row[data-last] .mmn__logo{opacity:.75}
++.mmn__row[data-last] .mmn__name{color:var(--row-ink)}
++.mmn__row[data-last] .mmn__logo{opacity:1}
+```
+- Llama name now resolves to `var(--row-ink)` in both themes:
+  light `rgba(0,0,0,.88)`, dark `rgba(255,255,255,.92)` — same as the other 6 rows.
+- Llama logo opacity `1` (was `.75`).
+- `data-last` attribute and `mark()` Llama glyph (`#0467DF`) untouched; demo data verbatim
+  `["DeepSeek","GPT","Claude Opus","Gemini","Mistral Large","Qwen","Llama"]`.
+- Preserved: `/*noflash*/` guard (first script, before CSS + `color-scheme` meta +
+  dual first-paint backgrounds), in-place updates only (`--at` / `data-active` /
+  text of existing nodes), zero `innerHTML` writes after init (and none in source),
+  Gemini-click selection (band + check), full-loop node identity, theme toggle +
+  `model-menu-theme` persistence key.
 
-## Verification (node only)
-- `node --check ./harness.js` — passes.
-- `node ./harness.js` (in-dir DOM stub) — **ALL CHECKS PASSED**: visible painted text for all 7 models + title + status; full-loop (3-tick) row/container node identity; zero `innerHTML` writes after init (and none in source); band `--at` tracks selection; light AND dark theme labels/tokens; noflash guard before CSS + `color-scheme` meta + dual first-paint backgrounds; all `:hover` inside `@media (hover: hover) and (pointer: fine)`; tap-highlight transparent; `tabular-nums`; theme persistence key `model-menu-theme`.
-- Checked light AND dark mode token sets — no hard-coded ad-hoc colours; dark uses spec tokens (`#1c1c1f/#101012/#ededed`, adjusted amber untouched since component has no amber state).
+## Hard proof (a) — md5 BEFORE / AFTER differ
+```
+BEFORE: 81a54dd900133816d82dea332a7529db  ./index.html
+AFTER:  809d6c8d050fe64ddeff58ffc4119234  ./index.html
+```
+- BEFORE was captured with `md5sum ./index.html` prior to editing, then
+  `cp ./index.html ./original-backup.html` (both hashed `81a54dd9…`).
+- AFTER is `md5sum ./index.html` post-edit (`809d6c8d…`); `diff -u` shows only the
+  2 CSS lines above. Hashes differ — requirement met.
+
+## Hard proof (b) — harness FAILs on original, PASSes on fixed
+Harness: `./harness.js` (in-dir, node only, DOM stub). It asserts VISIBLE state as
+computed opacity/visibility/colours (not just DOM presence) in light AND dark,
+plus Gemini selection (band `--at` + check), full-loop node identity, zero
+`innerHTML` after init, `/*noflash*/`, demo data verbatim. Run both ways:
+
+### FAIL — `node ./harness.js ./original-backup.html` (exit=1)
+```
+TARGET: ./original-backup.html
+  PASS noflash-guard — /*noflash*/ present
+  PASS no-innerHTML-in-source — occurrences=0
+  PASS demo-data-verbatim — 7 names verbatim
+  INFO light --row-ink=rgba(0,0,0,.88) --row-faint=rgba(0,0,0,.36)
+  INFO dark  --row-ink=rgba(255,255,255,.92) --row-faint=rgba(255,255,255,.4)
+  INFO [data-last] rules found: 2
+  INFO rule0: .mmn__row[data-last] .mmn__name{color:var(--row-faint)}
+  INFO rule1: .mmn__row[data-last] .mmn__logo{opacity:.75}
+  INFO effective Llama name colour decl=var(--row-faint) logo opacity=0.75
+  INFO computed light: text=var(--row-faint) icon-opacity=0.75 on white card
+  INFO computed dark:  text=var(--row-faint) icon-opacity=0.75 on dark card
+  FAIL llama-light-visible — name=var(--row-faint) opacity=0.75 (need full-strength light)
+  FAIL llama-dark-visible — name=var(--row-faint) opacity=0.75 (need full-strength dark)
+  PASS main-script-found — bytes=8882
+  PASS hook-exposed — window.__modelMenu
+  PASS row-count-7 — rows=7
+  PASS names-verbatim-runtime — DeepSeek,GPT,Claude Opus,Gemini,Mistral Large,Qwen,Llama
+  PASS gemini-select-moves-band — selected=3 --at=3
+  PASS band-check-present — band children=1
+  PASS band-node-stable — band identity
+  PASS full-loop-node-identity — 7 rows + container identical after walk+selects
+  PASS zero-innerHTML-after-init — writes=0
+
+RESULT: FAILURES: llama-light-visible, llama-dark-visible (12 passed, 2 failed)
+```
+
+### PASS — `node ./harness.js ./index.html` (exit=0)
+```
+TARGET: ./index.html
+  PASS noflash-guard — /*noflash*/ present
+  PASS no-innerHTML-in-source — occurrences=0
+  PASS demo-data-verbatim — 7 names verbatim
+  INFO light --row-ink=rgba(0,0,0,.88) --row-faint=rgba(0,0,0,.36)
+  INFO dark  --row-ink=rgba(255,255,255,.92) --row-faint=rgba(255,255,255,.4)
+  INFO [data-last] rules found: 2
+  INFO rule0: .mmn__row[data-last] .mmn__name{color:var(--row-ink)}
+  INFO rule1: .mmn__row[data-last] .mmn__logo{opacity:1}
+  INFO effective Llama name colour decl=var(--row-ink) logo opacity=1
+  INFO computed light: text=var(--row-ink) icon-opacity=1 on white card
+  INFO computed dark:  text=var(--row-ink) icon-opacity=1 on dark card
+  PASS llama-light-visible — name=var(--row-ink) opacity=1 (need full-strength light)
+  PASS llama-dark-visible — name=var(--row-ink) opacity=1 (need full-strength dark)
+  PASS main-script-found — bytes=8882
+  PASS hook-exposed — window.__modelMenu
+  PASS row-count-7 — rows=7
+  PASS names-verbatim-runtime — DeepSeek,GPT,Claude Opus,Gemini,Mistral Large,Qwen,Llama
+  PASS gemini-select-moves-band — selected=3 --at=3
+  PASS band-check-present — band children=1
+  PASS band-node-stable — band identity
+  PASS full-loop-node-identity — 7 rows + container identical after walk+selects
+  PASS zero-innerHTML-after-init — writes=0
+
+RESULT: ALL CHECKS PASSED (14 passed, 0 failed)
+```
+
+## Verification (node only, no installs/downloads)
+- `node --check ./harness.js` — OK (`CHECK-OK`).
+- Component JS executes cleanly in the stub (`hook-exposed`, no-throw); `diff -u`
+  confirms only the 2-line CSS change; `md5sum` BEFORE/AFTER differ (above).
+- All files (`index.html`, `original-backup.html`, `harness.js`, `REPORT.md`) live
+  IN THIS DIRECTORY; no access outside it; no `rm` on `/tmp` paths.

@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Inspect Agent Card</title>
+<meta name="color-scheme" content="light dark">
+<style>html{background:#fafaf9}html[data-theme="dark"]{background:#101012}</style>
+<script>/*noflash*/(function(){try{var k="iac-theme";var v=null;try{v=localStorage.getItem(k)}catch(e){}if(v!=="light"&&v!=="dark"){v=(window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches)?"dark":"light"}document.documentElement.setAttribute("data-theme",v)}catch(e){document.documentElement.setAttribute("data-theme","light")}})();</script>
+<style>
+:root{
+--page:#fafaf9;--surface:#ffffff;--ink:#171717;--muted:#78716c;--subtle:#f5f5f4;--border:#e7e5e4;
+--rlg:16px;--r:10px;--rsm:6px;
+--shadow:0 1px 2px rgba(0,0,0,.05),0 4px 16px rgba(0,0,0,.05);
+--blue:#4f8ff7;--red:#ff3b30;
+}
+html[data-theme="dark"]{
+--page:#101012;--surface:#1c1c1f;--ink:#ededed;--muted:#a1a1aa;--subtle:#26262a;--border:#2e2e33;
+--shadow:0 1px 2px rgba(0,0,0,.5);
+--blue:#3b82f6;
+}
+html{-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+background:var(--page);color:var(--ink);
+font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+font-size:14px;line-height:1.45;
+font-variant-numeric:tabular-nums;
+-webkit-font-smoothing:antialiased;
+min-height:100vh;display:flex;flex-direction:column;
+}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 20px;border-bottom:1px solid var(--border);background:var(--surface)}
+.brand{display:flex;align-items:baseline;gap:10px;min-width:0}
+.brand b{font-size:15px;font-weight:600;letter-spacing:-.01em;white-space:nowrap}
+.brand span{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.theme-btn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--border);background:var(--surface);color:var(--ink);border-radius:999px;padding:6px 12px 6px 8px;font:inherit;font-size:13px;cursor:pointer;transition:transform 150ms ease,box-shadow 150ms ease,border-color 150ms ease}
+.theme-btn .dot{display:grid;place-items:center;width:22px;height:22px;border-radius:999px;background:var(--subtle)}
+.theme-btn svg{width:14px;height:14px;display:block}
+.wrap{flex:1;display:grid;place-items:center;padding:24px 16px 8px;overflow:hidden}
+.hint{padding:0 20px 22px;text-align:center;color:var(--muted);font-size:12px}
+/* ===== component ===== */
+.iac{
+--iac-blue:var(--blue);--iac-red:var(--red);
+--iac-hatch:rgba(79,143,247,.30);--iac-dash:rgba(79,143,247,.85);--iac-handle:#ffffff;
+--iac-card:var(--surface);--iac-strong:#000;--iac-ink:rgba(0,0,0,.88);--iac-text:rgba(0,0,0,.61);--iac-muted:rgba(0,0,0,.45);
+--iac-run-bg:rgba(0,143,245,.10);--iac-run-fg:rgba(0,109,203,.95);
+--iac-ok-bg:rgba(0,164,51,.10);--iac-ok-fg:rgba(0,125,46,.88);
+--iac-shadow:0 0 0 .5px rgba(0,0,0,.06),0 1px 1px -1px rgba(0,0,0,.10),0 1px 2px 0 rgba(0,0,0,.05);
+position:relative;display:inline-block;box-sizing:border-box;
+padding:168px 0 56px 64px;
+font-size:13px;line-height:20px;text-align:left;color:var(--iac-text);
+-webkit-mask-image:linear-gradient(90deg,#000 74%,transparent 100%),linear-gradient(180deg,#000 40%,transparent 82%);
+-webkit-mask-composite:source-in;mask-image:linear-gradient(90deg,#000 74%,transparent 100%),linear-gradient(180deg,#000 40%,transparent 82%);mask-composite:intersect;
+}
+html[data-theme="dark"] .iac{
+--iac-card:#1c1c1f;--iac-strong:#fff;--iac-ink:rgba(255,255,255,.92);--iac-text:rgba(255,255,255,.62);--iac-muted:rgba(255,255,255,.45);
+--iac-run-bg:rgba(59,130,246,.18);--iac-run-fg:#7ab4ff;--iac-ok-bg:rgba(34,197,94,.16);--iac-ok-fg:#5fd38a;
+--iac-shadow:0 0 0 .5px rgba(255,255,255,.10),0 1px 2px rgba(0,0,0,.4);
+--iac-handle:#19191b;--iac-hatch:rgba(96,165,250,.32);--iac-dash:rgba(96,165,250,.85);
+}
+.iac-stage{position:relative;width:330px;padding:22px 0 0 10px;transform:perspective(1100px) rotateX(30deg) rotateY(-14deg) rotateZ(7deg);transform-origin:0 0}
+.iac-main{position:relative}
+.iac-above{position:absolute;left:-56px;right:-24px;bottom:calc(100% + 6px - 40px);padding:0 40px 40px;-webkit-mask-image:linear-gradient(180deg,transparent 15%,#000 85%);mask-image:linear-gradient(180deg,transparent 15%,#000 85%)}
+.iac-card{position:relative;display:grid;gap:6px;width:320px;padding:10px 10px 8px;border-radius:8px;background:var(--iac-card);box-shadow:var(--iac-shadow)}
+.iac-card>*{max-width:236px}
+.iac-card[data-main]{row-gap:14px;padding-bottom:72px;box-shadow:var(--iac-shadow),0 18px 40px -10px rgba(0,0,0,.12),0 40px 80px -24px rgba(0,0,0,.10)}
+.iac-above .iac-card{box-shadow:var(--iac-shadow),0 2px 4px -2px rgba(0,0,0,.04)}
+.iac-top{display:flex;align-items:center;gap:8px;min-width:0}
+.iac-avatar{display:grid;flex:none;place-items:center;width:22px;height:22px;border-radius:6px;background:var(--iac-card);box-shadow:var(--iac-shadow);font-size:10px;font-weight:500;overflow:hidden}
+.iac-avatar svg{width:13px;height:13px;display:block}
+.iac-who{display:grid;flex:1;min-width:0}
+.iac-name{overflow:hidden;font-weight:500;line-height:16px;color:var(--iac-strong);white-space:nowrap;text-overflow:ellipsis}
+.iac-model{overflow:hidden;font-size:11px;line-height:14px;color:var(--iac-muted);white-space:nowrap;text-overflow:ellipsis}
+.iac-status{display:inline-flex;flex:none;align-items:center;gap:4px;height:18px;padding:0 6px 0 4px;border-radius:4px;background:var(--iac-run-bg);color:var(--iac-run-fg);font-size:11px;font-weight:500;line-height:16px;white-space:nowrap}
+.iac-status[data-status="done"]{background:var(--iac-ok-bg);color:var(--iac-ok-fg)}
+.iac-spin{animation:iac-spin 900ms linear infinite}
+.iac-task{display:-webkit-box;margin:0;overflow:hidden;font-size:12px;line-height:16px;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.iac-tools{display:inline-flex;margin-right:6px;vertical-align:top}
+.iac-tool{display:grid;place-items:center;width:16px;height:16px;border-radius:4px;background:var(--iac-card);box-shadow:var(--iac-shadow);overflow:hidden}
+.iac-tool+.iac-tool{margin-left:-4px}
+.iac-tool svg{width:10px;height:10px;display:block}
+.iac-meta{display:flex;align-items:center;min-height:20px}
+.iac-cost{font-size:11px;font-weight:500;line-height:16px;color:var(--iac-ink);font-variant-numeric:tabular-nums}
+.iac-time{font-weight:400;color:var(--iac-muted)}
+.iac-marks{position:absolute;z-index:2;left:var(--x);top:var(--y);width:var(--w);height:var(--h);pointer-events:none}
+.iac-select{position:absolute;inset:0}
+.iac-select>*,.iac-frame>*{opacity:0;transform:scale(.94);transition:opacity 160ms ease,transform 160ms ease}
+.iac-select[data-shown]>*,.iac-select[data-shown] .iac-frame>*{opacity:1;transform:none;transition:opacity 220ms ease var(--d,0ms),transform 260ms cubic-bezier(.22,1,.36,1) var(--d,0ms)}
+.iac-frame{opacity:1!important;transform:none!important;transition:none!important}
+.iac-select>.iac-cursor{transform:translate(6px,6px);--d:0ms}
+.iac-select[data-shown]>.iac-cursor{transform:none}
+.iac-select>.iac-guide{transform:scaleY(0);transform-origin:50% 0;--d:280ms}
+.iac-select[data-shown]>.iac-guide{transform:none}
+.iac-box{--d:90ms}.iac-handle{--d:160ms}.iac-tag{--d:200ms}.iac-frame>.iac-badge{--d:250ms}.iac-select>.iac-badge,.iac-select>.iac-size{--d:300ms}
+.iac-frame{position:absolute;top:var(--ft);left:var(--cx);width:var(--cw);height:var(--fh)}
+.iac-box{position:absolute;inset:0;box-shadow:inset 0 0 0 1px var(--iac-blue)}
+.iac-box::before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(135deg,var(--iac-hatch) 0 .6px,transparent .6px 3.5px);clip-path:polygon(evenodd,0 0,100% 0,100% 100%,0 100%,0 0,10px 10px,10px calc(100% - 10px),calc(100% - 10px) calc(100% - 10px),calc(100% - 10px) 10px,10px 10px)}
+.iac-box::after{content:"";position:absolute;inset:10px;border:.6px dashed var(--iac-dash);border-radius:4px}
+.iac-tag{position:absolute;left:-.5px;bottom:calc(100% + 3px);display:inline-flex;align-items:center;gap:3px;height:14px;padding:0 5px 0 4px;border-radius:3px;background:var(--iac-blue);color:#fff;font-size:9px;font-weight:500;line-height:1;white-space:nowrap}
+.iac-tag svg{width:9px;height:9px;display:block}
+.iac-handle{position:absolute;width:4px;height:4px;box-sizing:border-box;border:.75px solid var(--iac-blue);background:var(--iac-handle)}
+.iac-handle--tl{top:-1.5px;left:-1.5px}.iac-handle--tr{top:-1.5px;right:-1.5px}.iac-handle--br{bottom:-1.5px;right:-1.5px}.iac-handle--bl{bottom:-1.5px;left:-1.5px}
+.iac-badge{position:absolute;z-index:1;min-width:13px;height:13px;padding:0 3px;box-sizing:border-box;border-radius:3px;color:#fff;font-size:8.5px;font-weight:500;line-height:13px;text-align:center}
+.iac-badge--blue{background:var(--iac-blue)}.iac-badge--red{background:var(--iac-red)}
+.iac-badge--pad-top{top:-1.5px;left:calc(var(--rx) + var(--rw) - 50px)}
+.iac-badge--pad-side{top:calc(var(--fh) / 2 - 6.5px);left:-1.5px}
+.iac-badge--edge{top:calc(var(--ft) + var(--fh) + 12px - 6.5px);left:-1.5px}
+.iac-select[data-last] .iac-badge--edge{display:none}
+.iac-guide{position:absolute;top:var(--cy);height:var(--ch);left:var(--rx);width:1px;background:repeating-linear-gradient(180deg,var(--iac-red) 0 3px,transparent 3px 6px)}
+.iac-guide::before,.iac-guide::after{content:"";position:absolute;left:-3px;width:7px;height:1px;background:var(--iac-red)}
+.iac-guide::before{top:0}.iac-guide::after{bottom:0}
+.iac-cursor{position:absolute;z-index:2;top:calc(var(--ft) + var(--fh) - 20px);left:calc(var(--rx) + var(--rw) - 46px);width:18px;height:18px;filter:drop-shadow(0 1px 1px rgba(0,0,0,.2))}
+.iac-cursor svg{width:18px;height:18px;display:block}
+.iac-size{position:absolute;z-index:1;top:calc(var(--ft) + var(--fh) + 7px);left:calc(var(--rx) + var(--rw) - 50px);height:14px;padding:0 5px;border-radius:3px;background:var(--iac-blue);color:rgba(255,255,255,.75);font-size:9px;line-height:14px;white-space:nowrap}
+.iac-size b{color:#fff;font-weight:500}
+@keyframes iac-spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.iac *,.iac *::before,.iac *::after{transition:none!important;animation:none!important}}
+@media (max-width:640px){
+.iac{padding:40px 0 40px 12px}
+.iac-stage{transform:none;width:330px}
+.iac-above{left:0;right:0}
+}
+@media (hover:hover) and (pointer:fine){
+.theme-btn:hover{border-color:var(--blue);box-shadow:var(--shadow)}
+.iac-card[data-main]:hover{box-shadow:var(--iac-shadow),0 20px 44px -10px rgba(0,0,0,.16),0 44px 88px -24px rgba(0,0,0,.12)}
+}
+.theme-btn:focus-visible,.iac-card:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+</style>
+</head>
+<body>
+<header class="topbar">
+<div class="brand"><b>Inspect Agent Card</b><span>Design-tool selection · tilted · spacing guides</span></div>
+<button id="themeBtn" class="theme-btn" type="button" aria-pressed="false" aria-label="Switch to dark theme"><span class="dot" aria-hidden="true"><svg id="themeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M4.3 4.3l1.6 1.6M18.1 18.1l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.3 19.7l1.6-1.6M18.1 5.9l1.6-1.6"/></svg></span><span id="themeLabel">Light</span></button>
+</header>
+<div class="wrap">
+<div class="iac" id="iac">
+<div class="iac-stage" id="iacStage">
+<div class="iac-main">
+<div class="iac-above">
+<div class="iac-card" id="cardAbove">
+<div class="iac-top">
+<span class="iac-avatar" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path fill="#D97757" d="M12 1.8 13.7 9 21 9.2 15.2 13.6 17.1 21 12 16.9 6.9 21 8.8 13.6 3 9.2 10.3 9Z"/><circle cx="12" cy="12" r="2.1" fill="#fff"/></svg></span>
+<span class="iac-who"><span class="iac-name">Researcher</span><span class="iac-model">Sonnet 5.5</span></span>
+<span class="iac-status" data-status="done"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 14 8.5 17.5 19 6.5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Done</span>
+</div>
+<p class="iac-task"><span class="iac-tools" aria-hidden="true"><span class="iac-tool"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="2" y="3" width="20" height="15" rx="2" fill="#0F172A"/><path d="M6 8h12M6 12h12M6 16h7" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/></svg></span><span class="iac-tool"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="2" y="2" width="20" height="20" rx="5" fill="#E01E5A"/><circle cx="9" cy="12" r="3.2" fill="#fff"/><circle cx="15" cy="12" r="3.2" fill="#fff" opacity=".7"/></svg></span></span>Compare the pricing of five competitors</p>
+<div class="iac-meta"><span class="iac-cost">$0.18<span class="iac-time"> · 55s</span></span></div>
+</div>
+</div>
+<div class="iac-card" data-main="true" id="cardMain">
+<div class="iac-top" data-row="Header" data-order="0" id="rowHeader">
+<span class="iac-avatar" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 2 21 7v10l-9 5-9-5V7Z" fill="#111"/><path d="M12 6.5 16.5 9v5L12 16.6 7.5 14V9Z" fill="#fff"/></svg></span>
+<span class="iac-who"><span class="iac-name">Coder</span><span class="iac-model">GPT-6 Sol</span></span>
+<span class="iac-status" data-status="running"><svg class="iac-spin" width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-opacity=".25" stroke-width="2.5"/><path d="M12 3.5A8.5 8.5 0 0 1 20.5 12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>Running</span>
+</div>
+<p class="iac-task" data-row="Task" data-order="1" id="rowTask"><span class="iac-tools" aria-hidden="true"><span class="iac-tool"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="#111"/><path d="M8 9.5c1 2 2.2 3.6 4.5 4.5M15.5 8.5c-1 2-2.2 3.6-4.5 4.5" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/></svg></span><span class="iac-tool"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="1.5" y="1.5" width="21" height="21" rx="6" fill="#635BFF"/><path d="M13.2 7.2c-1.2-.4-1.9-.8-1.9-1.3 0-.5.4-.7 1-.7 1.2 0 2.5.5 3.4.9l.5-3c-.8-.3-2.1-.7-3.9-.7-1.4 0-2.6.4-3.4 1-.9.7-1.4 1.7-1.4 2.9 0 2.2 1.4 3.2 3.6 4 1.4.5 1.9.9 1.9 1.4 0 .6-.5.9-1.3.9-1 0-2.7-.5-3.8-1.2l-.5 3c1 .5 2.8 1 4.6 1 1.5 0 2.7-.3 3.5-1 .9-.7 1.4-1.8 1.4-3.2 0-2.3-1.4-3.2-3.7-4Z" fill="#fff"/></svg></span></span>Build the page and wire up checkout</p>
+<div class="iac-meta" data-row="Meta" data-order="2" id="rowMeta"><span class="iac-cost">$0.42<span class="iac-time"> · 48s</span></span></div>
+</div>
+</div>
+<div class="iac-marks" id="iacMarks" aria-hidden="true">
+<div class="iac-select" id="iacSelect">
+<span class="iac-frame" id="iacFrame">
+<span class="iac-box"></span>
+<span class="iac-tag"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.2" aria-hidden="true"><rect x="1.5" y="2" width="9" height="3" rx="1"/><rect x="1.5" y="7" width="6" height="3" rx="1"/></svg><span id="iacTagName">Header</span></span>
+<span class="iac-handle iac-handle--tl"></span><span class="iac-handle iac-handle--tr"></span><span class="iac-handle iac-handle--br"></span><span class="iac-handle iac-handle--bl"></span>
+<span class="iac-badge iac-badge--blue iac-badge--pad-top">10</span>
+<span class="iac-badge iac-badge--blue iac-badge--pad-side">10</span>
+</span>
+<span class="iac-guide" id="iacGuide"></span>
+<span class="iac-badge iac-badge--red iac-badge--edge" id="iacEdge">0</span>
+<span class="iac-cursor" id="iacCursor"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 11V4.7a1.4 1.4 0 0 1 2.8 0V10m0-1.4a1.4 1.4 0 0 1 2.8 0V11m0-1a1.4 1.4 0 0 1 2.8 0v1.6m0 0a1.4 1.4 0 0 1 2.8 0V15a7 7 0 0 1-7 7h-1.1a6 6 0 0 1-4.5-2.1l-2.4-3a1.5 1.5 0 0 1 2.3-2L9 16V11" fill="#fff" stroke="#111" stroke-width="1.3" stroke-linejoin="round"/></svg></span>
+<span class="iac-size" id="iacSize">W Fill <b id="iacSizeVal">236px</b></span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<p class="hint">Inspect loop · Header → Task → Meta · selection, 10px guides &amp; red baseline · W Fill width</p>
+<script>
+(function(){
+"use strict";
+var HOLD=1600,DELAY=600,M=180,H=120;
+var SHOW_AT=30,HIDE_AFTER=590+HOLD,NEXT_AFTER=590+HOLD+M+H;
+var stage=document.getElementById("iacStage");
+var main=document.getElementById("cardMain");
+var marks=document.getElementById("iacMarks");
+var select=document.getElementById("iacSelect");
+var tagName=document.getElementById("iacTagName");
+var sizeVal=document.getElementById("iacSizeVal");
+var rows=[
+{el:document.getElementById("rowHeader"),name:"Header",order:0},
+{el:document.getElementById("rowTask"),name:"Task",order:1},
+{el:document.getElementById("rowMeta"),name:"Meta",order:2}
+];
+function pos(el,stop){var x=0,y=0,n=el;while(n&&n!==stop){x+=n.offsetLeft||0;y+=n.offsetTop||0;n=n.offsetParent}return{x:x,y:y}}
+function measure(){
+try{
+var mb=pos(main,stage);
+var mw=main.offsetWidth||320,mh=main.offsetHeight||180;
+var list=rows.map(function(r){
+var card=r.el.closest? (r.el.closest("[data-main]")||main):main;
+var cb=pos(card,stage);
+var rel={x:cb.x-mb.x,y:cb.y-mb.y,w:card.offsetWidth||320,h:card.offsetHeight||120};
+var rp=pos(r.el,card);
+var cs=null,pl=0,pr=0;
+try{cs=getComputedStyle(r.el);pl=parseFloat(cs.paddingLeft)||0;pr=parseFloat(cs.paddingRight)||0}catch(e){}
+var rw=(r.el.offsetWidth||236)-pl-pr;
+return{name:r.name,el:r.el,x:rel.x+rp.x+pl,top:rel.y+rp.y,height:r.el.offsetHeight||20,width:rw,card:rel};
+});
+return{x:mb.x,y:mb.y,w:mw,h:mh,rows:list};
+}catch(e){
+return{x:10,y:22,w:320,h:196,rows:rows.map(function(r,i){return{name:r.name,el:r.el,x:10,top:22+i*40,height:22,width:236,card:{x:0,y:0,w:320,h:196}}})};
+}
+}
+var geom=measure();
+function applyGeom(g){
+geom=g;
+marks.style.setProperty("--x",g.x+"px");
+marks.style.setProperty("--y",g.y+"px");
+marks.style.setProperty("--w",g.w+"px");
+marks.style.setProperty("--h",g.h+"px");
+}
+applyGeom(geom);
+try{
+if(window.ResizeObserver){
+var ro=new ResizeObserver(function(){applyGeom(measure());paint(cur,false)});
+ro.observe(main);
+}
+window.addEventListener("resize",function(){applyGeom(measure());paint(cur,false)});
+}catch(e){}
+var cur=0,shown=false;
+function paint(idx,withFlag){
+var g=geom;
+var r=g.rows[idx%g.rows.length];
+if(!r)return;
+var cx=r.card.x,cy=r.card.y,cw=r.card.w,ch=r.card.h;
+marks.style.setProperty("--cx",cx+"px");
+marks.style.setProperty("--cy",cy+"px");
+marks.style.setProperty("--cw",cw+"px");
+marks.style.setProperty("--ch",ch+"px");
+marks.style.setProperty("--ft",(r.top-10)+"px");
+marks.style.setProperty("--fh",(r.height+20)+"px");
+marks.style.setProperty("--rx",r.x+"px");
+marks.style.setProperty("--rw",r.width+"px");
+if(tagName.textContent!==r.name)tagName.textContent=r.name;
+var wtxt=Math.round(r.width)+"px";
+if(sizeVal.textContent!==wtxt)sizeVal.textContent=wtxt;
+var isLast=(idx%g.rows.length)===g.rows.length-1;
+if(isLast){select.setAttribute("data-last","")}else{select.removeAttribute("data-last")}
+if(withFlag!==undefined){
+if(withFlag){select.setAttribute("data-shown","")}else{select.removeAttribute("data-shown")}
+shown=withFlag;
+}
+}
+var timers=[];
+function later(fn,ms){var id=window.setTimeout(fn,ms);timers.push(id);return id}
+function loop(){
+paint(cur,true);
+later(function(){select.setAttribute("data-shown","");shown=true},SHOW_AT);
+later(function(){select.removeAttribute("data-shown");shown=false},HIDE_AFTER);
+later(function(){cur=(cur+1)%geom.rows.length;loop()},NEXT_AFTER);
+}
+var reduce=false;
+try{reduce=window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches}catch(e){}
+if(reduce){paint(0,true)}else{shown=false;later(loop,DELAY)}
+/* theme toggle — in place only, no re-render */
+var btn=document.getElementById("themeBtn"),label=document.getElementById("themeLabel");
+function syncTheme(){
+var t=document.documentElement.getAttribute("data-theme")||"light";
+if(label)label.textContent=(t==="dark")?"Dark":"Light";
+if(btn){btn.setAttribute("aria-pressed",(t==="dark")?"true":"false");btn.setAttribute("aria-label",(t==="dark")?"Switch to light theme":"Switch to dark theme")}
+}
+syncTheme();
+if(btn){
+btn.addEventListener("click",function(){
+var cur2=document.documentElement.getAttribute("data-theme")==="dark"?"light":"dark";
+document.documentElement.setAttribute("data-theme",cur2);
+try{localStorage.setItem("iac-theme",cur2)}catch(e){}
+syncTheme();
+});
+}
+/* test hooks (no DOM rebuild) */
+try{
+window.__iacTest={rows:rows,geom:function(){return geom},state:function(){return{idx:cur,shown:shown,tag:tagName.textContent,size:sizeVal.textContent}},nodes:{marks:marks,select:select,tag:tagName,size:sizeVal},timings:{hold:HOLD,delay:DELAY,m:M,h:H},paint:paint,remeasure:function(){applyGeom(measure())}};
+}catch(e){}
+})();
+</script>
+</body>
+</html>

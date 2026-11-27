@@ -50,3 +50,119 @@ Verified light AND dark: CSS uses shared tokens (`--surface`, `--page`, `--ink`,
 `color-scheme` meta prevent white flash. v5 polish applied: hover gated behind
 `@media (hover:hover) and (pointer:fine)`, tap-highlight cleared, tabular numerals,
 concentric-feel radii, shadow-vs-border discipline, face outline at 10%.
+
+---
+
+## QA fix (targeted) — GitHub tiny disc + replay angle
+
+### Requested files
+`./REPLICATE_SPEC.md` and `./demo-original.js` do not exist in this directory
+(`batch30/logo-cluster/` contains only `index.html` + `REPORT.md`; repo-wide glob
+found `REPLICATE_SPEC.md` only under `pilot/` and `batch1/`, no `demo-original.js`
+anywhere). So the original demo could not be inspected. Per the task instruction,
+since original behaviour could not be confirmed to behave the same way, the fix
+below follows the QA description (all 7 discs comparable/readable; GitHub must
+reach full size at front; replay should visibly replay).
+
+### Defect
+GitHub disc rendered ~26px (15–30px range) at every orbit angle in both themes,
+while the other 6 rendered 55–95px. GitHub sat tight against/behind the Linear
+disc, showing only a small "G".
+
+### Root cause
+`ITEMS` lists GitHub size as 20 units vs 42–72 for the others. Displayed diameter
+is `--u * --sz` where `--u = 100cqw/320` (≈1.3125 at 420px max-width), so GitHub
+= 26.3px, others = 55.1–94.5px. No per-bubble depth/scale update exists (rigid
+CSS `cspin` rotation), so GitHub never grows. Secondary: `show()` did not reset
+`spinDeg`, so Replay re-ran CSS entrance but the orbit angle continued from its
+old value (angle barely changed → no visible replay).
+
+### Fix (2 hunks, targeted — not a rebuild)
+1. `build()`: keep `ITEMS` byte-for-byte verbatim (including GitHub 20 for
+   provenance), but clamp the *display* size to a minimum of 42 units
+   (`var effSz = Math.max(sz, 42)`), the smallest non-GitHub size. Only GitHub
+   is affected (20 → 42 = 55.1px, bottom of the 55–95px band, ratio min/max
+   0.28 → 0.58). Positions, names, colours unchanged.
+2. `show()`: reset `spinDeg = 0` so Replay visibly restarts the orbit angle
+   (status resets to `0 / 7 … orbit 0°` and counts back to `7 / 7`).
+
+### Invariants preserved
+- `/*noflash*/` guard kept (1 occurrence in both files).
+- In-place updates only: same 7 nodes across entrance, replay, and full 48s loop
+  (harness asserts node identity); timers touch only text/attributes.
+- Zero `innerHTML` writes after init (`grep -c innerHTML ./index.html` = 0;
+  harness counter = 0).
+- Demo data verbatim: `ITEMS`/`COLORS`/`GLYPH` text unchanged (GitHub entry still
+  `["GitHub",-88,64,20]`); only the derived `--sz` is clamped.
+
+### Hard proof
+Before (original):
+`md5sum ./index.html` → `43d062cd12f7d035408737a2c285a158`
+After (fixed):
+`md5sum ./index.html` → `7b48ce0eb80463e24459c1b6196a3cc3`
+Hashes differ. Original kept as `./original-backup.html` (md5 `43d062cd12f7d035408737a2c285a158`).
+
+`node --check` on extracted inline script: OK (both files).
+
+Harness: `node harness.js` (in-dir DOM stub; asserts VISIBLE state as computed
+sizes/opacity/colours — not just DOM presence — in light AND dark, plus
+full-loop node identity and zero innerHTML writes).
+
+Against original (`node harness.js ./original-backup.html` → FAIL, exit 1):
+```
+bubble=Notion sz=56 px@420=73.5
+bubble=Spotify sz=48 px@420=63.0
+bubble=Stripe sz=72 px@420=94.5
+bubble=Google Calendar sz=60 px@420=78.8
+bubble=Linear sz=42 px@420=55.1
+bubble=GitHub sz=20 px@420=26.3
+bubble=Figma sz=72 px@420=94.5
+minPx=26.3 maxPx=94.5 ratio=0.28
+theme=light data-theme=light GitHubInk=auto status="7 / 7 logos landed · orbit 19°"
+theme=dark data-theme=dark status="7 / 7 logos landed · orbit 19°"
+dark GitHub sz=20 px=26.3 ink=auto(--cink)
+pre-replay orbit=94deg status="7 / 7 logos landed · orbit 94°"
+post-replay immediate status="0 / 7 logos landed · orbit 0°"
+1s-after-replay orbit=101deg status="7 / 7 logos landed · orbit 101°"
+full-loop identity=same-7-nodes status="7 / 7 logos landed · orbit 120°"
+innerHTMLWrites=0
+FAIL file=./original-backup.html (5 checks failed)
+ - GitHub display size too small: sz=20 (need >=42 for 55px+ full disc)
+ - GitHub VISIBLE diameter too small: 26.3px (need >=55px; others are 55-95px)
+ - smallest disc too small for comparability: 26.3px
+ - discs not comparable (min/max ratio 0.28 < 0.5; GitHub stuck tiny?)
+ - replay should visibly restart orbit angle (got 101deg, want <30deg 1s after replay; angle barely changes = no visible replay)
+```
+
+Against fixed (`node harness.js ./index.html` → PASS, exit 0):
+```
+bubble=Notion sz=56 px@420=73.5
+bubble=Spotify sz=48 px@420=63.0
+bubble=Stripe sz=72 px@420=94.5
+bubble=Google Calendar sz=60 px@420=78.8
+bubble=Linear sz=42 px@420=55.1
+bubble=GitHub sz=42 px@420=55.1
+bubble=Figma sz=72 px@420=94.5
+minPx=55.1 maxPx=94.5 ratio=0.58
+theme=light data-theme=light GitHubInk=auto status="7 / 7 logos landed · orbit 19°"
+theme=dark data-theme=dark status="7 / 7 logos landed · orbit 19°"
+dark GitHub sz=42 px=55.1 ink=auto(--cink)
+pre-replay orbit=94deg status="7 / 7 logos landed · orbit 94°"
+post-replay immediate status="0 / 7 logos landed · orbit 0°"
+1s-after-replay orbit=7deg status="7 / 7 logos landed · orbit 7°"
+full-loop identity=same-7-nodes status="7 / 7 logos landed · orbit 26°"
+innerHTMLWrites=0
+PASS file=./index.html GitHub=55.1px light+dark OK full-loop identity OK innerHTML=0 replay-angle OK
+```
+
+Diff (`diff -u ./original-backup.html ./index.html`):
+```
+@@ -239,11 +239,13 @@
+-      b.style.setProperty("--sz",String(sz));
++      /* QA fix: keep ITEMS verbatim, but clamp display size so GitHub (20) reaches full size like the others. Min 42 = smallest non-GitHub size; only GitHub is affected. */
++      var effSz=Math.max(sz,42);
++      b.style.setProperty("--sz",String(effSz));
+@@ -281,7 +283,7 @@
+-  startedAt=0; landed=-1; lastTick=0;
++  startedAt=0; landed=-1; lastTick=0; spinDeg=0;
+```
