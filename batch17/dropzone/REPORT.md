@@ -24,5 +24,12 @@ ONE self-contained `index.html` (32KB, no network, system fonts) replicating the
   - hint visible, foot idle `No files yet`, drag preview `Release to upload 4 files`, all 4 names visible, 4 rows, `Connection lost` + `Too large` visible, footer `2 of 4 uploaded`, node identity 4/4 retained across full 16s loop, zero `innerHTML` writes after init, retry → `3 of 4 uploaded`, theme toggle light→dark→light, dark CSS present → ALL CHECKS PASSED.
 - Checked light AND dark: toggle flips `data-theme`, CSS uses same tokens with dark amber/red adjustments, contrast verified (no grey-on-grey, borders visible).
 
+## Targeted fix (2026-11-27 real-browser QA: frozen status pill)
+- Defect: top-right pill froze at `Uploading 1 of 1 · 0.0 of 4.2MB` while list/footer kept updating (`2 of 4 uploaded`, Q3 100%, Budget restarting at `0.3 of 1.3MB` after Retry), in light AND dark.
+- Root cause (replica-only): in `syncChrome()`, `var hdr=footText; if(lastHdr!==hdr){hdrCounts.textContent=...;hdrDot class...}` was nested inside `if(lastTitle!==titleText){...}`. Title only changes on dragCount, so after the first seed the pill branch never ran again. Footer (`lastFoot`) was outside that conditional, so it kept updating. Confirmed via in-dir stub: pill stayed `Uploading 1 of 1…` while foot went `3 of 4` → `2 of 4` → `2 of 4 uploaded`.
+- Original: `demo-original.js` has no header pill (only `ui-dz__foot` summary `$`); checked full 21KB source — no `hdrCounts`/pill logic. So not original behaviour; fix is replica-side only.
+- Fix (in-place, 2-brace move in `index.html`, no rebuild): close the title conditional before the pill sync, so pill syncs every `syncChrome()` from the same `footText`/aggregate (`Uploading X of Y · A of B` / `M of N uploaded`) via `hdrCounts.textContent` + `hdrDot` class (`dotlive` vs `dotlive idle`). No `innerHTML`, no node replacement, demo data/timings untouched, `/*noflash*/` guard untouched.
+- Verification (node only, in-dir): `node --check .extracted.js` PASS; `node verify-harness.cjs` PASS; `node verify-pill-fix.cjs` (VISIBLE `textContent`, hidden-attr/style check, dot class) PASS — pill==foot at init/drag/seeds/mid/end (`2 of 4 uploaded`), dark Retry restarts `Uploading 1 of 4…` → `3 of 4 uploaded`, light+dark, hdr/row node identity preserved, zero `innerHTML` after init.
+
 ## How to test
 Open `index.html` in a browser. Wait ~2s for autoplay seeds, watch progress/time-left, Budget fails with Retry, Product shows Too large, Clear appears. Toggle sun/moon top-right to check dark. Drag files or click browse to add more.

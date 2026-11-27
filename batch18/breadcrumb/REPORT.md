@@ -1,63 +1,54 @@
-# Breadcrumb — replica report
+# Breadcrumb — targeted overflow-menu fix
 
-## What was built
-- `index.html` (35 KB, self-contained, no network, system fonts only) replicating the
-  affectUI **Breadcrumb** component: page location trail with links, chevron/slash
-  separators, and collapsed middle sections via an ellipsis (`…`) menu.
-- Clean-room code: own HTML/CSS/JS from observed behaviour. No copied bundle source.
-- Layout: page header (`Acme` + pills `3 agents` / trail depth / current meta + sun/moon
-  toggle) → card with breadcrumb bar → rows-or-leaf body → footer with `44k / 200k`
-  context bar + `acme/…` path key. Narrow screens stack (meta hidden).
+## Defect (real-browser QA)
+Overflow `…` button (`aria-label "Show 1 more crumb"`) never opened the hidden-crumbs menu.
+Three real mouse clicks left the button `[collapsed]`, nothing painted. Separator switcher on the
+same page responded immediately, so clicks land — the menu's open path was broken.
 
-## Matched original (from `demo-original.js`, verbatim)
-- Full 17-node tree verbatim: labels/metas/kinds/children, e.g.
-  `Acme/Workspace`, `Agents/3 agents`, `Research bot/Weekdays at 9:00`,
-  `Run #4821 · Summarise Q3 support tickets and draft a fix plan for the export timeout`
-  / `Finished 4 min ago · 23 tool calls`, `Run #4820…/Finished yesterday · 41 tool calls`,
-  `Run #4819…/Failed on Monday · 7 tool calls`, `Run #912…/Finished 1 h ago · 48 tool calls`,
-  `Run #77…/Notes for v2.14/Finished on Friday · 12 tool calls`,
-  `support-handbook.md/Edited 2 days ago`, `pricing-2026.pdf/Added last week`, etc.
-- Default trail `acme/agents/research/runs/r4821` (5 deep), `maxItems=4`, collapsed count
-  `max(2,n)` logic → 1 collapsed (`Agents`) behind `…`, `aria-label="Breadcrumb"`,
-  `aria-current="page"`, more button `Show N more crumbs` + `title` joined with ` / `,
-  menu `role=menu` / `More crumbs` / `menuitem` with `--depth:min(t,3)` and branch fallback icon.
-- Separators: chevron SVG `M9 6s6 4.42 6 6-6 6-6 6`, slash `/`; dots SVG and branch SVGs
-  redrawn clean-room with same shapes; label cap 200 px, ellipsis + hover-only `title`
-  when truncated; keyboard ArrowUp/Down/Home/End/Escape/Tab; outside `pointerdown`
-  closes; resize/scroll repositions; `popover`-style fixed menu.
-- Agent identity: deterministic 3×3 pixel-marks (clean-room hash, ≥5 on) with
-  EXACTLY 9 `<i>` cells per agent, colours `#0190FE` (research), `#A651F0` (triage),
-  `#13B3A0` (notes).
+## Root cause
+`index.html` opened the menu on `pointerdown`/`mousedown` capture (house rule, so a re-render
+cannot eat the click), but the `click` handler still toggled:
 
-## Design tokens / themes / hard-won rules
-- CSS vars for every colour. Light: surface `#ffffff`, page `#fafaf9`, ink `#171717`,
-  muted `#78716c`, subtle `#f5f5f4`, border `#e7e5e4`, radius-lg `16px`/radius `10px`/
-  radius-sm `6px`, shadow soft. Dark via same tokens: `#1c1c1f/#101012/#ededed/
-  #a1a1aa/#26262a/#2e2e33`. Amber waiting tokens included.
-- Visible sun/moon toggle (top-right) flips `data-theme="light"|"dark"` on `<html>`,
-  persisted as `bcr-theme`. Default markup `light` = original demo appearance.
-- `<head>` starts with `/*noflash*/` guard (stored key → `prefers-color-scheme` →
-  light) + `html{background:#fafaf9}html[data-theme="dark"]{background:#101012}` +
-  `<meta name="color-scheme" content="light dark">`.
-- In-place updates only: DOM built once at init from pools; ticks/navigation update
-  `textContent`/attrs/styles and move existing nodes. No `innerHTML` anywhere after
-  (and before) init. Hover only sets `title`. Menu opens on `pointerdown`/`mousedown`
-  capture. Explicit `[hidden]{display:none!important}`. SVG classes only via
-  `setAttribute`. No broad `svg{display:block}` overriding hides.
+```js
+pointerdown -> openMenu()          // menuOpen = true
+mousedown   -> openMenu() (no-op)
+click       -> if (menuOpen) closeMenu()   // immediately closes again
+```
 
-## Verification (node only, in-dir)
-- `node --check .main-extract.js` (script extracted from `index.html`): OK.
-- `node harness.cjs` (in-dir DOM-stub, no browser): loads page script, drives 13-stop
-  full navigation loop (deep trail → triage/notes/knowledge/leaf variants → back),
-  asserts **visible** text (not just markup/aria), collapsed middle, menu open/close,
-  chevron/slash switch, 9-cell marks, theme toggle, node identity + zero `innerHTML`:
-  **ALL CHECKS PASSED** — 30 PASS lines, including:
-  `theme toggle switches data-theme light -> dark (dark+light checked)`.
-- Light AND dark checked: light default + stub navigation; dark via token values
-  (`#1c1c1f` etc.) + functional toggle flip with visible text preserved.
-- `index.html` 35062 bytes (<200 KB).
+Net effect per real gesture (`pointerdown+mousedown+mouseup+click`): open then instant close.
+The menu flashed closed within the same gesture, so QA saw `[collapsed]` and an empty paint.
+CSS was innocent: `.ui-bcr__menu{display:grid}` + `[hidden]{display:none!important}` interplay is
+correct (`hidden=false` shows, `hidden=true` hides). Node identity was also fine (`moreBtn` built
+once, only moved via `appendChild`). The bug was purely the open-then-toggle-close sequence.
+Original `demo-original.js` toggles on `onClick` only (`r(e=>!e)`) with no pointerdown opener,
+so it does not have this double-handling.
+
+## Fix (in `index.html` only, nothing else changed)
+Suppress the `click` that completes the opening gesture; keep toggle for genuine later clicks:
+
+```js
+var moreOpenedOnPointer = false;
+moreBtn pointerdown (capture): if (!menuOpen) { openMenu(); moreOpenedOnPointer = true; }
+                                else { moreOpenedOnPointer = false; } // closing gesture
+moreBtn mousedown (capture, fallback only): if (!menuOpen && !moreOpenedOnPointer) { openMenu(); moreOpenedOnPointer = true; }
+                                // never clears: mousedown of the same gesture must not unsuppress
+moreBtn click: if (moreOpenedOnPointer) { moreOpenedOnPointer = false; return; }
+               if (menuOpen) closeMenu(false); else openMenu();
+```
+
+Second click / outside `pointerdown` still closes. Click-only open (keyboard Enter/Space,
+no-pointer browsers, AT) still toggles because the flag is false. Demo data, layout, other
+behaviour unchanged. `/*noflash*/` guard kept; in-place updates only; zero `innerHTML` writes
+(the sole `innerHTML` string in the file is a code comment).
 
 ## How to test
-Open `index.html` in a browser: click crumbs/rows to travel, click `…` for hidden
-crumbs (keyboard navigable), switch Chevron/Slash, toggle sun/moon for dark mode,
-narrow the window to see further collapsing.
+Open `index.html` in a browser, click `…` — the menu listing `Agents` appears; click `…` again or
+click outside — it closes. Repeat in light and dark (sun/moon toggle).
+
+## Verification (node only, no installs)
+- `node --check` on the extracted main script: OK.
+- `node harness-fix.cjs` (in-dir DOM stub): dispatches full `pointerdown/mousedown/mouseup/click`
+  on `…`, asserts menu visible (`hidden==false`, `display:grid` open rule, no beating
+  `display:none`, contains `Agents` as visible text), second click closes, outside `pointerdown`
+  closes — in light AND dark; asserts crumb/list/menu node identity kept and zero `innerHTML`
+  writes after init. All checks pass.

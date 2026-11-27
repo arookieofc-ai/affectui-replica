@@ -421,10 +421,14 @@ function buildOnce(){
   moreBtn.setAttribute("aria-expanded","false");
   moreBtn.appendChild(makeDotsSvg());
   moreLi.appendChild(moreBtn);
-  /* open on pointerdown capture so the real click still lands */
-  moreBtn.addEventListener("pointerdown", function(){ if(!menuOpen) openMenu(); }, true);
-  moreBtn.addEventListener("mousedown", function(){ if(!menuOpen) openMenu(); }, true);
-  moreBtn.addEventListener("click", function(){ if(menuOpen) closeMenu(false); else openMenu(); });
+  /* open on pointerdown/mousedown capture so the real click still lands;
+     suppress the click completing the opening gesture (else it re-closes) */
+  var moreOpenedOnPointer = false;
+  moreBtn.addEventListener("pointerdown", function(){ if(!menuOpen){ openMenu(); moreOpenedOnPointer = true; } else { moreOpenedOnPointer = false; } }, true);
+  /* mousedown is a fallback for no-pointer-event browsers: never clears the
+     pointerdown flag, else the mousedown of the same gesture would unsuppress */
+  moreBtn.addEventListener("mousedown", function(){ if(!menuOpen && !moreOpenedOnPointer){ openMenu(); moreOpenedOnPointer = true; } }, true);
+  moreBtn.addEventListener("click", function(){ if(moreOpenedOnPointer){ moreOpenedOnPointer = false; return; } if(menuOpen) closeMenu(false); else openMenu(); });
   moreBtn.addEventListener("keydown", function(ev){
     if(ev.key==="ArrowDown" && !menuOpen){ ev.preventDefault(); openMenu(); }
   });

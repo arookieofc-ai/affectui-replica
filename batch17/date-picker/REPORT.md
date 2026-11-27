@@ -1,30 +1,39 @@
-# Date Picker — Replica Report
+# Date Picker — targeted fix report
 
-## What was built
-- ONE self-contained `index.html` (30.9KB, no network, no external assets, system fonts) in this directory.
-- Clean-room implementation of the `ui-dpk` single-day picker in text-field style: label + trigger button (calendar icon, formatted value, chevron) + fixed-position dialog panel with month nav, 6×7 day grid, weekday headers, hint line.
-- Page chrome: `Research Agent` header with `1 working · 2 dates · Date Picker` meta + visible sun/moon theme toggle (top-right) switching `data-theme="light"|"dark"` on `<html>`, persisted to `dpk-theme`.
-- Design tokens as CSS custom properties for light (`--surface #ffffff`, `--page #fafaf9`, `--ink #171717`, `--muted #78716c`, `--subtle #f5f5f4`, `--border #e7e5e4`, radii 16/10/6, soft shadow) and dark (`#1c1c1f / #101012 / #ededed / #a1a1aa / #26262a / #2e2e33`). Accent blue chip `#4fb0fe`, focus ring, danger red.
-- `/*noflash*/` guard is the first script in `<head>`: reads stored theme or `prefers-color-scheme` before paint, plus inline `html{background:#fafaf9}html[data-theme="dark"]{background:#101012}` and `<meta name="color-scheme" content="light dark">`.
-- Hard-won rules: DOM built once at init (42 day buttons reused); all updates in place via `textContent`/`setAttribute`; zero `innerHTML`/`outerHTML` in page script; dialogs open/close on `pointerdown` capture + click; hover/focus only update `tabindex`/classes; explicit `[hidden]{display:none!important}`; SVGs via `createElementNS` + `setAttribute` (never `.className`); narrow `svg{display:block}` selectors so hide rules win.
+Targeted fix of the existing `./index.html` (no rebuild). Checked `./demo-original.js` first; kept `/*noflash*/` guard, in-place updates only, zero `innerHTML` writes after init, demo data verbatim.
 
-## Matched data / behaviour (verbatim from demo-original.js)
-- Demo form with two pickers: `First run` (value = next weekday after tomorrow, `min=today`, `isDateDisabled=weekend Sat/Sun`, `hint="Research Agent only runs on weekdays."`) and `Stop after` (`optional`, `value=null`, `min=first-run||today`, `placeholder="Keeps running"` vs default `"Pick a date"`).
-- Date helpers: start-of-day, addDays, start-of-month, days-in-month, clamped addMonths, sameDay/sameMonth, clamp, `Intl.getCanonicalLocales`, `Intl.Locale` weekInfo with Sunday-region set (`US,CA,MX,BR,JP,KR,TW,HK,IL,PH,IN,ZA,SA,PE,CO,VE,GT,PR`) else Monday.
-- Formatting: value `EEE, MMM d, yyyy`, title `MMMM yyyy`, long `EEEE, MMMM d, yyyy`, day number via `formatToParts`.
-- Grid: 6 weeks from locale week start, outside days muted but selectable, `min`/`max`/`isDateDisabled` → `aria-disabled`, today → `aria-current="date"` + dot, chosen → `data-chosen` blue chip, roving `tabindex`, `aria-label` long date, nav arrows `Previous month`/`Next month` disabled at `min`/`max` month, `aria-live="polite"` title.
-- Keyboard: `ArrowLeft/Right` (RTL-aware) ±1, `ArrowUp/Down` ±7, `PageUp/Down` ±1mo (`Shift` ±12mo), `Home/End` to week edge, `Enter/Space` select+close, `Escape` close, `ArrowDown/Up` on trigger opens. Outside `pointerdown` (capture) closes. Panel flips up via `data-up` when space is tight.
-- Icons: calendar, chevron (`M18 9C…`), arrows (`M15 6C…`, `M9 6C…`) drawn with matching paths but own code.
+## Defects and root causes
 
-## What could not be verified
-- Pixel-perfect visual diff vs original screenshots (no browser in this environment). Verified structure, tokens, and interaction via stub instead.
-- Real popover layering / `showPopover` path (guarded; falls back to fixed positioning). No timers/animations asserted beyond CSS presence.
+### (1) Mouse click on “First run” did not open the calendar (both themes); keyboard did
+- **Original (`demo-original.js`):** trigger opens only via `onClick: () => V ? Z() : X()`. No `pointerdown` opener. Mouse click works in the original.
+- **Replica regression:** `index.html` added a capture-phase `pointerdown` opener (`if (!open) doOpen()`) to satisfy the house rule, but kept the old toggle `click` handler (`if (open) doClose() else doOpen()`). A real mouse click fires `pointerdown` (opens) then `click` (sees `open === true`, closes). Net effect: appears to never open. Keyboard `Enter`/`ArrowDown` has no preceding `pointerdown`, so it opened normally.
+- **Fix (JS only, per picker instance):** added `suppressClick` flag. `pointerdown`/`mousedown` capture set it and open; `click` consumes the flag once (`if (suppressClick) { suppressClick = false; return; }`) instead of toggling. Second click (no preceding open) still closes. Focus behaviour unchanged (open still moves focus to the day, matching the original `J.current = true` path).
 
-## How to test
-- Open `index.html` in a browser. Click either field to open, arrow keys move highlight, `Enter` picks, `Esc` closes, month arrows navigate, theme button toggles light/dark.
-- `First run` blocks weekends and past days; picking a new first date raises `Stop after`'s `min`; footer live line updates (`Fri, Nov 27, 2026 · Keeps running` initially, date-dependent).
+### (2) Calendar grid collapsed to a single column (both themes)
+- **Original:** panel JSX is a child of the `.ui-dpk` div, so `var(--cell)` / `var(--ui-dpk-*)` inherit. Grid rule: `.ui-dpk__weekdays, .ui-dpk__week { display: grid; grid-template-columns: repeat(7, minmax(0, var(--cell))); }`.
+- **Replica regression:** `document.body.appendChild(panel)` portalled the panel outside `.ui-dpk`. `--cell` (defined only on `.ui-dpk`) became unresolved inside the panel, so `grid-template-columns: repeat(7, minmax(0, var(--cell)))` and `width: calc(var(--cell) * 7 + 20px)` were invalid. With no valid track list, the 7 weekday headers and 42 days auto-place one per row — the reported single-column stack, viewport overflow, unreachable Dec 1. Investigated the suspected “broad rule beats grid rule” hypothesis: no rule in `index.html` overrides `display: grid` on those classes; the computed failure is custom-property scope, not specificity.
+- **Fix (one line):** `root.appendChild(panel)` instead of `document.body.appendChild(panel)`. `position: fixed` keeps viewport positioning; all `--cell`/`--d-*` vars (including `html[data-theme="dark"] .ui-dpk` overrides) now inherit. No CSS specificity change needed.
 
-## Verification results
-- `node --check` on extracted page script: pass.
-- In-dir stub harness `harness.cjs` (`node harness.cjs`): **62 passed, 0 failed**.
-  - Checks `/*noflash*/` order, `[hidden]` rule, tokens, toggle, no external assets, verbatim strings, script parses, both pickers init, VISIBLE trigger/label/hint/placeholder text (not aria-only), weekend + locale-week (`en-US=0`, `de-DE=1`), open → 42 buttons → 1 chosen → disabled present → month step → choose updates visible text → close, second picker loop, node identity for trigger/value/title/day buttons across full loop, zero `innerHTML` writes after init, keyboard cases present, light AND dark theme apply.
+### (3) Summary line wrapped mid-phrase (“Keeps running” split)
+- **Original:** `demo-original.js` demo (`dpk-demo`) has no summary/foot line — two pickers in a tray only. The `.foot` live line is a replica addition, so single-line treatment does not diverge from the original.
+- **Fix (CSS only):** `.foot { …; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }` and `.foot code { …; white-space: nowrap; }`. Text and demo data unchanged.
+
+## What was NOT changed
+- `/*noflash*/` guard + `html{background…}` + `color-scheme` meta untouched and still first in `<head>`.
+- DOM built once at init; timers/steps call in-place `paintAll`/`paintFocus` (text/attributes only). No new `innerHTML` writes (static grep: none; stub counter after full loop: 0).
+- Demo data verbatim: labels `First run` / `Stop after`, hint `Research Agent only runs on weekdays.`, placeholder `Keeps running`, `min = today`, weekend-disabled, `min` chaining.
+
+## Verification (node only, no installs)
+- `node --check harness.cjs` — passes.
+- `node harness.cjs` (in-dir DOM stub) — all pass:
+  - static: noflash order, zero `innerHTML`, 7-col rule, foot nowrap, `root.appendChild(panel)`, pointer/mousedown capture.
+  - light AND dark: real-click sequence (`pointerdown` + `mousedown` + `click`) opens to VISIBLE state (no `hidden` attr, `data-open` set, `aria-expanded="true"`, `style.display !== none`, no `visibility:hidden`/`opacity:0`); second click closes; keyboard `ArrowDown` opens.
+  - grid: 42 day buttons with `data-day` + `aria-label`; panel parent is root.
+  - summary: `liveB === "Keeps running"`, foot nowrap.
+  - full loop (12× next + 12× prev + setValue + open/close + paint): root/trigger/panel/value/title + all 42 buttons + cell wrappers keep object identity; `innerHTML` writes after init = 0.
+- Real-browser check still recommended: open `index.html`, click `First run` in light and dark, confirm 7-column calendar and one-line summary.
+
+## Files
+- `index.html` — three targeted fixes above.
+- `harness.cjs` — stub harness described above.
+- `REPORT.md` — this file.

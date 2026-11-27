@@ -1,32 +1,69 @@
-# REPORT — OTP Input replica
+# OTP Input — fix report
 
-## What was built
-`index.html` (26.5 KB, self-contained, no network, system fonts) replicating the `OTP Input` demo as a clean-room vanilla-JS page.
-
-Layout:
-- Top header: `acme · verification`, `0/1 working · 1 agent`, deterministic 3×3 pixel-mark (exactly 9 `<i>` cells) for `acme-verifier`, token context `44k / 200k` with thin 3 px bar, visible sun/moon theme toggle (top-right).
-- Center card: mail badge (envelope SVG `rect x=3.5 y=5.5 w=17 h=13 rx=2.5` + `M4.5 7.5l7.5 5.5 7.5-5.5`), `Check your email`, `We sent a code to maya@acme.com`, 6-box OTP with separator after 3, gliding ring + blinking caret, invisible `one-time-code` input (paste/autofill, arrows/Home/End, focus), error message with alert icon, resend countdown/button, polite live region, hint `Demo code: 482 913` (NBSP).
-- Success morphs boxes into a `Verified` pill with check `M5.5 12.5l4 4L18.5 8`.
-
-Tokens via CSS custom properties for light + dark; `data-theme` on `<html>`; `/*noflash*/` guard is the first child of `<head>` plus `html{background:#fafaf9}html[data-theme="dark"]{background:#101012}` and `<meta name="color-scheme" content="light dark">`. Default is light (original demo appearance); stored `otp-theme` overrides, else `prefers-color-scheme`.
-
-In-place updates only: DOM built once at init (6 `.cell` + sep + ring + pill + input + msg + resend). Timers update `textContent`/attributes/`style` on cached nodes; zero `innerHTML` in page script. User `pointerdown`/`keydown`/`focus` capture cancels the auto demo so real clicks survive. `[hidden]{display:none!important}` present; SVG classes set via `setAttribute`. No broad `svg{display}` rule.
-
-## Matched data / behaviour (verbatim from `demo-original.js`)
-- `CORRECT=482913`, `WRONG=481973`, `maya@acme.com`, `Check your email`, `Demo code: 482 913`, `Verification code, 6 digits`, `That code didn't work. Try again.` / `That code didn't work. 2 tries left.` / `... 1 try left.` / `... Request a new code.`, `Verified`, `Verifying code`, `Didn't get a code?`, `Resend in`, `Resend code`, `A new code is on its way`, `You can resend the code now`, tries start `3`, `resendIn 30` formatted `0:30`→`0:00`.
-- Timings: type 150 ms/char from 700 ms; verify delay 1000 ms; wrong → error (tries 3→2), shake 420 ms, clearing at +700 ms, clear value at +980 ms, back to idle at 4450 ms; type correct 4450–5200 ms; verify at 5500 ms → success; hold 3200 ms → clear + tries reset. Resend ticks 1000 ms. NFKC + Arabic-Indic digit normalization, numeric-only, length 6, separator at 3, center align.
-- Not verified: exact `otp-demo__*` card CSS (original chunk had no card CSS — recreated in same tokens), real SMS autofill on device, pixel-perfect shimmer offsets.
+## What built
+Standalone `index.html` replica of the OTP demo (`demo-original.js`):
+card “Check your email”, `maya@acme.com`, 6 boxes with separator after 3,
+auto demo loop wrong `481973` → error → correct `482913` → `Verified`,
+resend countdown from 30, theme toggle `data-theme="light"|"dark"`.
+Matches original: error only turns borders red (`data-error`), message
+grows below (`data-show`), success morphs boxes into pill, resend hidden
+during success, timers update in place.
 
 ## How to test
-Open `index.html` in a browser. Auto demo runs once (wrong → error → correct → verified → reset, then repeats). Type/paste in boxes, press Resend, toggle sun/moon. No server needed.
+Open `index.html` in a browser. Auto loop runs. Or `node` only:
+`node --check ./harness.js && node --check ./extracted-main.js && node ./harness.js`
+Checked light AND dark via stub (both pass).
 
-## Verification (node only, in-dir files)
-- `node --check` on extracted main script: PASS.
-- `node harness-verify.js` (DOM stub, mocked timers, advances full loop):
-  - 6 boxes, pixel-mark exactly 9 cells, initial idle empty
-  - wrong typed `481973`, error shows exact `That code didn't work. 2 tries left.` as VISIBLE text
-  - auto-clear to empty, verifying live `Verifying code`, success pill `Verified` VISIBLE (not just aria), reset idle + tries 3 after ~3200 ms
-  - resend shows `Resend in 0:29…0:20`
-  - node identity preserved across full loop, zero `innerHTML` writes after init
-  - light AND dark themes verified (`#ffffff/#fafaf9` + `#1c1c1f/#101012`, amber dark variant)
-  - ALL HARNESS CHECKS PASSED
+## Defects — root cause + fix (checked against ./demo-original.js)
+
+### (1) LIGHT: wrong code 481973 marks invalid but nothing paints
+Original (`demo-original.js`): `X=m==="error"&&k`, CSS
+`.ui-otp[data-error] .ui-otp__box{box-shadow:inset…var(--ui-otp-danger-line)}`,
+`.ui-otp__msg[data-show]{grid-template-rows:1fr}`, text
+`That code didn't work. ${e} ${try/tries} left.` — same in both themes,
+no theme-scoped hiding. Alert icon uses `stroke:var(--ui-otp-danger)`.
+Replica DOM was correct (`data-error`, `data-show`, text, `aria-invalid`)
+in both themes (harness proves), but two icon deviations hid the red:
+- `.alertico` had no color, JS set path `stroke="currentColor"` → inherited
+  `--text` (grey) instead of red.
+- `.check` path hardcoded `stroke="#1e8a4f"` (light green, low contrast in dark);
+  original uses `var(--ui-otp-success)` per-theme.
+Fix (targeted, everything else identical):
+- `.alertico{…;color:var(--danger)}` — `currentColor` now resolves to red
+  in light (`#dc2626`) and dark (`#ff6b5f`).
+- `.check{…;color:var(--success)}` + path `stroke="currentColor"`
+  (was `#1e8a4f`) — light `#1e8a4f`, dark `#5fc88a`, matches original.
+
+### (2) DARK: Resend makes 6 inputs vanish, never return
+Original: `ve=()=>{v?.(),le(S),P("A new code is on its way")}` — only resets
+tries (`()=>s(3)`) and countdown (`le(S)`, S=30), never touches value/status.
+Resend hidden during success: `"data-hidden":m==="success"`,
+CSS `.ui-otp__resend[data-hidden]{opacity:0;visibility:hidden}` so it cannot
+be clicked while boxes are intentionally hidden (`[data-status="success"]
+.ui-otp__box{opacity:0}`).
+Replica `onResend` already preserved status/value and restarted `tickResend`
+(harness: resend→30, tries→3, boxes stay in DOM, countdown ticks in dark),
+but was missing the `[data-hidden]` CSS, so resend stayed visible during
+`Verified` and a click during success would leave `status==="success"`
+(cells `opacity:0`) with no return until auto-reset — the reported vanish.
+Fix: added missing rule matching original:
+`.resend[data-hidden]{opacity:0;visibility:hidden;transition:opacity 220ms ease,visibility 0s 220ms}`.
+`updateResend` already sets/removes `data-hidden`; no JS change needed.
+Note: success intentionally hides boxes (opacity 0 + pill) in both themes
+per original — not a bug.
+
+### (3) Theme toggle resets demo state (Verified → wrong-code)
+Original has no theme toggle; replica addition must not touch state.
+`setTheme` only sets `documentElement[data-theme]`, `localStorage otp-theme`,
+icon — verified no `render`/`clearAuto`/`runCycle`/state writes, and
+`themeBtn` is outside `demoRoot` so `cancelAuto` capture never fires.
+Harness: snapshot Verified (`482913`/`success`/3), click toggle twice,
+state + box identity unchanged in both directions.
+No fix needed; kept as-is to avoid rebuild.
+
+## Invariants kept
+- `/*noflash*/` guard + `<meta name=color-scheme>` + `html{background}` first paint intact.
+- In-place only: boxes built once, `updateBoxes/Ring/Status/Resend` mutate text/class/attrs/styles; zero `innerHTML` (grep 0, harness traps setter → 0 writes).
+- Demo data verbatim: `482913`, `481973`, `482 913`, `maya@acme.com`.
+- Full-loop node identity: boxes/slots same objects across wrong→error→idle→correct→success→idle + resend + theme toggles (harness 46/46 pass).
+- Could not verify: real-browser paint (node only per task), `100cqi`/container animation timing, reduced-motion.

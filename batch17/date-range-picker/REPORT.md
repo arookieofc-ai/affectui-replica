@@ -1,27 +1,60 @@
-# Date Range Picker — replica report
+# Date Range Picker — targeted fix report
 
-Built `index.html` (35KB, self-contained, system fonts, no network) — clean-room replica of the Date Range Picker demo (`demo-original.js`).
+## What was fixed (2 defects; 1 left as-is per original)
 
-## What matches the original (verbatim data/behaviour)
-- Presets (9): Today, Yesterday, Last 7 days, Last 30 days, Last 90 days, This month, Last month, This quarter, Year to date — same ids/labels/range math (T-6, T-29, T-89, startOfMonth, last-month start/end, quarter start, Jan 1).
-- Compare options: Off, Previous period, Previous year; math: previous = shift back by inclusive length; previous-year = same month/day prior year clamped to month length.
-- Strings: `Choose a date range`, `Presets`, `Previous month`, `Next month`, `Compare`, `Compare to`, `Cancel`, `Apply`, `Custom`, `vs. `, ` – `, ` – pick an end`, `day`/`days`, weekday 2-letter `Mo Tu We Th Fr Sa Su` (Monday start), `Intl` formatters en-US (short/long/month-long/full + NumberFormat).
-- Default: Last 30 days (`today-29` to today) with `Previous period`, panel open (`defaultOpen=true` in demo), max=today (future disabled), left month = end-1.
-- Interactions: preset click sets draft + re-anchors left month; day click starts (`end=null`) then completes sorted; `pointerenter` hover preview + `pointerleave` clear; compare band; footer `N days` + `vs. …` fold; `Apply` commits to trigger + closes, `Cancel`/outside `pointerdown`/`Escape` closes; trigger shows `range` + `vs. compare`; keyboard Arrows/PageUp/PageDown/Home/End, focus tabIndex, `aria-selected`/`aria-checked`/`aria-current="date"`/`aria-label` full date; sliding pills for presets/segments; CSS transitions 140–320ms, open/slide/pick animations, `prefers-reduced-motion` guard; responsive single-month stacked under 640px.
+### (1) Compare radio group in LIGHT theme — FIXED
+**Symptom (real-browser QA):** `OffPrevious periodPrevious year` — three labels jammed with no spacing and no visible selected affordance.
 
-## Design tokens / themes / hard rules
-- CSS vars for all colours; light `surface #ffffff page #fafaf9 ink #171717/#1c1917 muted #78716c subtle #f5f5f4 border #e7e5e4`, dark `surface #1c1c1f page #101012 ink #ededed muted #a1a1aa subtle #26262a border #2e2e33`; radii 16/10/6, shadows, fully-rounded pills; visible `◐ Theme` toggle top-right switching `data-theme` + `localStorage('drp-theme')`.
-- Default `data-theme="light"` = original demo appearance (white card/tray).
-- `<head>` starts with `/*noflash*/` guard + `<meta name="color-scheme" content="light dark">` + `html{background:#fafaf9}html[data-theme="dark"]{background:#101012}`.
-- DOM built once at init; all updates in place (`textContent`/attrs/classes/styles), zero `innerHTML` after init; hover/focus never rebuild; dialogs open on `pointerdown` capture (`trigger` + `document` both `,true`); `[hidden]{display:none!important}`; SVG classes via `setAttribute` only (no `.className`); no broad `svg{display:block}` beating hidden.
+**Root cause(s) in `./index.html`:**
+- `.drp button{padding:0}` (specificity `0,1,1`) overrode `.drp__segment{padding:0 8px}` (specificity `0,1,0`), collapsing horizontal padding to `0`.
+- `.drp__segments` had no `gap`, so the three `role=radio` buttons touched.
+- Selected state was pill-only (`background:var(--subtle)` `#f5f5f4` on `var(--surface)` `#ffffff` with `1px var(--line)` `#ececec`), very low contrast in light; no radio-circle affordance.
 
-## Could not verify
-- Pixel-perfect vs original screenshot (no browser in this env); pill offsets are 0 in stub (real browser positions via `offset*`); `ResizeObserver` auto-sizing omitted (fixed layout, same look); smooth preset-list scroll omitted.
+**Note on `./demo-original.js`:** the original also uses a segmented `radiogroup` (`role=radiogroup` + `button role=radio` + sliding `.ui-drp__pill`), not native radio circles, and has the same `padding:0` override. QA explicitly requires “visible circles + proper spacing in both themes”, so a minimal circle affordance was added (original pill + demo data unchanged).
+
+**Fix (CSS only, tokens preserved):**
+- `.drp__segments` → `display:inline-flex;align-items:center;gap:4px` (spacing).
+- `.drp__segments .drp__segment` (`0,2,0`, beats `.drp button`) → `display:inline-flex;align-items:center;gap:6px;padding:0 10px 0 8px`.
+- `.drp__segments .drp__segment::before` → `12px` circle, `border-radius:50%`, `border:1.5px solid var(--muted)`, transparent fill.
+- `.drp__segments .drp__segment[aria-checked="true"]::before` → `border-color:var(--accent);background:var(--accent);box-shadow:inset 0 0 0 2px var(--surface)` (dot).
+- Light: `--muted #78716c` ring on `#ffffff`, selected `--accent #0284c7`. Dark: `--muted #a1a1aa` on `#1c1c1f`, selected `--accent #4fb0fe`. Both contrast; no `display:none`/`visibility:hidden`/`opacity:0`.
+
+### (2) Theme toggle closes panel + kills trigger — FIXED
+**Symptom:** clicking `◐ Theme`/`☀ Light` closes the open panel; afterwards mouse click and Enter both fail to reopen (dark and back to light).
+
+**Root cause(s):**
+- `document` `pointerdown` outside-close (`if(S.open && !R.root.contains(e.target)) closePanel(true)`) treated the theme button (`#themeBtn`, outside `R.root`) as an outside click, so every theme toggle forced `S.open=false`.
+- `onTriggerClick()` only handled close (`if(S.open && !_ptrOpened) closePanel`), never open. Mouse reopen relied on `pointerdown→openPanel`, but keyboard (Enter/Space → `click` without `pointerdown`) had no open path, so Enter could never reopen.
+
+**Fix (JS only, no rebuild, handlers preserved):**
+- Outside-close now ignores the toggle: `if(e.target&&e.target.closest){try{if(e.target.closest('#themeBtn,.theme-btn'))return;}catch(_){}}`.
+- `onTriggerClick()` now toggles: `if(S.open && !_ptrOpened){closePanel} else if(!S.open){openPanel}` + clear flag. Mouse flow unchanged (`pointerdown` opens, `click` with `_ptrOpened` no-ops); keyboard `Enter`/`Space` → `click` now opens when closed, closes when open.
+- Theme handler still only flips `data-theme` + `localStorage` + label (in-place `textContent`, no `build()`, no `innerHTML`), so trigger/panel node identity survives.
+
+### (3) Default-open panel covers explanatory text — LEFT AS-IS (matches original)
+**Check of `./demo-original.js`:** panel CSS is `position:absolute;z-index:30;top:calc(100% + 8px);left:0`, and the demo exports `defaultOpen:!0` (`le({defaultOpen:!0})`). The original therefore overlays content below the trigger when open by design.
+**Action:** no placement change. Replica keeps `position:absolute` + default `S.open=true`, matching the original. `demo-note` text unchanged.
+
+## Preserved guardrails
+- `/*noflash*/` guard + `<meta name=color-scheme>` + `html{background}` untouched.
+- In-place updates only; `build()` once at init; `updateAll()` mutates `textContent`/attributes/styles on existing nodes.
+- Zero `innerHTML` writes after init (static + runtime harness count `0`).
+- Demo data verbatim: `Off` / `Previous period` / `Previous year`, presets (`Today`, `Yesterday`, `Last 7 days`, `Last 30 days`, `90d`, `This month`, `Last month`, `This quarter`, `Year to date`), `Last 30 days + Previous period` defaults.
+- CSS tokens for all colours; `:hover` stays inside `@media (hover:hover) and (pointer:fine)`; `html{-webkit-tap-highlight-color:transparent}`; `tabular-nums` for counts.
 
 ## How to test
-- `open index.html` in a browser; panel is open by default; try presets, two-date click, hover preview, Compare Off/Previous/Previous year, month nav, keyboard, Cancel/Apply, theme toggle, narrow width.
-- Node only (no browser): `node --check` on extracted script + `node ./harness.js` (in-dir stub, no installs).
+- `open index.html` in a browser. Panel is open by default.
+- Light: Compare shows three spaced pills each with a visible ring; `Previous period` selected (filled accent dot).
+- Click `◐ Dark` → panel stays open, trigger `aria-expanded=true`, panel not `hidden`; click again → back to light, still open.
+- Close via outside click or `Cancel`/`Apply`, then reopen via mouse click and via focusing trigger + `Enter`/`Space` — all reopen in both themes.
+- Narrow width stacks; `Esc` closes; day hover preview and compare band unchanged.
 
-## Verification (node only)
-- `node --check` on extracted page script: OK.
-- `node ./harness.js`: PASS — asserts visible text (all 9 presets, Custom, all compares, Cancel/Apply, `vs.`, day counts, `pick an end`, weekdays, month names), default-open state, preset/day/hover/compare/nav/Apply/reopen full loop, node identity across loop (preset/segment/day/trigger/summary/count/compare nodes), zero `innerHTML` writes after init + after timers, light AND dark visible, noflash/hidden/SVG checks.
+## Verification (node only, no installs)
+- `node --check ./extracted-check.js` (scripts extracted from `./index.html`) — OK.
+- `node --check ./harness.cjs` — OK.
+- `node ./harness.cjs` — ALL PASS: noflash/meta, circle CSS + gaps, visible (no `display:none`/`visibility:hidden`/`opacity:0`), light vars (`#78716c`/`#0284c7`/`#ffffff`) + dark vars (`#a1a1aa`/`#4fb0fe`/`#1c1c1f`), theme exclusion + keyboard toggle present, zero `innerHTML`, build OK, default-open visible, 3× `role=radio` with one `aria-checked=true`, full-loop node identity (`root`/`trigger`/`panel`/segs same after `updateAll×2`), theme-toggle preserves open, outside-click still closes, mouse + Enter reopen, dark/light reopen visible + identity preserved.
+
+## Files
+- `./index.html` (targeted fix, `36.6KB`, `<200KB`)
+- `./REPORT.md` (this file)
+- `./harness.cjs` (in-dir DOM-stub harness)

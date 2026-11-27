@@ -1,62 +1,90 @@
-# Prompt Library — replica report
+# Prompt Library — targeted fix report
 
-## What built
-`index.html` (39,278 bytes, self-contained, no network, system fonts) replicating the
-**Prompt Library** component: saved prompt templates with variables, assembling the
-finished prompt below. Clean-room code from observed behaviour — no compiled source copied.
-Class names (`ui-pli__*`) kept for behavioural parity; all CSS/JS written fresh.
+## What was fixed (targeted, no rebuild)
+`index.html` only — 2 CSS lines added, everything else identical.
 
-Layout: tray + card (`220px | 1fr`, stacks under 540px container), left side
-(`Prompts` title + total count, search, listbox with glide highlight), right panel
-(title + category tag + `N of M filled` bars, body with inline token inputs, `Preview`
-label + live preview region), footer (token caption, Copy, Use prompt), polite live region.
+### 1) Catastrophic layout collapse (~20px centred strip) — ROOT CAUSE + FIX
+**Symptom (real-browser QA):** except header + theme toggle, all body content
+squeezed into a ~20px vertical strip in the centre, text one char per line,
+in light AND dark. Ctrl+0 / wait / refresh did not help. Clicking
+“Summarize a meeting” changed DOM selection but nothing usable painted.
 
-## Matched data / behaviour (verbatim from demo-original.js)
-- Templates verbatim: `meeting`/`Summarize a meeting`/`Notes`,
-  `release`/`Write release notes`/`Product`, `error`/`Explain an error`/`Debug`,
-  `email`/`Draft a cold email`/`Sales`, with exact bodies and variable descriptions /
-  defaults (`150 words`, `friendly`, `120 words`).
-- Category tones by first-appearance order: Notes→blue, Product→violet,
-  Debug→amber, Sales→green.
-- Demo loop verbatim: start `meeting`, cycle `release → error → meeting`;
-  select delay `t===0?700:900`; first-char delay `2500` (first var, first cycle) else `520`;
-  subsequent `55+o*37%40`; typed values `Relay`, `2.4`, `existing customers`,
-  `TypeScript`, `Cannot read properties of undefined`, `Next.js`,
-  `the design team`, `the onboarding flow`; `3600ms` hold; stops on
-  pointerenter / pointerdown-capture / keydown-capture / focus-capture.
-- Interactions: search filter (`No templates match` / `No templates yet`), listbox
-  ArrowUp/Down/Home/End, Escape clears, ArrowDown from search focuses list,
-  Enter in token jumps to next empty or fires Use; token estimate `max(1,round(len/4))`
-  animated 420ms easeOutQuart via rAF in place; flash `a/b` on edit; pulse `a/b`
-  on newly-complete + `All variables filled`; Copy → `Copied to clipboard` /
-  `Prompt copied`; Use (only when complete) → `Prompt sent` / `{title} used`;
-  hint caption `{var} · {desc|filled|fill this in}`; `Fill N more to use` on Use hover.
-- No agent identities in this component, so no pixel-marks (spec: only if present).
+**Root cause — exact rule interaction:**
+- `.stage{display:flex;justify-content:center}` creates a flex row.
+- Intermediate `#app` had **no CSS at all** — default flex item
+  `flex:0 1 auto; min-width:auto`, shrink-wrapped to content.
+- Child `.ui-pli{width:100%;max-width:640px;min-width:0;container-type:inline-size}`:
+  `container-type:inline-size` applies inline-size containment, so its
+  intrinsic max/min-content contribution to the outer flex sizing is ~0.
+- Result: `#app` shrink-wraps to padding (4px each side) + ~0 intrinsic
+  → ~8–20px wide, centred by `justify-content:center`.
+  `.ui-pli{width:100%}` then = 100% of collapsed `#app`.
+  Container query `@container (max-width:540px)` then sees 20px < 540px,
+  forcing single-column card — still 20px, one char per line with
+  `overflow-wrap:anywhere`.
 
-## Hard-won rules applied
-- DOM built once at init; timers/rAF update only changed nodes in place
-  (sizer/input value, preview fills, bars, caption, token count). Zero `innerHTML`
-  writes anywhere (verified by grep + runtime counter).
-- Hover/focus handlers call only `refreshCaption()` — never rebuild.
-- Option has a `pointerdown` capture listener so real clicks survive; no dialogs/popovers.
-- `[hidden]{display:none !important}` explicit; no broad `.ui-pli svg` rule
-  (scoped to search/copy/use icons only) so hide rules can't be beaten.
-- SVG built with `createElementNS` + `setAttribute` only; no `.className` assignment.
-- `/*noflash*/` guard first in `<head>` + `html{background}` paint block +
-  `<meta name="color-scheme">`; theme key `ui-pli-theme`; default `light`
-  (the original demo's light appearance); visible sun/moon toggle top-right.
+This is the known family: a flex wrapper rule silently beating the
+component width rule, collapsing the grid/flex column. The beating rule is
+`.stage{display:flex…}` + bare `#app`; the beaten rule is
+`.ui-pli{width:100%;max-width:640px}`.
 
-## How to test
-Open `index.html` in a browser. Watch the auto-type demo (stops when you interact).
-Try search, keyboard nav, editing tokens, Copy, Use (disabled until complete).
-Toggle the sun/moon button for dark mode.
+**Fix (in `index.html`, after `.stage`):**
+```css
+#app{width:100%;max-width:640px;min-width:0;display:flex;justify-content:center}
+.ui-pli{flex:1;min-width:0}
+```
+- Gives `#app` a real width (fills `.stage`/`.page` up to 640px, shrinks on narrow),
+  `display:flex` so child fills instead of shrink-wrapping.
+- `flex:1;min-width:0` on `.ui-pli` makes it fill `#app` despite containment.
+- Container is now ~640px → `@container` keeps
+  `.ui-pli__card{grid-template-columns:220px minmax(0,1fr)}` 2-col layout.
+- No other CSS touched; `container-type`, card grid, `[hidden]`,
+  `/*noflash*/`, dark tokens unchanged.
 
-## Verification (node only, no browser)
-- `node --check` on extracted component script: OK.
-- In-dir stub harness `./harness.js` (fake DOM, virtual timers, `innerHTML` write
-  counter): init OK; `Relay` visible after first typing burst; preview shows assembled
-  prompt (`Relay` / `TypeScript` / `design team`); caption shows `~N tokens` state;
-  all 4 option titles + `Prompts`/`Preview`/`Copy`/`Use prompt` visible (not aria-only);
-  caption/list node identity preserved across full 3-template loop; zero `innerHTML`
-  writes; dark tokens present; toggle switches light→dark→light.
-- Result: `ALL CHECKS PASSED`. Light and dark both checked (static tokens + live toggle).
+### 2) Preview “forRelay2.4…” concatenation — CHECKED, NO DATA CHANGE
+Checked `./demo-original.js`:
+- Original bodies contain spaces: e.g.
+  `Write release notes for {product} {version} for {audience}. Keep the tone {tone} …`
+- Original interpolation `c=(e,t)=>e.replace(a,(e,n)=>t[n]?.trim()?t[n]:e)`
+  preserves surrounding spaces.
+- Replica `parseBody`/`assemble` already preserve those text nodes
+  (`" "`, `" for "`, `" Keep the tone "`, …) and `prev` keeps them as
+  separate text nodes. `assemble` output for
+  Relay/2.4/existing customers/friendly is byte-identical with spaces.
+- Demo data left verbatim; no trim/strip introduced.
+- QA snippet was the visual fallout of the 20px collapse (wrapping +
+  unreadable), not a data bug in this file. Harness asserts exact
+  `Write release notes for Relay 2.4 for existing customers. Keep the tone friendly …`.
+
+## Preserved invariants
+- `/*noflash*/` guard + `html{background:#fafaf9}` /
+  `html[data-theme="dark"]{background:#101012}` + `color-scheme` kept at head top.
+- In-place updates only: `buildPanel` once, `syncPanelValues` updates
+  text/attrs/styles; timer/hover/focus never call full `innerHTML` render.
+- Zero `innerHTML` writes after init (grep + runtime counter = 0).
+- Demo `TEMPLATES`/`DEMO` verbatim from prompt; tone map, timings unchanged.
+- All `:hover` already inside `@media (hover:hover) and (pointer:fine)`.
+
+## Verification (node only, in-dir, no installs)
+- `node --check ./demo-original.js` → OK
+- `node --check ./harness-fix.cjs` → OK
+- `node ./harness-fix.cjs` → PASS:
+  - CSS fix present, no bare `svg{…}`, card grid intact, dark rules present.
+  - VISIBLE state (no `display:none`/`visibility:hidden`/`opacity:0`,
+    correct `role`/`aria-selected`/classes) in **light AND dark**
+    (themeBtn click toggles `data-theme`, `localStorage`).
+  - Release preview `textContent ===` expected with spaces; no `forRelay`/`tonefriendly`.
+  - Full-loop `meeting→release→error→email→meeting` keeps
+    `root/card/side/main/list/foot` object identity.
+  - `innerHTMLWrites === 0`.
+
+## How to test in browser
+Open `./index.html` in a browser:
+1. Light loads with no white flash guard; toggle moon/sun → dark, no grey-on-grey.
+2. Full-width card (~640px) centred, 220px list + preview side-by-side; narrow <540px stacks.
+3. Search filters; arrows/Home/End + Enter/Space select; inputs fill, bars/count update, preview updates with spaces, Copy/Use work.
+4. Demo auto-types Relay/2.4… then TypeScript… then design team… loops; hover/type stops demo.
+
+## What could not be verified here
+Real-browser pixel layout (only DOM-stub + CSS-rule assertions in node);
+screen-reader / reduced-motion / coarse-pointer behaviour beyond code inspection.
