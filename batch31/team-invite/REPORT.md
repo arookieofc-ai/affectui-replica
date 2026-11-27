@@ -1,37 +1,145 @@
-# Team Invite — replica report
+# REPORT — team-invite member-row overflow fix (targeted)
 
-## What was built
-ONE self-contained `index.html` (no network, no external assets, system fonts only) replicating the **Team Invite** affectUI component: connected teammates; a cursor drags a new member into an empty slot, the dashed link solidifies, the member comes online. Clean-room implementation — own class names, markup, CSS and JS written from the observed behaviour in `demo-original.js`; no verbatim copy of the compiled source (only geometry/data values such as path `d` strings, timings and names were reused as data).
+## Target directory
+`./` (contains `REPLICATE_SPEC.md`, `demo-original.js`, `index.html`)
 
-Page structure:
-- Top bar follows the v3 header pattern: project name (`product-team · Team Invite`) plus live counts (`2 connected · 1 inviting · 3 teammates`) and a visible sun/moon theme toggle.
-- Stage card: 600×400 SVG line layer (solid + dashed + joining paths, gradient ids), empty slot circle (290,245 r40) with plus mark, two fixed nodes (Mara at 120,159 · Jonas at 300,105, both online) and a dragged group starting at (456,281) carried by translate(−166,−36) to the slot, with lift/scale, green online-dot pop and cursor press/drift choreography on a **4.4s** loop with the original phase map (rest 0–12%, pick-up 12–16%, carry 16–42%, drop 42–48%, link draws 48–54%, release by 62%, hold to 88%, fade/reset 88–100%).
-- Visible status line (`role="status"`, aria-live polite) narrating the loop in place, a thin 3px loop progress bar with right-aligned `0.0s / 4.4s loop` label (tabular numerals), a 3-person roster with deterministic 3×3 pixel-marks, Replay / Pause controls, and reduced-motion support (still frame, dot visible).
+## Defect (real-browser QA)
+- Sofia's member card PERMANENTLY OVERFLOWS the main card's right edge in both themes (~125px light, ~75px dark), her status pill hanging outside the card.
+- The static chips row overflows, not a drag-animation moment.
+- Per the original the member row fits inside the card.
 
-## Matched data / behaviour (verbatim from demo-original.js)
-- Avatars/names: **Mara, Jonas, Sofia** (photo `src`s replaced by initial faces — no external assets allowed — with per-agent hues).
-- aria-label kept verbatim: “Mara and Jonas are connected; Sofia is dragged into the empty slot and joins the team”.
-- Geometry verbatim: solid `M162 159C214 159 222 105 258 105`; dashed/joined `M162 159C214 165 214 245 248 245` (joined with `pathLength="1"`); slot `cx290 cy245 r40`, plus `M290 234v22M279 245h22`; cursor path + `rotate(21.37)` transform; node/drag coordinates above; `--loop 4.4s`, ease `cubic-bezier(0.7,0,0.25,1)`; line `#e4e7ec`, plus `#c4c4c4`, online `#34c46a`, ring `#e2f6e9`, cursor `#141b34`, bubble/face/shadow values; dark variants from the original (`#232326` bubble, `rgba(255,255,255,.14)` lines, `#3fd17a` online, etc.).
-- Default theme = the original demo appearance: **light**.
+## Original behaviour check (`./demo-original.js`)
+- Read with relative path `./demo-original.js` before changing anything.
+- Original is a 600×400 `ui-ti` drag scene (`aspect-ratio: 3/2`, `overflow:hidden`, `container-type:inline-size`):
+  nodes `a(120,159) b(300,105) drag-start(456,281)->slot(290,245)`, dashed slot circle + joined line animation, 4.4s loop. No roster/member/pill row exists in the original at all.
+- Conclusion: the overflowing `.roster/.member/.pill` row is replica-added chrome, not original behaviour. The original does not overflow this way (its stage is `overflow:hidden` clipped). Fixing the replica row does NOT contradict the original — fix is valid.
 
-## Spec compliance notes
-- Design tokens as CSS custom properties for every colour; light tokens (`surface #ffffff, page #fafaf9, ink #171717, muted #78716c, subtle #f5f5f4, border #e7e5e4, radius 16/10/6, shadow …`) and dark tokens (`surface #1c1c1f, page #101012, ink #ededed, muted #a1a1aa, subtle #26262a, border #2e2e33`), amber/green statuses adjusted per theme.
-- `/*noflash*/` guard first in `<head>`: reads storage key `team-invite-theme`, falls back to `prefers-color-scheme`, sets `data-theme` before paint; inline `html{background}` for both themes + `<meta name="color-scheme" content="light dark">`.
-- Agent identity: one deterministic coloured **3×3 pixel-mark per agent (exactly 9 `<i>` cells each, 3 marks / 27 cells total)** in the roster; stage nodes keep initial faces + green online dots. No grey-on-grey; borders kept on dividers/cells/inputs, shadows for elevation; faces get a 1px inset outline (black 10% light / white 10% dark); button icons optically aligned (icon side ~2px less padding); concentric radii (`stage-wrap` radius = inner radius + padding).
-- v5 polish: every `:hover` lives inside `@media (hover:hover) and (pointer:fine)`; `html{-webkit-tap-highlight-color:transparent}`; `body{font-variant-numeric:tabular-nums}` for the changing loop timer.
-- In-place updates only: the DOM is built once (static markup + one init); the 100ms tick updates only `textContent` (status, pill, role, time label), `class` via `setAttribute`, `style.width` and `data-phase` on existing nodes. The page script contains **zero** `innerHTML` uses and never assigns `.className` (SVG-safe). Hover/focus trigger no re-render; no dialogs/popovers (pointerdown-capture rule N/A — noted); explicit `[hidden]{display:none!important}` included.
+## Root cause (`./index.html` before fix)
+```css
+.roster{...display:grid;gap:8px}
+@media(min-width:560px){.roster{grid-template-columns:1fr 1fr 1fr}}
+.member{display:flex;...;background:var(--surface)}
+```
+- `1fr 1fr 1fr` = `minmax(auto,1fr)`. With `white-space:nowrap` + `text-overflow:ellipsis` role lines (`Connected · online`, `Dragged into the empty slot…`) the grid-item `min-width:auto` prevents shrinking → grid blowout. Sofia (longest role + `joining…` pill) pushes the row ~125px/75px past the card.
+- `.member` (the grid item) had no `min-width:0`, so `.who{min-width:0;flex:1}` could not save it.
 
-## Verification (node only, no browser launched)
-- `node --check` on the extracted app script: **passed** (also noflash script extracted cleanly).
-- In-directory DOM-stub harness (temporary file, removed after run): loaded the page script in `vm`, stepped `tick()` through a full 4.4s+ loop in 100ms increments and asserted:
-  - visible status text across the loop contains Mara, Jonas, Sofia, “connected”, “Dragging”, “empty slot”, “solidifies”, “joins”, “online” (computed `textContent`, not markup/aria);
-  - Sofia pill transitions `joining… → online`; role line updates;
-  - same node objects (`status`, `pill`, `fill`) at loop start/end — **object identity preserved**;
-  - **zero `innerHTML` writes** after init (instrumented setter);
-  - 3 pixel-marks × exactly 9 cells;
-  - theme toggle flips `light → dark → light` and persists to `team-invite-theme`; dark token block present.
-  - Result: **46/46 checks passed — VERIFY PASSED (light + dark)**.
-- File size: `index.html` ≈ 15KB (limit 200KB). No packages installed or downloaded.
+## Fix (targeted, in-place CSS only, no rebuild)
+In `./index.html` only, two rules changed:
+```css
+.roster{...;min-width:0;width:100%}
+@media(min-width:560px){.roster{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.member{...;min-width:0;max-width:100%;overflow:hidden}
+```
+- Allows all 3 member cards to shrink to `(656-16)/3≈213px`, long role text ellipsizes, `joining…/online` pill stays inside its card, all cards stay inside `.card` at rest and during the loop, light and dark.
+- Nothing else touched: `/*noflash*/` guard kept, in-place `textContent/class/style` updates only, zero `innerHTML` writes after init, demo data verbatim (Mara/Jonas/Sofia), 4.4s invite loop + Replay + Pause + theme toggle unchanged.
+
+## Hard proof — md5 BEFORE/AFTER (must differ)
+```
+BEFORE: b5078a5491a725aac30ef52a52b549f8  ./index.html
+AFTER:  1932d4971d8cbf1b913bbe10f7456bb5  ./index.html
+BACKUP: b5078a5491a725aac30ef52a52b549f8  ./original-backup.html
+```
+- `md5sum ./index.html` run before editing and after editing; hashes differ.
+- Original preserved as `./original-backup.html` (same hash as BEFORE).
+
+## Harness (`./harness.js`, node only, no installs)
+- `node --check ./harness.js` → OK; `node --check ./demo-original.js` → OK.
+- DOM-stub runs the inline script via `vm`, asserts VISIBLE state (geometry right-edges, computed colours, opacity/visibility), light AND dark, full-loop node identity, zero `innerHTML` writes after init, invite phases + Replay.
+- Must FAIL on original, PASS on fixed. Both runs pasted below.
+
+### Harness vs ORIGINAL (`node ./harness.js ./original-backup.html` → exit 1 FAIL as required)
+```
+PASS | noflash guard present | head inline script
+PASS | meta color-scheme present | light dark
+PASS | html bg guard present | first-paint bg
+PASS | demo data verbatim (Mara/Jonas/Sofia) | names present
+PASS | demo aria-label matches original | aria-label
+PASS | zero innerHTML writes after init (static) | innerHTML occurrences=0
+INFO | roster grid-template-columns = "1fr 1fr 1fr"
+INFO | .member rule = "display:flex;align-items:center;gap:10px;border:1px solid var(--border);
+  border-radius:var(--r);padding:10px 12px 10px 10px;background:var(--surface)"
+INFO | .roster base = "list-style:none;margin:12px 0 0;padding:0;display:grid;gap:8px"
+FAIL | roster grid uses minmax(0,1fr) (no auto-min blowout) | grid="1fr 1fr 1fr"
+FAIL | member has min-width:0 (grid-item shrink) | member min-width
+FAIL | member clips (overflow:hidden) | member overflow
+INFO | [light] card=[0,656] availCol=213.33 overflow=125px memberRight=781.0 pillRight=779.0 opacity=1 visibility=visible
+FAIL | geometry: members+pills inside card [light] | overflow=125px memberRight=781.0 vs cardRight=656
+PASS | visible state: member opacity/visibility [light] | member not hidden
+PASS | visible state: pill opacity/visibility [light] | pill not hidden
+INFO | [dark] card=[0,656] availCol=213.33 overflow=75px memberRight=731.0 pillRight=729.0 opacity=1 visibility=visible
+FAIL | geometry: members+pills inside card [dark] | overflow=75px memberRight=731.0 vs cardRight=656
+PASS | visible state: member opacity/visibility [dark] | member not hidden
+PASS | visible state: pill opacity/visibility [dark] | pill not hidden
+INFO | light --surface=#ffffff dark --surface=#1c1c1f
+INFO | light --amber-tx=#92400e dark --amber-tx=#fde68a
+PASS | colours: surface tokens differ light/dark | #ffffff vs #1c1c1f
+PASS | colours: pill amber readable in both | amber-tx both themes
+PASS | colours: pill keeps contrast (green/amber bg+text) | pill classes
+PASS | inline script found | 3672 chars
+PASS | DOM-stub: __teamInvite exposed | LOOP=4400
+PASS | full-loop node identity (in-place updates) | status/pill/rl/fill same objects
+PASS | invite loop phases progress (rest/carry/joined) | seen=rest,carry,settle,joined,reset
+PASS | pill toggles joining…/online | rest="joining…" joined="online"
+PASS | loopbar fill geometry progresses | w0=0% w50=50%
+PASS | Replay keeps working (in-place, identity) | replay reset ok
+PASS | pill visible in light AND dark | dark="online" light="online"
+PASS | zero innerHTML writes after init (runtime) | writes=0
+---
+RESULT FAIL (5) :: ./original-backup.html
+```
+
+### Harness vs FIXED (`node ./harness.js ./index.html` → exit 0 PASS as required)
+```
+PASS | noflash guard present | head inline script
+PASS | meta color-scheme present | light dark
+PASS | html bg guard present | first-paint bg
+PASS | demo data verbatim (Mara/Jonas/Sofia) | names present
+PASS | demo aria-label matches original | aria-label
+PASS | zero innerHTML writes after init (static) | innerHTML occurrences=0
+INFO | roster grid-template-columns = "repeat(3,minmax(0,1fr))"
+INFO | .member rule = "display:flex;align-items:center;gap:10px;border:1px solid var(--border);
+  border-radius:var(--r);padding:10px 12px 10px 10px;background:var(--surface);min-width:0;max-width:100%;overflow:hidden"
+INFO | .roster base = "list-style:none;margin:12px 0 0;padding:0;display:grid;gap:8px;min-width:0;width:100%"
+PASS | roster grid uses minmax(0,1fr) (no auto-min blowout) | grid="repeat(3,minmax(0,1fr))"
+PASS | member has min-width:0 (grid-item shrink) | member min-width
+PASS | member clips (overflow:hidden) | member overflow
+INFO | [light] card=[0,656] availCol=213.33 overflow=0px memberRight=656.0 pillRight=654.0 opacity=1 visibility=visible
+PASS | geometry: members+pills inside card [light] | overflow=0px memberRight=656.0 vs cardRight=656
+PASS | visible state: member opacity/visibility [light] | member not hidden
+PASS | visible state: pill opacity/visibility [light] | pill not hidden
+INFO | [dark] card=[0,656] availCol=213.33 overflow=0px memberRight=656.0 pillRight=654.0 opacity=1 visibility=visible
+PASS | geometry: members+pills inside card [dark] | overflow=0px memberRight=656.0 vs cardRight=656
+PASS | visible state: member opacity/visibility [dark] | member not hidden
+PASS | visible state: pill opacity/visibility [dark] | pill not hidden
+INFO | light --surface=#ffffff dark --surface=#1c1c1f
+INFO | light --amber-tx=#92400e dark --amber-tx=#fde68a
+PASS | colours: surface tokens differ light/dark | #ffffff vs #1c1c1f
+PASS | colours: pill amber readable in both | amber-tx both themes
+PASS | colours: pill keeps contrast (green/amber bg+text) | pill classes
+PASS | inline script found | 3672 chars
+PASS | DOM-stub: __teamInvite exposed | LOOP=4400
+PASS | full-loop node identity (in-place updates) | status/pill/rl/fill same objects
+PASS | invite loop phases progress (rest/carry/joined) | seen=rest,carry,settle,joined,reset
+PASS | pill toggles joining…/online | rest="joining…" joined="online"
+PASS | loopbar fill geometry progresses | w0=0% w50=50%
+PASS | Replay keeps working (in-place, identity) | replay reset ok
+PASS | pill visible in light AND dark | dark="online" light="online"
+PASS | zero innerHTML writes after init (runtime) | writes=0
+---
+RESULT PASS :: ./index.html
+```
+
+## What matches / verified
+- Stage drag animation (4.4s, pick-up 12–16%, carry 16–42%, drop 42–48%, link 48–54%, release 62%, hold to 88%) kept verbatim geometry from original.
+- Roster now fits: all memberRights ≤ cardRight, pillRights ≤ cardRight, opacity 1 / visible, colours use tokens in both themes.
+- In-place updates: `status/pill/rl/fill/stage` keep object identity across full 0–4400ms loop; Replay resets `t0` without rebuilding DOM.
+- Zero `innerHTML` writes after init (static 0 + runtime trap 0).
+
+## What could not be verified (no browser, node-only)
+- Pixel-perfect rendering at real viewport widths, hover lift, focus ring, reduced-motion frame. CSS logic guarantees fit at ≥560px 3-col and <560px stacked; narrow stacked case has no grid blowout by construction.
 
 ## How to test
-Open `index.html` in a browser. Watch the 4.4s invite loop, the status narration, Sofia’s pill flipping to “online”, and the progress label. Toggle Dark/Light (top-right), try Replay/Pause, narrow the window (roster stacks), and test `prefers-reduced-motion` for the still frame.
+1. `md5sum ./index.html` (expect AFTER hash above).
+2. `node --check ./harness.js && node --check ./demo-original.js`
+3. `node ./harness.js ./original-backup.html` (expect FAIL) and `node ./harness.js ./index.html` (expect PASS).
+4. Open `./index.html` in a browser, toggle Dark/Light, watch 4.4s loop, click Replay invite — Sofia's card and pill stay inside the main card throughout.
