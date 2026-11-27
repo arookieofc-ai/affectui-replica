@@ -128,6 +128,9 @@ html[data-theme="dark"] .ui-ma__btn:hover{background:rgba(255,255,255,.08)}
 .ui-ma__regen{display:inline-flex;align-items:center;flex:none}
 .ui-ma__versions{display:grid;grid-template-columns:0fr;opacity:0;visibility:hidden;min-width:0;transition:grid-template-columns 420ms var(--ease),opacity 220ms ease,visibility 220ms ease}
 .ui-ma__versions[data-open]{grid-template-columns:1fr;opacity:1;visibility:visible;transition:grid-template-columns 420ms var(--ease),opacity 320ms ease 100ms,visibility 320ms ease 100ms}
+/* dark must paint the pager identically to light: explicit override so a
+   theme toggle never re-applies the hidden base style when [data-open] is present */
+html[data-theme="dark"] .ui-ma__versions[data-open]{grid-template-columns:1fr;opacity:1;visibility:visible}
 .ui-ma__versions-clip{display:flex;align-items:center;min-width:0;overflow:hidden;padding-right:2px}
 .ui-ma__step{display:grid;flex:none;place-items:center;width:20px;height:30px;border-radius:7px;color:var(--muted);transition:background-color 160ms ease,color 160ms ease,opacity 160ms ease}
 .ui-ma__step .ui-ma__glyph{width:14px;height:14px}
@@ -357,7 +360,8 @@ function setAnswer(i){S.version=i;answerLine.textContent=VERSIONS[i];
   count.setAttribute('aria-label','Version '+(i+1).toLocaleString('en-US')+' of '+S.versions.toLocaleString('en-US'));
   prevBtn.disabled=(i===0);
   nextBtn.disabled=(i>=S.versions-1);}
-function refreshVersions(){setSwapText(countTotal,countTotalIn,S.versions.toLocaleString('en-US'));
+function refreshVersions(){/* pager painted state: theme-independent — both click and auto-demo regen must end here */
+  setSwapText(countTotal,countTotalIn,S.versions.toLocaleString('en-US'));
   if(S.versions>1){versionsWrap.setAttribute('data-open','');versionsWrap.removeAttribute('inert');}
   else{versionsWrap.removeAttribute('data-open');versionsWrap.setAttribute('inert','');}
   setAnswer(S.versions-1); /* regenerating always lands on the newest version */
@@ -494,7 +498,9 @@ function paintToggle(){var dark=document.documentElement.getAttribute('data-them
   toggle.setAttribute('aria-label',dark?'Switch to light theme':'Switch to dark theme');}
 toggle.addEventListener('click',function(){var dark=document.documentElement.getAttribute('data-theme')==='dark';
   var next=dark?'light':'dark';document.documentElement.setAttribute('data-theme',next);
-  try{localStorage.setItem('ma-theme',next);}catch(e){}paintToggle();});
+  try{localStorage.setItem('ma-theme',next);}catch(e){}/* fix: theme must never un-paint the pager — re-assert painted state when versions>1 */
+  if(S.versions>1){versionsWrap.setAttribute('data-open','');versionsWrap.removeAttribute('inert');}
+  paintToggle();});
 paintToggle();
 })();
 </script>

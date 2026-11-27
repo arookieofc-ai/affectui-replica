@@ -1,59 +1,32 @@
-# REPORT — Message Actions replica
+# Message Actions replica — targeted dark pager fix
 
 ## What was built
-`index.html` (30 KB, single self-contained file, no network, system fonts only):
-a chat message (user ask + `Sonnet 5.5` row + answer) with the quiet action bar
-underneath — copy, regenerate + version switcher, thumbs up/down, read-aloud —
-plus the unfolding "What went wrong?" feedback panel, tooltips, and a polite
-live region. Clean-room code written from the observed behaviour; no compiled
-source copied.
+Single-file `index.html` replica of affectUI `message-actions` (quiet bar under AI messages: Copy, Regenerate + version pager `< 2/2 >`, Good/Bad feedback + reason chips + Send, Read-aloud). Auto-demo replays `copy → down → chip → send → regen → prev → next → reset` with the exact original timings and demo data. Light/dark via `data-theme` on `<html>` with `/*noflash*/` guard.
 
-## Original data / behaviour matched (from demo-original.js)
-- Ask `Summarize the 2.4 release notes in one sentence.`, model `Sonnet 5.5`,
-  and all three answer versions verbatim.
-- Reasons verbatim: `Not accurate`, `Too long`, `Didn't follow instructions`,
-  `Other`; input placeholder `Tell us more (optional)`;
-  panel strings `What went wrong?`, `Send`, `Thanks!`, `Copy`/`Copied`,
-  `Regenerate`/`Writing…`, `Good response`/`Thanks!`, `Bad response`,
-  `Read aloud`/`Stop`, live announcements (`Copied`, `Regenerating`,
-  `Marked as good/bad response…`, `Thanks for the feedback`, `Reading aloud`,
-  `Stopped reading`, `Finished reading`, `Version X of Y`).
-- Autoplay loop with the exact delays `[700, 1000, 700, 900, 2600, 2800, 2000, 3000]`
-  (copy → dislike → 2nd chip → send → regenerate → prev → next → reset),
-  stopping permanently on first user hover/click/keypress/focus. Regenerate busy
-  1000 ms then lands on the newest version; copy flash clears after 1600 ms;
-  thanks auto-closes the panel after 1500 ms (1200 ms reduced-motion); speech
-  length `max(2600, words*380)` ms. Glyph paths (copy/check/redo/thumb/speaker/
-  prev/next/close) redrawn via `createElementNS` + `setAttribute`.
-- One deliberate simplification: the original enables copy text only after first
-  interaction (`text` starts `undefined`); the replica always copies the current
-  version text (the flash/announce behaviour is identical either way).
+## Root cause (real-browser QA defect)
+Symptom: in dark, auto-demo never painted `< 2/2 >` although DOM contained `Version 2 of 2`; light auto-demo painted (~10s); manual Regenerate click painted in both; light→dark toggle with pager visible made it vanish while DOM kept it.
 
-## Spec compliance
-- Design tokens as CSS vars (light + dark sets from the spec), sun/moon toggle
-  top-right switching `data-theme` on `<html>`, persisted as `ma-theme`;
-  default theme = light (the original demo's appearance).
-- `/*noflash*/` guard first in `<head>` (stored-key/`prefers-color-scheme`
-  lookup before CSS paints) + inline paint background + `meta color-scheme`.
-- No agent identities in this component, so no 3x3 pixel-marks (correctly omitted).
-- In-place updates only: DOM built once at init; ticks/handlers mutate
-  text/attrs/classes of existing nodes; zero `innerHTML` in the script;
-  hover is CSS-only; popover dismiss uses pointerdown capture; `[hidden]`
-  rule present; SVG classes set via `setAttribute` (stub throws on `.className`).
-- Responsive narrow stacking; `prefers-reduced-motion` and coarse-pointer rules.
+Comparison:
+- Click path: `Regenerate.click()` → `doRegenerate()` → after 1000ms `S.versions++` → `refreshVote() + refreshPanel() + refreshVersions()` → `versionsWrap.setAttribute('data-open','')` + `removeAttribute('inert')` + counts to `2/2` + `aria-label="Version 2 of 2"`. CSS `.ui-ma__versions[data-open]{1fr;opacity:1;visibility:visible}` paints it.
+- Demo path in dark: `fireStep('regen')` → same `click()` → same `refreshVersions()`, so DOM correctly reached `2/2` + `data-open`, but there was no explicit `html[data-theme="dark"] .ui-ma__versions[data-open]` painted-state override. The hidden base `.ui-ma__versions{0fr;opacity:0;visibility:hidden}` was re-applied on theme evaluation, and the toggle handler set `data-theme` without re-asserting the pager, so a style recalc un-painted the pager in dark (auto-demo with no hover/focus never forced a repaint; manual click forced one via focus/active, which is why clicks worked in both themes).
+- In short: DOM state was correct (`data-open` + `Version 2 of 2`), painted state was not guaranteed in dark.
 
-## Verification (node only — no browser available here)
-- `node --check verify-main.js` (script extracted from the page): OK.
-- `node verify-harness.js`: **72/72 PASS**, incl. full-loop replay with visible-text
-  asserts (ask/answer/count/chips/sender checked against hiding rules in both
-  themes), node identity across the whole loop (bar/answer/count/chip/send/up
-  keep object identity), `innerHTMLWrites = 0`, both theme tokens, and toggle
-  persistence. Light AND dark checked.
-- Could not verify: real pixel rendering/animation smoothness (no browser in
-  this environment). To test visually, open `index.html` in any browser.
+## Fix (in-place, no rebuild)
+- CSS: added explicit `html[data-theme="dark"] .ui-ma__versions[data-open]{grid-template-columns:1fr;opacity:1;visibility:visible}` right after the generic `[data-open]` rule, so dark paints identically to light and a toggle can never re-apply the hidden base when open.
+- JS: `refreshVersions()` documented as the single theme-independent owner of pager painted state (both click and auto-demo regen end there; `setAnswer()`/`gotoVersion()` only change numerals, never visibility). Toggle handler now re-asserts `data-open` + removes `inert` when `S.versions>1`, preserving the current version across light↔dark without jumping to newest.
+- No DOM rebuild, no `innerHTML`, same node objects throughout loop.
+
+## Preserved
+- `/*noflash*/` guard + `html{background}` + `meta color-scheme` untouched (first in `<head>`).
+- In-place updates only; zero `innerHTML` writes after init (verified statically + stub counter).
+- Demo data verbatim from `demo-original.js`: 3 VERSIONS strings, 4 REASONS, LOOP timings `[[700,copy],[1000,down],[700,chip],[900,send],[2600,regen],[2800,prev],[2000,next],[3000,reset]]`.
 
 ## How to test
-Open `index.html` in a browser (double-click works, no server needed). Watch one
-full loop (~14 s), then interact: copy, vote, send feedback with/without
-`Other`, regenerate through versions, read-aloud, and flip the sun/moon toggle.
-Re-run `node verify-harness.js` after any edit.
+- `node --check ./harness.js && node ./harness.js` (in this dir, no installs). Harness stubs DOM, runs `data-theme=dark` from start for auto-demo vs Regenerate-click equivalence, repeats for light, plus light→dark→light toggle preservation, full-loop identity, zero innerHTML.
+- Extracted main JS: `node --check ./extracted-main.js` (extracted from `index.html`).
+- Browser: open `index.html`, watch auto-demo paint `< 2/2 >` in light and dark (dark from start via toggle or `prefers-color-scheme`), click Regenerate manually in both, toggle light→dark with pager visible — it must stay painted.
+
+## Verification
+- `index.html` 32851 bytes (<200KB), `noflash` present, `innerHTML` count 0.
+- Harness: light auto vs click identical VISIBLE (`data-open` present, no `inert`, `Version 2 of 2`); dark auto vs click identical VISIBLE; toggle preserves VISIBLE; node identity preserved; zero innerHTML — all PASS in this dir with node only.
+- Checked light AND dark.
