@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Side Folder — affectUI replica</title>
+<script>/*noflash*/(function(){try{var k='side-folder-theme';var t=null;try{t=localStorage.getItem(k)}catch(e){}if(!t){try{t=(window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light'}catch(e){t='light'}}document.documentElement.setAttribute('data-theme',t==='dark'?'dark':'light')}catch(e){}})();</script>
+<style>html{background:#fafaf9}html[data-theme="dark"]{background:#101012}</style>
+<style>
+:root{
+  --surface:#ffffff; --page:#fafaf9; --ink:#171717; --ink2:#1c1917;
+  --muted:#78716c; --subtle:#f5f5f4; --border:#e7e5e4;
+  --r-lg:16px; --r:10px; --r-sm:6px;
+  --shadow:0 1px 2px rgba(0,0,0,.05),0 4px 16px rgba(0,0,0,.05);
+  --blue:#5bb7ea; --paper-hi:#ffffff; --paper-lo:#eaf2f8;
+  --line:rgba(0,0,0,.12); --pocket-hi:rgba(132,214,248,.45); --pocket-lo:rgba(69,170,220,.45);
+  --pocket-shade:rgba(0,40,75,.26); --outline:rgba(255,255,255,.3);
+  --focus:#2563eb; --img-ring:rgba(0,0,0,.10);
+  --ease:cubic-bezier(.2,.85,.25,1);
+}
+html[data-theme="dark"]{
+  --surface:#1c1c1f; --page:#101012; --ink:#ededed; --ink2:#ededed;
+  --muted:#a1a1aa; --subtle:#26262a; --border:#2e2e33;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.45);
+  --paper-hi:#ffffff; --paper-lo:#dbe7f1;
+  --line:rgba(0,0,0,.22); --outline:rgba(255,255,255,.35);
+  --focus:#7dd3fc; --img-ring:rgba(255,255,255,.10);
+}
+html{-webkit-tap-highlight-color:transparent}
+body{font-variant-numeric:tabular-nums}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;padding:0}
+body{
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:14px; line-height:1.5; background:var(--page); color:var(--ink);
+  min-height:100vh; display:flex; justify-content:center; padding:24px 16px 48px;
+}
+.page{width:100%;max-width:760px}
+.topbar{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px}
+.title{font-size:16px;font-weight:650;margin:0;letter-spacing:-.01em}
+.sub{font-size:12.5px;color:var(--muted);margin:2px 0 0;max-width:52ch}
+.counts{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.pill{border:1px solid var(--border);background:var(--surface);color:var(--muted);
+  border-radius:999px;padding:2px 10px;font-size:12px;white-space:nowrap}
+.pill b{color:var(--ink);font-weight:650}
+.actions{display:flex;gap:8px;align-items:center;flex-shrink:0}
+.btn{
+  border:1px solid var(--border); background:var(--surface); color:var(--ink);
+  border-radius:999px; padding:7px 12px 7px 10px; font-size:13px; font-weight:600;
+  cursor:pointer; display:inline-flex; align-items:center; gap:7px;
+  transition:transform 160ms ease,box-shadow 160ms ease,background 160ms ease;
+}
+.btn svg{flex:none}
+.btn:active{transform:translateY(1px)}
+.btn:focus-visible,.iconbtn:focus-visible,.peek:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.iconbtn{
+  border:1px solid var(--border); background:var(--surface); color:var(--ink);
+  width:34px;height:34px;border-radius:999px;cursor:pointer;
+  display:inline-flex;align-items:center;justify-content:center;
+  padding-right:6px;padding-left:8px;
+  transition:transform 160ms ease,background 160ms ease;
+}
+.iconbtn:active{transform:translateY(1px)}
+.card{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);
+  box-shadow:var(--shadow);padding:12px;
+}
+.frame{padding:6px}
+.stage{
+  background:var(--subtle);border:1px solid var(--border);border-radius:var(--r);
+  box-shadow:inset 0 0 0 1px var(--img-ring);
+  padding:8px;position:relative;overflow:hidden;
+}
+.statusrow{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px}
+.status{font-size:13px;color:var(--ink);margin:0}
+.meta{font-size:12px;color:var(--muted);margin:0}
+.controls{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.peek{
+  border:1px solid var(--border);background:var(--subtle);color:var(--ink);
+  border-radius:999px;padding:8px 14px;font-size:13px;font-weight:650;cursor:pointer;
+  transition:transform 160ms ease,background 160ms ease;
+}
+.peek:active{transform:translateY(1px)}
+.peek[aria-pressed="true"]{background:var(--ink);color:var(--surface);border-color:transparent}
+details.specs{margin-top:10px;border:1px solid var(--border);border-radius:var(--r);background:var(--surface)}
+details.specs summary{cursor:pointer;padding:10px 12px;font-weight:650;font-size:13px;list-style:none}
+details.specs summary::-webkit-details-marker{display:none}
+.specbody{padding:0 12px 12px;font-size:12.5px;color:var(--muted)}
+.specbody code{color:var(--ink);font-size:12px}
+.specbody ul{margin:6px 0 0;padding-left:18px}
+.foot{margin-top:12px;font-size:12px;color:var(--muted)}
+
+/* ---- Side Folder icon (clean-room, behaviour-matched) ---- */
+.ui-sf{--ui-sf-ease:cubic-bezier(.2,.85,.25,1);position:relative;width:100%;aspect-ratio:3/2;overflow:hidden;container-type:inline-size}
+.ui-sf-icon{
+  position:absolute;left:50%;top:50%;width:37%;aspect-ratio:440/520;
+  container-type:inline-size;perspective:260cqw;perspective-origin:40% 50%;
+  transform:translate(-50%,-50%);transition:transform .6s var(--ui-sf-ease);
+  border-radius:6px;
+}
+.ui-sf-icon:focus-visible{outline:2px solid var(--focus);outline-offset:4px}
+.ui-sf-icon.is-open{transform:translate(-50%,-50%) scale(1.03)}
+.ui-sf-layer{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.ui-sf-back{filter:drop-shadow(0 5.4cqw 6.4cqw rgba(60,130,180,.28)) drop-shadow(0 1.8cqw 2.7cqw rgba(60,130,180,.16)) drop-shadow(0 .45cqw .9cqw rgba(60,130,180,.1))}
+.ui-sf-doc{transform-box:fill-box;transform-origin:center;filter:drop-shadow(0 3px 4px rgba(0,30,60,.18));transition:transform .55s var(--ui-sf-ease)}
+.ui-sf-doc--top{transform:translate(83px, 43px) rotate(3deg)}
+.ui-sf-doc--bottom{transform:translate(78px, 68px) rotate(4deg)}
+.ui-sf-doc--middle{transform:translate(73px, 56px) rotate(-2deg)}
+.ui-sf-icon.is-open .ui-sf-doc--top{transform:translate(100px, 35px) rotate(6deg)}
+.ui-sf-icon.is-open .ui-sf-doc--bottom{transform:translate(93px, 75px) rotate(7deg)}
+.ui-sf-icon.is-open .ui-sf-doc--middle{transform:translate(95px, 54px) rotate(0deg)}
+.ui-sf-front{
+  position:absolute;left:0;top:0;width:86.3636%;height:100%;
+  -webkit-mask:url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20380%20520'%20preserveAspectRatio='none'%3E%3Cpath%20d='M40%200H290Q330%200%20330%2040V318Q330%20338%20344%20348L364%20362Q380%20372%20380%20396V480Q380%20520%20340%20520H40Q0%20520%200%20480V40Q0%200%2040%200Z'/%3E%3C/svg%3E") 0 0/100% 100% no-repeat;
+  mask:url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20380%20520'%20preserveAspectRatio='none'%3E%3Cpath%20d='M40%200H290Q330%200%20330%2040V318Q330%20338%20344%20348L364%20362Q380%20372%20380%20396V480Q380%20520%20340%20520H40Q0%20520%200%20480V40Q0%200%2040%200Z'/%3E%3C/svg%3E") 0 0/100% 100% no-repeat;
+  background:linear-gradient(180deg,rgba(0,40,75,0) 76%,rgba(0,40,75,.26) 100%),linear-gradient(160deg,rgba(132,214,248,.45) 0%,rgba(69,170,220,.45) 100%);
+  -webkit-backdrop-filter:blur(4.5cqw) saturate(1.1);backdrop-filter:blur(4.5cqw) saturate(1.1);
+  transform-origin:0 50%;transition:transform .6s var(--ui-sf-ease);
+}
+.ui-sf-front svg{position:absolute;inset:0;width:100%;height:100%}
+.ui-sf-icon.is-open .ui-sf-front{transform:translateZ(3cqw) rotateY(-12deg)}
+
+@media (hover:hover) and (pointer:fine){
+  .btn:hover{transform:translateY(-1px)}
+  .iconbtn:hover{transform:translateY(-1px)}
+  .peek:hover{transform:translateY(-1px)}
+  .card:hover{box-shadow:0 1px 2px rgba(0,0,0,.05),0 8px 24px rgba(0,0,0,.08)}
+  .ui-sf-icon:hover{transform:translate(-50%,-50%) scale(1.03)}
+  .ui-sf-icon:hover .ui-sf-doc--top{transform:translate(100px, 35px) rotate(6deg)}
+  .ui-sf-icon:hover .ui-sf-doc--bottom{transform:translate(93px, 75px) rotate(7deg)}
+  .ui-sf-icon:hover .ui-sf-doc--middle{transform:translate(95px, 54px) rotate(0deg)}
+  .ui-sf-icon:hover .ui-sf-front{transform:translateZ(3cqw) rotateY(-12deg)}
+}
+@media (prefers-reduced-motion:reduce){
+  .ui-sf-icon,.ui-sf-doc,.ui-sf-front{transition:none}
+  .btn,.peek,.iconbtn{transition:none}
+}
+@media (max-width:560px){
+  body{padding:16px 10px 40px}
+  .topbar{flex-direction:column}
+  .actions{align-self:flex-end}
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="topbar">
+    <div>
+      <h1 class="title">Side Folder</h1>
+      <p class="sub">Glassy blue folder on its side — documents slide out as the pocket swings open. Hover, focus, or press the button; auto-play loops the motion.</p>
+      <div class="counts" aria-label="Component facts">
+        <span class="pill"><b>3</b>&nbsp;documents</span>
+        <span class="pill">pocket&nbsp;<b id="countState">closed</b></span>
+        <span class="pill">ease&nbsp;<b>0.2 0.85 0.25 1</b></span>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="iconbtn" id="themeToggle" type="button" aria-label="Switch to dark theme" aria-pressed="false">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 1.5A6.5 6.5 0 1 0 14.5 8 5.2 5.2 0 0 1 8 1.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main class="card">
+    <div class="frame">
+      <div class="stage">
+        <div class="ui-sf" role="img" id="sfRoot" aria-label="Blue folder on its side, with three documents peeking out behind a frosted front pocket">
+          <div class="ui-sf-icon" id="folderIcon" aria-hidden="true" tabindex="0" aria-label="Folder icon. Press Enter to peek documents.">
+            <svg class="ui-sf-layer ui-sf-back" viewBox="0 0 440 520" aria-hidden="true">
+              <defs>
+                <filter id="sf-hl" x="-10%" y="-10%" width="120%" height="120%">
+                  <feGaussianBlur in="SourceAlpha" stdDeviation="4" result="blur"></feGaussianBlur>
+                  <feOffset in="blur" dy="3" result="offset"></feOffset>
+                  <feComposite in="blur" in2="offset" operator="arithmetic" k2="1" k3="-1" result="diff"></feComposite>
+                  <feFlood flood-color="#fff" flood-opacity="0.65"></feFlood>
+                  <feComposite in2="diff" operator="in" result="light"></feComposite>
+                  <feComposite in="light" in2="SourceAlpha" operator="in"></feComposite>
+                </filter>
+              </defs>
+              <rect x="0" y="18" width="440" height="486" rx="36" fill="#5bb7ea"></rect>
+              <rect x="0" y="18" width="440" height="486" rx="36" fill="#000" filter="url(#sf-hl)"></rect>
+            </svg>
+            <svg class="ui-sf-layer" viewBox="0 0 440 520" aria-hidden="true">
+              <defs>
+                <linearGradient id="sf-paper" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#fff"></stop>
+                  <stop offset="100%" stop-color="#eaf2f8"></stop>
+                </linearGradient>
+                <symbol id="sf-doc" overflow="visible">
+                  <rect x="0.6" y="0.6" width="278.8" height="348.8" rx="19.4" fill="url(#sf-paper)" stroke="rgba(0,0,0,0.12)" stroke-width="1.2"></rect>
+                  <rect x="30" y="87" width="78" height="9" rx="4.5" fill="rgba(0,0,0,0.12)"></rect>
+                  <rect x="30" y="115" width="180" height="9" rx="4.5" fill="rgba(0,0,0,0.12)"></rect>
+                  <rect x="30" y="143" width="140" height="9" rx="4.5" fill="rgba(0,0,0,0.12)"></rect>
+                  <rect x="30" y="171" width="175" height="9" rx="4.5" fill="rgba(0,0,0,0.12)"></rect>
+                  <rect x="30" y="199" width="126" height="9" rx="4.5" fill="rgba(0,0,0,0.12)"></rect>
+                  <rect x="30" y="227" width="168" height="9" rx="4.5" fill="rgba(0,0,0,0.12)"></rect>
+                  <rect x="30" y="255" width="110" height="9" rx="4.5" fill="rgba(0,0,0,0.12)"></rect>
+                </symbol>
+              </defs>
+              <g transform="scale(1.15)">
+                <use href="#sf-doc" class="ui-sf-doc ui-sf-doc--top"></use>
+                <use href="#sf-doc" class="ui-sf-doc ui-sf-doc--bottom"></use>
+                <use href="#sf-doc" class="ui-sf-doc ui-sf-doc--middle"></use>
+              </g>
+            </svg>
+            <div class="ui-sf-front" aria-hidden="true">
+              <svg viewBox="0 0 380 520" aria-hidden="true"><path d="M40 0H290Q330 0 330 40V318Q330 338 344 348L364 362Q380 372 380 396V480Q380 520 340 520H40Q0 520 0 480V40Q0 0 40 0Z" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="4"></path></svg>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="statusrow">
+      <p class="status" id="pocketStatus" role="status">Pocket: closed — 3 documents peeking out</p>
+    </div>
+    <p class="meta" id="docNote">Docs rest at (83,43 · 3°) (78,68 · 4°) (73,56 · −2°) and slide to (100,35 · 6°) (93,75 · 7°) (95,54 · 0°). Timers: icon 0.6s, docs 0.55s.</p>
+    <div class="controls">
+      <button class="peek" id="peekBtn" type="button" aria-pressed="false" aria-controls="folderIcon">Peek documents</button>
+      <button class="peek" id="autoBtn" type="button" aria-pressed="true">Pause auto-play</button>
+    </div>
+    <details class="specs">
+      <summary>Matched demo data</summary>
+      <div class="specbody">
+        <ul>
+          <li>Label: <code>Blue folder on its side, with three documents peeking out behind a frosted front pocket</code></li>
+          <li>Back panel <code>440 × 486</code> at <code>y 18</code>, <code>rx 36</code>, fill <code>#5bb7ea</code>, top-light <code>#fff 0.65</code> (blur 4, dy 3)</li>
+          <li>Paper <code>#fff → #eaf2f8</code>, sheet <code>278.8 × 348.8 rx 19.4</code>, 7 text lines <code>78, 180, 140, 175, 126, 168, 110</code> at <code>x 30, y 87 + 28n, h 9</code></li>
+          <li>Pocket path <code>M40 0H290Q330 0 330 40…Q0 0 40 0Z</code> (380 × 520), width <code>86.3636%</code>, outline <code>rgba(255,255,255,0.3) sw 4</code></li>
+          <li>Glass: <code>blur(4.5cqw) saturate(1.1)</code>, <code>perspective 260cqw</code>, swing <code>rotateY(−12deg)</code>, icon <code>scale(1.03)</code></li>
+        </ul>
+      </div>
+    </details>
+  </main>
+  <p class="foot">Single-file replica · system fonts · no network. No agent identities in this component, so no pixel-marks apply. Default theme is light, matching the original demo.</p>
+</div>
+<script>
+(function(){
+  var root=document.documentElement;
+  var KEY='side-folder-theme';
+  var themeToggle=document.getElementById('themeToggle');
+  var icon=document.getElementById('folderIcon');
+  var status=document.getElementById('pocketStatus');
+  var countState=document.getElementById('countState');
+  var peek=document.getElementById('peekBtn');
+  var autoBtn=document.getElementById('autoBtn');
+  function stored(){try{return window.localStorage?window.localStorage.getItem(KEY):null}catch(e){return null}}
+  function prefersDark(){try{return window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches}catch(e){return false}}
+  function current(){return root.getAttribute('data-theme')==='dark'?'dark':'light'}
+  function paintToggle(t){
+    if(!themeToggle)return;
+    themeToggle.setAttribute('aria-pressed',t==='dark'?'true':'false');
+    themeToggle.setAttribute('aria-label',t==='dark'?'Switch to light theme':'Switch to dark theme');
+  }
+  function apply(t){root.setAttribute('data-theme',t);paintToggle(t);try{if(window.localStorage)window.localStorage.setItem(KEY,t)}catch(e){}}
+  paintToggle(current());
+  if(themeToggle&&themeToggle.addEventListener){
+    themeToggle.addEventListener('click',function(){apply(current()==='dark'?'light':'dark')});
+  }
+  var open=false,autoOn=true,hovering=false;
+  var AUTO_MS=2600;
+  function render(){
+    if(icon&&icon.classList)icon.classList.toggle('is-open',open);
+    if(peek)peek.setAttribute('aria-pressed',open?'true':'false');
+    if(peek)peek.textContent=open?'Tuck documents away':'Peek documents';
+    var msg=open?'Pocket: open — 3 documents slid out':'Pocket: closed — 3 documents peeking out';
+    if(status&&status.textContent!==msg)status.textContent=msg;
+    if(countState&&countState.textContent!==(open?'open':'closed'))countState.textContent=open?'open':'closed';
+    if(icon)icon.setAttribute('data-state',open?'open':'closed');
+  }
+  function setOpen(v){v=!!v;if(v===open)return;open=v;render()}
+  function setAuto(v){
+    autoOn=!!v;
+    if(autoBtn){
+      autoBtn.setAttribute('aria-pressed',autoOn?'true':'false');
+      if(autoBtn.textContent!==(autoOn?'Pause auto-play':'Play auto-play'))autoBtn.textContent=autoOn?'Pause auto-play':'Play auto-play';
+    }
+  }
+  render();setAuto(true);
+  if(peek&&peek.addEventListener)peek.addEventListener('click',function(){setOpen(!open)});
+  if(autoBtn&&autoBtn.addEventListener)autoBtn.addEventListener('click',function(){setAuto(!autoOn)});
+  if(icon&&icon.addEventListener){
+    icon.addEventListener('mouseenter',function(){hovering=true});
+    icon.addEventListener('mouseleave',function(){hovering=false});
+    icon.addEventListener('focus',function(){hovering=true});
+    icon.addEventListener('blur',function(){hovering=false});
+    icon.addEventListener('keydown',function(e){
+      if(e.key==='Enter'||e.key===' '){if(e.preventDefault)e.preventDefault();setOpen(!open)}
+    });
+  }
+  function reduced(){try{return window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches}catch(e){return false}}
+  function hidden(){try{return !!document.hidden}catch(e){return false}}
+  function tick(){if(!autoOn||hovering||hidden()||reduced())return;setOpen(!open)}
+  try{window.setInterval(tick,AUTO_MS)}catch(e){}
+  try{
+    window.__sideFolder={
+      setOpen:setOpen,setAuto:setAuto,tick:tick,
+      isOpen:function(){return open},
+      autoMs:function(){return AUTO_MS},
+      nodes:{icon:icon,status:status,peek:peek,autoBtn:autoBtn,root:root}
+    };
+  }catch(e){}
+})();
+</script>
+</body>
+</html>

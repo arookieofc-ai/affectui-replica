@@ -1,0 +1,512 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Tab Overload — affectUI replica</title>
+<style>html{background:#fafaf9}html[data-theme="dark"]{background:#101012}</style>
+<script>/*noflash*/(function(){try{var k="tab-overload-theme";var s=null;try{s=localStorage.getItem(k)}catch(e){}if(!s){if(window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches){s="dark"}else{s="light"}}document.documentElement.setAttribute("data-theme",s)}catch(e){document.documentElement.setAttribute("data-theme","light")}})();</script>
+<style>
+:root{
+  --surface:#ffffff;
+  --page:#fafaf9;
+  --ink:#171717;
+  --ink-2:#1c1917;
+  --muted:#78716c;
+  --subtle:#f5f5f4;
+  --border:#e7e5e4;
+  --radius-lg:16px;
+  --radius:10px;
+  --radius-sm:6px;
+  --shadow:0 1px 2px rgba(0,0,0,.05),0 4px 16px rgba(0,0,0,.05);
+  --shadow-soft:0 1px 2px rgba(0,0,0,.05),0 4px 16px rgba(0,0,0,.05);
+  --amber:#f59e0b;
+  --amber-bg:#fef3c7;
+  --amber-ink:#92400e;
+  --blue:#2563eb;
+  --green:#16a34a;
+  --red:#dc2626;
+  --focus:#2563eb;
+}
+html[data-theme="dark"]{
+  --surface:#1c1c1f;
+  --page:#101012;
+  --ink:#ededed;
+  --ink-2:#ededed;
+  --muted:#a1a1aa;
+  --subtle:#26262a;
+  --border:#2e2e33;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.4);
+  --shadow-soft:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.4);
+  --amber:#fbbf24;
+  --amber-bg:#451a03;
+  --amber-ink:#fde68a;
+}
+html{-webkit-tap-highlight-color:transparent}
+body{
+  margin:0;
+  background:var(--page);
+  color:var(--ink);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:14px;
+  line-height:1.45;
+  font-variant-numeric:tabular-nums;
+}
+[hidden]{display:none !important}
+.page{
+  max-width:760px;
+  margin:0 auto;
+  padding:20px 16px 32px;
+}
+.page-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:12px;
+}
+.title-block h1{
+  margin:0;
+  font-size:16px;
+  font-weight:600;
+  letter-spacing:-0.01em;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.title-block p{
+  margin:4px 0 0;
+  font-size:13px;
+  color:var(--muted);
+  max-width:52ch;
+}
+.counts{
+  display:flex;
+  gap:8px;
+  margin-top:8px;
+  flex-wrap:wrap;
+}
+.pill{
+  display:inline-flex;
+  align-items:center;
+  border:1px solid var(--border);
+  background:var(--surface);
+  color:var(--muted);
+  border-radius:999px;
+  padding:2px 10px;
+  font-size:12px;
+  box-shadow:var(--shadow-soft);
+}
+.pill strong{color:var(--ink);font-weight:600;margin-right:4px}
+.theme-btn{
+  flex:none;
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  border:1px solid var(--border);
+  background:var(--surface);
+  color:var(--ink);
+  border-radius:999px;
+  font:inherit;
+  font-size:13px;
+  cursor:pointer;
+  /* optical alignment: icon side gets ~2px less padding */
+  padding:6px 12px 6px 10px;
+  box-shadow:var(--shadow-soft);
+  transition:transform 150ms ease,box-shadow 150ms ease,border-color 150ms ease;
+}
+.theme-btn:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.theme-btn .moon{font-size:14px;line-height:1}
+.card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius-lg);
+  box-shadow:var(--shadow);
+  padding:16px;
+}
+.card-top{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  margin-bottom:8px;
+  min-height:22px; /* reserved space above first card row, never overlapped */
+}
+.card-top h2{
+  margin:0;
+  font-size:15px;
+  font-weight:600;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.card-top .meta{
+  font-size:12px;
+  color:var(--muted);
+  text-align:right;
+  white-space:nowrap;
+}
+/* concentric radius: outer 16px = inner 10px + 6px pad */
+.art-pad{padding:6px;background:var(--subtle);border:1px solid var(--border);border-radius:var(--radius-lg)}
+.art-well{
+  background:var(--surface);
+  border-radius:var(--radius);
+  overflow:hidden;
+  /* content image: 1px inset outline, pure black/white at 10% */
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.1);
+}
+html[data-theme="dark"] .art-well{box-shadow:inset 0 0 0 1px rgba(255,255,255,.1)}
+.stage{
+  position:relative;
+  width:100%;
+  aspect-ratio:3/2;
+  overflow:hidden;
+  -webkit-mask-image:linear-gradient(to right,#000 70%,transparent 100%),linear-gradient(to bottom,#000 70%,transparent 100%);
+  -webkit-mask-composite:source-in;
+  mask-image:linear-gradient(to right,#000 70%,transparent 100%),linear-gradient(to bottom,#000 70%,transparent 100%);
+  mask-composite:intersect;
+}
+.stage-svg{position:absolute;inset:0;display:block;width:100%;height:100%}
+/* SVG element defaults scoped narrowly so hide rules keep working */
+.stage-svg rect,.stage-svg circle,.stage-svg ellipse,.stage-svg path{shape-rendering:geometricPrecision}
+.to-bar{animation:to-shimmer 2.4s ease-in-out infinite}
+@keyframes to-shimmer{0%,100%{fill:#EFF1F4}50%{fill:#DDE1E5}}
+html[data-theme="dark"] .to-frame{fill:#1b1b1d;stroke:rgba(255,255,255,.1)}
+html[data-theme="dark"] .to-dot{fill:#3a3a3f}
+html[data-theme="dark"] .to-page{fill:#232326;stroke:rgba(255,255,255,.08)}
+html[data-theme="dark"] .to-bar{fill:#2e2e32;animation-name:to-shimmer-dark}
+@keyframes to-shimmer-dark{0%,100%{fill:#2e2e32}50%{fill:#3a3a3f}}
+.to-blobs,.to-front{opacity:0;pointer-events:none;transition:opacity .3s ease}
+.to-content{opacity:.2;pointer-events:none;transition:opacity .3s ease}
+.to-blobs-3,.to-front-3,.to-content-3{opacity:1}
+.to-tab{cursor:pointer;outline:none}
+.to-tab:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.status-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  margin-top:12px;
+  padding:0 2px 12px; /* bottom padding so text never sits under a button */
+  font-size:13px;
+}
+.status-row .active{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.status-row .hint{color:var(--muted);font-size:12px;text-align:right}
+.win-list{
+  list-style:none;
+  margin:0;
+  padding:0;
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+}
+.win-btn{
+  border:1px solid var(--border);
+  background:var(--subtle);
+  color:var(--ink);
+  border-radius:999px;
+  font:inherit;
+  font-size:13px;
+  padding:6px 12px;
+  cursor:pointer;
+  transition:transform 150ms ease,background 150ms ease,border-color 150ms ease;
+}
+.win-btn[aria-pressed="true"]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.win-btn:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.timing{
+  margin-top:10px;
+  font-size:12px;
+  color:var(--muted);
+}
+.page-foot{margin-top:12px;font-size:12px;color:var(--muted)}
+@media (max-width:560px){
+  .page-head{flex-direction:column}
+  .status-row{flex-direction:column;align-items:flex-start}
+  .status-row .hint{text-align:left}
+}
+@media (prefers-reduced-motion:reduce){
+  .to-bar{animation:none}
+  .to-blobs,.to-front,.to-content{transition:none}
+  .theme-btn,.win-btn{transition:none}
+}
+/* v5: all hover styles inside hover+fine-pointer only */
+@media (hover:hover) and (pointer:fine){
+  .theme-btn:hover{transform:translateY(-1px)}
+  .win-btn:hover{background:var(--surface);transform:translateY(-1px)}
+  .win-btn[aria-pressed="true"]:hover{background:var(--ink)}
+  .card:hover{box-shadow:0 1px 2px rgba(0,0,0,.06),0 8px 24px rgba(0,0,0,.08)}
+  .stage-svg:has(.to-tab-1:hover) .to-blobs-1,
+  .stage-svg:has(.to-tab-1:hover) .to-front-1,
+  .stage-svg:has(.to-tab-1:hover) .to-content-1,
+  .stage-svg:has(.to-tab-2:hover) .to-blobs-2,
+  .stage-svg:has(.to-tab-2:hover) .to-front-2,
+  .stage-svg:has(.to-tab-2:hover) .to-content-2{opacity:1}
+  .stage-svg:has(.to-tab-1:hover,.to-tab-2:hover) .to-blobs-3,
+  .stage-svg:has(.to-tab-1:hover,.to-tab-2:hover) .to-front-3{opacity:0}
+  .stage-svg:has(.to-tab-1:hover,.to-tab-2:hover) .to-content-3{opacity:.2}
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="page-head">
+    <div class="title-block">
+      <h1>Tab Overload</h1>
+      <p>Three overlapping browser windows full of placeholder content</p>
+      <div class="counts" aria-label="Window counts">
+        <span class="pill"><strong>3</strong> windows</span>
+        <span class="pill"><strong id="pill-active">1</strong> active</span>
+        <span class="pill">front window active by default</span>
+      </div>
+    </div>
+    <button id="theme-toggle" class="theme-btn" type="button" aria-label="Switch to dark theme"><span class="moon" aria-hidden="true">◐</span><span id="theme-label">Dark</span></button>
+  </header>
+  <main>
+    <section class="card" aria-labelledby="card-title">
+      <div class="card-top">
+        <h2 id="card-title">Overlapping windows</h2>
+        <div class="meta">highlight follows hovered tab</div>
+      </div>
+      <div class="art-pad">
+        <div class="art-well">
+          <div id="stage" class="stage" role="img" aria-label="Three overlapping browser windows full of placeholder content"></div>
+        </div>
+      </div>
+      <div class="status-row">
+        <span class="active" id="active-label">Window 3 active</span>
+        <span class="hint">Hover or focus a window to follow the highlight</span>
+      </div>
+      <ul class="win-list" id="win-list" aria-label="Choose active window">
+        <li><button type="button" class="win-btn" data-win="1" aria-pressed="false">Window 1</button></li>
+        <li><button type="button" class="win-btn" data-win="2" aria-pressed="false">Window 2</button></li>
+        <li><button type="button" class="win-btn" data-win="3" aria-pressed="true">Window 3</button></li>
+      </ul>
+      <div class="timing">Shimmer 2.4s · Fade 0.3s · Offsets (30, 68) · (125, 56) · (220, 44)</div>
+    </section>
+  </main>
+  <footer class="page-foot">Clean-room replica. Highlight follows the hovered window; the front window is active by default.</footer>
+</div>
+<script>
+(function(){
+"use strict";
+/* Exact demo data, verbatim from observed behaviour */
+var LABEL="Three overlapping browser windows full of placeholder content";
+var WINDOWS=[{n:1,x:30,y:68},{n:2,x:125,y:56},{n:3,x:220,y:44}];
+var FRAME={w:380,h:300,rx:6,fill:"#F4F5F7",stroke:"#E4E7EC",sw:0.7};
+var DOTS=[{cx:14},{cx:24},{cx:34}];
+var DOT_Y=14, DOT_R=3, DOT_FILL="#CCCCCC";
+var PAGE={x:4,y:24,w:372,h:272,rx:5,fill:"#FFFFFF",stroke:"#E4E7EC",sw:0.7};
+var BARS=[
+  {x:12,y:36,w:30,h:30,rx:4},
+  {x:52,y:38,w:100,h:6,rx:2},
+  {x:52,y:46,w:100,h:6,rx:2},
+  {x:52,y:54,w:35,h:6,rx:2},
+  {x:12,y:72,w:140,h:6,rx:2},
+  {x:12,y:80,w:140,h:6,rx:2},
+  {x:12,y:88,w:55,h:6,rx:2}
+];
+var BAR_FILL="#EFF1F4";
+var FRONT_DOTS=["#FF6B5C","#FFB89E","#A8B5FF"];
+var GRAD_H=["#FFB89E","#C8A8E5","#A8B5FF"];
+var GRAD_V=["#FF6B5C","#FFB89E"];
+var STROKE_GRAD=["#B5C0FF","#D5BBEF","#FFC5AB","#FFB5BC"];
+var NS="http://www.w3.org/2000/svg";
+var uid="to"+Math.random().toString(36).slice(2,8);
+
+var stage=document.getElementById("stage");
+var activeLabel=document.getElementById("active-label");
+var pillActive=document.getElementById("pill-active");
+var winList=document.getElementById("win-list");
+var themeBtn=document.getElementById("theme-toggle");
+var themeLabel=document.getElementById("theme-label");
+
+var active=3;
+var blobs={}, fronts={}, contents={}, tabs={}, btns={};
+
+function el(name,attrs){
+  var n=document.createElementNS(NS,name);
+  if(attrs){for(var k in attrs){n.setAttribute(k,attrs[k])}}
+  return n;
+}
+function buildDefs(svg){
+  var defs=el("defs",{});
+  var gh=el("linearGradient",{id:uid+"-h",x1:"0%",y1:"0%",x2:"100%",y2:"0%"});
+  // build stops explicitly in place
+  var s0=el("stop",{offset:"0%",stopColor:GRAD_H[0],"stop-opacity":"0.3"});gh.appendChild(s0);
+  var s1=el("stop",{offset:"50%",stopColor:GRAD_H[1],"stop-opacity":"0.3"});gh.appendChild(s1);
+  var s2=el("stop",{offset:"100%",stopColor:GRAD_H[2],"stop-opacity":"0.3"});gh.appendChild(s2);
+  defs.appendChild(gh);
+  var gv=el("linearGradient",{id:uid+"-v",x1:"0%",y1:"100%",x2:"0%",y2:"0%"});
+  gv.appendChild(el("stop",{offset:"0%",stopColor:GRAD_V[0],"stop-opacity":"0.3"}));
+  gv.appendChild(el("stop",{offset:"100%",stopColor:GRAD_V[1],"stop-opacity":"0.3"}));
+  defs.appendChild(gv);
+  var f=el("filter",{id:uid+"-blur",x:"-200%",y:"-200%",width:"500%",height:"500%"});
+  f.appendChild(el("feGaussianBlur",{stdDeviation:"12"}));
+  defs.appendChild(f);
+  var gs=el("linearGradient",{id:uid+"-s",x1:"100%",y1:"0%",x2:"0%",y2:"100%"});
+  gs.appendChild(el("stop",{offset:"0%",stopColor:STROKE_GRAD[0]}));
+  gs.appendChild(el("stop",{offset:"40%",stopColor:STROKE_GRAD[1]}));
+  gs.appendChild(el("stop",{offset:"75%",stopColor:STROKE_GRAD[2]}));
+  gs.appendChild(el("stop",{offset:"100%",stopColor:STROKE_GRAD[3]}));
+  defs.appendChild(gs);
+  svg.appendChild(defs);
+}
+function buildOnce(){
+  var svg=el("svg",{viewBox:"0 0 360 240","aria-hidden":"true"});
+  svg.setAttribute("class","stage-svg");
+  buildDefs(svg);
+  var k;
+  for(var wi=0;wi<WINDOWS.length;wi++){
+    var w=WINDOWS[wi], n=w.n, x=w.x, y=w.y;
+    var gb=el("g",{});
+    gb.setAttribute("class","to-blobs to-blobs-"+n);
+    gb.appendChild(el("ellipse",{cx:String(x+70),cy:String(y+8),rx:"90",ry:"14",fill:"url(#"+uid+"-h)",filter:"url(#"+uid+"-blur)"}));
+    gb.appendChild(el("ellipse",{cx:String(x+8),cy:String(y+96),rx:"14",ry:"90",fill:"url(#"+uid+"-v)",filter:"url(#"+uid+"-blur)"}));
+    svg.appendChild(gb);
+    blobs[n]=gb;
+    var gt=el("g",{transform:"translate("+x+" "+y+")",tabindex:"0",role:"button","aria-label":"Window "+n});
+    gt.setAttribute("class","to-tab to-tab-"+n);
+    var frameRect=el("rect",{width:String(FRAME.w),height:String(FRAME.h),rx:String(FRAME.rx),fill:FRAME.fill,stroke:FRAME.stroke,"stroke-width":String(FRAME.sw)});
+    frameRect.setAttribute("class","to-frame");
+    gt.appendChild(frameRect);
+    // frame class hooks for dark mode (fill via CSS override)
+    for(var di=0;di<DOTS.length;di++){
+      var dc=el("circle",{cx:String(DOTS[di].cx),cy:String(DOT_Y),r:String(DOT_R),fill:DOT_FILL});
+      dc.setAttribute("class","to-dot");
+      gt.appendChild(dc);
+    }
+    var pg=el("rect",{x:String(PAGE.x),y:String(PAGE.y),width:String(PAGE.w),height:String(PAGE.h),rx:String(PAGE.rx),fill:PAGE.fill,stroke:PAGE.stroke,"stroke-width":String(PAGE.sw)});
+    pg.setAttribute("class","to-page");
+    gt.appendChild(pg);
+    svg.appendChild(gt);
+    tabs[n]=gt;
+    var gc=el("g",{transform:"translate("+x+" "+y+")"});
+    gc.setAttribute("class","to-content to-content-"+n);
+    for(var bi=0;bi<BARS.length;bi++){
+      var b=BARS[bi];
+      var br=el("rect",{x:String(b.x),y:String(b.y),width:String(b.w),height:String(b.h),rx:String(b.rx),fill:BAR_FILL});
+      br.setAttribute("class","to-bar");
+      gc.appendChild(br);
+    }
+    svg.appendChild(gc);
+    contents[n]=gc;
+  }
+  for(var fi=0;fi<WINDOWS.length;fi++){
+    var w2=WINDOWS[fi], n2=w2.n, x2=w2.x, y2=w2.y;
+    var gf=el("g",{});
+    gf.setAttribute("class","to-front to-front-"+n2);
+    gf.appendChild(el("circle",{cx:String(x2+14),cy:String(y2+14),r:"3",fill:FRONT_DOTS[0]}));
+    gf.appendChild(el("circle",{cx:String(x2+24),cy:String(y2+14),r:"3",fill:FRONT_DOTS[1]}));
+    gf.appendChild(el("circle",{cx:String(x2+34),cy:String(y2+14),r:"3",fill:FRONT_DOTS[2]}));
+    var endX=(n2===3)?"360":String(x2+95);
+    gf.appendChild(el("path",{d:"M "+x2+" 240 L "+x2+" "+(y2+6)+" A 6 6 0 0 1 "+(x2+6)+" "+y2+" L "+endX+" "+y2,fill:"none",stroke:"url(#"+uid+"-s)","stroke-width":"0.8"}));
+    svg.appendChild(gf);
+    fronts[n2]=gf;
+  }
+  stage.appendChild(svg);
+  // wire tab hover/focus in place (never re-render)
+  for(var q=1;q<=3;q++){
+    (function(num){
+      var g=tabs[num];
+      g.addEventListener("pointerenter",function(){setActive(num)});
+      g.addEventListener("mouseenter",function(){setActive(num)});
+      g.addEventListener("focus",function(){setActive(num)});
+      g.addEventListener("mouseleave",function(){setActive(3)});
+      g.addEventListener("blur",function(){setActive(3)});
+      // capture-phase pointerdown so the highlight moves even if click is consumed
+      g.addEventListener("pointerdown",function(){setActive(num)},true);
+      g.addEventListener("mousedown",function(){setActive(num)},true);
+      g.addEventListener("keydown",function(ev){
+        if(ev.key==="ArrowRight"){setActive(num===3?1:num+1);if(tabs[active]){tabs[active].focus()}if(ev.preventDefault)ev.preventDefault()}
+        else if(ev.key==="ArrowLeft"){setActive(num===1?3:num-1);if(tabs[active]){tabs[active].focus()}if(ev.preventDefault)ev.preventDefault()}
+        else if(ev.key==="Home"){setActive(1);if(ev.preventDefault)ev.preventDefault()}
+        else if(ev.key==="End"){setActive(3);if(ev.preventDefault)ev.preventDefault()}
+      });
+      g.addEventListener("click",function(){setActive(num)});
+    })(q);
+  }
+}
+/* In-place update only: touch changed nodes, keep object identity */
+function setActive(n){
+  if(n!==1&&n!==2&&n!==3)n=3;
+  if(n===active){
+    paint(true);
+    return;
+  }
+  active=n;
+  paint(false);
+}
+function paint(force){
+  for(var i=1;i<=3;i++){
+    var on=(i===active);
+    var b=blobs[i], f=fronts[i], c=contents[i];
+    var bo=on?"1":"0", co=on?"1":"0.2";
+    if(force||b.getAttribute("data-o")!==bo){b.style.opacity=on?"1":"0";b.setAttribute("data-o",bo)}
+    if(force||f.getAttribute("data-o")!==bo){f.style.opacity=on?"1":"0";f.setAttribute("data-o",bo)}
+    if(force||c.getAttribute("data-o")!==co){c.style.opacity=on?"1":"0.2";c.setAttribute("data-o",co)}
+  }
+  var txt="Window "+active+" active";
+  if(activeLabel.textContent!==txt)activeLabel.textContent=txt;
+  if(pillActive.textContent!==String(1))pillActive.textContent=String(1);
+  var list=winList.querySelectorAll("[data-win]");
+  for(var li=0;li<list.length;li++){
+    var btn=list[li];
+    var pressed=(Number(btn.getAttribute("data-win"))===active)?"true":"false";
+    if(btn.getAttribute("aria-pressed")!==pressed)btn.setAttribute("aria-pressed",pressed);
+  }
+  // keep CSS default classes in sync for no-JS :has fallback (class only, no re-render)
+  for(var t=1;t<=3;t++){
+    var g=tabs[t];
+    var want="to-tab to-tab-"+t+(t===active?" is-active":"");
+    if(g.getAttribute("class")!==want)g.setAttribute("class",want);
+  }
+}
+function initTheme(){
+  function sync(){
+    var cur=document.documentElement.getAttribute("data-theme")||"light";
+    var dark=(cur==="dark");
+    themeLabel.textContent=dark?"Light":"Dark";
+    themeBtn.setAttribute("aria-label",dark?"Switch to light theme":"Switch to dark theme");
+  }
+  themeBtn.addEventListener("click",function(){
+    var cur=document.documentElement.getAttribute("data-theme")||"light";
+    var next=(cur==="dark")?"light":"dark";
+    document.documentElement.setAttribute("data-theme",next);
+    try{localStorage.setItem("tab-overload-theme",next)}catch(e){}
+    sync();
+  });
+  sync();
+}
+function initList(){
+  var list=winList.querySelectorAll("[data-win]");
+  for(var i=0;i<list.length;i++){
+    (function(btn){
+      var num=Number(btn.getAttribute("data-win"));
+      btns[num]=btn;
+      btn.addEventListener("click",function(){setActive(num);if(tabs[num])tabs[num].focus()});
+      // capture-phase pointerdown so real clicks survive
+      btn.addEventListener("pointerdown",function(){setActive(num)},true);
+      btn.addEventListener("mousedown",function(){setActive(num)},true);
+      btn.addEventListener("mouseenter",function(){setActive(num)});
+      btn.addEventListener("focus",function(){setActive(num)});
+    })(list[i]);
+  }
+}
+buildOnce();
+paint(true);
+initList();
+initTheme();
+stage.setAttribute("aria-label",LABEL);
+/* harness hook: read-only state, in-place setters */
+window.__tabOverload={
+  get active(){return active},
+  setActive:setActive,
+  windows:WINDOWS,
+  label:LABEL,
+  nodes:function(){return {stage:stage,blobs:blobs,fronts:fronts,contents:contents,tabs:tabs,activeLabel:activeLabel}}
+};
+})();
+</script>
+</body>
+</html>

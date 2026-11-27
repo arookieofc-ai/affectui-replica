@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Progress Pill — Q3 revenue report</title>
+<script>/*noflash*/(function(){try{var k="progress-pill-theme";var s=null;try{s=localStorage.getItem(k)}catch(e){}var t=s;if(t!=="light"&&t!=="dark"){var mq=null;try{mq=window.matchMedia("(prefers-color-scheme: dark)")}catch(e){}t=(mq&&mq.matches)?"dark":"light"}document.documentElement.setAttribute("data-theme",t)}catch(e){}})();</script>
+<style>html{background:#fafaf9}html[data-theme="dark"]{background:#101012}</style>
+<style>
+:root{
+  --page:#fafaf9; --surface:#ffffff; --ink:#171717; --ink-soft:rgba(23,23,23,.64);
+  --muted:#78716c; --subtle:#f5f5f4; --border:#e7e5e4;
+  --r-lg:16px; --r:10px; --r-sm:6px;
+  --shadow:0 1px 2px rgba(0,0,0,.05),0 4px 16px rgba(0,0,0,.05);
+  --pill-shadow:0 0 0 .5px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04),0 12px 32px -14px rgba(0,0,0,.12);
+  --pp-card:#ffffff; --pp-ink:rgba(0,0,0,.84); --pp-text:rgba(0,0,0,.62);
+  --pp-muted:rgba(0,0,0,.4); --pp-tile:rgba(0,0,0,.035);
+  --pp-mark:rgba(0,96,226,.78); --pp-track:rgba(0,0,0,.06);
+  --pp-fill:rgba(0,0,0,.78); --pp-shine:rgba(0,0,0,.3);
+  --pp-sheen:rgba(255,255,255,.7); --pp-glint:rgba(0,0,0,.12);
+  --pp-blue:#0190fe; --pp-purple:#a651f0; --pp-pink:#ee3e9e;
+  --pp-ease:cubic-bezier(.22,1,.36,1);
+  --accent:#2563eb;
+}
+html[data-theme="dark"]{
+  --page:#101012; --surface:#1c1c1f; --ink:#ededed; --ink-soft:rgba(237,237,237,.66);
+  --muted:#a1a1aa; --subtle:#26262a; --border:#2e2e33;
+  --shadow:0 1px 2px rgba(0,0,0,.5),0 8px 24px rgba(0,0,0,.45);
+  --pill-shadow:0 0 0 .5px rgba(255,255,255,.1),0 1px 2px rgba(0,0,0,.4),0 12px 32px -14px rgba(0,0,0,.5);
+  --pp-card:#161618; --pp-ink:rgba(255,255,255,.88); --pp-text:rgba(255,255,255,.64);
+  --pp-muted:rgba(255,255,255,.4); --pp-tile:rgba(255,255,255,.05);
+  --pp-mark:rgba(77,141,255,.85); --pp-track:rgba(255,255,255,.08);
+  --pp-fill:rgba(255,255,255,.82); --pp-shine:rgba(255,255,255,.3);
+  --pp-sheen:rgba(0,0,0,.45); --pp-glint:rgba(255,255,255,.16);
+  --pp-blue:#4fb0fe; --pp-purple:#b98af0; --pp-pink:#f06db5;
+  --accent:#7aa5ff;
+}
+html{-webkit-tap-highlight-color:transparent}
+[hidden]{display:none !important}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--page); color:var(--ink);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:14px; line-height:1.45;
+  font-variant-numeric:tabular-nums;
+  -webkit-font-smoothing:antialiased;
+  min-height:100vh; display:flex; flex-direction:column; align-items:center;
+}
+.topbar{width:100%; max-width:860px; padding:18px 20px 0; display:flex; align-items:center; gap:12px}
+.brand{min-width:0; flex:1}
+.brand h1{margin:0; font-size:15px; font-weight:650; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.brand p{margin:2px 0 0; font-size:12.5px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.brand .dot{display:inline-block; width:7px; height:7px; border-radius:50%; background:#22c55e; margin-right:6px; vertical-align:1px}
+.brand[data-state="done"] .dot{background:#a8a29e}
+.btn{
+  appearance:none; border:1px solid var(--border); background:var(--surface); color:var(--ink);
+  border-radius:999px; padding:7px 12px 7px 10px; font:inherit; font-size:13px; font-weight:550;
+  display:inline-flex; align-items:center; gap:7px; cursor:pointer;
+  box-shadow:var(--shadow);
+  transition:transform 160ms ease, box-shadow 160ms ease, background 160ms ease, border-color 160ms ease;
+}
+.btn .ic{flex:none; width:16px; height:16px; display:inline-grid; place-items:center; font-size:13px; line-height:1; transform:translateX(1px)}
+.btn:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+.stage{width:100%; max-width:860px; padding:10px 20px 8px; display:grid; gap:14px}
+.card{
+  background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg);
+  box-shadow:var(--shadow); padding:16px;
+}
+.card h2{margin:0 0 4px; font-size:13px; font-weight:650}
+.card .sub{margin:0 0 12px; font-size:12.5px; color:var(--muted)}
+.pill-frame{overflow-x:auto; border-radius:var(--r); background:var(--subtle); padding:6px 6px 6px 0}
+.controls{display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:12px}
+.controls .meta{font-size:12.5px; color:var(--muted); margin-left:auto}
+/* ---- replicated pill (clean-room) ---- */
+.pill{position:relative; display:inline-block; width:420px; max-width:100%; overflow:hidden; padding:28px 0 76px 32px;
+  font-size:13px; line-height:18px; text-align:left; color:var(--pp-ink);
+  -webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 110px),transparent 100%);
+  mask-image:linear-gradient(90deg,#000 calc(100% - 110px),transparent 100%)}
+.pill-inner{position:relative; width:470px; max-width:none}
+.pill-under{position:absolute; z-index:0; top:55%; right:-24px; bottom:-68px; left:-24px; pointer-events:none;
+  -webkit-mask-image:linear-gradient(180deg,transparent,#000 35%); mask-image:linear-gradient(180deg,transparent,#000 35%)}
+.pill-glow{position:absolute; inset:16px 36px 44px; border-radius:40px; filter:blur(28px); opacity:.5;
+  background:radial-gradient(40% 70% at 18% 50%,var(--pp-blue),transparent 70%),radial-gradient(40% 70% at 52% 45%,var(--pp-purple),transparent 70%),radial-gradient(40% 70% at 86% 40%,var(--pp-pink),transparent 70%);
+  animation:pill-drift 9s ease-in-out infinite alternate}
+html[data-theme="dark"] .pill-glow{opacity:.36}
+.pill-card{position:relative; z-index:1; display:flex; align-items:center; gap:12px; height:68px; padding:0 20px 0 10px; border-radius:999px; background:var(--pp-card); box-shadow:var(--pill-shadow)}
+.pill-tile{display:grid; flex:none; place-items:center; width:48px; height:48px; border-radius:50%; background:var(--pp-tile)}
+.pill-mark{display:grid; grid-template-columns:repeat(3,3px); grid-auto-rows:3px; gap:1.5px; place-content:center; width:16px; height:16px; transform:scale(1.25)}
+.pill-mark i{border-radius:.75px; background:var(--pp-mark); opacity:0; transition:opacity 240ms ease}
+.pill-mark i[data-on]{opacity:1}
+.pill-mark[data-busy] i{animation:pill-pixel 1.2s ease-in-out infinite both}
+.pill-mark[data-busy] i:not([data-on]){opacity:.16}
+.pill-body{display:grid; flex:none; width:210px}
+.pill-top{display:flex; align-items:baseline; gap:12px; min-width:0}
+.pill-title{flex:1; min-width:0; overflow:hidden; font-size:13px; font-weight:500; line-height:18px; white-space:nowrap; text-overflow:ellipsis}
+.pill-pct{flex:none; font-size:11.5px; font-weight:500; color:var(--pp-text); font-variant-numeric:tabular-nums}
+.pill-now{overflow:hidden; font-size:11.5px; line-height:16px; color:var(--pp-muted); white-space:nowrap; text-overflow:ellipsis}
+.pill-step{display:inline-block; background:linear-gradient(90deg,var(--pp-text) 0 40%,var(--pp-shine) 50%,var(--pp-text) 60% 100%) 0 0/250% 100%; -webkit-background-clip:text; background-clip:text; color:transparent; animation:pill-in 420ms var(--pp-ease) both,pill-shimmer 2.4s linear infinite}
+.pill-card[data-done] .pill-step{background:none; color:var(--pp-text); animation:pill-in 420ms var(--pp-ease) both}
+.pill-track{position:relative; height:4px; margin-top:7px; overflow:hidden; border-radius:999px; background:var(--pp-track)}
+.pill-track::after{content:""; position:absolute; top:0; bottom:0; left:-80px; width:80px; background:linear-gradient(90deg,transparent,var(--pp-glint),transparent); animation:pill-sheen 1.8s ease-in-out infinite}
+.pill-bar{position:absolute; inset:0; overflow:hidden; border-radius:inherit; background:var(--pp-fill); clip-path:inset(0 calc((1 - var(--pill-fill,0))*100%) 0 0 round 999px); transition:clip-path 600ms var(--pp-ease)}
+.pill-bar::before{content:""; position:absolute; top:0; bottom:0; left:-80px; width:80px; background:linear-gradient(90deg,transparent,var(--pp-sheen),transparent); animation:pill-sheen 1.8s ease-in-out infinite}
+.pill-card[data-done] .pill-track::after,.pill-card[data-done] .pill-bar::before{animation:none; opacity:0}
+@keyframes pill-pixel{0%,100%{opacity:1}50%{opacity:.2}}
+@keyframes pill-in{from{opacity:0; transform:translateY(5px); filter:blur(2px)}}
+@keyframes pill-shimmer{from{background-position:100% 0}to{background-position:-50% 0}}
+@keyframes pill-sheen{to{left:100%}}
+@keyframes pill-drift{to{transform:translateX(12px) scale(1.04)}}
+@media (prefers-reduced-motion:reduce){.pill *,.pill *::before,.pill *::after{transition:none !important; animation:none !important}.pill-step{background:none; color:var(--pp-text)}}
+.note{font-size:12.5px; color:var(--muted); margin:0}
+code.k{font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12px; background:var(--subtle); border:1px solid var(--border); border-radius:6px; padding:1px 6px}
+footer{width:100%; max-width:860px; padding:0 20px 28px; color:var(--muted); font-size:12px}
+@media (max-width:640px){
+  .stage{padding:8px 12px}
+  .topbar{padding:14px 12px 0}
+  footer{padding:0 12px 22px}
+  .pill-frame{padding:4px 4px 4px 0}
+}
+@media (hover:hover) and (pointer:fine){
+  .btn:hover{transform:translateY(-1px)}
+  .pill-card:hover{filter:brightness(1.015)}
+}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand" id="brand" data-state="working">
+    <h1 id="brandTitle">Q3 revenue report</h1>
+    <p><span class="dot" aria-hidden="true"></span><span id="brandStatus">1 building · 1 agent · Analyst</span></p>
+  </div>
+  <button class="btn" id="playBtn" type="button" aria-pressed="true"><span class="ic" id="playIcon" aria-hidden="true">❚❚</span><span id="playLabel">Pause</span></button>
+  <button class="btn" id="themeBtn" type="button" aria-label="Toggle theme"><span class="ic" id="themeIcon" aria-hidden="true">◐</span><span id="themeLabel">Theme</span></button>
+</header>
+<main class="stage">
+  <section class="card" aria-label="Progress pill demo">
+    <h2>Agent progress</h2>
+    <p class="sub">Slim pill showing an agent building a report: mark, title, progress, step, shimmer.</p>
+    <div class="pill-frame">
+      <div class="pill" id="pill">
+        <div class="pill-inner">
+          <span class="pill-under" aria-hidden="true"><span class="pill-glow"></span></span>
+          <div class="pill-card" id="pillCard">
+            <span class="pill-tile"><span class="pill-mark" id="pillMark" data-busy=""></span></span>
+            <span class="pill-body">
+              <span class="pill-top">
+                <span class="pill-title" id="pillTitle">Q3 revenue report</span><span class="pill-pct" id="pillPct">0%</span>
+              </span>
+              <span class="pill-now"><span id="pillAgent">Analyst</span> · <span class="pill-step" id="pillStep">Read 24 sources</span></span>
+              <span class="pill-track"><span class="pill-bar" id="pillBar" style="--pill-fill:0"></span></span>
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="controls">
+      <button class="btn" id="restartBtn" type="button"><span class="ic" aria-hidden="true">↺</span><span>Restart loop</span></button>
+      <span class="meta" id="loopMeta">step 1 of 3 · hold 2600ms · tick 250ms</span>
+    </div>
+    <p class="note" id="srStatus" role="status" hidden></p>
+  </section>
+  <section class="card" aria-label="Demo details">
+    <h2>What to watch</h2>
+    <p class="sub">Steps loop <code class="k">Read 24 sources → Pull the numbers → Draft the report → Report ready</code>, then restart. Progress ticks every 250ms.</p>
+    <p class="note">Pixel-mark is deterministic per agent id (<code class="k">analyst</code> → 9 cells, 5 on). Timings: <code class="k">hold 2600ms</code>, done hold <code class="k">2080ms</code>. Respects <code class="k">prefers-reduced-motion</code>.</p>
+  </section>
+</main>
+<footer>Clean-room replica for study · no network · system fonts · light default with dark toggle.</footer>
+<script>
+(function(){
+"use strict";
+var TITLE="Q3 revenue report", AGENT_NAME="Analyst", AGENT_ID="analyst";
+var STEPS=["Read 24 sources","Pull the numbers","Draft the report"];
+var UNITS=[4,11,9,6];
+var DELAYS=[0,120,240,120,240,360,240,360,480];
+var HOLD=2600, TICK=250, DONE_HOLD=Math.round(2600*0.8);
+var START_STEP=1;
+function patternFor(id){
+  var h=0,i,k;
+  for(i=0;i<id.length;i++){h=((h*31)+id.charCodeAt(i))>>>0;}
+  for(k=0;k<64;k++){
+    var chunk=(h>>(k%26))&63;
+    var cells=[];
+    for(var g=0;g<3;g++){
+      var b0=(chunk>>(g*2))&1, b1=(chunk>>((g*2)+1))&1;
+      cells.push(b0,b1,b0);
+    }
+    var on=0,j; for(j=0;j<cells.length;j++){if(cells[j])on++;}
+    if(on>=5)return cells;
+    h=((h*1103515245)+12345)>>>0;
+  }
+  return [1,0,1,0,1,0,1,0,1];
+}
+function $(id){return document.getElementById(id);}
+var pillCard=$("pillCard"), pillMark=$("pillMark"), pillTitle=$("pillTitle"),
+    pillPct=$("pillPct"), pillAgent=$("pillAgent"), pillStep=$("pillStep"),
+    pillBar=$("pillBar"), brand=$("brand"), brandStatus=$("brandStatus"),
+    loopMeta=$("loopMeta"), playBtn=$("playBtn"), playLabel=$("playLabel"),
+    playIcon=$("playIcon"), srStatus=$("srStatus");
+var markCells=[];
+(function buildMark(){
+  var pat=patternFor(AGENT_ID);
+  for(var i=0;i<9;i++){
+    var c=document.createElement("i");
+    if(pat[i])c.setAttribute("data-on","");
+    c.style.animationDelay=DELAYS[i]+"ms";
+    pillMark.appendChild(c);
+    markCells.push(c);
+  }
+})();
+var reduceMotion=false;
+try{reduceMotion=window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches;}catch(e){}
+var m=Math.max(1,STEPS.length);
+var startIdx=Math.max(0,Math.min(m-1,START_STEP));
+var stepIdx=startIdx, done=false, counter=Math.round(UNITS[startIdx%UNITS.length]*0.7);
+var playing=!reduceMotion, stepTimer=0, tickTimer=0, loopPos=0;
+function fillFor(){
+  if(done)return 1;
+  var span=UNITS[stepIdx%UNITS.length]+2;
+  var frac=counter/span; if(frac>1)frac=1;
+  var f=(stepIdx+frac)/m; if(f>0.97)f=0.97;
+  return f;
+}
+function paint(){
+  var f=fillFor(), pct=Math.round(f*100)+"%";
+  var label=done?"Report ready":(STEPS[stepIdx]||"");
+  if(pillTitle.textContent!==TITLE)pillTitle.textContent=TITLE;
+  if(pillAgent.textContent!==AGENT_NAME)pillAgent.textContent=AGENT_NAME;
+  if(pillPct.textContent!==pct)pillPct.textContent=pct;
+  if(pillStep.textContent!==label){
+    pillStep.textContent=label;
+    /* restart shimmer/in animation without rebuilding DOM */
+    try{pillStep.style.animation="none";void pillStep.offsetWidth;}catch(e){}
+    try{pillStep.style.animation="";}catch(e2){}
+  }
+  var fillStr=String(f);
+  if(pillBar.style.getPropertyValue("--pill-fill")!==fillStr)pillBar.style.setProperty("--pill-fill",fillStr);
+  var wantDone=done?"":null;
+  var hasDone=pillCard.hasAttribute("data-done");
+  if(done&&!hasDone)pillCard.setAttribute("data-done","");
+  if(!done&&hasDone)pillCard.removeAttribute("data-done");
+  var wantBusy=!done?"":null;
+  var hasBusy=pillMark.hasAttribute("data-busy");
+  if(!done&&!hasBusy)pillMark.setAttribute("data-busy","");
+  if(done&&hasBusy)pillMark.removeAttribute("data-busy");
+  var bs=done?"0 building · 1 agent · Analyst":"1 building · 1 agent · Analyst";
+  if(brandStatus.textContent!==bs)brandStatus.textContent=bs;
+  var bst=done?"done":"working";
+  if(brand.getAttribute("data-state")!==bst)brand.setAttribute("data-state",bst);
+  var lm=done?("done · Report ready · restarting soon"):("step "+(stepIdx+1)+" of "+m+" · hold 2600ms · tick 250ms");
+  if(loopMeta.textContent!==lm)loopMeta.textContent=lm;
+  void wantDone; void wantBusy;
+}
+function clearTimers(){
+  if(stepTimer){try{clearTimeout(stepTimer);}catch(e){} stepTimer=0;}
+  if(tickTimer){try{clearInterval(tickTimer);}catch(e){} tickTimer=0;}
+}
+function queueStep(){
+  clearTimeout(stepTimer);
+  stepTimer=setTimeout(advance, done?DONE_HOLD:HOLD);
+}
+function advance(){
+  if(!playing)return;
+  if(loopPos<m){
+    done=false; stepIdx=loopPos; counter=0; loopPos++;
+    paint(); queueStep();
+  }else{
+    done=true; paint(); loopPos=0; queueStep();
+  }
+}
+function startLoop(){
+  clearTimers();
+  if(!playing||reduceMotion){paint();return;}
+  loopPos=0;
+  stepIdx=startIdx; done=false; counter=Math.round(UNITS[startIdx%UNITS.length]*0.7);
+  paint();
+  tickTimer=setInterval(function(){counter++; paint();},TICK);
+  var first=setTimeout(function(){advance();},0);
+  stepTimer=first;
+  /* chain continues via advance()->queueStep */
+}
+function setPlaying(next){
+  playing=next;
+  try{playBtn.setAttribute("aria-pressed",next?"true":"false");}catch(e){}
+  if(playLabel.textContent!==(next?"Pause":"Play"))playLabel.textContent=next?"Pause":"Play";
+  if(playIcon.textContent!==(next?"❚❚":"▶"))playIcon.textContent=next?"❚❚":"▶";
+  if(next){startLoop();}
+  else{clearTimers();paint();}
+}
+/* init paint once */
+pillTitle.textContent=TITLE; pillAgent.textContent=AGENT_NAME;
+paint();
+/* theme toggle */
+var themeBtn=$("themeBtn"), themeIcon=$("themeIcon"), themeLabel=$("themeLabel");
+function currentTheme(){return document.documentElement.getAttribute("data-theme")||"light";}
+function setTheme(t){
+  document.documentElement.setAttribute("data-theme",t);
+  try{localStorage.setItem("progress-pill-theme",t);}catch(e){}
+  if(themeLabel.textContent!==t)themeLabel.textContent=(t==="dark"?"Dark":"Light");
+  if(themeIcon.textContent!==(t==="dark"?"☾":"○"))themeIcon.textContent=(t==="dark"?"☾":"○");
+}
+try{themeLabel.textContent=(currentTheme()==="dark"?"Dark":"Light");}catch(e){}
+try{themeIcon.textContent=(currentTheme()==="dark"?"☾":"○");}catch(e){}
+if(themeBtn&&themeBtn.addEventListener){
+  themeBtn.addEventListener("pointerdown",function(){},true);
+  themeBtn.addEventListener("click",function(){setTheme(currentTheme()==="dark"?"light":"dark");});
+}
+if(playBtn&&playBtn.addEventListener){
+  playBtn.addEventListener("pointerdown",function(){},true);
+  playBtn.addEventListener("click",function(){setPlaying(!playing);});
+}
+var restartBtn=$("restartBtn");
+if(restartBtn&&restartBtn.addEventListener){
+  restartBtn.addEventListener("pointerdown",function(){},true);
+  restartBtn.addEventListener("click",function(){
+    if(!playing)setPlaying(true); else startLoop();
+    try{srStatus.removeAttribute("hidden"); srStatus.textContent="Loop restarted";}catch(e){}
+  });
+}
+/* expose for in-dir harness */
+try{
+  window.__pill={
+    get step(){return stepIdx;}, get finished(){return done;}, get count(){return counter;},
+    get playing(){return playing;}, STEPS:STEPS.slice(), UNITS:UNITS.slice(), HOLD:HOLD, TICK:TICK,
+    refs:{card:pillCard,mark:pillMark,title:pillTitle,pct:pillPct,step:pillStep,bar:pillBar,cells:markCells},
+    pattern:patternFor(AGENT_ID), restart:startLoop, setPlaying:setPlaying
+  };
+}catch(e){}
+startLoop();
+})();
+</script>
+</body>
+</html>

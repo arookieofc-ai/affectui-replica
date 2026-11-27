@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Team Invite — Connected teammates</title>
+<meta name="color-scheme" content="light dark">
+<script>/*noflash*/(function(){try{var k="team-invite-theme";var s=null;try{s=localStorage.getItem(k)}catch(e){}var t=s||(window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");document.documentElement.setAttribute("data-theme",t);}catch(e){}})();</script>
+<style>html{background:#fafaf9}html[data-theme="dark"]{background:#101012}</style>
+<style>
+:root{
+  --surface:#ffffff; --page:#fafaf9; --ink:#171717; --ink2:#1c1917;
+  --muted:#78716c; --subtle:#f5f5f4; --border:#e7e5e4;
+  --r-lg:16px; --r:10px; --r-sm:6px;
+  --shadow:0 1px 2px rgba(0,0,0,.05),0 4px 16px rgba(0,0,0,.05);
+  --amber:#f59e0b; --amber-bg:#fef3c7; --amber-tx:#92400e;
+  --green:#16a34a; --green-bg:#dcfce7; --green-tx:#14532d;
+  --blue:#2563eb;
+  --ti-bubble:#ffffff; --ti-ring:rgba(10,10,10,.06); --ti-face:#eef0f4;
+  --ti-line:#e4e7ec; --ti-plus:#c4c4c4; --ti-online:#34c46a;
+  --ti-dotring:#e2f6e9; --ti-dotedge:rgba(52,196,106,.1); --ti-cursor:#141b34;
+  --ti-sh:0 10px 24px rgba(0,0,0,.07),0 2px 5px rgba(0,0,0,.05);
+  --ti-lift:0 18px 34px rgba(0,0,0,.12),0 3px 8px rgba(0,0,0,.06);
+}
+html[data-theme="dark"]{
+  --surface:#1c1c1f; --page:#101012; --ink:#ededed; --ink2:#ededed;
+  --muted:#a1a1aa; --subtle:#26262a; --border:#2e2e33;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+  --amber:#fbbf24; --amber-bg:#451a03; --amber-tx:#fde68a;
+  --green:#3fd17a; --green-bg:#12331f; --green-tx:#bbf7d0;
+  --ti-bubble:#232326; --ti-ring:rgba(255,255,255,.08); --ti-face:#2e2e33;
+  --ti-line:rgba(255,255,255,.14); --ti-plus:#5c5c61; --ti-online:#3fd17a;
+  --ti-dotring:#24392c; --ti-dotedge:rgba(63,209,122,.12);
+  --ti-sh:0 10px 24px rgba(0,0,0,.4),0 2px 5px rgba(0,0,0,.3);
+  --ti-lift:0 18px 34px rgba(0,0,0,.5),0 3px 8px rgba(0,0,0,.3);
+}
+html{-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--page); color:var(--ink);
+  font:14px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-variant-numeric:tabular-nums;
+}
+.page{max-width:720px;margin:0 auto;padding:20px 16px 40px}
+.topbar{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px}
+.proj{display:flex;gap:10px;align-items:center;min-width:0}
+.projdot{width:12px;height:12px;border-radius:50%;background:var(--green);flex:none;box-shadow:inset 0 0 0 1px rgba(0,0,0,.08)}
+h1{font-size:16px;margin:0;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+h1 .sub{font-weight:500;color:var(--muted);font-size:13px}
+.counts{margin:2px 0 0;font-size:12.5px;color:var(--muted);display:flex;gap:8px;flex-wrap:wrap}
+.counts b{color:var(--ink);font-weight:650}
+.tools{display:flex;gap:8px;flex:none}
+button{
+  font:inherit;color:var(--ink);background:var(--surface);
+  border:1px solid var(--border);border-radius:999px;padding:7px 13px 7px 11px;
+  cursor:pointer;box-shadow:var(--shadow);
+  display:inline-flex;align-items:center;gap:7px;
+  transition:transform 150ms ease,box-shadow 150ms ease,background 150ms ease;
+}
+button .ic{font-size:13px;line-height:1}
+button:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);box-shadow:var(--shadow);padding:16px}
+.stage-wrap{border:1px solid var(--border);border-radius:calc(var(--r) + 6px);background:var(--page);padding:6px}
+.ti{position:relative;width:100%;aspect-ratio:3/2;overflow:hidden;container-type:inline-size;
+  --u:calc(100cqw / 600);border-radius:var(--r)}
+.ti-lines{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.ti-gA{stop-color:var(--ti-line)} .ti-gB{stop-color:var(--ti-line)}
+.ti-line{fill:none;stroke-width:2.4;stroke-linecap:round}
+.ti-solid{stroke:var(--ti-line)}
+.ti-dash{stroke:var(--ti-line);stroke-dasharray:6 7.23;animation:ti-dash 4.4s linear infinite}
+.ti-join{stroke-dasharray:1;stroke-dashoffset:1;animation:ti-join 4.4s linear infinite}
+.ti-slotG{transform-box:fill-box;transform-origin:center;animation:ti-slot 4.4s linear infinite}
+.ti-slotC{fill:none;stroke:var(--ti-line);stroke-width:2.4;stroke-dasharray:6 7.23}
+.ti-plus{fill:none;stroke:var(--ti-plus);stroke-width:1.8;stroke-linecap:round}
+.ti-node{position:absolute;width:calc(84 * var(--u));height:calc(84 * var(--u));
+  margin:calc(-42 * var(--u)) 0 0 calc(-42 * var(--u));padding:calc(5 * var(--u));
+  border-radius:50%;background:var(--ti-bubble);
+  box-shadow:inset 0 0 0 calc(1 * var(--u)) var(--ti-ring),var(--ti-sh)}
+.ti-a{left:calc(120 * var(--u));top:calc(159 * var(--u))}
+.ti-b{left:calc(300 * var(--u));top:calc(105 * var(--u))}
+.face{display:flex;align-items:center;justify-content:center;width:100%;height:100%;
+  border-radius:50%;font-weight:700;font-size:calc(30 * var(--u));color:#fff;user-select:none;
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.1)}
+html[data-theme="dark"] .face{box-shadow:inset 0 0 0 1px rgba(255,255,255,.1)}
+.face-a{background:#7c6cf0} .face-b{background:#2f9d63} .face-c{background:#e07b39}
+.face img{display:block;width:100%;height:100%;object-fit:cover}
+.dot{position:absolute;right:calc(1 * var(--u));bottom:calc(3 * var(--u));
+  width:calc(24 * var(--u));height:calc(24 * var(--u));
+  border:calc(7 * var(--u)) solid var(--ti-dotring);border-radius:50%;
+  background:var(--ti-online);box-shadow:0 0 0 calc(2 * var(--u)) var(--ti-dotedge)}
+.ti-drag{position:absolute;left:calc(456 * var(--u));top:calc(281 * var(--u));animation:ti-drag 4.4s cubic-bezier(.7,0,.25,1) infinite}
+.ti-c{left:0;top:0;animation:ti-lift 4.4s infinite}
+.ti-c .dot{animation:ti-pop 4.4s linear infinite}
+.ti-cursor{position:absolute;left:calc(11.28 * var(--u));top:calc(13.45 * var(--u));
+  width:calc(40 * var(--u));height:calc(48.13 * var(--u));overflow:visible;
+  transform-origin:calc(4.72 * var(--u)) calc(.55 * var(--u));
+  filter:drop-shadow(0 calc(3 * var(--u)) calc(7 * var(--u)) rgba(0,0,0,.16));
+  animation:ti-cur 4.4s infinite}
+.ti-cursor path{fill:var(--ti-cursor);stroke:#fff;stroke-width:1.7;stroke-linejoin:round;paint-order:stroke}
+@keyframes ti-drag{
+  0%,16%{transform:translate(0,0);opacity:1}
+  42%,88%{transform:translate(calc(-166 * var(--u)),calc(-36 * var(--u)));opacity:1}
+  94%{transform:translate(calc(-166 * var(--u)),calc(-36 * var(--u)));opacity:0}
+  95%{transform:translate(0,0);opacity:0}
+  100%{transform:translate(0,0);opacity:1}
+}
+@keyframes ti-lift{
+  0%,12%{transform:scale(1)} 16%,40%{transform:scale(1.07)} 46%,100%{transform:scale(1)}
+}
+@keyframes ti-pop{0%,48%{transform:scale(0)}52%{transform:scale(1.25)}56%,100%{transform:scale(1)}}
+@keyframes ti-cur{
+  0%,11%{transform:translate(0,0) scale(1);opacity:1}
+  14%,42%{transform:translate(0,0) scale(.86);opacity:1}
+  47%{transform:translate(0,0) scale(1);opacity:1}
+  62%,88%{transform:translate(calc(70 * var(--u)),calc(44 * var(--u))) scale(1);opacity:0}
+  95%{transform:translate(calc(20 * var(--u)),calc(14 * var(--u))) scale(1);opacity:0}
+  100%{transform:translate(0,0) scale(1);opacity:1}
+}
+@keyframes ti-slot{0%,30%{opacity:1;transform:scale(1)}42%,90%{opacity:0;transform:scale(1.12)}100%{opacity:1;transform:scale(1)}}
+@keyframes ti-dash{0%,46%{opacity:1}50%,92%{opacity:0}100%{opacity:1}}
+@keyframes ti-join{0%,44%{stroke-dashoffset:1;opacity:1}54%,88%{stroke-dashoffset:0;opacity:1}94%,100%{stroke-dashoffset:0;opacity:0}}
+body.paused .ti-drag,body.paused .ti-c,body.paused .ti-c .dot,body.paused .ti-cursor,
+body.paused .ti-slotG,body.paused .ti-dash,body.paused .ti-join{animation-play-state:paused}
+.statusrow{margin:12px 0 4px}
+#status{margin:0 0 8px;font-size:13.5px}
+#status b{font-weight:650}
+.loopbar{display:flex;align-items:center;gap:10px}
+.looptrack{flex:1;height:3px;border-radius:999px;background:var(--subtle);border:1px solid var(--border);overflow:hidden}
+#loopfill{display:block;height:100%;width:0;background:var(--green)}
+#looplabel{font-size:12px;color:var(--muted);min-width:86px;text-align:right}
+.roster{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:8px}
+@media(min-width:560px){.roster{grid-template-columns:1fr 1fr 1fr}}
+.member{display:flex;align-items:center;gap:10px;border:1px solid var(--border);
+  border-radius:var(--r);padding:10px 12px 10px 10px;background:var(--surface)}
+.pix{display:grid;grid-template-columns:repeat(3,8px);grid-auto-rows:8px;gap:2px;flex:none}
+.pix i{width:8px;height:8px;border-radius:2px;display:block}
+.who{min-width:0;flex:1}
+.who .nm{display:block;font-weight:650;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.who .rl{display:block;font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pill{flex:none;font-size:11.5px;font-weight:650;border-radius:999px;padding:3px 10px;border:1px solid var(--border)}
+.pill.on{background:var(--green-bg);color:var(--green-tx);border-color:transparent}
+.pill.join{background:var(--amber-bg);color:var(--amber-tx);border-color:transparent}
+.actions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.note{font-size:12.5px;color:var(--muted);margin:10px 0 0}
+footer{margin-top:12px;font-size:12px;color:var(--muted)}
+@media (hover:hover) and (pointer:fine){
+  button:hover{background:var(--subtle);transform:translateY(-1px)}
+  .member:hover{box-shadow:var(--shadow)}
+}
+@media (prefers-reduced-motion:reduce){
+  .ti-drag,.ti-c,.ti-c .dot,.ti-cursor,.ti-slotG,.ti-dash,.ti-join{animation:none}
+  .ti-c .dot{transform:scale(1)}
+}
+@media (max-width:520px){.page{padding:14px 10px 32px}.card{padding:12px}}
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="topbar">
+    <div class="proj">
+      <span class="projdot" aria-hidden="true"></span>
+      <div>
+        <h1>product-team <span class="sub">· Team Invite</span></h1>
+        <p class="counts"><span><b id="countOn">2</b> connected</span><span><b id="countJoin">1</b> inviting</span><span><b>3</b> teammates</span></p>
+      </div>
+    </div>
+    <div class="tools">
+      <button type="button" id="themeBtn"><span class="ic" id="themeIc" aria-hidden="true">☾</span><span id="themeTx">Dark</span></button>
+    </div>
+  </header>
+
+  <main class="card">
+    <div class="stage-wrap">
+      <div class="ti" id="stage" role="img" aria-label="Mara and Jonas are connected; Sofia is dragged into the empty slot and joins the team">
+        <svg class="ti-lines" viewBox="0 0 600 400" aria-hidden="true">
+          <defs>
+            <linearGradient id="ti-line" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" class="ti-gA"></stop>
+              <stop offset="100%" class="ti-gB"></stop>
+            </linearGradient>
+          </defs>
+          <path class="ti-line ti-solid" d="M162 159C214 159 222 105 258 105" stroke="url(#ti-line)"></path>
+          <path class="ti-line ti-dash" d="M162 159C214 165 214 245 248 245"></path>
+          <path class="ti-line ti-join" d="M162 159C214 165 214 245 248 245" pathLength="1" stroke="url(#ti-line)"></path>
+          <g class="ti-slotG">
+            <circle class="ti-slotC" cx="290" cy="245" r="40"></circle>
+            <path class="ti-plus" d="M290 234v22M279 245h22"></path>
+          </g>
+        </svg>
+        <div class="ti-node ti-a" aria-hidden="true"><span class="face face-a">M</span><span class="dot"></span></div>
+        <div class="ti-node ti-b" aria-hidden="true"><span class="face face-b">J</span><span class="dot"></span></div>
+        <div class="ti-drag" aria-hidden="true">
+          <div class="ti-node ti-c"><span class="face face-c">S</span><span class="dot"></span></div>
+          <svg class="ti-cursor" viewBox="-2.186 -0.256 18.514 22.277" aria-hidden="true"><path transform="rotate(21.37)" d="M13.92 4.07c1.69.66 3.03 1.18 3.94 1.68.46.25.87.53 1.16.86.31.35.51.79.48 1.29-.03.51-.27.92-.62 1.23-.33.3-.77.53-1.25.74-.96.4-2.36.78-4.12 1.26-.56.15-.98.27-1.26.37-.26.1-.38.18-.47.27-.09.09-.17.21-.27.47-.1.28-.22.7-.37 1.26-.48 1.76-.86 3.16-1.26 4.12-.2.49-.44.93-.74 1.25-.32.35-.72.6-1.23.62-.51.03-.94-.17-1.29-.48-.33-.29-.61-.7-.86-1.16-.5-.91-1.02-2.25-1.68-3.94L1.66 7.76C.96 5.99.41 4.59.16 3.51-.09 2.44-.12 1.39.63.63 1.39-.12 2.44-.09 3.51.16c1.08.25 2.48.8 4.25 1.5l6.16 2.41Z"></path></svg>
+        </div>
+      </div>
+    </div>
+
+    <div class="statusrow">
+      <p id="status" role="status" aria-live="polite">Mara and Jonas are connected — Sofia is waiting on the right</p>
+      <div class="loopbar">
+        <div class="looptrack" aria-hidden="true"><span id="loopfill"></span></div>
+        <span id="looplabel">0.0s / 4.4s loop</span>
+      </div>
+    </div>
+
+    <ul class="roster" id="roster">
+      <li class="member">
+        <span class="pix" aria-hidden="true"><i style="background:#7c6cf0"></i><i style="background:#9a8ff5"></i><i style="background:#5a4ed6"></i><i style="background:#b3abf8"></i><i style="background:#7c6cf0"></i><i style="background:#4a3fc2"></i><i style="background:#8f83f2"></i><i style="background:#6a5ee0"></i><i style="background:#a49bef"></i></span>
+        <span class="who"><span class="nm">Mara</span><span class="rl">Connected · online</span></span>
+        <span class="pill on">online</span>
+      </li>
+      <li class="member">
+        <span class="pix" aria-hidden="true"><i style="background:#2f9d63"></i><i style="background:#54bd85"></i><i style="background:#1f7a4b"></i><i style="background:#6fd09a"></i><i style="background:#2f9d63"></i><i style="background:#177243"></i><i style="background:#48b67e"></i><i style="background:#278a56"></i><i style="background:#83d6a8"></i></span>
+        <span class="who"><span class="nm">Jonas</span><span class="rl">Connected · online</span></span>
+        <span class="pill on">online</span>
+      </li>
+      <li class="member">
+        <span class="pix" aria-hidden="true"><i style="background:#e07b39"></i><i style="background:#ec9a5f"></i><i style="background:#c05f22"></i><i style="background:#f2b183"></i><i style="background:#e07b39"></i><i style="background:#b2571f"></i><i style="background:#e78f4e"></i><i style="background:#cf6c2c"></i><i style="background:#f6c39c"></i></span>
+        <span class="who"><span class="nm">Sofia</span><span class="rl" id="sofiaRl">Dragged into the empty slot…</span></span>
+        <span class="pill join" id="sofiaPill">joining…</span>
+      </li>
+    </ul>
+
+    <div class="actions">
+      <button type="button" id="replayBtn"><span class="ic" aria-hidden="true">↻</span>Replay invite</button>
+      <button type="button" id="pauseBtn" aria-pressed="false"><span class="ic" aria-hidden="true">⏸</span><span id="pauseTx">Pause</span></button>
+    </div>
+    <p class="note">Loop 4.4s — cursor drags the new member into the slot, the line solidifies, Sofia comes online. Cursor pick-up 12–16%, carry 16–42%, drop 42–48%, link draws 48–54%, release by 62%, hold to 88%.</p>
+  </main>
+  <footer>Standalone replica · system fonts · no network · light default (original appearance), toggle for dark.</footer>
+</div>
+
+<script>
+(function(){
+"use strict";
+var LOOP=4400;
+var stage=document.getElementById("stage");
+var statusEl=document.getElementById("status");
+var fill=document.getElementById("loopfill");
+var lab=document.getElementById("looplabel");
+var sofiaPill=document.getElementById("sofiaPill");
+var sofiaRl=document.getElementById("sofiaRl");
+var replayBtn=document.getElementById("replayBtn");
+var pauseBtn=document.getElementById("pauseBtn");
+var pauseTx=document.getElementById("pauseTx");
+var themeBtn=document.getElementById("themeBtn");
+var themeIc=document.getElementById("themeIc");
+var themeTx=document.getElementById("themeTx");
+var t0=(typeof performance!=="undefined"&&performance.now)?performance.now():Date.now();
+var lastStatus="",lastPill="",lastRl="";
+function now(){return (typeof performance!=="undefined"&&performance.now)?performance.now():Date.now();}
+function phaseFor(t){
+  var p=t/LOOP;
+  if(p<0.12)return{key:"rest",html:"Mara|and|Jonas|are connected|waiting"};
+  if(p<0.42)return{key:"carry",html:"Dragging|Sofia|into the empty slot|dragged"};
+  if(p<0.54)return{key:"settle",html:"Sofia|settles in|link solidifies"};
+  if(p<0.88)return{key:"joined",html:"Sofia|joins the team|online"};
+  return{key:"reset",html:"Holding|finished team|looping back|online"};
+}
+function statusText(key){
+  if(key==="rest")return" Mara and Jonas are connected — Sofia is waiting on the right";
+  if(key==="carry")return"Dragging Sofia into the empty slot — she is being dragged in";
+  if(key==="settle")return"Sofia settles in — the dashed line solidifies";
+  if(key==="joined")return"Sofia joins the team — online";
+  return"Holding the finished team — Mara, Jonas and Sofia online, looping back";
+}
+function tick(n){
+  var t=(n-t0)%LOOP; if(t<0)t+=LOOP;
+  var ph=phaseFor(t);
+  var st=statusText(ph.key);
+  if(st!==lastStatus||statusEl.textContent!==st){statusEl.textContent=st;lastStatus=st;}
+  var pillTx=(ph.key==="joined"||ph.key==="reset")?"online":"joining…";
+  if(pillTx!==lastPill){
+    sofiaPill.textContent=pillTx;
+    if(pillTx==="online"){sofiaPill.setAttribute("class","pill on");}
+    else{sofiaPill.setAttribute("class","pill join");}
+    lastPill=pillTx;
+  }
+  var rlTx=(pillTx==="online")?"Joined the team · online":"Dragged into the empty slot…";
+  if(rlTx!==lastRl){sofiaRl.textContent=rlTx;lastRl=rlTx;}
+  fill.style.width=((t/LOOP)*100).toFixed(1)+"%";
+  lab.textContent=(t/1000).toFixed(1)+"s / 4.4s loop";
+  if(stage)stage.setAttribute("data-phase",ph.key);
+  return{phase:ph.key,t:t};
+}
+function paintTheme(){
+  var d=document.documentElement.getAttribute("data-theme")||"light";
+  themeTx.textContent=(d==="dark")?"Light":"Dark";
+  themeIc.textContent=(d==="dark")?"☀":"☾";
+  themeBtn.setAttribute("aria-pressed",d==="dark"?"true":"false");
+}
+themeBtn.addEventListener("click",function(){
+  var d=document.documentElement.getAttribute("data-theme")==="dark"?"light":"dark";
+  document.documentElement.setAttribute("data-theme",d);
+  try{localStorage.setItem("team-invite-theme",d);}catch(e){}
+  paintTheme();
+});
+replayBtn.addEventListener("click",function(){t0=now();lastStatus="";tick(now());});
+pauseBtn.addEventListener("click",function(){
+  var p=document.body.classList.toggle("paused");
+  pauseBtn.setAttribute("aria-pressed",p?"true":"false");
+  pauseTx.textContent=p?"Resume":"Pause";
+});
+paintTheme();
+tick(now());
+var id=setInterval(function(){if(!document.body.classList.contains("paused"))tick(now());},100);
+if(window){window.__teamInvite={LOOP:LOOP,phaseFor:phaseFor,statusText:statusText,tick:tick,els:{status:statusEl,pill:sofiaPill,rl:sofiaRl,fill:fill,lab:lab,stage:stage},timer:id,reset:function(){t0=now();lastStatus="";}};}
+})();
+</script>
+</body>
+</html>

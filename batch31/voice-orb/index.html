@@ -1,0 +1,441 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Voice Orb — Voice Assistant</title>
+<script>/*noflash*/(function(){try{var k="voice-orb-theme";var t=null;try{t=localStorage.getItem(k)}catch(e){}if(t!=="light"&&t!=="dark"){t=(window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches)?"dark":"light"}document.documentElement.setAttribute("data-theme",t)}catch(e){}})();</script>
+<style>html{background:#fafaf9}html[data-theme="dark"]{background:#101012}</style>
+<style>
+:root{
+  --surface:#ffffff;
+  --page:#fafaf9;
+  --ink:#171717;
+  --ink-soft:#1c1917;
+  --muted:#78716c;
+  --subtle:#f5f5f4;
+  --border:#e7e5e4;
+  --radius-lg:16px;
+  --radius:10px;
+  --radius-sm:6px;
+  --shadow:0 1px 2px rgba(0,0,0,.05),0 4px 16px rgba(0,0,0,.05);
+  --shadow-lift:0 2px 4px rgba(0,0,0,.06),0 10px 28px rgba(0,0,0,.09);
+  --accent:#2f6bff;
+  --accent-soft:rgba(47,107,255,.12);
+  --focus:rgba(23,23,23,.28);
+  --vo-ink:#171717;
+  --vo-muted:#8f8f8f;
+  --vo-accent:#2f6bff;
+  --vo-focus:rgba(23,23,23,.22);
+  --amber:#92400e;
+  --amber-bg:#fef3c7;
+  --amber-dot:#f59e0b;
+}
+html[data-theme="dark"]{
+  --surface:#1c1c1f;
+  --page:#101012;
+  --ink:#ededed;
+  --ink-soft:#ededed;
+  --muted:#a1a1aa;
+  --subtle:#26262a;
+  --border:#2e2e33;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+  --shadow-lift:0 2px 6px rgba(0,0,0,.5),0 14px 36px rgba(0,0,0,.45);
+  --accent:#6f9bff;
+  --accent-soft:rgba(111,155,255,.16);
+  --focus:rgba(255,255,255,.35);
+  --vo-ink:#ededed;
+  --vo-muted:#8b8b92;
+  --vo-accent:#6f9bff;
+  --vo-focus:rgba(255,255,255,.3);
+  --amber:#fde68a;
+  --amber-bg:#451a03;
+  --amber-dot:#fbbf24;
+}
+html{-webkit-tap-highlight-color:transparent}
+[hidden]{display:none !important}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:var(--page);
+  color:var(--ink);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:14px;
+  line-height:1.45;
+  font-variant-numeric:tabular-nums;
+  -webkit-font-smoothing:antialiased;
+}
+.page{min-height:100vh;display:flex;flex-direction:column}
+.topbar{
+  display:flex;align-items:center;justify-content:space-between;
+  gap:12px;padding:14px 18px;
+  border-bottom:1px solid var(--border);
+  background:var(--surface);
+}
+.proj{display:flex;align-items:center;gap:10px;min-width:0}
+.proj-mark{width:28px;height:28px;border-radius:8px;background:var(--accent-soft);border:1px solid var(--border);display:grid;place-items:center;flex:none}
+.proj-mark span{width:10px;height:10px;border-radius:50%;background:var(--accent)}
+.proj-name{font-size:15px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.proj-meta{font-size:12px;color:var(--muted);white-space:nowrap}
+.theme-btn{
+  display:inline-flex;align-items:center;gap:6px;
+  border:1px solid var(--border);background:var(--surface);color:var(--ink);
+  border-radius:999px;padding:5px 10px 5px 6px;font:inherit;font-size:12.5px;cursor:pointer;
+  transition:transform 160ms ease,box-shadow 160ms ease,border-color 160ms ease;
+}
+.theme-btn .ticon{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:var(--subtle);border:1px solid var(--border);font-size:13px;line-height:1}
+.theme-btn:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.wrap{width:100%;max-width:560px;margin:0 auto;padding:22px 16px 32px;display:flex;flex-direction:column;gap:12px}
+.card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius-lg);
+  box-shadow:var(--shadow);
+  padding:16px;
+}
+.orb-card{display:flex;flex-direction:column;align-items:center;gap:6px}
+.orb-stage{
+  width:100%;display:flex;justify-content:center;
+  background:var(--page);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:6px;
+}
+.ui-vo{
+  --ui-vo-size:220px;
+  display:inline-grid;justify-items:center;gap:2px;
+  margin:0;padding:10px 12px;border:0;background:none;
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  color:var(--vo-ink);
+  -webkit-font-smoothing:antialiased;
+  -webkit-tap-highlight-color:transparent;
+}
+button.ui-vo{border-radius:24px;cursor:pointer}
+button.ui-vo:focus-visible{outline:2px solid var(--vo-focus);outline-offset:4px}
+.ui-vo__canvas{display:block;width:var(--ui-vo-size);height:var(--ui-vo-size);color:var(--vo-ink);transition:transform 500ms cubic-bezier(.32,.72,.24,1)}
+button.ui-vo:active .ui-vo__canvas{transform:scale(.97)}
+.ui-vo__label{max-width:max(var(--ui-vo-size),120px);height:20px;overflow:hidden;font-size:13px;font-weight:500;line-height:20px;color:var(--vo-muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+.ui-vo__label>span{max-width:100%;display:inline-flex;align-items:baseline;gap:1px;animation:ui-vo-in 360ms cubic-bezier(.32,.72,.24,1) both}
+.ui-vo[data-state="listening"] .ui-vo__label,.ui-vo[data-state="speaking"] .ui-vo__label{color:var(--vo-ink)}
+.ui-vo__dots{display:inline-flex;gap:2px;margin-left:2px}
+.ui-vo__dots i{width:2.5px;height:2.5px;border-radius:50%;background:currentColor;animation:ui-vo-blink 1.2s ease-in-out infinite}
+.ui-vo__dots i:nth-child(2){animation-delay:.16s}
+.ui-vo__dots i:nth-child(3){animation-delay:.32s}
+@keyframes ui-vo-in{from{opacity:0;transform:translateY(5px);filter:blur(3px)}}
+@keyframes ui-vo-blink{0%,100%{opacity:.25}40%{opacity:1}}
+.segmented{
+  display:flex;gap:6px;flex-wrap:wrap;justify-content:center;
+  background:var(--subtle);border:1px solid var(--border);border-radius:999px;
+  padding:4px;margin-top:10px;max-width:100%;
+}
+.segmented button{
+  border:1px solid transparent;background:transparent;color:var(--muted);
+  border-radius:999px;padding:6px 12px;font:inherit;font-size:12.5px;font-weight:600;
+  cursor:pointer;white-space:nowrap;
+  transition:background 160ms ease,color 160ms ease,box-shadow 160ms ease,border-color 160ms ease;
+}
+.segmented button[aria-checked="true"]{
+  background:var(--surface);color:var(--ink);
+  border-color:var(--border);
+  box-shadow:var(--shadow);
+}
+.segmented button:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.statusline{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted);margin-top:10px;min-height:20px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--border);flex:none;transition:background 180ms ease}
+.dot.is-live{background:var(--accent)}
+.timing{font-size:12px;color:var(--muted);text-align:center;margin:2px 0 0}
+.hint{font-size:12.5px;color:var(--muted);text-align:center}
+.footer{padding:0 16px 22px;text-align:center;font-size:12px;color:var(--muted)}
+@media (prefers-reduced-motion:reduce){
+  .ui-vo *,.ui-vo *::before,.ui-vo *::after{animation:none !important;transition:none !important}
+  *{animation-duration:.001ms !important;transition-duration:.001ms !important}
+}
+@media (hover:hover) and (pointer:fine){
+  .card:hover{box-shadow:var(--shadow-lift)}
+  .theme-btn:hover{box-shadow:var(--shadow);transform:translateY(-1px)}
+  button.ui-vo:hover .ui-vo__canvas{transform:scale(1.015)}
+  .segmented button:hover{color:var(--ink);background:var(--surface)}
+}
+@media (max-width:480px){
+  .topbar{padding:12px 14px}
+  .wrap{padding:16px 12px 24px}
+  .card{padding:12px}
+  .ui-vo{--ui-vo-size:200px}
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="topbar">
+    <div class="proj">
+      <div class="proj-mark" aria-hidden="true"><span></span></div>
+      <div>
+        <div class="proj-name">Voice Assistant</div>
+        <div class="proj-meta"><span id="workingCount">0 working</span><span aria-hidden="true"> · </span><span>1 agent</span></div>
+      </div>
+    </div>
+    <button class="theme-btn" id="themeToggle" type="button" aria-label="Switch to dark theme"><span class="ticon" id="themeIcon" aria-hidden="true">◐</span><span id="themeLabel">Theme</span></button>
+  </header>
+  <main class="wrap">
+    <section class="card orb-card" aria-label="Voice Orb demo">
+      <div class="orb-stage">
+        <button class="ui-vo" id="orbBtn" type="button" data-state="idle" aria-label="Voice assistant: Tap to speak">
+          <canvas class="ui-vo__canvas" id="orbCanvas" aria-hidden="true"></canvas>
+          <span class="ui-vo__label" aria-live="polite"><span id="orbLabelInner"><span id="orbLabelText">Tap to speak</span><span class="ui-vo__dots" id="orbDots" hidden><i></i><i></i><i></i></span></span></span>
+        </button>
+      </div>
+      <div class="segmented" role="radiogroup" aria-label="State" id="stateGroup">
+        <button type="button" role="radio" aria-checked="true" data-i="0">Idle</button>
+        <button type="button" role="radio" aria-checked="false" data-i="1">Listening</button>
+        <button type="button" role="radio" aria-checked="false" data-i="2">Thinking</button>
+        <button type="button" role="radio" aria-checked="false" data-i="3">Speaking</button>
+      </div>
+      <div class="statusline"><span class="dot" id="liveDot" aria-hidden="true"></span><span id="statusText">Idle — tap the orb to speak</span></div>
+      <p class="timing" id="timingText">Auto-cycles Idle 2.0s → Listening 3.2s → Thinking 2.6s → Speaking 3.6s</p>
+      <p class="hint">Tap the orb or pick a state. Manual choice pauses auto-cycle.</p>
+    </section>
+  </main>
+  <footer class="footer">Canvas sphere · 520 dots · breathing / listening swell / thinking ring / speaking ripple</footer>
+</div>
+<script>
+(function(){
+"use strict";
+var STATES=[
+  {state:"idle",label:"Idle",caption:"Tap to speak",ms:2000,hint:"Idle — tap the orb to speak"},
+  {state:"listening",label:"Listening",caption:"Listening",ms:3200,hint:"Listening — capturing audio level"},
+  {state:"thinking",label:"Thinking",caption:"Thinking",ms:2600,hint:"Thinking — reasoning in a ring"},
+  {state:"speaking",label:"Speaking",caption:"Speaking",ms:3600,hint:"Speaking — rippling reply"}
+];
+var SPEEDS={idle:0.16,listening:0.30,thinking:1.9,speaking:0.42};
+var SIZE=220, COUNT=520;
+var ACCENT_LIGHT=[47,107,255], ACCENT_DARK=[111,155,255];
+var INK_LIGHT=[23,23,23], INK_DARK=[237,237,237];
+function clamp(v,lo,hi){return Math.min(hi,Math.max(lo,v))}
+var reduceMotion=false;
+try{reduceMotion=window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches}catch(e){}
+var orbBtn=document.getElementById("orbBtn");
+var canvas=document.getElementById("orbCanvas");
+var labelText=document.getElementById("orbLabelText");
+var labelInner=document.getElementById("orbLabelInner");
+var dotsEl=document.getElementById("orbDots");
+var group=document.getElementById("stateGroup");
+var optBtns=Array.prototype.slice.call(group.querySelectorAll("button"));
+var statusText=document.getElementById("statusText");
+var liveDot=document.getElementById("liveDot");
+var workingCount=document.getElementById("workingCount");
+var themeToggle=document.getElementById("themeToggle");
+var themeIcon=document.getElementById("themeIcon");
+var themeLabel=document.getElementById("themeLabel");
+function currentTheme(){return document.documentElement.getAttribute("data-theme")==="dark"?"dark":"light"}
+function paintThemeBtn(){
+  var t=currentTheme();
+  themeToggle.setAttribute("aria-label",t==="dark"?"Switch to light theme":"Switch to dark theme");
+  themeLabel.textContent=t==="dark"?"Dark":"Light";
+  themeIcon.textContent=t==="dark"?"☾":"☀";
+}
+themeToggle.addEventListener("pointerdown",function(){}, {capture:true});
+themeToggle.addEventListener("click",function(){
+  var next=currentTheme()==="dark"?"light":"dark";
+  document.documentElement.setAttribute("data-theme",next);
+  try{localStorage.setItem("voice-orb-theme",next)}catch(e){}
+  paintThemeBtn();
+});
+paintThemeBtn();
+/* ---- orb state ---- */
+var idx=0, autoOn=true, timerId=0;
+var blend={idle:1,listening:0,thinking:0,speaking:0};
+var spin=0, smoothLevel=0.6, lastT=0;
+var pointer={x:0,y:0,on:false,power:0};
+var running=true, rafId=0;
+/* fibonacci sphere */
+var pts=new Float32Array(COUNT*3);
+(function(){
+  var golden=Math.PI*(3-Math.sqrt(5));
+  for(var k=0;k<COUNT;k++){
+    var y=1-(k/(COUNT-1))*2;
+    var r=Math.sqrt(Math.max(0,1-y*y));
+    var th=golden*k;
+    pts[k*3]=Math.cos(th)*r;pts[k*3+1]=y;pts[k*3+2]=Math.sin(th)*r;
+  }
+})();
+var ctx=null, dpr=1;
+try{
+  dpr=Math.min(window.devicePixelRatio||1,2.5);
+  canvas.width=Math.round(SIZE*dpr);canvas.height=Math.round(SIZE*dpr);
+  ctx=canvas.getContext("2d");
+}catch(e){ctx=null}
+function accentRGB(){
+  return currentTheme()==="dark"?ACCENT_DARK:ACCENT_LIGHT;
+}
+function inkRGB(){
+  return currentTheme()==="dark"?INK_DARK:INK_LIGHT;
+}
+function synthLevel(t,state){
+  if(state==="listening"){
+    return clamp(0.35+0.35*Math.sin(t*2.1)*Math.sin(t*5.3)+0.3*Math.sin(t*9.7+1)*Math.sin(t*0.9),0,1);
+  }
+  return clamp(0.3+0.7*Math.abs(Math.sin(t*4.1))*(0.5+0.5*Math.sin(t*1.3+2)),0,1);
+}
+function drawFrame(now){
+  if(!ctx) return;
+  var t=now/1000;
+  var dt=Math.min(0.05,(now-lastT)/1000||0.016);
+  lastT=now;
+  var cur=STATES[idx].state;
+  var mix=0,i,dt5=Math.min(1,dt*5);
+  for(i=0;i<STATES.length;i++){
+    var key=STATES[i].state;
+    blend[key]+=((key===cur?1:0)-blend[key])*dt5;
+    mix+=blend[key]*SPEEDS[key];
+  }
+  spin+=mix*dt;
+  var raw=synthLevel(t,cur);
+  smoothLevel+=(raw-smoothLevel)*Math.min(1,dt*12);
+  pointer.power+=(((pointer.on)?1:0)-pointer.power)*Math.min(1,dt*8);
+  var R=SIZE/2, mid=R, baseR=SIZE*0.32;
+  var tilt=0.32+blend.thinking*0.55;
+  var sT=Math.sin(tilt), cT=Math.cos(tilt);
+  var sS=Math.sin(spin), cS=Math.cos(spin);
+  var ink=inkRGB(), acc=accentRGB();
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,SIZE,SIZE);
+  var glow=(blend.listening+blend.speaking)*smoothLevel*0.16+blend.thinking*0.05;
+  if(glow>0.004){
+    var g=ctx.createRadialGradient(mid,mid,baseR*0.2,mid,mid,baseR*1.55);
+    g.addColorStop(0,"rgba("+acc[0]+", "+acc[1]+", "+acc[2]+", "+glow.toFixed(3)+")");
+    g.addColorStop(1,"rgba("+acc[0]+", "+acc[1]+", "+acc[2]+", 0)");
+    ctx.fillStyle=g;ctx.fillRect(0,0,SIZE,SIZE);
+  }
+  var repelR=SIZE*0.2, dotBase=Math.max(0.9,SIZE/190);
+  for(var d=0;d<COUNT;d++){
+    var px=pts[d*3], py=pts[d*3+1], pz=pts[d*3+2];
+    var noise=(Math.sin(px*3.1+t*2.3)+Math.sin(py*4.3-t*1.7)+Math.sin(pz*5.2+t*2.9))/3;
+    var breathe=blend.idle*0.022*Math.sin(t*1.3+py*2);
+    var swell=blend.listening*smoothLevel*0.3*Math.pow(Math.max(0,noise),1.4);
+    var ripple=blend.speaking*smoothLevel*0.13*Math.sin(py*7.5-t*7);
+    var f=breathe+swell+ripple;
+    var qx=px*(1+f), qy=py*(1+f), qz=pz*(1+f);
+    var alpha2=1, arc=0;
+    if(blend.thinking>0.001){
+      var hl=Math.hypot(px,pz)||1;
+      var ringR=1+0.035*Math.sin(t*3+d*0.7);
+      var tx=px/hl*ringR, tz=pz/hl*ringR, ty=py*0.2;
+      var o=blend.thinking;
+      qx+=(tx-qx)*o;qy+=(ty-qy)*o;qz+=(tz-qz)*o;
+      alpha2=1-o*(1-clamp((Math.hypot(px,pz)-0.25)*2.2,0,1));
+      var ang=Math.atan2(px,pz)+spin;
+      arc=o*Math.pow(Math.max(0,Math.cos(ang-t*2.2)),6);
+    }
+    var rx=qx*cS+qz*sS, rz=-qx*sS+qz*cS;
+    var dy=qy*cT-rx*sT, dz=qy*sT+rx*cT;
+    var persp=3.4/(3.4-dz);
+    var sx=mid+rx*baseR*persp, sy=mid+dy*baseR*persp;
+    if(pointer.power>0.01){
+      var ex=sx-pointer.x, ey=sy-pointer.y;
+      var dist=Math.hypot(ex,ey)||1;
+      if(dist<repelR){
+        var push=(1-dist/repelR)*(1-dist/repelR)*SIZE*0.07*pointer.power;
+        sx+=ex/dist*push;sy+=ey/dist*push;
+      }
+    }
+    var depth=(dz+1.3)/2.6;
+    var energy=clamp(Math.abs(swell+ripple)*9+arc,0,1);
+    var rad=dotBase*(0.55+0.75*depth)*persp*(1+energy*0.5);
+    var alpha=clamp(0.12+0.88*Math.pow(depth,1.6)+energy*0.3,0,1)*alpha2;
+    if(alpha<0.01) continue;
+    var cr=Math.round(ink[0]+(acc[0]-ink[0])*energy);
+    var cg=Math.round(ink[1]+(acc[1]-ink[1])*energy);
+    var cb=Math.round(ink[2]+(acc[2]-ink[2])*energy);
+    ctx.fillStyle="rgba("+cr+", "+cg+", "+cb+", "+alpha.toFixed(3)+")";
+    ctx.beginPath();ctx.arc(sx,sy,rad,0,Math.PI*2);ctx.fill();
+  }
+}
+function loop(now){
+  if(!running){rafId=0;return}
+  drawFrame(now||performance.now());
+  rafId=requestAnimationFrame(loop);
+}
+function startLoop(){
+  if(reduceMotion){
+    blend.idle=blend.listening=blend.thinking=blend.speaking=0;
+    blend[STATES[idx].state]=1;smoothLevel=0.6;lastT=performance.now();
+    drawFrame(performance.now());
+    return;
+  }
+  if(!rafId){lastT=performance.now();rafId=requestAnimationFrame(loop)}
+}
+function stopLoop(){running=false;if(rafId)cancelAnimationFrame(rafId);rafId=0}
+/* in-place state paint */
+function paintState(){
+  var cur=STATES[idx];
+  orbBtn.setAttribute("data-state",cur.state);
+  orbBtn.setAttribute("aria-label","Voice assistant: "+cur.caption);
+  labelText.textContent=cur.caption;
+  if(cur.state==="idle"){dotsEl.setAttribute("hidden","")}else{dotsEl.removeAttribute("hidden")}
+  labelInner.style.animation="none";
+  void labelInner.offsetWidth;
+  labelInner.style.animation="";
+  for(var i=0;i<optBtns.length;i++){
+    optBtns[i].setAttribute("aria-checked",i===idx?"true":"false");
+  }
+  statusText.textContent=cur.hint;
+  liveDot.classList.toggle("is-live",cur.state!=="idle");
+  workingCount.textContent=(cur.state==="idle"?"0 working":"1 working");
+  if(reduceMotion){
+    blend.idle=blend.listening=blend.thinking=blend.speaking=0;
+    blend[cur.state]=1;
+    drawFrame(performance.now());
+  }
+}
+function goTo(n,manual){
+  idx=((n%STATES.length)+STATES.length)%STATES.length;
+  if(manual){autoOn=false;if(timerId){clearTimeout(timerId);timerId=0}}
+  paintState();
+}
+function schedule(){
+  if(timerId)clearTimeout(timerId);
+  timerId=setTimeout(function(){
+    if(!autoOn)return;
+    goTo(idx+1,false);
+    schedule();
+  },STATES[idx].ms);
+}
+orbBtn.addEventListener("pointerdown",function(){},{capture:true});
+orbBtn.addEventListener("click",function(){goTo(idx+1,true)});
+group.addEventListener("pointerdown",function(){},{capture:true});
+for(var b=0;b<optBtns.length;b++){
+  (function(k){
+    optBtns[k].addEventListener("click",function(){goTo(k,true)});
+  })(b);
+}
+canvas.addEventListener("pointermove",function(ev){
+  try{
+    var r=canvas.getBoundingClientRect();
+    var s=SIZE/(r.width||SIZE);
+    pointer.x=(ev.clientX-r.left)*s;pointer.y=(ev.clientY-r.top)*s;
+    pointer.on=(ev.pointerType==="mouse");
+  }catch(e){}
+});
+canvas.addEventListener("pointerleave",function(){pointer.on=false});
+try{
+  if("IntersectionObserver" in window){
+    var io=new IntersectionObserver(function(en){
+      running=en[0].isIntersecting&&!document.hidden;
+      if(running)startLoop();
+    });
+    io.observe(canvas);
+  }
+}catch(e){}
+document.addEventListener("visibilitychange",function(){
+  running=!document.hidden;
+  if(running)startLoop();
+});
+paintState();
+schedule();
+startLoop();
+window.__voiceOrb={goTo:goTo,get idx(){return idx},get autoOn(){return autoOn},STATES:STATES,blend:blend};
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Voice Capture — Dictation panel</title>
+<script>/*noflash*/try{var __k='voice-capture-theme',__s=null;try{__s=localStorage.getItem(__k);}catch(e){__s=null;}if(!__s){try{__s=(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light';}catch(e){__s='light';}}document.documentElement.setAttribute('data-theme',__s);}catch(e){try{document.documentElement.setAttribute('data-theme','light');}catch(_){}}</script>
+<style>html{background:#fafaf9}html[data-theme="dark"]{background:#101012}</style>
+<style>
+:root{
+  --page:#fafaf9; --surface:#ffffff; --ink:#1c1917; --muted:#78716c;
+  --subtle:#f5f5f4; --border:#e7e5e4;
+  --r-lg:16px; --r:10px; --r-sm:6px;
+  --shadow:0 1px 2px rgba(0,0,0,.05),0 4px 16px rgba(0,0,0,.05);
+  --accent:#0190fe;
+  --vcp-panel:#ffffff; --vcp-well:rgba(0,0,0,.03);
+  --vcp-ink:rgba(0,0,0,.82); --vcp-muted:rgba(0,0,0,.4);
+  --vcp-bar:rgba(0,0,0,.72); --vcp-key:rgba(0,0,0,.045);
+  --vcp-line:rgba(0,0,0,.08); --vcp-rec:#e5484d;
+  --vcp-blue:#0190fe; --vcp-purple:#a651f0; --vcp-pink:#ee3e9e;
+  --vcp-shadow:0 0 0 .5px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04),0 12px 32px -14px rgba(0,0,0,.12);
+}
+html[data-theme="dark"]{
+  --page:#101012; --surface:#1c1c1f; --ink:#ededed; --muted:#a1a1aa;
+  --subtle:#26262a; --border:#2e2e33;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+  --vcp-panel:#161618; --vcp-well:rgba(255,255,255,.035);
+  --vcp-ink:rgba(255,255,255,.86); --vcp-muted:rgba(255,255,255,.4);
+  --vcp-bar:rgba(255,255,255,.8); --vcp-key:rgba(255,255,255,.06);
+  --vcp-line:rgba(255,255,255,.1);
+  --vcp-blue:#4fb0fe; --vcp-purple:#b98af0; --vcp-pink:#f06db5;
+  --vcp-shadow:0 0 0 .5px rgba(255,255,255,.1),0 1px 2px rgba(0,0,0,.4),0 12px 32px -14px rgba(0,0,0,.5);
+}
+html{-webkit-tap-highlight-color:transparent}
+[hidden]{display:none !important}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--page); color:var(--ink);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:14px; line-height:1.45;
+  font-variant-numeric:tabular-nums;
+  -webkit-font-smoothing:antialiased;
+}
+.page{max-width:760px; margin:0 auto; padding:20px 16px 48px}
+.page-head{
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+  padding:14px 16px; background:var(--surface);
+  border:1px solid var(--border); border-radius:var(--r-lg); box-shadow:var(--shadow);
+}
+.page-title{font-size:16px; font-weight:650; letter-spacing:-.01em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.page-sub{display:flex; align-items:center; gap:8px; margin-top:2px; font-size:12.5px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.live-dot{width:7px; height:7px; border-radius:50%; background:var(--vcp-rec); flex:none; animation:blink 1.6s ease-in-out infinite}
+.count-pill{display:inline-block; padding:1px 9px; border-radius:999px; background:var(--subtle); border:1px solid var(--border); font-size:12px; color:var(--muted)}
+.theme-btn{
+  flex:none; display:inline-flex; align-items:center; justify-content:center;
+  width:34px; height:34px; margin-left:2px; padding:6px 6px;
+  background:var(--subtle); color:var(--ink);
+  border:1px solid var(--border); border-radius:999px; cursor:pointer;
+  transition:transform 160ms ease,background 160ms ease,border-color 160ms ease;
+}
+.theme-btn:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+.theme-btn svg{display:block; width:18px; height:18px}
+.demo-card{
+  margin-top:12px; background:var(--surface);
+  border:1px solid var(--border); border-radius:var(--r-lg); box-shadow:var(--shadow);
+  padding:16px; overflow:hidden;
+}
+.demo-stage{display:flex; justify-content:center; overflow:hidden; border-radius:var(--r); background:var(--page); border:1px solid var(--border); padding:8px}
+.demo-status{margin:12px 2px 0; font-size:12.5px; color:var(--muted)}
+.demo-status strong{color:var(--ink); font-weight:600}
+.hint-row{display:flex; flex-wrap:wrap; gap:8px; margin-top:10px}
+.hint{font-size:12px; color:var(--muted)}
+.hint kbd{display:inline-grid; place-items:center; min-width:16px; height:16px; padding:0 4px; border-radius:4px; background:var(--subtle); border:1px solid var(--border); font:inherit; font-size:10.5px; color:var(--muted)}
+
+/* ---- Voice Capture replica (clean-room) ---- */
+.vcp{
+  --pad:6px; --well-r:14px; --panel-r:20px; /* concentric: 14 + 6 = 20 */
+  position:relative; box-sizing:border-box; display:inline-block;
+  width:420px; max-width:100%; overflow:hidden; padding:32px 0 76px 32px;
+  font-size:12px; line-height:16px; text-align:left; color:var(--vcp-ink);
+  -webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 110px),transparent 100%);
+  mask-image:linear-gradient(90deg,#000 calc(100% - 110px),transparent 100%);
+}
+.vcp *,.vcp *::before,.vcp *::after{box-sizing:border-box}
+.vcp-stack{position:relative; width:fit-content; max-width:100%}
+.vcp-under{position:absolute; z-index:0; top:55%; right:-24px; bottom:-68px; left:-24px; pointer-events:none;
+  -webkit-mask-image:linear-gradient(180deg,transparent,#000 35%);
+  mask-image:linear-gradient(180deg,transparent,#000 35%)}
+.vcp-glow{position:absolute; inset:16px 36px 44px; border-radius:40px; filter:blur(28px); opacity:.5;
+  background:
+    radial-gradient(40% 70% at 18% 50%,var(--vcp-blue),transparent 70%),
+    radial-gradient(40% 70% at 52% 45%,var(--vcp-purple),transparent 70%),
+    radial-gradient(40% 70% at 86% 40%,var(--vcp-pink),transparent 70%);
+  animation:drift 9s ease-in-out infinite alternate}
+html[data-theme="dark"] .vcp-glow{opacity:.36}
+.vcp-panel{position:relative; z-index:1; display:grid; gap:2px; width:480px; max-width:calc(100vw - 120px); padding:var(--pad) var(--pad) 2px; border-radius:var(--panel-r); background:var(--vcp-panel); box-shadow:var(--vcp-shadow)}
+.vcp-well{position:relative; height:80px; overflow:hidden; border-radius:var(--well-r); background:var(--vcp-well)}
+.vcp-voice{position:absolute; inset:0; display:block; width:100%; height:100%; color:var(--vcp-bar)}
+.vcp-foot{display:flex; align-items:center; gap:12px; height:36px; padding:0 10px; white-space:nowrap}
+.vcp-rec{display:inline-flex; align-items:center; gap:6px; min-width:40px; font-weight:500; color:var(--vcp-ink); font-variant-numeric:tabular-nums}
+.vcp-dot{width:6px; height:6px; border-radius:50%; background:var(--vcp-rec); animation:blink 1.6s ease-in-out infinite; flex:none}
+.vcp-sep{width:1px; height:12px; background:var(--vcp-line); flex:none}
+.vcp-act{display:inline-flex; align-items:center; gap:4px; font-weight:450; color:var(--vcp-ink); background:none; border:0; padding:4px 2px; font:inherit; font-size:12px; line-height:16px; cursor:pointer; border-radius:4px}
+.vcp-act-quiet{color:var(--vcp-muted)}
+.vcp-act kbd{display:inline-grid; place-items:center; min-width:16px; height:16px; padding:0 4px; border-radius:4px; background:var(--vcp-key); font:inherit; font-size:10.5px; color:var(--vcp-muted)}
+.vcp-act kbd:first-of-type{margin-left:2px}
+.vcp-act:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+.vcp[data-still] .vcp-dot,.vcp[data-still] .vcp-glow{animation:none}
+@keyframes blink{50%{opacity:.35}}
+@keyframes drift{to{transform:translateX(12px) scale(1.04)}}
+@media (prefers-reduced-motion: reduce){
+  .vcp *,.vcp *::before,.vcp *::after{animation:none !important; transition:none !important}
+  .live-dot{animation:none}
+}
+@media (hover: hover) and (pointer: fine){
+  .theme-btn:hover{background:var(--border); transform:translateY(-1px)}
+  .demo-card:hover{box-shadow:0 1px 2px rgba(0,0,0,.06),0 8px 24px rgba(0,0,0,.08)}
+  .vcp-act:hover{text-decoration:underline; text-underline-offset:2px}
+}
+@media (max-width:600px){
+  .page{padding:12px 10px 32px}
+  .vcp{padding:24px 0 56px 16px}
+  .vcp-panel{max-width:calc(100vw - 60px)}
+  .page-sub{white-space:normal}
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="page-head">
+    <div style="min-width:0">
+      <div class="page-title">Voice Capture</div>
+      <div class="page-sub"><span class="live-dot" aria-hidden="true"></span><span id="headCount">1 capturing</span><span class="count-pill">dictation panel</span></div>
+    </div>
+    <button class="theme-btn" id="themeToggle" type="button" aria-label="Switch to dark theme">
+      <svg id="themeIcon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg>
+    </button>
+  </header>
+
+  <main>
+    <section class="demo-card" aria-label="Voice capture demo">
+      <div class="demo-stage">
+        <div class="vcp" id="vcp">
+          <div class="vcp-stack">
+            <span class="vcp-under" aria-hidden="true"><span class="vcp-glow" id="vcpGlow"></span></span>
+            <div class="vcp-panel" role="region" aria-label="Dictation voice capture">
+              <div class="vcp-well"><canvas class="vcp-voice" id="vcpCanvas" aria-hidden="true"></canvas></div>
+              <div class="vcp-foot">
+                <span class="vcp-rec"><span class="vcp-dot" id="vcpDot" aria-hidden="true"></span><span id="vcpTime">0:07</span></span>
+                <span class="vcp-sep" aria-hidden="true"></span>
+                <button class="vcp-act" id="vcpDone" type="button">Done <kbd>⌥</kbd><kbd>Space</kbd></button>
+                <button class="vcp-act vcp-act-quiet" id="vcpCancel" type="button">Cancel <kbd>Esc</kbd></button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="demo-status" id="vcpStatus">Status: <strong id="vcpState">Listening…</strong> — thin bars rise and fall while time ticks.</p>
+      <div class="hint-row">
+        <span class="hint">Press <kbd>⌥</kbd> + <kbd>Space</kbd> for Done, <kbd>Esc</kbd> for Cancel.</span>
+        <span class="hint" id="vcpNote">Timer starts at 0:07 and ticks every second.</span>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var THEME_KEY = "voice-capture-theme";
+  var root = document.documentElement;
+
+  function currentTheme(){ return root.getAttribute("data-theme") === "dark" ? "dark" : "light"; }
+  function paintIcon(){
+    var icon = document.getElementById("themeIcon");
+    var btn = document.getElementById("themeToggle");
+    if(!icon || !btn) return;
+    var dark = currentTheme() === "dark";
+    // SVG classes via setAttribute only (className throws on SVG in some browsers)
+    icon.setAttribute("class", dark ? "icon-moon" : "icon-sun");
+    btn.setAttribute("aria-label", dark ? "Switch to light theme" : "Switch to dark theme");
+    // swap glyph: moon path vs sun group, in place via DOM nodes only
+    while(icon.firstChild) icon.removeChild(icon.firstChild);
+    var ns = "http://www.w3.org/2000/svg";
+    if(dark){
+      var p = document.createElementNS(ns, "path");
+      p.setAttribute("d", "M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z");
+      icon.appendChild(p);
+    }else{
+      var c = document.createElementNS(ns, "circle");
+      c.setAttribute("cx", "12"); c.setAttribute("cy", "12"); c.setAttribute("r", "4");
+      icon.appendChild(c);
+      var d = document.createElementNS(ns, "path");
+      d.setAttribute("d", "M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4");
+      icon.appendChild(d);
+    }
+  }
+  function setTheme(next){
+    root.setAttribute("data-theme", next);
+    try{ localStorage.setItem(THEME_KEY, next); }catch(e){}
+    paintIcon();
+  }
+  var toggle = document.getElementById("themeToggle");
+  if(toggle){
+    toggle.addEventListener("click", function(){ setTheme(currentTheme() === "dark" ? "light" : "dark"); });
+  }
+  paintIcon();
+
+  // ---- Voice data verbatim from demo ----
+  var BARS = [3,6,2,10,5,13,2,2,2,5,8,11,6,16,10,5,2,2,3,2,8,14,19,13,8,18,11,5,2,2,2,6,10,6,13,8,3,2,2,2,2,5,11,16,21,14,10,6,11,8,3,2,2,5,8,5,2,2,6,13,10,16,11,6,3,2,2,2];
+  var BAR_W = 2, BAR_STEP = 5, BAR_X0 = 20;
+  var TAU = Math.PI * 2;
+
+  function swell(nowMs, idx){
+    var period = 640 + ((idx * 53) % 5) * 110;
+    var phase = ((nowMs + idx * 70) % period) / period;
+    var v = 0.66 + 0.36 * Math.sin(TAU * phase) + 0.12 * Math.sin(2 * TAU * phase + 1);
+    if(v < 0.3) v = 0.3;
+    if(v > 1.1) v = 1.1;
+    return v;
+  }
+  function fmt(sec){
+    var m = Math.floor(sec / 60), s = sec % 60;
+    return m + ":" + (s < 10 ? "0" + s : "" + s);
+  }
+
+  var vcp = document.getElementById("vcp");
+  var canvas = document.getElementById("vcpCanvas");
+  var timeEl = document.getElementById("vcpTime");
+  var stateEl = document.getElementById("vcpState");
+  var headCount = document.getElementById("headCount");
+  var doneBtn = document.getElementById("vcpDone");
+  var cancelBtn = document.getElementById("vcpCancel");
+
+  var seconds = 7;
+  var playing = true;
+  var lastText = "";
+  function renderTime(){
+    var t = fmt(seconds);
+    if(t !== lastText){ timeEl.textContent = t; lastText = t; }
+  }
+  function renderState(){
+    var label = playing ? "Listening…" : "Paused — capture held";
+    if(stateEl.textContent !== label) stateEl.textContent = label;
+    if(headCount){
+      var h = playing ? "1 capturing" : "0 capturing";
+      if(headCount.textContent !== h) headCount.textContent = h;
+    }
+    if(playing){ vcp.removeAttribute("data-still"); }
+    else{ vcp.setAttribute("data-still", ""); }
+  }
+  renderTime();
+  renderState();
+
+  var reduceMotion = false;
+  try{ reduceMotion = !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches); }catch(e){}
+  if(reduceMotion && playing){ playing = false; renderState(); }
+
+  // ---- Canvas bars: update in place via rAF, never rebuild DOM ----
+  var ctx = null;
+  if(canvas && canvas.getContext){ try{ ctx = canvas.getContext("2d"); }catch(e){ ctx = null; } }
+  var rafId = 0;
+  function drawFrame(now){
+    if(!playing){ rafId = 0; return; }
+    if(ctx && canvas){
+      var rect = { w: 0, h: 0 };
+      try{
+        if(canvas.getBoundingClientRect){
+          var b = canvas.getBoundingClientRect();
+          rect.w = b.width || 468; rect.h = b.height || 80;
+        }
+      }catch(e){}
+      if(!rect.w) rect.w = 468;
+      if(!rect.h) rect.h = 80;
+      var dpr = 1;
+      try{ dpr = window.devicePixelRatio || 1; }catch(e){}
+      var pw = Math.max(1, Math.round(rect.w * dpr));
+      var ph = Math.max(1, Math.round(rect.h * dpr));
+      if(canvas.width !== pw || canvas.height !== ph){ canvas.width = pw; canvas.height = ph; }
+      var scale = rect.w ? (pw / rect.w) : dpr;
+      var bw = Math.max(1, Math.round(BAR_W * scale));
+      ctx.clearRect(0, 0, pw, ph);
+      try{ ctx.fillStyle = "currentColor"; }catch(e){}
+      // read bar color from CSS so dark/light follow tokens
+      try{
+        var cs = getComputedStyle(canvas).color;
+        if(cs) ctx.fillStyle = cs;
+      }catch(e){}
+      var t = (typeof now === "number") ? now : 0;
+      for(var i = 0; i < BARS.length; i++){
+        var base = BARS[i];
+        var hgt = bw;
+        if(base > 3){ hgt = Math.round(base * 1.6 * swell(t, i) * scale); }
+        var hh = hgt < bw ? bw : hgt;
+        if(((hh - bw) % 2) !== 0) hh += 1;
+        var x = Math.round((BAR_X0 + i * BAR_STEP) * scale);
+        var y = Math.round((ph - hh) / 2);
+        ctx.beginPath();
+        if(ctx.roundRect){ ctx.roundRect(x, y, bw, hh, bw / 2); }
+        else{ ctx.rect(x, y, bw, hh); }
+        ctx.fill();
+      }
+    }
+    if(playing){
+      try{
+        if(window.requestAnimationFrame){ rafId = window.requestAnimationFrame(drawFrame); }
+      }catch(e){}
+    }
+  }
+  function kick(){ if(playing && !rafId){ try{ rafId = window.requestAnimationFrame(drawFrame); }catch(e){} } }
+  kick();
+
+  // ---- Ticking clock: 1s interval, text updated in place only ----
+  function tick(){ if(playing){ seconds += 1; renderTime(); } }
+  var clockId = 0;
+  try{ clockId = window.setInterval(tick, 1000); }catch(e){}
+
+  function doDone(){
+    if(!playing) return;
+    playing = false;
+    if(rafId && window.cancelAnimationFrame){ try{ window.cancelAnimationFrame(rafId); }catch(e){} rafId = 0; }
+    // hold one still frame so the frozen bars stay visible
+    try{ drawFrame(1200); }catch(e){}
+    renderState();
+  }
+  function doCancel(){
+    seconds = 7;
+    renderTime();
+    if(!playing){ playing = true; renderState(); kick(); }
+    else{ renderState(); }
+  }
+  if(doneBtn) doneBtn.addEventListener("click", doDone);
+  if(cancelBtn) cancelBtn.addEventListener("click", doCancel);
+  document.addEventListener("keydown", function(ev){
+    if(!ev) return;
+    if(ev.key === "Escape"){ doCancel(); }
+    else if((ev.altKey || ev.metaKey) && (ev.code === "Space" || ev.key === " ")){ try{ev.preventDefault();}catch(e){} doDone(); }
+  });
+
+  // expose for verification harness (read-only handles, no DOM rebuild)
+  try{
+    window.__voiceCapture = {
+      bars: BARS, start: 7,
+      get seconds(){ return seconds; },
+      get playing(){ return playing; },
+      get theme(){ return currentTheme(); },
+      nodes: { vcp: vcp, canvas: canvas, time: timeEl, state: stateEl, done: doneBtn, cancel: cancelBtn },
+      actions: { done: doDone, cancel: doCancel, tick: tick, frame: drawFrame, setTheme: setTheme }
+    };
+  }catch(e){}
+})();
+</script>
+</body>
+</html>

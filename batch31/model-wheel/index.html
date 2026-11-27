@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<!-- /*noflash*/ guard: set theme before first paint, no white flash on dark -->
+<script>/*noflash*/(function(){try{var k='model-wheel-theme';var t=null;try{t=localStorage.getItem(k);}catch(e){t=null;}if(!t){var m=null;try{m=window.matchMedia?window.matchMedia('(prefers-color-scheme: dark)'):null;}catch(e){m=null;}t=(m&&m.matches)?'dark':'light';}document.documentElement.setAttribute('data-theme',t);}catch(e){try{document.documentElement.setAttribute('data-theme','light');}catch(_){}}})();</script>
+<style>html{background:#fafaf9}html[data-theme="dark"]{background:#101012}</style>
+<title>Model Wheel — affectUI replica</title>
+<style>
+/* ---- design tokens ---- */
+:root,
+html[data-theme="light"]{
+  color-scheme:light;
+  --page:#fafaf9;
+  --surface:#ffffff;
+  --ink:#1c1917;
+  --ink-soft:#44403c;
+  --muted:#78716c;
+  --subtle:#f5f5f4;
+  --select:#e9e7e4;          /* gray fill the drum lands on */
+  --border:#e7e5e4;
+  --accent:#2563eb;
+  --accent-ink:#1d4ed8;
+  --ok:#15803d;
+  --ok-bg:#dcfce7;
+  --warn:#f59e0b;
+  --warn-bg:#fef3c7;
+  --warn-ink:#92400e;
+  --shadow:0 1px 2px rgba(0,0,0,.05),0 4px 16px rgba(0,0,0,.05);
+  --shadow-lift:0 2px 4px rgba(0,0,0,.06),0 10px 28px rgba(0,0,0,.10);
+  --img-outline:rgba(0,0,0,.10);
+  --r-lg:16px;
+  --r:10px;
+  --r-sm:6px;
+}
+html[data-theme="dark"]{
+  color-scheme:dark;
+  --page:#101012;
+  --surface:#1c1c1f;
+  --ink:#ededed;
+  --ink-soft:#d4d4d8;
+  --muted:#a1a1aa;
+  --subtle:#26262a;
+  --select:#2e2e33;          /* gray fill the drum lands on (dark) */
+  --border:#2e2e33;
+  --accent:#60a5fa;
+  --accent-ink:#93c5fd;
+  --ok:#4ade80;
+  --ok-bg:#052e16;
+  --warn:#fbbf24;
+  --warn-bg:#451a03;
+  --warn-ink:#fde68a;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 6px 22px rgba(0,0,0,.45);
+  --shadow-lift:0 2px 6px rgba(0,0,0,.5),0 12px 32px rgba(0,0,0,.55);
+  --img-outline:rgba(255,255,255,.10);
+}
+html{-webkit-tap-highlight-color:transparent}
+[hidden]{display:none !important}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:var(--page);
+  color:var(--ink);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:14px;
+  line-height:1.45;
+  font-variant-numeric:tabular-nums;
+  -webkit-font-smoothing:antialiased;
+}
+.page{max-width:640px;margin:0 auto;padding:20px 16px 48px}
+/* ---- header pattern: project + working count + agent count ---- */
+.head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+.brand{display:flex;align-items:center;gap:8px;min-width:0}
+.livedot{width:8px;height:8px;border-radius:999px;background:var(--ok);flex:none;animation:blink 1.6s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
+@media (prefers-reduced-motion:reduce){.livedot{animation:none}}
+.brand-name{font-weight:650;font-size:15px;letter-spacing:-.01em;white-space:nowrap}
+.pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:2px 10px;font-size:12px;font-weight:600;white-space:nowrap;border:1px solid var(--border);background:var(--subtle);color:var(--muted)}
+.pill.working{background:var(--ok-bg);border-color:transparent;color:var(--ok)}
+.count{font-size:12px;color:var(--muted);white-space:nowrap}
+/* theme toggle */
+.tbtn{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;flex:none;border-radius:999px;border:1px solid var(--border);background:var(--surface);color:var(--ink-soft);cursor:pointer;box-shadow:var(--shadow);transition:transform 150ms ease,box-shadow 150ms ease}
+.tbtn svg{display:block}
+.tbtn .moon{display:none}
+html[data-theme="dark"] .tbtn .sun{display:none}
+html[data-theme="dark"] .tbtn .moon{display:block}
+.tbtn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+/* ---- card (concentric: frame 16 = drum 10 + 6 pad) ---- */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);box-shadow:var(--shadow);padding:16px;transition:box-shadow 180ms ease}
+.card-title{font-size:15px;font-weight:650;margin:0;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card-sub{margin:2px 0 12px;font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wheel-frame{border:1px solid var(--border);border-radius:var(--r-lg);padding:6px;background:var(--surface)}
+.drum{position:relative;height:232px;overflow:hidden;border-radius:var(--r);background:var(--subtle)}
+/* gray fill the rows land on (static center band) */
+.band{position:absolute;left:8px;right:8px;top:50%;height:44px;transform:translateY(-50%);background:var(--select);border-radius:var(--r-sm);pointer-events:none}
+.band::after{content:"";position:absolute;left:10px;top:50%;width:7px;height:7px;transform:translateY(-50%) rotate(45deg);border-right:2px solid var(--muted);border-top:2px solid var(--muted);opacity:.7}
+.row{position:absolute;left:8px;right:8px;top:50%;height:44px;margin-top:-22px;display:flex;align-items:center;gap:10px;padding:0 12px 0 26px;border-radius:var(--r-sm);background:transparent;cursor:pointer;border:1px solid transparent;transition:border-color 150ms ease}
+.row-idx{flex:none;width:26px;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.row-name{flex:1 1 auto;min-width:0;font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row-meta{flex:none;font-size:12px;color:var(--muted);white-space:nowrap}
+.row .tag{display:none;flex:none;font-size:11px;font-weight:700;color:var(--ok);background:var(--ok-bg);border-radius:999px;padding:1px 8px}
+.row.is-selected .tag{display:inline-block}
+.row:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.fade{position:absolute;left:0;right:0;height:44px;pointer-events:none;z-index:5}
+.fade.top{top:0;background:linear-gradient(to bottom,var(--subtle),transparent)}
+.fade.bot{bottom:0;background:linear-gradient(to top,var(--subtle),transparent)}
+/* status + context */
+.status{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px}
+.status-text{font-size:13px;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.status-text strong{font-weight:650}
+.ctx{margin-top:8px}
+.ctx-label{display:flex;justify-content:flex-end;font-size:12px;color:var(--muted);margin-bottom:4px}
+.ctx-track{height:3px;border-radius:999px;background:var(--border);overflow:hidden}
+.ctx-fill{display:block;height:100%;width:22%;border-radius:999px;background:var(--accent)}
+/* controls */
+.controls{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.btn{appearance:none;border:1px solid var(--border);background:var(--surface);color:var(--ink);border-radius:999px;padding:7px 14px 7px 12px;font:inherit;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;box-shadow:var(--shadow);transition:box-shadow 150ms ease,transform 150ms ease}
+.btn.primary{background:var(--ink);border-color:transparent;color:var(--page)}
+html[data-theme="dark"] .btn.primary{background:var(--ink);color:#101012}
+.btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn .tri{flex:none;margin-left:-2px}
+/* dialog popover */
+.backdrop{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;padding:20px;z-index:50}
+.dialog{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);box-shadow:var(--shadow-lift);max-width:380px;width:100%;padding:16px}
+.dialog h2{margin:0 0 4px;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dialog p{margin:4px 0;font-size:13px;color:var(--muted)}
+.dialog .kv{display:flex;justify-content:space-between;gap:10px;font-size:13px;padding:6px 0;border-top:1px solid var(--border)}
+.dialog .kv span:first-child{color:var(--muted)}
+.foot{margin-top:14px;font-size:12px;color:var(--muted);text-align:center}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+/* hover only on precise pointers (no stuck touch highlight) */
+@media (hover:hover) and (pointer:fine){
+  .card:hover{box-shadow:var(--shadow-lift)}
+  .row:hover{border-color:var(--border)}
+  .btn:hover{box-shadow:var(--shadow-lift);transform:translateY(-1px)}
+  .tbtn:hover{box-shadow:var(--shadow-lift)}
+}
+@media (max-width:480px){
+  .page{padding:14px 10px 40px}
+  .card{padding:12px}
+  .row-meta{display:none}
+}
+@media (prefers-reduced-motion:reduce){
+  *{transition:none !important}
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="head">
+    <div class="brand">
+      <span class="livedot" id="liveDot" aria-hidden="true"></span>
+      <span class="brand-name">model-wheel</span>
+      <span class="pill working" id="workPill">1 spinning</span>
+      <span class="count" id="modelCount">8 models</span>
+    </div>
+    <button class="tbtn" id="themeBtn" type="button" aria-label="Toggle dark mode" aria-pressed="false" title="Toggle theme">
+      <svg class="sun" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="3.2" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.5v1.6M8 12.9v1.6M1.5 8h1.6M12.9 8h1.6M3.4 3.4l1.1 1.1M11.5 11.5l1.1 1.1M12.6 3.4l-1.1 1.1M4.5 11.5l-1.1 1.1" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+      <svg class="moon" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M13.2 9.5A5.7 5.7 0 0 1 6.5 2.8 5.7 5.7 0 1 0 13.2 9.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+    </button>
+  </header>
+
+  <main>
+    <section class="card" aria-labelledby="wheelTitle">
+      <h1 class="card-title" id="wheelTitle">Model Wheel</h1>
+      <p class="card-sub">Turning drum &middot; rows bend at the edges &middot; lands on gray fill</p>
+      <div class="wheel-frame">
+        <div class="drum" id="drum" role="listbox" aria-label="AI model wheel" tabindex="0">
+          <div class="band" aria-hidden="true"></div>
+          <div class="fade top" aria-hidden="true"></div>
+          <div class="fade bot" aria-hidden="true"></div>
+        </div>
+      </div>
+      <div class="status">
+        <p class="status-text" id="statusText" role="status" aria-live="polite">Spinning</p>
+      </div>
+      <div class="ctx" aria-hidden="false">
+        <div class="ctx-label"><span id="ctxLabel">44k / 200k</span></div>
+        <div class="ctx-track"><span class="ctx-fill" id="ctxFill"></span></div>
+      </div>
+      <div class="controls">
+        <button class="btn" id="prevBtn" type="button"><svg class="tri" width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M7 1.5 3.5 5 7 8.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Prev</button>
+        <button class="btn primary" id="spinBtn" type="button" aria-pressed="true">Pause</button>
+        <button class="btn" id="nextBtn" type="button">Next<svg class="tri" width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M3 1.5 6.5 5 3 8.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <button class="btn" id="detailsBtn" type="button">Details</button>
+      </div>
+    </section>
+  </main>
+  <p class="foot">Single-file replica &middot; no network &middot; system fonts</p>
+</div>
+
+<div class="backdrop" id="backdrop" hidden>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dlgName" id="dialog">
+    <h2 id="dlgName"></h2>
+    <p id="dlgVendor"></p>
+    <div class="kv"><span>Context</span><span id="dlgCtx"></span></div>
+    <div class="kv"><span>Status</span><span id="dlgStatus"></span></div>
+    <div class="controls"><button class="btn primary" id="dlgClose" type="button">Close</button></div>
+  </div>
+</div>
+<p class="sr" id="srLive" aria-live="polite"></p>
+
+<script>
+(function(){
+'use strict';
+/* Clean-room Model Wheel: a turning drum of AI model names.
+   Rows bend at the edges (scale + fade with distance from center)
+   and the drum lands with the chosen row resting on a gray fill band. */
+var MODELS=[
+  {name:'gpt-5.2',vendor:'OpenAI',ctx:'400k'},
+  {name:'claude-opus-4-6',vendor:'Anthropic',ctx:'200k'},
+  {name:'gemini-2-5-pro',vendor:'Google',ctx:'1M'},
+  {name:'llama-4-maverick',vendor:'Meta',ctx:'128k'},
+  {name:'mistral-large-3',vendor:'Mistral',ctx:'128k'},
+  {name:'grok-4',vendor:'xAI',ctx:'256k'},
+  {name:'deepseek-v4',vendor:'DeepSeek',ctx:'128k'},
+  {name:'qwen-3-max',vendor:'Alibaba',ctx:'256k'}
+];
+var N=MODELS.length;
+var ROW_H=44;
+var TICK_MS=120;
+var SPIN_TICKS=22;   /* fast turning */
+var LAND_TICKS=16;   /* pause resting on gray fill */
+var THEME_KEY='model-wheel-theme';
+
+var state={phase:'spin',offset:0,target:1,selected:0,spins:0,elapsed:0,spinTicks:0,landTicks:0,running:true};
+
+/* DOM refs (built once at init, updated in place after) */
+var drum,band,statusText,workPill,modelCount,spinBtn,prevBtn,nextBtn,detailsBtn,themeBtn,
+    backdrop,dlgName,dlgVendor,dlgCtx,dlgStatus,dlgClose,srLive,liveDot;
+var rowEls=[];   /* row root nodes, index-aligned */
+var rowNameEls=[];
+var started=false;
+
+function $(id){return document.getElementById(id);}
+
+function shortPhase(){return state.phase==='spin'?'Spinning':(state.phase==='settle'?'Settling':'Landed');}
+
+function fmtTime(s){return s.toFixed(1)+'s';}
+
+function wrappedDist(i){
+  var d=(i-state.offset)%N;
+  if(d>N/2){d-=N;}
+  if(d<-N/2){d+=N;}
+  return d;
+}
+
+function paintRows(){
+  var i,d,y,abs,op,sx,el;
+  for(i=0;i<N;i++){
+    d=wrappedDist(i);
+    y=d*ROW_H;
+    abs=y<0?-y:y;
+    op=1-Math.min(abs/240,1)*0.5;
+    sx=1-Math.min(abs/260,1)*0.16;
+    el=rowEls[i];
+    el.style.transform='translateY('+Math.round(y)+'px) scaleX('+sx.toFixed(3)+')';
+    el.style.opacity=op.toFixed(3);
+    el.style.zIndex=String(10-Math.round(abs/ROW_H));
+  }
+}
+
+function paintStatus(){
+  var m=MODELS[state.selected],t;
+  if(state.phase==='landed'){t='Landed on '+m.name+' \u00B7 spin '+state.spins+' \u00B7 '+fmtTime(state.elapsed);}
+  else if(state.phase==='settle'){t='Settling \u00B7 '+MODELS[state.target].name+' \u00B7 '+fmtTime(state.elapsed);}
+  else{t='Spinning \u00B7 pass '+state.spins+' \u00B7 '+fmtTime(state.elapsed);}
+  if(statusText.textContent!==t){statusText.textContent=t;}
+  var w=state.running?(state.phase==='landed'?'0 spinning':'1 spinning'):'paused';
+  if(workPill.textContent!==w){workPill.textContent=w;}
+  var sb=state.running?'Pause':'Spin';
+  if(spinBtn.textContent!==sb){spinBtn.textContent=sb;}
+  spinBtn.setAttribute('aria-pressed',state.running?'true':'false');
+  if(state.phase==='landed'){
+    var s2=m.name+' selected';
+    if(srLive.textContent!==s2){srLive.textContent=s2;}
+  }
+}
+
+function paintSelection(){
+  var i,on;
+  for(i=0;i<N;i++){
+    on=(state.phase==='landed'&&i===state.selected);
+    if(on){rowEls[i].classList.add('is-selected');}
+    else{rowEls[i].classList.remove('is-selected');}
+    rowEls[i].setAttribute('aria-selected',on?'true':'false');
+  }
+}
+
+function paint(){paintRows();paintSelection();paintStatus();}
+
+function tick(){
+  if(!state.running){return;}
+  state.elapsed+=TICK_MS/1000;
+  if(state.phase==='spin'){
+    state.offset+=0.9;
+    if(state.offset>=N){state.offset-=N;}
+    state.spinTicks++;
+    if(state.spinTicks>=SPIN_TICKS){
+      state.phase='settle';
+      var ahead=Math.ceil(state.offset+0.001);
+      state.target=((ahead%N)+N)%N;
+    }
+  }else if(state.phase==='settle'){
+    var diff=state.target-state.offset;
+    if(diff>N/2){diff-=N;}
+    if(diff<-N/2){diff+=N;}
+    state.offset+=diff*0.25;
+    if(diff>-0.03&&diff<0.03){
+      state.offset=state.target;
+      state.selected=state.target;
+      state.phase='landed';
+      state.landTicks=0;
+      state.spins++;
+    }
+  }else{
+    state.landTicks++;
+    if(state.landTicks>=LAND_TICKS){
+      state.phase='spin';
+      state.spinTicks=0;
+      state.target=(state.selected+1)%N;
+    }
+  }
+  paint();
+}
+
+function landOn(i){
+  i=((i%N)+N)%N;
+  state.target=i;
+  state.phase='settle';
+  paint();
+}
+
+function buildRows(){
+  var i,m,r,idx,nm,meta,tag;
+  for(i=0;i<N;i++){
+    m=MODELS[i];
+    r=document.createElement('div');
+    r.setAttribute('role','option');
+    r.setAttribute('aria-selected','false');
+    r.setAttribute('tabindex','-1');
+    r.setAttribute('data-i',String(i));
+    r.setAttribute('class','row');
+    idx=document.createElement('span');
+    idx.setAttribute('class','row-idx');
+    idx.textContent=String(i+1).padStart(2,'0');
+    nm=document.createElement('span');
+    nm.setAttribute('class','row-name');
+    nm.textContent=m.name;
+    meta=document.createElement('span');
+    meta.setAttribute('class','row-meta');
+    meta.textContent=m.vendor+' \u00B7 '+m.ctx;
+    tag=document.createElement('span');
+    tag.setAttribute('class','tag');
+    tag.textContent='current';
+    r.appendChild(idx);
+    r.appendChild(nm);
+    r.appendChild(meta);
+    r.appendChild(tag);
+    (function(k,node){
+      node.addEventListener('click',function(){landOn(k);});
+    })(i,r);
+    drum.appendChild(r);
+    rowEls[i]=r;
+    rowNameEls[i]=nm;
+  }
+}
+
+function openDetails(){
+  var m=MODELS[state.selected];
+  dlgName.textContent=m.name;
+  dlgVendor.textContent=m.vendor+' \u00B7 model details';
+  dlgCtx.textContent=m.ctx+' tokens';
+  dlgStatus.textContent=state.phase==='landed'?'Landed on gray fill':'On the drum';
+  backdrop.hidden=false;
+  dlgClose.focus();
+}
+function closeDetails(){backdrop.hidden=true;detailsBtn.focus();}
+
+function setTheme(t){
+  document.documentElement.setAttribute('data-theme',t);
+  themeBtn.setAttribute('aria-pressed',t==='dark'?'true':'false');
+  themeBtn.setAttribute('aria-label',t==='dark'?'Switch to light mode':'Switch to dark mode');
+  try{localStorage.setItem(THEME_KEY,t);}catch(e){}
+}
+function toggleTheme(){
+  var cur=document.documentElement.getAttribute('data-theme')==='dark'?'dark':'light';
+  setTheme(cur==='dark'?'light':'dark');
+}
+
+function init(){
+  if(started){return;}
+  started=true;
+  drum=$('drum');band=null;
+  statusText=$('statusText');workPill=$('workPill');modelCount=$('modelCount');
+  spinBtn=$('spinBtn');prevBtn=$('prevBtn');nextBtn=$('nextBtn');detailsBtn=$('detailsBtn');
+  themeBtn=$('themeBtn');backdrop=$('backdrop');
+  dlgName=$('dlgName');dlgVendor=$('dlgVendor');dlgCtx=$('dlgCtx');dlgStatus=$('dlgStatus');
+  dlgClose=$('dlgClose');srLive=$('srLive');liveDot=$('liveDot');
+  modelCount.textContent=N+' models';
+  buildRows();
+  /* restore toggle state from current theme (set by the noflash guard) */
+  var cur=document.documentElement.getAttribute('data-theme')==='dark'?'dark':'light';
+  themeBtn.setAttribute('aria-pressed',cur==='dark'?'true':'false');
+  paint();
+  spinBtn.addEventListener('click',function(){
+    state.running=!state.running;
+    paintStatus();
+  });
+  prevBtn.addEventListener('click',function(){landOn(state.selected-1);});
+  nextBtn.addEventListener('click',function(){landOn(state.selected+1);});
+  /* open on pointerdown/mousedown capture so the real click still survives */
+  detailsBtn.addEventListener('pointerdown',function(ev){if(ev&&ev.preventDefault){ev.preventDefault();}openDetails();},true);
+  detailsBtn.addEventListener('mousedown',function(ev){if(ev&&ev.preventDefault){ev.preventDefault();}openDetails();},true);
+  dlgClose.addEventListener('click',function(){closeDetails();});
+  backdrop.addEventListener('pointerdown',function(ev){if(ev&&ev.target===backdrop){closeDetails();}},true);
+  backdrop.addEventListener('mousedown',function(ev){if(ev&&ev.target===backdrop){closeDetails();}},true);
+  document.addEventListener('keydown',function(ev){
+    if(ev.key==='Escape'&&!backdrop.hidden){closeDetails();return;}
+    if(ev.target&&(ev.target===drum||drum.contains(ev.target))){
+      if(ev.key==='ArrowDown'){landOn(state.selected+1);if(ev.preventDefault){ev.preventDefault();}}
+      else if(ev.key==='ArrowUp'){landOn(state.selected-1);if(ev.preventDefault){ev.preventDefault();}}
+    }
+  });
+  themeBtn.addEventListener('click',function(){toggleTheme();});
+  try{setInterval(tick,TICK_MS);}catch(e){}
+  window.__modelWheel={
+    models:MODELS,state:state,rows:function(){return rowEls;},
+    tick:tick,landOn:landOn,
+    status:function(){return statusText.textContent;},
+    toggle:function(){state.running=!state.running;paintStatus();}
+  };
+}
+
+if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',init);}
+else{init();}
+})();
+</script>
+</body>
+</html>
