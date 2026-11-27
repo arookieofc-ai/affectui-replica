@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script>/*noflash*/(function(){try{var k='affectui-tilt-card-theme';var t=localStorage.getItem(k);if(t!=='light'&&t!=='dark'){t=(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light';}document.documentElement.setAttribute('data-theme',t);}catch(e){try{document.documentElement.setAttribute('data-theme','light');}catch(_){}}})();</script>
+<style>html{background:#fafaf9}html[data-theme="dark"]{background:#101012}</style>
+<meta name="color-scheme" content="light dark">
+<title>Tilt Card — affectUI replica</title>
+<style>
+:root{
+  --surface:#ffffff;
+  --page:#fafaf9;
+  --ink:#1c1917;
+  --ink-soft:#44403c;
+  --muted:#78716c;
+  --subtle:#f5f5f4;
+  --border:#e7e5e4;
+  --radius-lg:16px;
+  --radius:10px;
+  --radius-sm:6px;
+  --shadow:0 1px 2px rgba(0,0,0,.05),0 4px 16px rgba(0,0,0,.05);
+  --accent:#2563eb;
+  --accent-ink:#1d4ed8;
+  --waiting-bg:#fef3c7;
+  --waiting-ink:#92400e;
+  --waiting-border:#f59e0b;
+  --card-grad-1:#23233b;
+  --card-grad-2:#3b2d5c;
+  --card-grad-3:#0f3b4c;
+  --card-ink:#ffffff;
+  --card-muted:rgba(255,255,255,.72);
+  --chip-1:#f6d47c;
+  --chip-2:#c99b3f;
+  --focus-ring:#2563eb;
+}
+html[data-theme="dark"]{
+  --surface:#1c1c1f;
+  --page:#101012;
+  --ink:#ededed;
+  --ink-soft:#d4d4d8;
+  --muted:#a1a1aa;
+  --subtle:#26262a;
+  --border:#2e2e33;
+  --shadow:0 1px 2px rgba(0,0,0,.5),0 8px 24px rgba(0,0,0,.45);
+  --accent:#60a5fa;
+  --accent-ink:#93c5fd;
+  --waiting-bg:#451a03;
+  --waiting-ink:#fde68a;
+  --waiting-border:#fbbf24;
+  --focus-ring:#93c5fd;
+}
+html{-webkit-tap-highlight-color:transparent}
+[hidden]{display:none !important}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:14px;
+  font-variant-numeric:tabular-nums;
+  background:var(--page);
+  color:var(--ink);
+  min-height:100vh;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+}
+.page{
+  width:100%;
+  max-width:880px;
+  padding:20px 20px 48px;
+}
+/* header: project name + live counts + toggle */
+.page-head{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:6px 2px 16px;
+}
+.brand{
+  font-size:15px;
+  font-weight:650;
+  letter-spacing:-.01em;
+  white-space:nowrap;
+}
+.brand b{font-weight:800}
+.pill{
+  font-size:12px;
+  font-weight:600;
+  color:var(--muted);
+  background:var(--subtle);
+  border:1px solid var(--border);
+  border-radius:999px;
+  padding:3px 10px;
+  white-space:nowrap;
+}
+.live-readout{
+  font-size:12px;
+  color:var(--muted);
+  margin-left:2px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.live-readout output{font-weight:600;color:var(--ink-soft)}
+.spacer{flex:1}
+.theme-btn{
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  border:1px solid var(--border);
+  background:var(--surface);
+  color:var(--ink);
+  border-radius:999px;
+  padding:7px 12px 7px 9px;
+  font:inherit;
+  font-size:13px;
+  font-weight:600;
+  cursor:pointer;
+  box-shadow:var(--shadow);
+  transition:transform 160ms ease,box-shadow 160ms ease,border-color 160ms ease;
+}
+.theme-btn svg{width:16px;height:16px;flex:none}
+.theme-btn:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
+/* stage */
+.stage{
+  display:grid;
+  grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);
+  gap:16px;
+  align-items:start;
+}
+@media (max-width:720px){
+  .stage{grid-template-columns:minmax(0,1fr)}
+}
+.demo-wrap{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius-lg);
+  box-shadow:var(--shadow);
+  padding:28px 20px 20px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+}
+/* ---- tilt core (clean-room, same behaviour as demo) ---- */
+.ui-tc{
+  --ui-tc-radius:20px;
+  --ui-tc-shadow:0 1px 2px rgba(0,0,0,.06),0 8px 24px -12px rgba(0,0,0,.18);
+  --ui-tc-shadow-active:0 2px 4px rgba(0,0,0,.05),0 24px 48px -16px rgba(0,0,0,.3);
+  --ui-tc-glare-color:rgba(255,255,255,.32);
+  --ui-tc-spring:cubic-bezier(.34,1.36,.64,1);
+  display:inline-block;
+  perspective:var(--ui-tc-perspective,900px);
+  max-width:100%;
+}
+html[data-theme="dark"] .ui-tc{
+  --ui-tc-shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -12px rgba(0,0,0,.6);
+  --ui-tc-shadow-active:0 2px 4px rgba(0,0,0,.4),0 28px 56px -16px rgba(0,0,0,.75);
+  --ui-tc-glare-color:rgba(255,255,255,.24);
+}
+.ui-tc-card{
+  --rx:0deg;
+  --ry:0deg;
+  --gx:50%;
+  --gy:50%;
+  --ui-tc-lift:0px;
+  --ui-tc-s:1;
+  position:relative;
+  overflow:hidden;
+  border-radius:var(--ui-tc-radius);
+  box-shadow:var(--ui-tc-shadow);
+  transform:translateY(var(--ui-tc-lift)) rotateX(var(--rx)) rotateY(var(--ry)) scale(var(--ui-tc-s));
+  transition:transform 700ms var(--ui-tc-spring),box-shadow 500ms ease;
+  will-change:transform;
+}
+.ui-tc-card[data-active]{
+  --ui-tc-s:var(--ui-tc-scale,1.02);
+  --ui-tc-lift:-2px;
+  box-shadow:var(--ui-tc-shadow-active);
+  transition:transform 140ms ease-out,box-shadow 300ms ease;
+}
+.ui-tc:has(:focus-visible) .ui-tc-card{
+  --ui-tc-lift:-4px;
+  box-shadow:var(--ui-tc-shadow-active);
+}
+.ui-tc-card:focus-visible{outline:2px solid var(--focus-ring);outline-offset:3px}
+.ui-tc-glare{
+  position:absolute;
+  inset:0;
+  z-index:1;
+  border-radius:inherit;
+  pointer-events:none;
+  background:radial-gradient(circle at var(--gx) var(--gy),var(--ui-tc-glare-color),transparent 55%);
+  mix-blend-mode:soft-light;
+  opacity:0;
+  transition:opacity 400ms ease;
+}
+.ui-tc-card[data-active] .ui-tc-glare{opacity:1}
+@media (hover:none),(pointer:coarse){
+  .ui-tc-card[data-active]{--ui-tc-s:1}
+}
+@media (prefers-reduced-motion:reduce){
+  .ui-tc-card,.ui-tc-card[data-active],.ui-tc:has(:focus-visible) .ui-tc-card{transform:none;transition:box-shadow 300ms ease}
+  .ui-tc-glare{display:none}
+}
+/* ---- demo card face (concentric: outer 20px, inner rows 10px/6px) ---- */
+.tilt-card-demo__card{
+  width:min(360px,78vw);
+  aspect-ratio:1.586;
+  border-radius:var(--ui-tc-radius);
+  padding:18px 18px 14px;
+  color:var(--card-ink);
+  background:
+    radial-gradient(120% 90% at 85% -10%,rgba(255,255,255,.22),transparent 55%),
+    radial-gradient(100% 100% at 0% 110%,rgba(64,200,255,.28),transparent 55%),
+    linear-gradient(135deg,var(--card-grad-1) 0%,var(--card-grad-2) 52%,var(--card-grad-3) 100%);
+  outline:1px solid rgba(255,255,255,.14);
+  outline-offset:-1px;
+  display:flex;
+  flex-direction:column;
+  justify-content:space-between;
+  gap:8px;
+  position:relative;
+  z-index:0;
+}
+.tilt-card-demo__top{display:flex;align-items:center;justify-content:space-between}
+.tilt-card-demo__brand{font-size:14px;font-weight:500;letter-spacing:.01em;color:var(--card-ink)}
+.tilt-card-demo__brand b{font-weight:800}
+.tilt-card-demo__wave{width:26px;height:26px;fill:none;stroke:rgba(255,255,255,.85);stroke-width:1.8;stroke-linecap:round;display:block}
+.tilt-card-demo__chip{
+  width:46px;height:34px;border-radius:6px;
+  background:linear-gradient(135deg,var(--chip-1),var(--chip-2));
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.18);
+  position:relative;
+  display:block;
+}
+.tilt-card-demo__chip::before,.tilt-card-demo__chip::after{
+  content:"";position:absolute;inset:6px 5px;background:transparent;
+  border:1px solid rgba(0,0,0,.35);border-radius:3px;
+}
+.tilt-card-demo__chip::after{inset:6px 5px;border-left:none;border-right:none;border-radius:0}
+.tilt-card-demo__number{
+  font-size:17px;
+  letter-spacing:.14em;
+  font-weight:600;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.tilt-card-demo__bottom{display:flex;gap:28px}
+.tilt-card-demo__bottom>div{display:flex;flex-direction:column;gap:2px;min-width:0}
+.tilt-card-demo__label{font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:var(--card-muted)}
+.tilt-card-demo__value{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tilt-card-demo__caption{margin:16px 0 0;font-size:13px;color:var(--muted)}
+/* controls */
+.panel{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius-lg);
+  box-shadow:var(--shadow);
+  padding:16px;
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+.panel h2{font-size:15px;margin:0;font-weight:650}
+.panel p{margin:0;font-size:12.5px;color:var(--muted);line-height:1.5}
+.ctrl{display:grid;grid-template-columns:86px 1fr 52px;gap:10px;align-items:center;font-size:13px}
+.ctrl label{color:var(--ink-soft);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ctrl output{color:var(--muted);text-align:right}
+.ctrl input[type="range"]{width:100%;accent-color:var(--accent)}
+.row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.switch{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600;cursor:pointer}
+.switch input{width:16px;height:16px;accent-color:var(--accent)}
+.btn{
+  border:1px solid var(--border);
+  background:var(--subtle);
+  color:var(--ink);
+  border-radius:999px;
+  padding:8px 14px 8px 12px;
+  font:inherit;
+  font-size:13px;
+  font-weight:600;
+  cursor:pointer;
+  transition:transform 160ms ease,background 160ms ease,border-color 160ms ease;
+}
+.btn:focus-visible,.ctrl input:focus-visible,.switch input:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
+.readout{
+  border-top:1px solid var(--border);
+  padding-top:10px;
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:6px 12px;
+  font-size:12.5px;
+  color:var(--muted);
+}
+.readout output{color:var(--ink);font-weight:600}
+.status{
+  font-size:12px;
+  border-radius:var(--radius);
+  padding:8px 10px;
+  background:var(--subtle);
+  border:1px solid var(--border);
+  color:var(--muted);
+}
+.status[data-state="tilting"]{
+  background:var(--waiting-bg);
+  border-color:var(--waiting-border);
+  color:var(--waiting-ink);
+}
+.foot{margin:18px 2px 0;font-size:12px;color:var(--muted);line-height:1.6}
+/* v5: hover only on fine pointers */
+@media (hover:hover) and (pointer:fine){
+  .theme-btn:hover{transform:translateY(-1px)}
+  .btn:hover{background:var(--surface)}
+  .demo-wrap:hover{box-shadow:0 2px 4px rgba(0,0,0,.05),0 20px 40px -16px rgba(0,0,0,.22)}
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="page-head">
+    <span class="brand">affectUI <b>Pro</b></span>
+    <span class="pill">Tilt Card</span>
+    <span class="live-readout" id="headReadout">tilt <output id="headTilt">0.00° / 0.00°</output> · glare <output id="headGlare">off</output></span>
+    <span class="spacer"></span>
+    <button class="theme-btn" id="themeBtn" type="button" aria-label="Switch to dark theme">
+      <svg id="iconMoon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M20 13.5A8 8 0 0 1 10.5 4 6.5 6.5 0 1 0 20 13.5Z"/></svg>
+      <svg id="iconSun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.5M12 19v2.5M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M2.5 12H5M19 12h2.5M4.6 19.4l1.8-1.8M17.6 6.4l1.8-1.8"/></svg>
+      <span id="themeLabel">Dark</span>
+    </button>
+  </header>
+
+  <main class="stage">
+    <div class="demo-wrap">
+      <div class="ui-tc" id="tiltWrap" style="--ui-tc-perspective:900px;--ui-tc-scale:1.02">
+        <div class="ui-tc-card" id="tiltCard" tabindex="0" role="img" aria-label="affectUI Pro member card ending 4821. Move your pointer over the card to tilt it.">
+          <div class="tilt-card-demo__card" aria-hidden="false">
+            <div class="tilt-card-demo__top">
+              <span class="tilt-card-demo__brand">affectUI <b>Pro</b></span>
+              <svg class="tilt-card-demo__wave" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 7.5a7 7 0 0 1 0 9M12 5a10.5 10.5 0 0 1 0 14M15.5 2.5a14 14 0 0 1 0 19"></path></svg>
+            </div>
+            <span class="tilt-card-demo__chip" aria-hidden="true"></span>
+            <div class="tilt-card-demo__number">•••• •••• •••• 4821</div>
+            <div class="tilt-card-demo__bottom">
+              <div>
+                <span class="tilt-card-demo__label">Member</span>
+                <span class="tilt-card-demo__value">Alex Morgan</span>
+              </div>
+              <div>
+                <span class="tilt-card-demo__label">Since</span>
+                <span class="tilt-card-demo__value">10/26</span>
+              </div>
+            </div>
+          </div>
+          <span class="ui-tc-glare" id="glare" aria-hidden="true"></span>
+        </div>
+      </div>
+      <p class="tilt-card-demo__caption">Move your pointer over the card</p>
+    </div>
+
+    <section class="panel" aria-label="Tilt controls">
+      <h2>Tilt physics</h2>
+      <p>Pointer position drives <b>rotateX / rotateY</b> (max tilt 10°) with a following glare. Release springs back in 700&nbsp;ms. Matches the demo defaults.</p>
+      <div class="ctrl">
+        <label for="maxTilt">Max tilt</label>
+        <input id="maxTilt" type="range" min="0" max="20" step="0.5" value="10">
+        <output id="maxTiltOut">10°</output>
+      </div>
+      <div class="ctrl">
+        <label for="scaleCtl">Scale</label>
+        <input id="scaleCtl" type="range" min="1" max="1.1" step="0.005" value="1.02">
+        <output id="scaleOut">1.02</output>
+      </div>
+      <div class="ctrl">
+        <label for="persp">Perspective</label>
+        <input id="persp" type="range" min="400" max="1400" step="10" value="900">
+        <output id="perspOut">900px</output>
+      </div>
+      <div class="row">
+        <label class="switch"><input id="glareCtl" type="checkbox" checked> Glare</label>
+        <button class="btn" id="resetBtn" type="button">↺&nbsp;&nbsp;Reset tilt</button>
+      </div>
+      <div class="readout" aria-live="off">
+        <span>rotateX <output id="rxOut">0.00°</output></span>
+        <span>rotateY <output id="ryOut">0.00°</output></span>
+        <span>glare-x <output id="gxOut">50.0%</output></span>
+        <span>glare-y <output id="gyOut">50.0%</output></span>
+      </div>
+      <div class="status" id="status" data-state="idle" role="status">Idle — hover or focus the card. Arrow keys nudge the tilt when focused.</div>
+    </section>
+  </main>
+
+  <p class="foot">Clean-room replica of the <b>Tilt Card</b> demo (3D tilt toward the pointer, following glare, spring return). Defaults: maxTilt 10, scale 1.02, perspective 900, glare on. Reduced-motion and coarse pointers disable the tilt, matching the original.</p>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var wrap = document.getElementById('tiltWrap');
+  var card = document.getElementById('tiltCard');
+  var glare = document.getElementById('glare');
+  var rxOut = document.getElementById('rxOut');
+  var ryOut = document.getElementById('ryOut');
+  var gxOut = document.getElementById('gxOut');
+  var gyOut = document.getElementById('gyOut');
+  var headTilt = document.getElementById('headTilt');
+  var headGlare = document.getElementById('headGlare');
+  var status = document.getElementById('status');
+  var maxTiltInput = document.getElementById('maxTilt');
+  var scaleInput = document.getElementById('scaleCtl');
+  var perspInput = document.getElementById('persp');
+  var glareCtl = document.getElementById('glareCtl');
+  var resetBtn = document.getElementById('resetBtn');
+  var maxTiltOut = document.getElementById('maxTiltOut');
+  var scaleOut = document.getElementById('scaleOut');
+  var perspOut = document.getElementById('perspOut');
+  var themeBtn = document.getElementById('themeBtn');
+  var themeLabel = document.getElementById('themeLabel');
+  var iconMoon = document.getElementById('iconMoon');
+  var iconSun = document.getElementById('iconSun');
+
+  var KEY = 'affectui-tilt-card-theme';
+  var maxTilt = 10;
+  var rafId = 0;
+  var pending = null;
+  var reduceMotion = false;
+  var lastRx = '0.00deg', lastRy = '0.00deg', lastGx = '50.0%', lastGy = '50.0%';
+
+  function fmtDeg(v){ return v.toFixed(2) + '°'; }
+  function fmtDegCss(v){ return v.toFixed(2) + 'deg'; }
+
+  function setStatus(mode){
+    if(mode === 'tilting'){
+      status.setAttribute('data-state','tilting');
+      status.textContent = 'Tilting — tracking pointer, glare following.';
+    }else{
+      status.setAttribute('data-state','idle');
+      status.textContent = 'Idle — hover or focus the card. Arrow keys nudge the tilt when focused.';
+    }
+  }
+
+  function paint(rx, ry, gx, gy){
+    card.style.setProperty('--rx', rx);
+    card.style.setProperty('--ry', ry);
+    card.style.setProperty('--gx', gx);
+    card.style.setProperty('--gy', gy);
+    lastRx = rx; lastRy = ry; lastGx = gx; lastGy = gy;
+    var rxN = parseFloat(rx), ryN = parseFloat(ry);
+    rxOut.textContent = fmtDeg(rxN);
+    ryOut.textContent = fmtDeg(ryN);
+    gxOut.textContent = gx;
+    gyOut.textContent = gy;
+    headTilt.textContent = fmtDeg(rxN) + ' / ' + fmtDeg(ryN);
+  }
+
+  function applyFrame(){
+    rafId = 0;
+    if(!pending || !wrap || !card) return;
+    var pt = pending;
+    var rect = wrap.getBoundingClientRect();
+    if(!rect.width || !rect.height) return;
+    var a = (pt.x - rect.left) / rect.width;
+    var o = (pt.y - rect.top) / rect.height;
+    a = Math.min(Math.max(a, 0), 1);
+    o = Math.min(Math.max(o, 0), 1);
+    paint(fmtDegCss((0.5 - o) * 2 * maxTilt), fmtDegCss((a - 0.5) * 2 * maxTilt), (a * 100).toFixed(1) + '%', (o * 100).toFixed(1) + '%');
+  }
+
+  function onMove(e){
+    if(e && e.pointerType === 'touch') return;
+    if(reduceMotion) return;
+    if(!card.hasAttribute('data-active')){
+      card.setAttribute('data-active','');
+      headGlare.textContent = glareCtl.checked ? 'on' : 'off';
+      setStatus('tilting');
+    }
+    pending = { x: e.clientX, y: e.clientY };
+    if(!rafId){
+      if(typeof requestAnimationFrame === 'function'){ rafId = requestAnimationFrame(applyFrame); }
+      else { applyFrame(); }
+    }
+  }
+
+  function release(){
+    if(rafId && typeof cancelAnimationFrame === 'function'){ cancelAnimationFrame(rafId); }
+    rafId = 0;
+    pending = null;
+    if(card.hasAttribute('data-active')){ card.removeAttribute('data-active'); }
+    card.style.setProperty('--rx','0deg');
+    card.style.setProperty('--ry','0deg');
+    lastRx = '0deg'; lastRy = '0deg';
+    rxOut.textContent = '0.00°';
+    ryOut.textContent = '0.00°';
+    headTilt.textContent = '0.00° / 0.00°';
+    headGlare.textContent = 'off';
+    setStatus('idle');
+  }
+
+  function nudge(dx, dy){
+    if(reduceMotion) return;
+    var rect = wrap.getBoundingClientRect();
+    var cx = rect.left + rect.width * 0.5;
+    var cy = rect.top + rect.height * 0.5;
+    var stepX = rect.width * 0.12 * dx;
+    var stepY = rect.height * 0.12 * dy;
+    var curA = (parseFloat(lastGx) / 100) || 0.5;
+    var curO = (parseFloat(lastGy) / 100) || 0.5;
+    var na = Math.min(Math.max(curA + (stepX / rect.width), 0), 1);
+    var no = Math.min(Math.max(curO + (stepY / rect.height), 0), 1);
+    if(!card.hasAttribute('data-active')){ card.setAttribute('data-active',''); setStatus('tilting'); }
+    paint(fmtDegCss((0.5 - no) * 2 * maxTilt), fmtDegCss((na - 0.5) * 2 * maxTilt), (na * 100).toFixed(1) + '%', (no * 100).toFixed(1) + '%');
+    void cx; void cy;
+  }
+
+  /* theme toggle (built once, updated in place) */
+  function paintTheme(){
+    var t = document.documentElement.getAttribute('data-theme') || 'light';
+    var dark = (t === 'dark');
+    themeLabel.textContent = dark ? 'Light' : 'Dark';
+    themeBtn.setAttribute('aria-label', dark ? 'Switch to light theme' : 'Switch to dark theme');
+    if(dark){ iconMoon.setAttribute('hidden',''); iconSun.removeAttribute('hidden'); }
+    else { iconSun.setAttribute('hidden',''); iconMoon.removeAttribute('hidden'); }
+  }
+  if(themeBtn){
+    themeBtn.addEventListener('click', function(){
+      var cur = document.documentElement.getAttribute('data-theme') || 'light';
+      var next = (cur === 'dark') ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      try{ localStorage.setItem(KEY, next); }catch(e){}
+      paintTheme();
+    });
+    paintTheme();
+  }
+
+  /* controls update CSS vars in place only */
+  if(maxTiltInput){
+    maxTiltInput.addEventListener('input', function(){
+      maxTilt = parseFloat(maxTiltInput.value) || 0;
+      maxTiltOut.textContent = (maxTilt % 1 ? maxTilt.toFixed(1) : String(maxTilt)) + '°';
+    });
+  }
+  if(scaleInput){
+    scaleInput.addEventListener('input', function(){
+      var v = parseFloat(scaleInput.value) || 1;
+      wrap.style.setProperty('--ui-tc-scale', String(v));
+      scaleOut.textContent = v.toFixed(2);
+    });
+  }
+  if(perspInput){
+    perspInput.addEventListener('input', function(){
+      var v = parseInt(perspInput.value, 10) || 900;
+      wrap.style.setProperty('--ui-tc-perspective', v + 'px');
+      perspOut.textContent = v + 'px';
+    });
+  }
+  if(glareCtl){
+    glareCtl.addEventListener('change', function(){
+      if(glareCtl.checked){ glare.removeAttribute('hidden'); }
+      else { glare.setAttribute('hidden',''); }
+      headGlare.textContent = (glareCtl.checked && card.hasAttribute('data-active')) ? 'on' : 'off';
+    });
+  }
+  if(resetBtn){
+    /* capture-phase pointerdown so the reset fires even during an active tilt */
+    resetBtn.addEventListener('pointerdown', function(){ release(); }, true);
+    resetBtn.addEventListener('mousedown', function(){ release(); }, true);
+    resetBtn.addEventListener('click', function(){ release(); });
+  }
+
+  if(wrap && card){
+    wrap.addEventListener('pointermove', onMove);
+    wrap.addEventListener('pointerleave', release);
+    wrap.addEventListener('pointercancel', release);
+    card.addEventListener('blur', release);
+    card.addEventListener('keydown', function(e){
+      var k = e.key;
+      if(k === 'ArrowLeft'){ e.preventDefault(); nudge(-1, 0); }
+      else if(k === 'ArrowRight'){ e.preventDefault(); nudge(1, 0); }
+      else if(k === 'ArrowUp'){ e.preventDefault(); nudge(0, -1); }
+      else if(k === 'ArrowDown'){ e.preventDefault(); nudge(0, 1); }
+      else if(k === 'Escape' || k === '0'){ release(); }
+    });
+  }
+
+  try{
+    var mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    var sync = function(){ reduceMotion = !!(mq && mq.matches); if(reduceMotion){ release(); } };
+    sync();
+    if(mq && mq.addEventListener){ mq.addEventListener('change', sync); }
+    else if(mq && mq.addListener){ mq.addListener(sync); }
+  }catch(e){ reduceMotion = false; }
+})();
+</script>
+</body>
+</html>

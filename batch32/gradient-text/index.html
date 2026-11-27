@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<script>/*noflash*/(function(){try{var k="affectui-theme";var s=null;try{s=localStorage.getItem(k)}catch(e){}var t=s||"light";if(t!=="light"&&t!=="dark")t="light";document.documentElement.setAttribute("data-theme",t)}catch(e){}})();</script>
+<style>html{background:#fafaf9}html[data-theme="dark"]{background:#101012}</style>
+<meta name="color-scheme" content="light dark">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gradient Text — affectUI replica</title>
+<style>
+:root{
+  --surface:#ffffff;
+  --page:#fafaf9;
+  --ink:#171717;
+  --ink-soft:#1c1917;
+  --muted:#78716c;
+  --subtle:#f5f5f4;
+  --border:#e7e5e4;
+  --radius-lg:16px;
+  --radius:10px;
+  --radius-sm:6px;
+  --shadow:0 1px 2px rgba(0,0,0,.05),0 4px 16px rgba(0,0,0,.05);
+  --shadow-lift:0 2px 4px rgba(0,0,0,.06),0 10px 28px rgba(0,0,0,.08);
+  --focus:#5e3ee0;
+  --amber:#f59e0b;
+  --amber-bg:#fef3c7;
+  --amber-ink:#92400e;
+  --ok:#15803d;
+  --fail:#dc2626;
+  /* gradient tokens verbatim from demo behaviour */
+  --ui-gt-c1:#dd0674;
+  --ui-gt-c2:#5e3ee0;
+  --ui-gt-c3:#ff5fae;
+  --ui-gt-c4:#7c5cff;
+  --ui-gt-speed:8s;
+  --ui-gt-sweep:1100ms;
+}
+html[data-theme="dark"]{
+  --surface:#1c1c1f;
+  --page:#101012;
+  --ink:#ededed;
+  --ink-soft:#ededed;
+  --muted:#a1a1aa;
+  --subtle:#26262a;
+  --border:#2e2e33;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 28px rgba(0,0,0,.35);
+  --shadow-lift:0 2px 6px rgba(0,0,0,.5),0 14px 36px rgba(0,0,0,.45);
+  --focus:#a78bfa;
+  --amber:#fbbf24;
+  --amber-bg:#451a03;
+  --amber-ink:#fde68a;
+  --ui-gt-c1:#f472b6;
+  --ui-gt-c2:#a78bfa;
+  --ui-gt-c3:#f9a8d4;
+  --ui-gt-c4:#c4b5fd;
+}
+html{-webkit-tap-highlight-color:transparent}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{
+  margin:0;
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:14px;
+  line-height:1.5;
+  background:var(--page);
+  color:var(--ink);
+  font-variant-numeric:tabular-nums;
+  transition:background-color 180ms ease,color 180ms ease;
+}
+.topbar{
+  max-width:760px;
+  margin:0 auto;
+  padding:18px 20px 0;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+.brand{font-size:13px;color:var(--muted);letter-spacing:.02em}
+.brand strong{display:block;font-size:15px;color:var(--ink);font-weight:650;letter-spacing:-.01em}
+.theme-btn{
+  display:inline-flex;align-items:center;gap:8px;
+  border:1px solid var(--border);
+  background:var(--surface);
+  color:var(--ink);
+  border-radius:999px;
+  padding:7px 12px 7px 10px;
+  font:inherit;font-size:13px;
+  cursor:pointer;
+  box-shadow:var(--shadow);
+  transition:box-shadow 160ms ease,transform 160ms ease,border-color 160ms ease;
+}
+.theme-btn svg{display:block;width:16px;height:16px;flex:none}
+.theme-btn .moon{display:none}
+html[data-theme="dark"] .theme-btn .moon{display:block}
+html[data-theme="dark"] .theme-btn .sun{display:none}
+.theme-btn:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.wrap{max-width:760px;margin:0 auto;padding:16px 20px 40px}
+.card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius-lg);
+  box-shadow:var(--shadow);
+  padding:6px;
+  transition:box-shadow 180ms ease,border-color 180ms ease;
+}
+/* concentric: outer 16 = inner 10 + 6 inset */
+.card-inner{
+  background:var(--page);
+  border-radius:var(--radius);
+  padding:26px 24px 22px;
+}
+.demo-title{
+  margin:0;
+  font-size:clamp(28px,5vw,44px);
+  line-height:1.08;
+  letter-spacing:-.02em;
+  font-weight:700;
+  color:var(--ink-soft);
+  text-wrap:balance;
+}
+.demo-sub{margin:10px 0 0;color:var(--muted);font-size:13px}
+/* ---- gradient text (clean-room, same values as observed demo) ---- */
+.ui-gt{
+  position:relative;
+  display:inline-block;
+  margin:0;
+  font:inherit;
+  letter-spacing:inherit;
+}
+.ui-gt__base{color:inherit;transition:color 240ms ease}
+.ui-gt__fill{
+  position:absolute;inset:0;
+  pointer-events:none;user-select:none;
+  color:transparent;-webkit-text-fill-color:transparent;
+  background-image:
+    radial-gradient(closest-side,var(--ui-gt-c3),transparent),
+    radial-gradient(closest-side,var(--ui-gt-c4),transparent),
+    radial-gradient(closest-side,var(--ui-gt-c1),transparent),
+    linear-gradient(100deg,var(--ui-gt-c1) 10%,var(--ui-gt-c2) 90%);
+  background-size:70% 170%,80% 190%,60% 160%,100% 100%;
+  background-repeat:no-repeat;
+  background-position:-20% 30%,120% 70%,50% -40%,0 0;
+  -webkit-background-clip:text;background-clip:text;
+  clip-path:inset(-0.25em -0.25em -0.25em -0.25em);
+  animation:gt-drift var(--ui-gt-speed) ease-in-out infinite;
+}
+.ui-gt[data-sweep][data-state="idle"] .ui-gt__fill{
+  clip-path:inset(-0.25em 100% -0.25em -0.25em);
+}
+.ui-gt[data-sweep] .ui-gt__fill{
+  transition:clip-path var(--ui-gt-sweep) cubic-bezier(.65,0,.25,1);
+}
+.ui-gt[data-state="in"] .ui-gt__base{color:transparent}
+.ui-gt[data-sweep][data-state="in"] .ui-gt__base{
+  transition-delay:calc(var(--ui-gt-sweep) - 200ms);
+}
+@keyframes gt-drift{
+  0%,100%{background-position:-20% 30%,120% 70%,50% -40%,0 0}
+  25%{background-position:40% 110%,60% -10%,110% 60%,0 0}
+  50%{background-position:120% 40%,-20% 40%,40% 140%,0 0}
+  75%{background-position:60% -30%,30% 120%,-10% 30%,0 0}
+}
+.controls{
+  margin-top:18px;
+  display:flex;flex-wrap:wrap;gap:10px;align-items:center;
+}
+.replay-btn{
+  appearance:none;
+  border:1px solid var(--border);
+  background:var(--surface);
+  color:var(--ink);
+  border-radius:999px;
+  font:inherit;font-size:13px;font-weight:600;
+  padding:8px 16px 8px 14px;
+  padding-left:12px;
+  cursor:pointer;
+  display:inline-flex;align-items:center;gap:8px;
+  box-shadow:var(--shadow);
+  transition:box-shadow 170ms ease,transform 170ms ease,border-color 170ms ease;
+}
+.replay-btn svg{width:12px;height:12px;display:block;flex:none;transform:translateX(1px)}
+.replay-btn:focus-visible,.sweep-toggle:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.sweep-wrap{
+  display:inline-flex;align-items:center;gap:8px;
+  border:1px solid var(--border);
+  background:var(--surface);
+  border-radius:999px;
+  padding:7px 13px;
+  font-size:13px;color:var(--muted);
+  cursor:pointer;user-select:none;
+}
+.sweep-wrap input{accent-color:var(--focus);width:15px;height:15px;margin:0}
+.speed-wrap{
+  display:inline-flex;align-items:center;gap:10px;
+  border:1px solid var(--border);
+  background:var(--surface);
+  border-radius:999px;
+  padding:7px 13px;
+  font-size:13px;color:var(--muted);
+}
+.speed-wrap input{accent-color:var(--focus)}
+.speed-val{color:var(--ink);font-weight:600;min-width:36px;text-align:right}
+.meta{
+  margin-top:16px;
+  border-top:1px solid var(--border);
+  padding-top:12px;
+  display:flex;flex-wrap:wrap;gap:8px 14px;
+  font-size:12px;color:var(--muted);
+}
+.meta b{color:var(--ink);font-weight:600}
+.note{margin-top:14px;font-size:12px;color:var(--muted)}
+.note code{
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:12px;background:var(--subtle);
+  border:1px solid var(--border);border-radius:var(--radius-sm);
+  padding:1px 5px;color:var(--ink);
+}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+@media (max-width:560px){
+  .card-inner{padding:20px 16px}
+  .controls{align-items:stretch;flex-direction:column}
+  .replay-btn{justify-content:center}
+}
+@media (prefers-reduced-motion:reduce){
+  .ui-gt__fill{animation:none;transition:none;clip-path:inset(-0.25em -0.25em -0.25em -0.25em)}
+  .ui-gt__base{color:transparent;transition:none}
+  body{scroll-behavior:auto}
+}
+@media (hover:hover) and (pointer:fine){
+  .card:hover{box-shadow:var(--shadow-lift)}
+  .replay-btn:hover{box-shadow:var(--shadow-lift);transform:translateY(-1px);border-color:var(--muted)}
+  .theme-btn:hover{box-shadow:var(--shadow-lift);transform:translateY(-1px)}
+  .sweep-wrap:hover{border-color:var(--muted)}
+  .speed-wrap:hover{border-color:var(--muted)}
+}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><strong>Gradient Text</strong><span>Liquid gradient sweep &middot; first-view reveal</span></div>
+  <button class="theme-btn" id="themeToggle" type="button" aria-label="Switch to dark theme" aria-pressed="false">
+    <svg class="sun" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.5v1.6M8 12.9v1.6M1.5 8h1.6M12.9 8h1.6M3.4 3.4l1.1 1.1M11.5 11.5l1.1 1.1M12.6 3.4l-1.1 1.1M4.5 11.5l-1.1 1.1" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+    <svg class="moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M13.2 9.4A5.4 5.4 0 0 1 6.6 2.8a.7.7 0 0 0-.9-.9A6.8 6.8 0 1 0 14 10.3a.7.7 0 0 0-.8-.9Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+    <span id="themeLabel">Dark</span>
+  </button>
+</header>
+<main class="wrap">
+  <div class="card">
+    <div class="card-inner">
+      <div class="gradient-text-demo" id="demo">
+        <h2 class="demo-title gradient-text-demo__title" id="demoTitle"><span id="leadText">Interfaces people actually </span><span class="ui-gt" id="gt" data-state="idle" data-sweep="" style="--ui-gt-speed:8s"><span class="ui-gt__base" id="gtBase">feel.</span><span class="ui-gt__fill" id="gtFill" aria-hidden="true">feel.</span></span></h2>
+        <p class="demo-sub">Letters cut from a liquid, ever-flowing gradient — sweeping across on first view.</p>
+        <div class="controls">
+          <button type="button" class="replay-btn gradient-text-demo__replay" id="replayBtn" aria-label="Replay gradient sweep">
+            <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M6 1.2a4.8 4.8 0 1 1-4.4 2.9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M1.4 1.2v3h3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span>Replay</span>
+          </button>
+          <label class="sweep-wrap" for="sweepBox"><input type="checkbox" id="sweepBox" checked> <span>sweep</span></label>
+          <label class="speed-wrap" for="speedRange"><span>speed</span><input type="range" id="speedRange" min="2" max="14" step="1" value="8" aria-label="Gradient flow speed in seconds"><span class="speed-val" id="speedVal">8s</span></label>
+        </div>
+        <div class="meta" aria-label="Demo parameters">
+          <span>flow <b id="metaSpeed">8s</b></span>
+          <span>sweep <b>1100ms</b></span>
+          <span>threshold <b>0.6</b></span>
+          <span>state <b id="metaState">idle</b></span>
+        </div>
+        <p class="note">Clean-room replica of the <code>ui-gt</code> demo. Original copy, palette, and timings kept verbatim. Respects <code>prefers-reduced-motion</code>; sweep replays in place without rebuilding nodes.</p>
+      </div>
+    </div>
+  </div>
+</main>
+<script>
+(function(){
+  "use strict";
+  var THEME_KEY = "affectui-theme";
+  var root = document.documentElement;
+  var themeBtn = document.getElementById("themeToggle");
+  var themeLabel = document.getElementById("themeLabel");
+  var gt = document.getElementById("gt");
+  var gtBase = document.getElementById("gtBase");
+  var gtFill = document.getElementById("gtFill");
+  var leadText = document.getElementById("leadText");
+  var replayBtn = document.getElementById("replayBtn");
+  var sweepBox = document.getElementById("sweepBox");
+  var speedRange = document.getElementById("speedRange");
+  var speedVal = document.getElementById("speedVal");
+  var metaSpeed = document.getElementById("metaSpeed");
+  var metaState = document.getElementById("metaState");
+  var revealTimer = 0;
+  var SWEEP_MS = 1100;
+
+  function currentTheme(){ return root.getAttribute("data-theme") === "dark" ? "dark" : "light"; }
+  function paintThemeButton(){
+    var dark = currentTheme() === "dark";
+    themeBtn.setAttribute("aria-pressed", dark ? "true" : "false");
+    themeBtn.setAttribute("aria-label", dark ? "Switch to light theme" : "Switch to dark theme");
+    themeLabel.textContent = dark ? "Light" : "Dark";
+  }
+  function setTheme(next, persist){
+    root.setAttribute("data-theme", next);
+    if(persist){ try{ localStorage.setItem(THEME_KEY, next); }catch(e){} }
+    paintThemeButton();
+  }
+  function setState(next){
+    gt.setAttribute("data-state", next);
+    metaState.textContent = next;
+  }
+  function scheduleReveal(){
+    if(!sweepBox.checked){ setState("in"); return; }
+    setState("idle");
+    if(revealTimer){ clearTimeout(revealTimer); revealTimer = 0; }
+    // Force the idle clip to paint before transitioning, mirrors remount-then-observe.
+    void gt.offsetWidth;
+    revealTimer = setTimeout(function(){ revealTimer = 0; setState("in"); }, 60);
+  }
+  function armObserver(){
+    var wantSweep = sweepBox.checked;
+    if(!wantSweep){
+      gt.removeAttribute("data-sweep");
+      setState("in");
+      return;
+    }
+    gt.setAttribute("data-sweep", "");
+    setState("idle");
+    var done = false;
+    function reveal(){ if(!done){ done = true; setState("in"); } }
+    try{
+      if(typeof IntersectionObserver !== "undefined"){
+        var io = new IntersectionObserver(function(entries){
+          for(var k = 0; k < entries.length; k++){
+            if(entries[k].isIntersecting){ reveal(); try{ io.disconnect(); }catch(e){} break; }
+          }
+        }, { threshold: 0.6 });
+        io.observe(gt);
+        // Deterministic fallback so headless/stub timers still complete the first-view sweep.
+        setTimeout(function(){ reveal(); try{ io.disconnect(); }catch(e){} }, 400);
+        return;
+      }
+    }catch(e){}
+    setTimeout(reveal, 60);
+  }
+
+  themeBtn.addEventListener("click", function(){
+    setTheme(currentTheme() === "dark" ? "light" : "dark", true);
+  });
+  // Keep real click working: replay updates the same nodes in place, never rebuilds.
+  replayBtn.addEventListener("click", function(){
+    scheduleReveal();
+  });
+  sweepBox.addEventListener("change", function(){
+    if(sweepBox.checked){ gt.setAttribute("data-sweep", ""); armObserver(); }
+    else { gt.removeAttribute("data-sweep"); if(revealTimer){ clearTimeout(revealTimer); revealTimer = 0; } setState("in"); }
+  });
+  speedRange.addEventListener("input", function(){
+    var secs = String(parseInt(speedRange.value, 10) || 8);
+    gt.style.setProperty("--ui-gt-speed", secs + "s");
+    speedVal.textContent = secs + "s";
+    metaSpeed.textContent = secs + "s";
+  });
+
+  // Init once: static markup already carries verbatim copy; only wire state in place.
+  paintThemeButton();
+  try{
+    var stored = null;
+    try{ stored = localStorage.getItem(THEME_KEY); }catch(e){}
+    if(stored === "light" || stored === "dark"){ setTheme(stored, false); }
+  }catch(e){}
+  gt.style.setProperty("--ui-gt-speed", "8s");
+  armObserver();
+})();
+</script>
+</body>
+</html>

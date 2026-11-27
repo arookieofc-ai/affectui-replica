@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<script>/*noflash*/(function(){try{var k='gradient-floor-theme';var s=null;try{s=localStorage.getItem(k);}catch(e){}var m=null;try{m=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)');}catch(e){}var t=s||((m&&m.matches)?'dark':'light');document.documentElement.setAttribute('data-theme',t);}catch(e){try{document.documentElement.setAttribute('data-theme','light');}catch(_){}}})();</script>
+<style>html{background:#fafaf9}html[data-theme="dark"]{background:#101012}</style>
+<meta name="color-scheme" content="light dark">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gradient Floor — affectUI replica</title>
+<style>
+/* design tokens */
+:root,
+html[data-theme="light"]{
+  --surface:#ffffff;
+  --page:#fafaf9;
+  --ink:#171717;
+  --ink-2:#1c1917;
+  --muted:#78716c;
+  --subtle:#f5f5f4;
+  --border:#e7e5e4;
+  --radius-lg:16px;
+  --radius:10px;
+  --radius-sm:6px;
+  --shadow:0 1px 2px rgba(0,0,0,.05),0 4px 16px rgba(0,0,0,.05);
+  --shadow-lg:0 1px 2px rgba(0,0,0,.06),0 12px 32px rgba(0,0,0,.08);
+  --amber:#f59e0b;
+  --amber-bg:#fef3c7;
+  --amber-text:#92400e;
+  --blue:#2563eb;
+  --blue-bg:#dbeafe;
+  --green:#16a34a;
+  --focus:#2563eb;
+  --ui-gf-bg:#fafafa;
+  --img-outline:rgba(0,0,0,.10);
+}
+html[data-theme="dark"]{
+  --surface:#1c1c1f;
+  --page:#101012;
+  --ink:#ededed;
+  --ink-2:#ededed;
+  --muted:#a1a1aa;
+  --subtle:#26262a;
+  --border:#2e2e33;
+  --shadow:0 1px 2px rgba(0,0,0,.45),0 8px 24px rgba(0,0,0,.45);
+  --shadow-lg:0 1px 2px rgba(0,0,0,.5),0 16px 40px rgba(0,0,0,.5);
+  --amber:#fbbf24;
+  --amber-bg:#451a03;
+  --amber-text:#fde68a;
+  --blue:#60a5fa;
+  --blue-bg:#1e3a8a;
+  --green:#4ade80;
+  --focus:#93c5fd;
+  --ui-gf-bg:#111113;
+  --img-outline:rgba(255,255,255,.10);
+}
+html{-webkit-tap-highlight-color:transparent;}
+[hidden]{display:none !important;}
+*{box-sizing:border-box;}
+body{
+  margin:0;
+  background:var(--page);
+  color:var(--ink);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:14px;
+  line-height:1.5;
+  font-variant-numeric:tabular-nums;
+}
+.page{max-width:960px;margin:0 auto;padding:20px 16px 48px;}
+/* header */
+.topbar{
+  display:flex;align-items:flex-start;justify-content:space-between;gap:12px;
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius-lg);
+  box-shadow:var(--shadow);
+  padding:14px 14px 14px 16px;
+  margin-bottom:12px;
+}
+.brand{display:flex;gap:12px;align-items:flex-start;min-width:0;}
+.brand-mark{
+  width:36px;height:36px;border-radius:10px;flex:none;
+  background:linear-gradient(135deg,#FF7700,#FF0055 45%,#0073FF);
+  box-shadow:var(--shadow);
+  border:1px solid var(--border);
+}
+.brand h1{font-size:16px;font-weight:600;margin:0;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.brand p{margin:2px 0 0;font-size:12.5px;color:var(--muted);max-width:62ch;}
+.top-actions{display:flex;align-items:center;gap:8px;flex:none;}
+.status-pill{
+  font-size:12px;color:var(--amber-text);background:var(--amber-bg);
+  border:1px solid var(--border);border-radius:999px;padding:4px 10px 4px 8px;
+  display:inline-flex;align-items:center;gap:6px;white-space:nowrap;
+}
+.status-dot{width:7px;height:7px;border-radius:999px;background:var(--amber);flex:none;}
+.status-pill.is-live{color:var(--green);background:var(--subtle);}
+.status-pill.is-live .status-dot{background:var(--green);}
+.theme-btn{
+  display:inline-flex;align-items:center;gap:6px;
+  border:1px solid var(--border);background:var(--surface);color:var(--ink);
+  border-radius:999px;padding:7px 10px 7px 8px;font-size:12.5px;cursor:pointer;
+  box-shadow:var(--shadow);
+  transition:transform 150ms ease,box-shadow 150ms ease,background 150ms ease;
+}
+.theme-btn svg{width:14px;height:14px;flex:none;margin-right:-2px;}
+.theme-btn .theme-label{font-variant-numeric:tabular-nums;}
+.theme-btn:focus-visible{outline:2px solid var(--focus);outline-offset:2px;}
+/* cards */
+.card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius-lg);
+  box-shadow:var(--shadow);
+  padding:12px;
+  margin-bottom:12px;
+}
+.card-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin:2px 2px 10px;}
+.card-head h2{font-size:15px;font-weight:600;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.meta{font-size:12.5px;color:var(--muted);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.divider{border:0;border-top:1px solid var(--border);margin:12px 2px;}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px;}
+.seg{
+  display:inline-flex;gap:2px;align-items:center;
+  background:var(--subtle);border:1px solid var(--border);
+  border-radius:10px;padding:4px;
+}
+/* concentric: outer 10 = inner 6 + 4 padding */
+.seg button{
+  border:1px solid transparent;background:transparent;color:var(--muted);
+  border-radius:6px;padding:6px 10px;font-size:12.5px;cursor:pointer;
+  display:inline-flex;align-items:center;gap:6px;
+  transition:background 150ms ease,color 150ms ease;
+}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);border-color:var(--border);box-shadow:var(--shadow);}
+.seg button:focus-visible{outline:2px solid var(--focus);outline-offset:2px;}
+.swatch{width:12px;height:12px;border-radius:999px;flex:none;border:1px solid var(--border);}
+.speed-wrap{display:flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:999px;padding:6px 12px;background:var(--surface);}
+.speed-wrap label{font-size:12.5px;color:var(--muted);white-space:nowrap;}
+.speed-wrap input[type="range"]{accent-color:var(--blue);width:130px;}
+.speed-val{font-size:12.5px;color:var(--ink);min-width:52px;text-align:right;font-variant-numeric:tabular-nums;}
+.ghost-btn{
+  border:1px solid var(--border);background:var(--surface);color:var(--ink);
+  border-radius:999px;padding:7px 12px 7px 10px;font-size:12.5px;cursor:pointer;
+  display:inline-flex;align-items:center;gap:6px;
+  transition:transform 150ms ease,box-shadow 150ms ease;
+}
+.ghost-btn svg{width:12px;height:12px;margin-right:-2px;}
+.ghost-btn:focus-visible{outline:2px solid var(--focus);outline-offset:2px;}
+.hint{font-size:12.5px;color:var(--muted);margin:8px 2px 0;}
+code.k{font-family:inherit;background:var(--subtle);border:1px solid var(--border);border-radius:6px;padding:0 5px;font-size:12px;}
+/* ---- gradient floor replica (clean-room, same numbers as demo) ---- */
+.ui-gf{
+  position:relative;container-type:inline-size;overflow:hidden;isolation:isolate;
+  background:var(--ui-gf-bg,#fafafa);
+  border:1px solid var(--border);
+  border-radius:10px;
+  box-shadow:var(--shadow);
+}
+.ui-gf--hero{height:300px;}
+.ui-gf--mini{height:190px;}
+.ui-gf-layer{position:absolute;pointer-events:none;}
+.ui-gf-layer--color{left:calc(-290 * 100cqw / 2200);bottom:calc(-484.5 * 100cqw / 2200);width:calc(2864.5 * 100cqw / 2200);height:calc(931.5 * 100cqw / 2200);}
+.ui-gf-layer--light{left:calc(-65 * 100cqw / 2200);bottom:calc(-507 * 100cqw / 2200);width:calc(2414 * 100cqw / 2200);height:calc(785 * 100cqw / 2200);mix-blend-mode:plus-lighter;}
+.ui-gf-bleed{position:absolute;inset:-31.27% -10.17%;transform-origin:50% 70%;will-change:transform;}
+.ui-gf-bleed svg{position:absolute;top:0;left:0;width:25%;height:25%;overflow:visible;transform:scale(4);transform-origin:0 0;will-change:transform;}
+.ui-gf-layer--color svg{filter:blur(calc(calc(145.65 * 100cqw / 2200) / 4));}
+.ui-gf-layer--light svg{filter:blur(calc(calc(122.74 * 100cqw / 2200) / 4));}
+.ui-gf-layer--color .ui-gf-bleed{animation:ui-gf-drift-color 2.5s ease-in-out infinite;}
+.ui-gf-layer--light .ui-gf-bleed{animation:ui-gf-drift-light 2.5s ease-in-out infinite;}
+@keyframes ui-gf-drift-color{
+  0%,100%{transform:translate(0,0) scale(1,1);}
+  33%{transform:translate(calc(-120 * 100cqw / 2200),calc(-20 * 100cqw / 2200)) scale(1.05,1.08);}
+  66%{transform:translate(calc(100 * 100cqw / 2200),calc(12 * 100cqw / 2200)) scale(.98,.96);}
+}
+@keyframes ui-gf-drift-light{
+  0%,100%{transform:translate(0,0) scale(1,1);}
+  33%{transform:translate(calc(-100 * 100cqw / 2200),calc(-10 * 100cqw / 2200)) scale(1.03,1);}
+  66%{transform:translate(calc(85 * 100cqw / 2200),calc(10 * 100cqw / 2200)) scale(.98,.94);}
+}
+.ui-gf[data-paused] .ui-gf-bleed{animation-play-state:paused;}
+.ui-gf-content{position:relative;z-index:1;height:100%;}
+.ui-gf-overlay{
+  height:100%;display:flex;flex-direction:column;justify-content:flex-end;
+  padding:18px;color:#fff;text-shadow:0 1px 8px rgba(0,0,0,.35);
+}
+.ui-gf-overlay h3{margin:0;font-size:16px;font-weight:600;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ui-gf-overlay p{margin:4px 0 0;font-size:12.5px;opacity:.92;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+/* content images: 1px inset outline, neutral-independent */
+img{outline:1px solid var(--img-outline);outline-offset:-1px;}
+.footer{font-size:12.5px;color:var(--muted);padding:4px 4px 0;}
+.footer b{color:var(--ink);font-weight:600;}
+@media (max-width:640px){
+  .topbar{flex-direction:column;}
+  .ui-gf--hero{height:230px;}
+  .brand p{max-width:none;}
+}
+@media (prefers-reduced-motion:reduce){
+  .ui-gf-bleed{animation:none;}
+}
+@media (hover:hover) and (pointer:fine){
+  .theme-btn:hover{transform:translateY(-1px);box-shadow:var(--shadow-lg);}
+  .ghost-btn:hover{transform:translateY(-1px);box-shadow:var(--shadow-lg);}
+  .seg button:hover{background:var(--surface);color:var(--ink);}
+  .card:hover{box-shadow:var(--shadow-lg);}
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <div>
+        <h1>Gradient Floor</h1>
+        <p>Blurred colour gradient glowing from the bottom edge, drifting and morphing layers.</p>
+      </div>
+    </div>
+    <div class="top-actions">
+      <span class="status-pill is-live" id="motionPill"><span class="status-dot" aria-hidden="true"></span><span id="motionText">Animating · 3.0s loop</span></span>
+      <button class="theme-btn" id="themeToggle" type="button" aria-label="Switch to dark theme">
+        <svg id="themeIconMoon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M13.5 9.5A5.5 5.5 0 0 1 6.5 2.5a5.5 5.5 0 1 0 7 7Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+        <svg id="themeIconSun" viewBox="0 0 16 16" fill="none" aria-hidden="true" hidden><circle cx="8" cy="8" r="3.2" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.5v1.6M8 12.9v1.6M1.5 8h1.6M12.9 8h1.6M3.4 3.4l1.1 1.1M11.5 11.5l1.1 1.1M12.6 3.4l-1.1 1.1M4.5 11.5l-1.1 1.1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+        <span class="theme-label" id="themeLabel">Dark</span>
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <section class="card" aria-labelledby="demoH">
+      <div class="card-head">
+        <h2 id="demoH">Live demo — empty floor panel</h2>
+        <span class="meta" id="loopMeta">speed 3 · drift 2.5s · throttle 32ms</span>
+      </div>
+      <div class="ui-gf ui-gf--hero gradient-floor-demo__panel" id="floorHero" aria-label="Gradient floor demo panel">
+        <div class="ui-gf-layer ui-gf-layer--color" aria-hidden="true">
+          <div class="ui-gf-bleed">
+            <svg viewBox="0 0 3447.1 1514.1" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+              <defs>
+                <linearGradient id="gf-fill" x1="1723.8" y1="423.3" x2="1723.8" y2="894.3" gradientUnits="userSpaceOnUse">
+                  <stop offset="0" stop-color="#FF7700" id="gfStop0"></stop>
+                  <stop offset="0.302885" stop-color="#FF0055" id="gfStop1"></stop>
+                  <stop offset="0.673077" stop-color="#0073FF" id="gfStop2"></stop>
+                </linearGradient>
+              </defs>
+              <path id="gfColorPath" d="" fill="url(#gf-fill)"></path>
+            </svg>
+          </div>
+        </div>
+        <div class="ui-gf-layer ui-gf-layer--light" aria-hidden="true">
+          <div class="ui-gf-bleed">
+            <svg viewBox="0 0 2904.96 1275.97" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+              <path id="gfLightPath" d="" fill="#fff" fill-opacity="0.8"></path>
+            </svg>
+          </div>
+        </div>
+        <div class="ui-gf-content"></div>
+      </div>
+      <div class="controls" role="group" aria-label="Gradient floor controls">
+        <div class="seg" role="group" aria-label="Colour preset">
+          <button type="button" id="presetSunset" aria-pressed="true"><span class="swatch" style="background:linear-gradient(135deg,#FF7700,#FF0055 50%,#0073FF)" aria-hidden="true"></span>Sunset</button>
+          <button type="button" id="presetOcean" aria-pressed="false"><span class="swatch" style="background:linear-gradient(135deg,#00C2FF,#0073FF 50%,#7A00FF)" aria-hidden="true"></span>Ocean</button>
+          <button type="button" id="presetMint" aria-pressed="false"><span class="swatch" style="background:linear-gradient(135deg,#34D399,#22D3EE 50%,#3B82F6)" aria-hidden="true"></span>Mint</button>
+        </div>
+        <div class="speed-wrap">
+          <label for="speedRange">Speed</label>
+          <input type="range" id="speedRange" min="0" max="6" step="0.5" value="3" aria-describedby="speedVal">
+          <span class="speed-val" id="speedVal">3.0s</span>
+        </div>
+        <button class="ghost-btn" id="pauseBtn" type="button" aria-pressed="false">
+          <svg viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M3.5 2.5v7M8.5 2.5v7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          <span id="pauseLabel">Pause</span>
+        </button>
+      </div>
+      <hr class="divider">
+      <p class="hint">Morph loop <code class="k">3s</code> · drift <code class="k">2.5s</code> · frame throttle <code class="k">32ms</code> · pauses off-screen via <code class="k">IntersectionObserver</code> · honours <code class="k">prefers-reduced-motion</code>. Gradient stops <code class="k">0 / 0.302885 / 0.673077</code>.</p>
+    </section>
+
+    <section class="card" aria-labelledby="contentH">
+      <div class="card-head">
+        <h2 id="contentH">With content slot</h2>
+        <span class="meta">children render above the glow</span>
+      </div>
+      <div class="ui-gf ui-gf--mini" id="floorMini" aria-label="Gradient floor with content">
+        <div class="ui-gf-layer ui-gf-layer--color" aria-hidden="true">
+          <div class="ui-gf-bleed">
+            <svg viewBox="0 0 3447.1 1514.1" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+              <path id="gfColorPath2" d="" fill="url(#gf-fill)"></path>
+            </svg>
+          </div>
+        </div>
+        <div class="ui-gf-layer ui-gf-layer--light" aria-hidden="true">
+          <div class="ui-gf-bleed">
+            <svg viewBox="0 0 2904.96 1275.97" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+              <path id="gfLightPath2" d="" fill="#fff" fill-opacity="0.8"></path>
+            </svg>
+          </div>
+        </div>
+        <div class="ui-gf-content">
+          <div class="ui-gf-overlay" id="floorOverlay">
+            <h3>Deploy preview ready</h3>
+            <p>Glow stays behind text · content never blocks the drift</p>
+          </div>
+        </div>
+      </div>
+      <p class="hint">Second instance shares the same morph clock — both paths update in place from one rAF tick.</p>
+    </section>
+
+    <p class="footer"><b>How to test:</b> open <code class="k">index.html</code> in a browser. Toggle the sun/moon button (top-right) for light/dark. Change Sunset/Ocean/Mint, drag Speed, press Pause. Blocked network still shows the full glow — no external assets.</p>
+  </main>
+</div>
+<script>
+(function(){
+"use strict";
+/* Clean-room Gradient Floor: same observed numbers/behaviour as demo, own code. */
+var THEME_KEY = 'gradient-floor-theme';
+var COLOR_GEOM = {k:1, v1:[926.8,565.8], c:[302.1,297.3], l:[291.3,291.3], bottom:1222.8, r:[3155.8,361.3], v4:[2493.8,565.8], v3:[2189.3,565.8], m2:[1898.8,428.8], m1:[1510.8,428.8], v2:[1230.8,565.8]};
+var LIGHT_GEOM = {k:0.8427, v1:[781.039,476.815], c:[254.588,250.543], l:[245.486,245.486], bottom:1030.49, r:[2659.48,304.477], v4:[2101.59,476.815], v3:[1844.98,476.815], m2:[1600.17,361.361], m1:[1273.19,361.361], v2:[1037.23,476.815]};
+var AMP_SIDE = 110;
+var AMP_VALLEY = 80;
+var DEFAULT_COLORS = ['#FF7700','#FF0055','#0073FF'];
+var PRESETS = {
+  sunset: ['#FF7700','#FF0055','#0073FF'],
+  ocean: ['#00C2FF','#0073FF','#7A00FF'],
+  mint: ['#34D399','#22D3EE','#3B82F6']
+};
+var state = { speed: 3, paused: false, colors: DEFAULT_COLORS.slice(), reduced: false, visible: true };
+
+function floorPath(g, phase){
+  var swayL = AMP_SIDE * Math.sin(phase);
+  var swayM = -AMP_SIDE * Math.sin(phase + 0.5);
+  var swayR = AMP_SIDE * Math.sin(phase + 1);
+  var liftL = AMP_VALLEY * Math.sin(phase + Math.PI/2 + 0.25);
+  var liftR = AMP_VALLEY * Math.sin(phase - Math.PI/2 + 0.75);
+  function y(pt, off){ return (pt[1] + off * g.k).toFixed(1); }
+  return 'M' + g.v1[0] + ' ' + y(g.v1, liftL) +
+    'C' + g.v1[0] + ' ' + y(g.v1, liftL) + ' ' + g.c[0] + ' ' + y(g.c, swayL) + ' ' + g.l[0] + ' ' + y(g.l, swayL) +
+    'V' + g.bottom +
+    'H' + g.r[0] +
+    'V' + y(g.r, swayR) +
+    'L' + g.v4[0] + ' ' + y(g.v4, liftR) +
+    'H' + g.v3[0] +
+    'V' + y(g.v3, liftR) +
+    'L' + g.m2[0] + ' ' + y(g.m2, swayM) +
+    'H' + g.m1[0] +
+    'V' + y(g.m1, swayM) +
+    'L' + g.v2[0] + ' ' + y(g.v2, liftL) +
+    'H' + g.v1[0] +
+    'V' + y(g.v1, liftL) + 'Z';
+}
+
+var rootEl = document.documentElement;
+var heroEl = document.getElementById('floorHero');
+var miniEl = document.getElementById('floorMini');
+var colorPathA = document.getElementById('gfColorPath');
+var lightPathA = document.getElementById('gfLightPath');
+var colorPathB = document.getElementById('gfColorPath2');
+var lightPathB = document.getElementById('gfLightPath2');
+var stop0 = document.getElementById('gfStop0');
+var stop1 = document.getElementById('gfStop1');
+var stop2 = document.getElementById('gfStop2');
+var motionPill = document.getElementById('motionPill');
+var motionText = document.getElementById('motionText');
+var loopMeta = document.getElementById('loopMeta');
+var speedRange = document.getElementById('speedRange');
+var speedVal = document.getElementById('speedVal');
+var pauseBtn = document.getElementById('pauseBtn');
+var pauseLabel = document.getElementById('pauseLabel');
+var themeToggle = document.getElementById('themeToggle');
+var themeLabel = document.getElementById('themeLabel');
+var themeIconMoon = document.getElementById('themeIconMoon');
+var themeIconSun = document.getElementById('themeIconSun');
+var presetSunset = document.getElementById('presetSunset');
+var presetOcean = document.getElementById('presetOcean');
+var presetMint = document.getElementById('presetMint');
+
+try{
+  state.reduced = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+}catch(e){ state.reduced = false; }
+
+function phaseFor(nowMs){
+  if(!(state.speed > 0)) return 0;
+  return (nowMs / (state.speed * 1000)) * Math.PI * 2;
+}
+function paint(phase){
+  var dc = floorPath(COLOR_GEOM, phase);
+  var dl = floorPath(LIGHT_GEOM, phase);
+  if(colorPathA) colorPathA.setAttribute('d', dc);
+  if(colorPathB) colorPathB.setAttribute('d', dc);
+  if(lightPathA) lightPathA.setAttribute('d', dl);
+  if(lightPathB) lightPathB.setAttribute('d', dl);
+}
+/* init paint at phase 0 to match demo first frame */
+paint(0);
+
+function refreshStatus(){
+  var label;
+  if(state.reduced){ label = 'Reduced motion · static floor'; }
+  else if(state.paused || !(state.speed > 0)){ label = 'Paused · static floor'; }
+  else { label = 'Animating · ' + state.speed.toFixed(1) + 's loop'; }
+  if(motionText && motionText.textContent !== label) motionText.textContent = label;
+  var live = (!state.reduced && !state.paused && state.speed > 0);
+  if(motionPill){
+    if(live && !motionPill.classList.contains('is-live')) motionPill.classList.add('is-live');
+    if(!live && motionPill.classList.contains('is-live')) motionPill.classList.remove('is-live');
+  }
+  var meta = 'speed ' + Number(speedRange ? speedRange.value : state.speed) + ' · drift 2.5s · throttle 32ms';
+  if(loopMeta && loopMeta.textContent !== meta) loopMeta.textContent = meta;
+  var sv = state.speed.toFixed(1) + 's';
+  if(speedVal && speedVal.textContent !== sv) speedVal.textContent = sv;
+  if(pauseLabel){
+    var pl = (state.paused ? 'Play' : 'Pause');
+    if(pauseLabel.textContent !== pl) pauseLabel.textContent = pl;
+  }
+  if(pauseBtn) pauseBtn.setAttribute('aria-pressed', state.paused ? 'true' : 'false');
+}
+
+/* rAF morph clock: 32ms throttle, 3s default loop, IntersectionObserver pause */
+var rafId = 0, lastTick = 0;
+function frame(now){
+  rafId = requestAnimationFrame(frame);
+  if(state.paused || state.reduced || !(state.speed > 0)) return;
+  if(!state.visible) return;
+  if(typeof now !== 'number') return;
+  if(now - lastTick < 32) return;
+  lastTick = now;
+  paint(phaseFor(now));
+}
+function startClock(){
+  if(state.reduced) return;
+  if(typeof requestAnimationFrame !== 'function') return;
+  if(rafId) return;
+  lastTick = 0;
+  rafId = requestAnimationFrame(frame);
+}
+function stopClock(){
+  if(rafId && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(rafId);
+  rafId = 0;
+}
+if(typeof IntersectionObserver !== 'undefined' && heroEl){
+  try{
+    var seen = { hero: true, mini: true };
+    var io = new IntersectionObserver(function(entries){
+      for(var i=0;i<entries.length;i++){
+        var en = entries[i];
+        if(en.target === heroEl) seen.hero = !!en.isIntersecting;
+        if(en.target === miniEl) seen.mini = !!en.isIntersecting;
+      }
+      state.visible = !!(seen.hero || seen.mini);
+      if(heroEl){
+        if(state.visible) heroEl.removeAttribute('data-paused');
+        else heroEl.setAttribute('data-paused','');
+      }
+      if(miniEl){
+        if(state.visible) miniEl.removeAttribute('data-paused');
+        else miniEl.setAttribute('data-paused','');
+      }
+    }, {threshold: 0});
+    io.observe(heroEl);
+    if(miniEl) io.observe(miniEl);
+  }catch(e){}
+}
+
+/* controls: update nodes in place only */
+function applyColors(name){
+  var c = PRESETS[name] || PRESETS.sunset;
+  state.colors = c.slice();
+  if(stop0) stop0.setAttribute('stop-color', c[0]);
+  if(stop1) stop1.setAttribute('stop-color', c[1]);
+  if(stop2) stop2.setAttribute('stop-color', c[2]);
+  var map = {sunset: presetSunset, ocean: presetOcean, mint: presetMint};
+  Object.keys(map).forEach(function(k){
+    if(map[k]) map[k].setAttribute('aria-pressed', k === name ? 'true' : 'false');
+  });
+}
+function onPreset(name){ return function(){ applyColors(name); }; }
+if(presetSunset) presetSunset.addEventListener('click', onPreset('sunset'));
+if(presetOcean) presetOcean.addEventListener('click', onPreset('ocean'));
+if(presetMint) presetMint.addEventListener('click', onPreset('mint'));
+if(speedRange) speedRange.addEventListener('input', function(){
+  var v = parseFloat(speedRange.value);
+  if(!isFinite(v)) v = 3;
+  state.speed = v;
+  if(state.speed > 0 && state.paused){
+    state.paused = false;
+  }
+  refreshStatus();
+});
+function togglePaused(){
+  state.paused = !state.paused;
+  refreshStatus();
+}
+if(pauseBtn) pauseBtn.addEventListener('click', togglePaused);
+
+/* theme toggle */
+function currentTheme(){ return rootEl.getAttribute('data-theme') === 'dark' ? 'dark' : 'light'; }
+function applyTheme(t){
+  rootEl.setAttribute('data-theme', t);
+  try{ localStorage.setItem(THEME_KEY, t); }catch(e){}
+  var dark = (t === 'dark');
+  if(themeLabel && themeLabel.textContent !== (dark ? 'Light' : 'Dark')) themeLabel.textContent = dark ? 'Light' : 'Dark';
+  if(themeToggle) themeToggle.setAttribute('aria-label', dark ? 'Switch to light theme' : 'Switch to dark theme');
+  if(themeIconMoon){
+    if(dark) themeIconMoon.setAttribute('hidden','');
+    else themeIconMoon.removeAttribute('hidden');
+  }
+  if(themeIconSun){
+    /* use setAttribute/removeAttribute for SVG visibility (className throws on SVG) */
+    if(dark) themeIconSun.removeAttribute('hidden');
+    else themeIconSun.setAttribute('hidden','');
+  }
+}
+function syncThemeUI(){
+  var t = currentTheme();
+  var dark = (t === 'dark');
+  if(themeLabel) themeLabel.textContent = dark ? 'Light' : 'Dark';
+  if(themeToggle) themeToggle.setAttribute('aria-label', dark ? 'Switch to light theme' : 'Switch to dark theme');
+  if(themeIconMoon){
+    if(dark) themeIconMoon.setAttribute('hidden','');
+    else themeIconMoon.removeAttribute('hidden');
+  }
+  if(themeIconSun){
+    if(dark) themeIconSun.removeAttribute('hidden');
+    else themeIconSun.setAttribute('hidden','');
+  }
+}
+if(themeToggle) themeToggle.addEventListener('click', function(){ applyTheme(currentTheme() === 'dark' ? 'light' : 'dark'); });
+
+refreshStatus();
+syncThemeUI();
+startClock();
+
+/* test hooks for the in-dir harness (no behaviour change) */
+try{
+  window.__gf = {
+    geomColor: COLOR_GEOM,
+    geomLight: LIGHT_GEOM,
+    defaults: DEFAULT_COLORS.slice(),
+    stops: ['0','0.302885','0.673077'],
+    get speed(){ return state.speed; },
+    get paused(){ return !!state.paused; },
+    get reduced(){ return !!state.reduced; },
+    nodes: function(){
+      return {hero: heroEl, mini: miniEl, colorA: colorPathA, lightA: lightPathA, colorB: colorPathB, lightB: lightPathB, motion: motionText, speed: speedVal, loop: loopMeta};
+    },
+    phaseFor: phaseFor,
+    paint: paint,
+    pathFor: floorPath,
+    setSpeed: function(v){ state.speed = v; if(speedRange) speedRange.value = String(v); refreshStatus(); },
+    setPaused: function(p){ state.paused = !!p; refreshStatus(); },
+    applyColors: applyColors,
+    applyTheme: applyTheme,
+    refresh: refreshStatus
+  };
+}catch(e){}
+})();
+</script>
+</body>
+</html>

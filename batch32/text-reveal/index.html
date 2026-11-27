@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- /*noflash*/ early-theme guard: must run before any CSS paints -->
+<script>/*noflash*/(function(){try{var k="text-reveal-theme";var s=null;try{s=localStorage.getItem(k)}catch(e){}var t=s||null;if(!t){try{t=matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}catch(e){t="light"}}if(t!=="light"&&t!=="dark")t="light";document.documentElement.setAttribute("data-theme",t)}catch(e){}})();</script>
+<style>html{background:#fafaf9}html[data-theme="dark"]{background:#101012}</style>
+<meta name="color-scheme" content="light dark">
+<title>Text Reveal — affectUI replica</title>
+<style>
+:root{
+  --page:#fafaf9; --surface:#ffffff; --ink:#171717; --ink-2:#1c1917;
+  --muted:#78716c; --subtle:#f5f5f4; --border:#e7e5e4;
+  --r-lg:16px; --r:10px; --r-sm:6px;
+  --shadow:0 1px 2px rgba(0,0,0,.05),0 4px 16px rgba(0,0,0,.05);
+  --accent:#2563eb; --accent-ink:#1d4ed8;
+  --ok:#15803d; --warn:#f59e0b; --warn-bg:#fef3c7; --warn-ink:#92400e;
+  --track:#e7e5e4;
+}
+html[data-theme="dark"]{
+  --page:#101012; --surface:#1c1c1f; --ink:#ededed; --ink-2:#ededed;
+  --muted:#a1a1aa; --subtle:#26262a; --border:#2e2e33;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+  --accent:#60a5fa; --accent-ink:#93c5fd;
+  --warn:#fbbf24; --warn-bg:#451a03; --warn-ink:#fde68a;
+  --track:#2e2e33;
+}
+html{-webkit-tap-highlight-color:transparent}
+*{box-sizing:border-box}
+[hidden]{display:none !important}
+body{
+  margin:0; background:var(--page); color:var(--ink);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:14px; line-height:1.55;
+  font-variant-numeric:tabular-nums;
+}
+.wrap{max-width:760px;margin:0 auto;padding:20px 16px 48px}
+/* header: project name + meta + toggle (no agents on this component) */
+.top{
+  display:flex;align-items:center;gap:12px;
+  padding:12px 16px;margin-bottom:16px;
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);
+  box-shadow:var(--shadow);
+}
+.brand{display:flex;align-items:center;gap:10px;min-width:0}
+.mark{width:22px;height:22px;border-radius:7px;background:var(--subtle);border:1px solid var(--border);position:relative;flex:none}
+.mark::after{content:"";position:absolute;inset:5px;border-radius:3px;background:var(--accent)}
+.brand b{font-size:15px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brand small{display:block;font-size:12px;color:var(--muted);font-weight:500}
+.pill{
+  font-size:12px;color:var(--muted);border:1px solid var(--border);
+  background:var(--subtle);border-radius:999px;padding:3px 10px;white-space:nowrap;
+}
+.spacer{flex:1}
+.iconbtn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  width:36px;height:36px;border-radius:999px;flex:none;
+  background:var(--subtle);border:1px solid var(--border);color:var(--ink);
+  cursor:pointer;transition:transform 150ms ease,background 150ms ease;
+  padding-left:8px;padding-right:6px; /* optical: icon side ~2px tighter */
+}
+.iconbtn svg{width:18px;height:18px;display:block}
+.iconbtn:focus-visible,.btn:focus-visible,.seg button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+/* card: outer 16 = inner 10 + 6 padding (concentric) */
+.card{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);
+  box-shadow:var(--shadow);padding:16px;margin-bottom:12px;
+}
+.eyebrow{font-size:12px;color:var(--muted);letter-spacing:.02em;margin:0 0 8px}
+.statusrow{display:flex;align-items:center;gap:8px;margin-top:12px;flex-wrap:wrap}
+.dot{width:8px;height:8px;border-radius:999px;background:var(--ok);flex:none}
+.dot.is-waiting{background:var(--warn)}
+.meta{font-size:12.5px;color:var(--muted)}
+.meta strong{color:var(--ink);font-weight:650}
+.btn{
+  appearance:none;border:1px solid var(--border);background:var(--subtle);color:var(--ink);
+  border-radius:999px;padding:8px 16px 8px 14px;font:inherit;font-weight:600;cursor:pointer;
+  transition:transform 150ms ease,background 150ms ease;
+}
+.controls{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;margin-top:12px}
+.field{background:var(--subtle);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px}
+.field label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
+.field output{font-size:12.5px;color:var(--ink);font-weight:650}
+.field input[type="range"]{width:100%;accent-color:var(--accent)}
+.seg{display:flex;gap:6px}
+.seg button{
+  flex:1;border:1px solid var(--border);background:var(--surface);color:var(--muted);
+  border-radius:999px;padding:7px 10px;font:inherit;font-weight:600;cursor:pointer;
+  transition:background 150ms ease,color 150ms ease;
+}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--page);border-color:var(--ink)}
+.switchrow{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.divider{height:1px;background:var(--border);margin:14px 0;border:0}
+/* ---- text-reveal core (clean-room, same behaviour as demo) ---- */
+.ui-trv{--ui-trv-blur:8px;--ui-trv-rise:.35em;--ui-trv-ease:cubic-bezier(.2,.7,.2,1)}
+:where(.dark,[data-theme="dark"]) .ui-trv{--ui-trv-blur:6px}
+.ui-trv__sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.ui-trv__w{display:inline-block;max-width:100%;white-space:nowrap}
+.ui-trv__p,.ui-trv__w{overflow-wrap:anywhere}
+.ui-trv__w:has(> .ui-trv__p){white-space:normal}
+.ui-trv__p{display:inline-block;opacity:0;filter:blur(var(--ui-trv-blur));transform:translateY(var(--ui-trv-rise));will-change:opacity,filter,transform}
+.ui-trv[data-shown] .ui-trv__p{animation:ui-trv-in var(--ui-trv-duration,700ms) var(--ui-trv-ease) both;animation-delay:calc(var(--ui-trv-delay,0ms) + var(--ui-trv-i) * var(--ui-trv-stagger,40ms))}
+@keyframes ui-trv-in{from{opacity:0;filter:blur(var(--ui-trv-blur));transform:translateY(var(--ui-trv-rise))}to{opacity:1;filter:blur(0);transform:none}}
+@media (prefers-reduced-motion:reduce){
+  .ui-trv .ui-trv__p,.ui-trv[data-shown] .ui-trv__p{opacity:1;filter:none;transform:none;animation:none}
+}
+.demo-title{font-size:30px;line-height:1.2;letter-spacing:-.01em;margin:6px 0 8px;font-weight:700}
+.demo-body{font-size:15.5px;color:var(--muted);margin:0;max-width:56ch}
+.demo-body .ui-trv__p{color:var(--muted)}
+.scrollblock{padding:22px 0;border-top:1px solid var(--border)}
+.scrollblock:first-of-type{border-top:0}
+.kbd{font-size:11.5px;border:1px solid var(--border);background:var(--subtle);border-radius:6px;padding:1px 6px;color:var(--muted)}
+footer{color:var(--muted);font-size:12.5px;margin-top:14px}
+@media (hover: hover) and (pointer: fine){
+  .card:hover{transform:translateY(-1px)}
+  .btn:hover{background:var(--border)}
+  .iconbtn:hover{background:var(--border)}
+  .seg button:hover{color:var(--ink)}
+}
+@media (max-width:560px){.controls{grid-template-columns:1fr}.demo-title{font-size:25px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand"><span class="mark" aria-hidden="true"></span><div><b>Text Reveal</b><small>affectUI · Transitions · scroll reveal</small></div></div>
+    <span class="spacer"></span>
+    <span class="pill" id="modePill">word by word</span>
+    <button class="iconbtn" id="themeBtn" type="button" aria-label="Toggle dark mode" aria-pressed="false">
+      <svg id="themeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><g id="iconSun"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></g><g id="iconMoon" hidden="hidden"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"></path></g></svg>
+    </button>
+  </header>
+
+  <main>
+    <section class="card" aria-labelledby="demoH">
+      <p class="eyebrow">Demo · exact original copy</p>
+      <div id="copyHost">
+        <h2 class="demo-title" id="demoH"></h2>
+        <p class="demo-body" id="demoP"></p>
+      </div>
+      <div class="statusrow">
+        <button class="btn" id="replayBtn" type="button">Replay</button>
+        <span class="dot" id="stateDot" aria-hidden="true"></span>
+        <span class="meta" id="stateLine">replays: <strong id="replayCount">0</strong> · <span id="revealState">waiting</span></span>
+      </div>
+    </section>
+
+    <section class="card" aria-label="Reveal playground">
+      <p class="eyebrow">Playground · same sentence, live settings</p>
+      <div class="seg" role="group" aria-label="Split mode">
+        <button type="button" id="byWord" aria-pressed="true">Word</button>
+        <button type="button" id="byLetter" aria-pressed="false">Letter</button>
+      </div>
+      <div class="controls">
+        <div class="field"><label for="stagger">Stagger <output id="staggerOut">22ms</output></label><input id="stagger" type="range" min="0" max="120" step="1" value="22"></div>
+        <div class="field"><label for="delay">Delay <output id="delayOut">260ms</output></label><input id="delay" type="range" min="0" max="1000" step="10" value="260"></div>
+        <div class="field"><label for="duration">Duration <output id="durationOut">700ms</output></label><input id="duration" type="range" min="100" max="2000" step="10" value="700"></div>
+        <div class="field"><div class="switchrow"><label for="once">Reveal once</label><input id="once" type="checkbox" checked></div><div class="meta">off = hides again on scroll out</div></div>
+      </div>
+      <hr class="divider">
+      <p class="demo-body" id="playP"></p>
+    </section>
+
+    <section class="card" aria-label="Scroll to reveal">
+      <p class="eyebrow">Scroll · each block rises from blur when it enters view</p>
+      <div class="scrollblock"><h2 class="demo-title" id="scrollTitle"></h2><p class="meta">threshold 0 · once · stagger 40ms (title defaults)</p></div>
+      <div class="scrollblock"><p class="demo-body" id="scrollBody"></p><p class="meta">delay 260ms · stagger 22ms (body defaults) · press <span class="kbd">R</span> to replay hero</p></div>
+      <div class="scrollblock"><p class="demo-body" id="scrollLetters"></p><p class="meta">letter mode · same sentence, grapheme split via Intl.Segmenter</p></div>
+    </section>
+
+    <footer>Blur 8px → 0 (6px on dark) · rise 0.35em · ease cubic-bezier(0.2,0.7,0.2,1) · reduced-motion shows text as-is.</footer>
+  </main>
+</div>
+<script>
+(function(){
+"use strict";
+var TITLE="Words that arrive one at a time.";
+var BODY="Each word fades in out of a soft blur and rises into place, so a sentence reads like it is being spoken.";
+function graphemes(s){try{if(typeof Intl!=="undefined"&&"Segmenter" in Intl){var seg=new Intl.Segmenter(undefined,{granularity:"grapheme"});var out=[];for(var p of seg.segment(s))out.push(p.segment);return out}}catch(e){}return Array.from(s)}
+function buildReveal(el,cfg){
+  var text=cfg.text,by=cfg.by||"word";
+  el.classList.add("ui-trv");
+  el.setAttribute("data-stagger",String(cfg.stagger));
+  el.style.setProperty("--ui-trv-stagger",(cfg.stagger)+"ms");
+  el.style.setProperty("--ui-trv-delay",(cfg.delay)+"ms");
+  el.style.setProperty("--ui-trv-duration",(cfg.duration)+"ms");
+  while(el.firstChild)el.removeChild(el.firstChild);
+  var sr=document.createElement("span");sr.className="ui-trv__sr";sr.textContent=text;el.appendChild(sr);
+  var vis=document.createElement("span");vis.setAttribute("aria-hidden","true");el.appendChild(vis);
+  var idx=0;
+  function wordSpan(w){var s=document.createElement("span");s.className="ui-trv__p";s.style.setProperty("--ui-trv-i",String(idx++));s.textContent=w;return s}
+  var parts=text.split(/(\s+)/);
+  for(var k=0;k<parts.length;k++){
+    var part=parts[k];
+    if(part===""||part==null)continue;
+    if(/^\s+$/.test(part)){vis.appendChild(document.createTextNode(part));continue}
+    if(by==="word"){vis.appendChild(wordSpan(part))}
+    else{var w=document.createElement("span");w.className="ui-trv__w";var gs=graphemes(part);for(var j=0;j<gs.length;j++)w.appendChild(wordSpan(gs[j]));vis.appendChild(w)}
+  }
+  return vis;
+}
+function watch(el,once,onChange){
+  function show(){if(!el.hasAttribute("data-shown")){el.setAttribute("data-shown","");onChange&&onChange(true)}}
+  function hide(){if(el.hasAttribute("data-shown")){el.removeAttribute("data-shown");onChange&&onChange(false)}}
+  var io=null;
+  try{
+    if(typeof IntersectionObserver==="undefined"){show();return{show:show,hide:hide,disconnect:function(){}}}
+    io=new IntersectionObserver(function(es){for(var i=0;i<es.length;i++){if(es[i].isIntersecting){show();if(once)io.disconnect()}else if(!once){hide()}}},{threshold:0});
+    io.observe(el);
+  }catch(e){show()}
+  return{show:show,hide:hide,disconnect:function(){try{io&&io.disconnect()}catch(e){}}};
+}
+/* build once */
+var hTitle=document.getElementById("demoH"),hBody=document.getElementById("demoP"),
+    playP=document.getElementById("playP"),sTitle=document.getElementById("scrollTitle"),
+    sBody=document.getElementById("scrollBody"),sLet=document.getElementById("scrollLetters"),
+    stateLine=document.getElementById("revealState"),dot=document.getElementById("stateDot"),
+    replayBtn=document.getElementById("replayBtn"),replayCount=document.getElementById("replayCount");
+buildReveal(hTitle,{text:TITLE,by:"word",stagger:40,delay:0,duration:700});
+buildReveal(hBody,{text:BODY,by:"word",stagger:22,delay:260,duration:700});
+buildReveal(playP,{text:BODY,by:"word",stagger:22,delay:260,duration:700});
+buildReveal(sTitle,{text:TITLE,by:"word",stagger:40,delay:0,duration:700});
+buildReveal(sBody,{text:BODY,by:"word",stagger:22,delay:260,duration:700});
+buildReveal(sLet,{text:BODY,by:"letter",stagger:14,delay:120,duration:700});
+var seen=false;
+function paint(shown){stateLine.textContent=shown?"revealed":"waiting";if(shown){dot.classList.remove("is-waiting")}else{dot.classList.add("is-waiting")}}
+var w1=watch(hTitle,true,function(s){if(s&&!seen){seen=true;paint(true)} });
+var w2=watch(hBody,true,function(){});
+watch(playP,false,function(){});watch(sTitle,true,function(){});watch(sBody,true,function(){});watch(sLet,true,function(){});
+paint(false);dot.classList.add("is-waiting");
+/* reveal hero when both observed (stub IO fires async); also paint on animation ticks is unnecessary */
+var replays=0;
+function replay(){
+  replays++;replayCount.textContent=String(replays);
+  paint(false);
+  for(var _ of [hTitle,hBody]){_.removeAttribute("data-shown");void _.offsetWidth}
+  requestAnimationFrame(function(){requestAnimationFrame(function(){hTitle.setAttribute("data-shown","");hBody.setAttribute("data-shown","");paint(true)})});
+}
+replayBtn.addEventListener("click",replay);
+document.addEventListener("keydown",function(e){if((e.key==="r"||e.key==="R")&&!/INPUT|TEXTAREA/.test(document.activeElement&&document.activeElement.tagName||""))replay()});
+/* playground controls update in place (user gesture, not timer loop) */
+var byWord=document.getElementById("byWord"),byLetter=document.getElementById("byLetter"),
+    modePill=document.getElementById("modePill"),st=document.getElementById("stagger"),
+    dl=document.getElementById("delay"),du=document.getElementById("duration"),
+    stO=document.getElementById("staggerOut"),dlO=document.getElementById("delayOut"),duO=document.getElementById("durationOut"),
+    onceBox=document.getElementById("once");
+var playWatcher=null;
+function playOnce(){return onceBox.checked}
+function refreshPlay(){
+  var by=byLetter.getAttribute("aria-pressed")==="true"?"letter":"word";
+  modePill.textContent=by==="word"?"word by word":"letter by letter";
+  stO.textContent=st.value+"ms";dlO.textContent=dl.value+"ms";duO.textContent=du.value+"ms";
+  if(playWatcher)playWatcher.disconnect();
+  buildReveal(playP,{text:BODY,by:by,stagger:+st.value,delay:+dl.value,duration:+du.value});
+  playWatcher=watch(playP,playOnce(),function(){});
+  /* retrigger so the new timing is visible immediately */
+  playP.removeAttribute("data-shown");void playP.offsetWidth;
+  requestAnimationFrame(function(){playP.setAttribute("data-shown","")});
+}
+byWord.addEventListener("click",function(){byWord.setAttribute("aria-pressed","true");byLetter.setAttribute("aria-pressed","false");refreshPlay()});
+byLetter.addEventListener("click",function(){byLetter.setAttribute("aria-pressed","true");byWord.setAttribute("aria-pressed","false");refreshPlay()});
+st.addEventListener("input",refreshPlay);dl.addEventListener("input",refreshPlay);du.addEventListener("input",refreshPlay);
+onceBox.addEventListener("change",refreshPlay);
+/* theme toggle */
+var btn=document.getElementById("themeBtn");
+var gSun=document.getElementById("iconSun"),gMoon=document.getElementById("iconMoon");
+function paintIcon(){var dark=document.documentElement.getAttribute("data-theme")==="dark";if(dark){gSun.setAttribute("hidden","hidden");gMoon.removeAttribute("hidden")}else{gMoon.setAttribute("hidden","hidden");gSun.removeAttribute("hidden")}btn.setAttribute("aria-pressed",dark?"true":"false");btn.setAttribute("aria-label",dark?"Switch to light mode":"Switch to dark mode")}
+function setTheme(t){document.documentElement.setAttribute("data-theme",t);try{localStorage.setItem("text-reveal-theme",t)}catch(e){}paintIcon()}
+btn.addEventListener("click",function(){setTheme(document.documentElement.getAttribute("data-theme")==="dark"?"light":"dark")});
+paintIcon();
+/* expose for harness (read-only, no re-render) */
+window.__trv={title:TITLE,body:BODY,replay:replay,els:{title:hTitle,body:hBody,play:playP},get replays(){return replays}};
+})();
+</script>
+</body>
+</html>
