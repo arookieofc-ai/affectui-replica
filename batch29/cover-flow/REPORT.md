@@ -1,159 +1,542 @@
-# Cover Flow — SECOND ATTEMPT targeted fix (all cover labels fully painted at rest)
+# Cover Flow — targeted fix report (repair4: restore on-cover labels)
 
-## Scope (workdir-only)
-- Work ONLY in this directory. All paths relative, in-dir: `./REPLICATE_SPEC.md`, `./demo-original.js`, `./index.html`, `./harness.js`, `./original-backup.html`, `./REPORT.md`.
-- No reads/writes outside this dir. No installs/downloads. No `rm` on `/tmp` paths.
-- Targeted fix of existing `./index.html`, not a rebuild. Previous fix (`spread 0.55/tail 0.20` + `left:32px` + padding/mask) did not change the painted result in a real browser: leftmost still `Sto`, second `Min`, right side `Sand/Lilac/Ice/Peach/Mist` no label at all, both themes.
+## Scope
+- Work ONLY in this directory. All paths relative (`./REPLICATE_SPEC.md`, `./demo-original.js`, `./index.html`, `./harness.js`, `./REPORT.md`). No reads/writes outside, no `rm` on `/tmp`.
+- Targeted fix of existing `./index.html`, not a rebuild. `/*noflash*/` guard kept, in-place updates only, zero `innerHTML` writes after init, demo data verbatim.
 
-## Hard proof — md5 BEFORE vs AFTER (MUST differ)
-- BEFORE (`./index.html` before this edit, preserved as `./original-backup.html`):
-  - `a8e28eb9733d0e5f4a69e74e867eecb5  ./index.html`
-  - `a8e28eb9733d0e5f4a69e74e867eecb5  ./original-backup.html`
-- AFTER (`./index.html` after this edit):
+## Hard proof — md5 BEFORE vs AFTER (must differ)
+- BEFORE (`./index.html` before this edit):
   - `126d332c49ccf06ca869973ade0eee12  ./index.html`
-  - `a8e28eb9733d0e5f4a69e74e867eecb5  ./original-backup.html`
-- Hashes differ: YES (`a8e28e…` → `126d33…`).
-- Commands (relative, in-dir):
-  - `md5sum ./index.html` (before)
-  - `cp ./index.html ./original-backup.html`
-  - (edit `./index.html` — 6 targeted hunks, see below)
-  - `md5sum ./index.html ./original-backup.html` (after)
+- AFTER (`./index.html` after this edit):
+  - `dfbd208dc643af9da7a4376ef1a82cda  ./index.html`
+- Original preserved as `./original-backup.html` (copy of BEFORE):
+  - `126d332c49ccf06ca869973ade0eee12  ./original-backup.html`
+- Hashes differ: YES (`126d33…` -> `dfbd20…`).
 
-## Original behaviour check (`./demo-original.js` — before changing anything)
-Checked with relative in-dir `grep`/`python3` (no outside reads):
-- `len 16487`, `setInterval: False`, `autoplay: False`, `autoAdvance: False`.
-- Only `setTimeout` is wheel-settle `setTimeout(()=>z(...),110)`; only `requestAnimationFrame` is spring physics (`tick`/`kick`). No auto-demo timer.
-- `defaultIndex:4` (Blush), manual controls only (nav/ticks/arrows/Home/End/drag/flick/wheel). Staying at Blush 5/10 until user acts is correct — did NOT add auto-demo.
-- Per-cover labels: NONE in original. `ui-cf__title` appears only twice, both in footer caption (`K.title`/`K.subtitle` for the active cover). Items render only `ui-cf__media` with `cf-demo__gradient` (`linear-gradient(160deg, …)`) — no text inside covers. `cf-demo__gradient` has no label element.
-- Conclusion per instructions: original does NOT exhibit “per-cover labels clipped” because it has no per-cover labels. The QA defect (“every cover has a readable label”, “positioned/clipped outside visible area at edges (cover-flow perspective + overflow)”) applies to this replica’s added cover pills (Stone…Mist bottom-left pills), which were clipped in a real browser. Fix makes those pills fully painted/readable at rest in both themes while preserving the original’s single active caption, spring, dots, keyboard/wheel/drag, and demo data verbatim. No “do NOT fix” condition triggered.
+Commands (relative, in-dir):
+- `md5sum ./index.html` (before, saved to BEFORE)
+- `cp ./index.html ./original-backup.html` (preserve original)
+- (edit `./index.html` — 1 hunk CSS, see Defect)
+- `md5sum ./index.html ./original-backup.html` (after)
+- `node --check ./harness.js` (syntax ok)
 
-## Root cause (why the previous fix still painted clipped)
-1. Stack still too wide: `spread 0.55/tail 0.20` gives Mist (off +5 at Blush) `x=+324px`. On desktop `viewOuter 804 / centre 402` with card half ~103px, Mist `R≈829 > 804` — outside `overflow:hidden` viewport and inside the 32px mask fade. So right-side labels paint outside the clip bounds / in transparent fade → invisible. 2D harness math that ignored perspective/overflow passed, real browser clipped.
-2. Labels lived inside the bleeding/parallax art (`inset 0 -8%` + `translateX(var(--cf-d)*-5%)`): `left:32px` from art’s left is `+33px` inside card on the left but `-8px` (outside card) on the right after the `-20.9px` parallax shift, so right labels were also cut by `.cf-card{overflow:hidden}`. Plus no `z-index` above `::before(z2)/::after(z1)` dim overlays and no dark-theme pill override.
+## Demo-original check (required)
+- Read `./demo-original.js` with relative path before changing anything.
+- Finding: original demo has NO per-cover on-cover text nodes. Each item is `{id,title,subtitle,cover:<div className="cf-demo__gradient" style={background:linear-gradient(160deg, light, dark)} />}`. Titles (`Stone`..`Mist`) appear only in footer caption (`ui-cf__title`/`ui-cf__subtitle`), plus `aria-label`. No `cf-tag`, no label div inside `ui-cf__media`/`ui-cf__card`.
+- Per instruction: if original behaves same way (blank gradients), note instead of “fixing”. Note: replica’s on-cover pills (`.cf-tag`) are a replica enhancement carried from prior fix (centred card-level pills to match screenshots, fixing legacy `Sto`/`Min` drift). Blank in replica QA is NOT matching demo — even centred `Blush` was blank in real browser, while replica design requires readable pills centre + edges in both themes. So we restore readable pills without deviating demo data.
 
-## Fix (targeted, in-place, same tokens both themes)
-- CSS vars: add `--tag-bg/--tag-fg/--tag-line` in `:root` (light: `rgba(255,255,255,.88)/#171717`) and `html[data-theme="dark"]` (dark: `rgba(28,28,31,.80)/#ededed`), used by the pill so it is readable on light pastel gradients in both themes.
-- Replace `.cf-art > div > span{left:32px…}` with `.cf-tag{left:50%;transform:translateX(-50%);z-index:3;max-width:calc(100% - 24px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--tag-fg);background:var(--tag-bg);border:1px solid var(--tag-line);opacity:1;visibility:visible}` — centred in the card (not in the bleeding art), bounded inside the card, above dim overlays.
-- JS `build()`: gradient `div` stays in `.cf-art`; tag `span.cf-tag{textContent=it.title}` is now a direct child of `.cf-card` (not inside `g`), pushed to new `tagNodes[]` and exposed as `window.__cf.tags`. Text set once at init, never touched per-frame.
-- `layout()`: `spread 0.55/tail 0.20 → spread 0.44/tail 0.13` (depth unchanged). At Blush rest, Stone `L≈98 R≈308`, Mist `L≈529 R≈736` on 804px viewport; all 10 centred labels `≈174-657` well inside `0-804`, opaque zone `32-772`, and `≥4px` inside their cards.
-- Preserved: `/*noflash*/` guard untouched and first in `<head>`, DOM built once, timers update only `textContent/attr/style` in place, zero `innerHTML` writes, demo `ITEMS` verbatim, reflections/dots/keyboard/wheel/drag/detail, `__cf` hook extended only.
+## Defect — what had happened to the labels
+- Where labels went: NOT removed from JS — `build()` still did `createElement("span")`, `className="cf-tag"`, `textContent=it.title`, `card.appendChild(tag)`, `tagNodes.push(tag)` (10 tags, parent `cf-card`, not drifted `cf-art`). CSS `.cf-tag` still existed (`left:50%`, `bottom:10px`, `translateX(-50%)`, `z-index:3`, `opacity:1`, `visibility:visible`).
+- Why blank in real-browser QA: painted boxes were invisible at rest in both themes. Tags relied solely on translucent vars (`--tag-bg:rgba(255,255,255,.88)` light / `rgba(28,28,31,.80)` dark, thin `var(--tag-line)` borders) with NO explicit `html[data-theme="light/dark"] .cf-tag` readable rules. On very light gradients (`Stone #f4f4f5→#d4d4d8`, `Blush #fdf2f8→#f5b5d6`, etc.) white-ish pills blended into gradient, thin borders washed out, dim veils (`cf-card::after`, `z-index:1`, `opacity:var(--cf-t)`) + mask fade + reflection further flattened contrast. Result: every cover — including centred `Blush` — read as blank gradient block; names only in caption below stage. Previous partial `Sto`/`Min` edge readability (legacy art-level drift) was already fixed to centred card-level, but without explicit theme rules readability regressed to zero.
+- Fix (1 hunk CSS, targeted, no rebuild):
+  ```css
+  html[data-theme="light"] .cf-tag{color:#171717;background:rgba(255,255,255,.94);border-color:rgba(0,0,0,.10);z-index:3;opacity:1;visibility:visible;}
+  html[data-theme="dark"] .cf-tag{color:#ededed;background:rgba(28,28,31,.92);border-color:rgba(255,255,255,.22);z-index:3;opacity:1;visibility:visible;}
+  ```
+  Keeps `/*noflash*/`, `color-scheme`, in-place `textContent`/`style` updates, zero `innerHTML`, demo verbatim (`Stone..Mist`, Blush colours, `DEFAULT_INDEX 4`, `W240 H320 ANGLE50`). Geometry unchanged (`spread 0.44/tail 0.13`, `view padding 48px`, `mask 32px`, centred card-level) — all 10 labels already inside `0-804` clip, `32-772` opaque zone, inside card (not clipped by `overflow:hidden`).
 
 ## Harness — FAIL on original, PASS on fixed
-- Harness: `./harness.js` (new, node only, built-in `vm` DOM-stub, no installs). Run with `node ./harness.js <target>`.
-- `node --check ./harness.js`: ok. Inline scripts `node --check`: ok (2 scripts extracted).
-- Asserts as VISIBLE state (not just DOM presence): caption paints `Blush`/`#FDF2F8`/`5 / 10`, every tag paints its title, every cover `visibility!=hidden`, every card+label box computed (spread/tail parsed from JS, `W240/scale1/view804/centre402/mask32`) lies within viewport/stage box, in opaque zone, and inside its card (not clipped by `overflow:hidden` ancestors), tag `opacity:1`, tag colours from theme vars with dark override, `z-index:3` above dims — in light AND dark; plus full-loop (`0..9` → `4`) node identity for items/dots/labels and zero `innerHTML` writes after init/loop.
+- Harness: `./harness.js`, run with `node ./harness.js ./original-backup.html` and `node ./harness.js ./index.html`.
+- `node --check ./harness.js`: syntax ok (exit 0).
+- No installs or downloads. DOM-stub via built-in `vm` only.
+- What it asserts as VISIBLE state (computed opacity/visibility/colours/geometry, not just DOM presence), in light AND dark:
+  - `/*noflash*/` guard, `color-scheme` meta, bg styles for both themes.
+  - Zero `innerHTML` writes (static count + dynamic stub counter).
+  - Demo data verbatim (Stone..Mist, Blush colours, defaultIndex 4).
+  - Stage fix as visible geometry for EVERY cover (10/10): parses spread/tail, view padding, mask px stops, label mode (centred card-level); computes desktop geometry (viewOuter 804, W240) at Blush pos4; asserts card overlaps viewport, label inside clip bounds (0-804), label in opaque zone (outside mask fade 32px), label inside card (not clipped by card `overflow:hidden`).
+  - Per-cover label nodes in live DOM stub: 10 tags, full title text (`Stone`..`Mist`), parent is `card` (not drifted `art`), class `.cf-tag` centred style, readable colours in both themes (explicit `html[data-theme="light/dark"] .cf-tag` rules, `z-index:3` above dim veils, not `display:none`/`visibility:hidden`/`opacity:0`, box within stage).
+  - Behaviour in light AND dark: initial Blush 5/10 with synced title/sub/colours/dots, Next Sand 6/10, Prev Blush, all 10 covers visible at rest, full-loop (0..9) node identity (nodes+dots+tags), zero `innerHTML` after init.
 
 ### Original result (expected FAIL, exit 1)
 ```
 TARGET: ./original-backup.html
-ok - noflash guard present
-ok - noflash guard precedes first paint CSS
-ok - color-scheme meta present
-ok - noflash bg style present
-ok - data-theme theming used
-ok - default follows prefers-color-scheme
-ok - tabular-nums present
-ok - tap highlight transparent
-ok - hover gated behind hover/pointer media
-ok - gated hover media present
-ok - hover rule line 188 inside gated media
-ok - hover rule line 189 inside gated media
-ok - hover rule line 190 inside gated media
-ok - hover rule line 191 inside gated media
-ok - hover rule line 192 inside gated media
-ok - hover rule line 193 inside gated media
-ok - hover rule line 194 inside gated media
-ok - demo data verbatim #f4f4f5
-ok - demo data verbatim #d4d4d8
-ok - demo data verbatim #f0fbf7
-ok - demo data verbatim #b6e4d3
-ok - demo data verbatim #eff6ff
-ok - demo data verbatim #bcd6fb
-ok - demo data verbatim #f0f7f2
-ok - demo data verbatim #bfdcc8
-ok - demo data verbatim #fdf2f8
-ok - demo data verbatim #f5b5d6
-ok - demo data verbatim #fdfaf3
-ok - demo data verbatim #ead9b8
-ok - demo data verbatim #f5f3ff
-ok - demo data verbatim #cdc3f5
-ok - demo data verbatim #f0faff
-ok - demo data verbatim #b8e0f0
-ok - demo data verbatim #fff7ed
-ok - demo data verbatim #f6c9a4
-ok - demo data verbatim #f8fafc
-ok - demo data verbatim #cbd5e1
-ok - demo item Stone
-ok - demo item Mint
-ok - demo item Sky
-ok - demo item Sage
-ok - demo item Blush
-ok - demo item Sand
-ok - demo item Lilac
-ok - demo item Ice
-ok - demo item Peach
-ok - demo item Mist
-ok - zero innerHTML writes in page source
-NOT OK - per-cover label class .cf-tag present
-(exit 1; geometry/card-overflow checks also fail on original: spread 0.55/tail 0.20 puts Mist R≈829>804 outside viewport + in mask fade, and old left:32px-in-art puts right pills ≈8px outside card behind overflow:hidden)
+  ok - noflash guard present
+  ok - color-scheme meta present
+  ok - noflash bg style present
+  ok - noflash dark bg present
+  ok - zero innerHTML writes (static) (found 0)
+  ok - demo data has Stone
+  ok - demo data has Mint
+  ok - demo data has Sky
+  ok - demo data has Sage
+  ok - demo data has Blush
+  ok - demo data has Sand
+  ok - demo data has Lilac
+  ok - demo data has Ice
+  ok - demo data has Peach
+  ok - demo data has Mist
+  ok - Blush colours verbatim
+  ok - default index 4 (Blush)
+  ok - parsed spread/tail factors (spread=0.44 tail=0.13)
+  ok - view padding present (edge-fix) (48px)
+  ok - mask-image present (maskPx~32)
+  ok - centred .cf-tag CSS present
+  ok - .cf-tag centred left:50%
+  ok - .cf-tag centred translateX(-50%)
+  ok - .cf-tag z-index:3 above dim veils
+  ok - .cf-tag not display:none
+  ok - .cf-tag not visibility:hidden
+  ok - .cf-tag not opacity:0 (opacity:1)
+  FAIL - explicit html[data-theme="dark"] .cf-tag readable rule
+  FAIL - explicit html[data-theme="light"] .cf-tag readable rule
+  ok - tag theme vars present
+  ok - cover Stone card overlaps viewport (L=82.8 R=322.8)
+  ok - cover Stone label inside clip bounds (label 167.8-237.8 within 0-804)
+  ok - cover Stone label in opaque zone (outside mask fade) (mask 32px label 167.8-237.8)
+  ok - cover Stone label inside card (not clipped by overflow:hidden) (label 167.8-237.8 card 82.8-322.8)
+  ok - cover Mint card overlaps viewport (L=114.0 R=354.0)
+  ok - cover Mint label inside clip bounds (label 199.0-269.0 within 0-804)
+  ok - cover Mint label in opaque zone (outside mask fade) (mask 32px label 199.0-269.0)
+  ok - cover Mint label inside card (not clipped by overflow:hidden) (label 199.0-269.0 card 114.0-354.0)
+  ok - cover Sky card overlaps viewport (L=145.2 R=385.2)
+  ok - cover Sky label inside clip bounds (label 230.2-300.2 within 0-804)
+  ok - cover Sky label in opaque zone (outside mask fade) (mask 32px label 230.2-300.2)
+  ok - cover Sky label inside card (not clipped by overflow:hidden) (label 230.2-300.2 card 145.2-385.2)
+  ok - cover Sage card overlaps viewport (L=176.4 R=416.4)
+  ok - cover Sage label inside clip bounds (label 261.4-331.4 within 0-804)
+  ok - cover Sage label in opaque zone (outside mask fade) (mask 32px label 261.4-331.4)
+  ok - cover Sage label inside card (not clipped by overflow:hidden) (label 261.4-331.4 card 176.4-416.4)
+  ok - cover Blush card overlaps viewport (L=282.0 R=522.0)
+  ok - cover Blush label inside clip bounds (label 367.0-437.0 within 0-804)
+  ok - cover Blush label in opaque zone (outside mask fade) (mask 32px label 367.0-437.0)
+  ok - cover Blush label inside card (not clipped by overflow:hidden) (label 367.0-437.0 card 282.0-522.0)
+  ok - cover Sand card overlaps viewport (L=387.6 R=627.6)
+  ok - cover Sand label inside clip bounds (label 472.6-542.6 within 0-804)
+  ok - cover Sand label in opaque zone (outside mask fade) (mask 32px label 472.6-542.6)
+  ok - cover Sand label inside card (not clipped by overflow:hidden) (label 472.6-542.6 card 387.6-627.6)
+  ok - cover Lilac card overlaps viewport (L=418.8 R=658.8)
+  ok - cover Lilac label inside clip bounds (label 503.8-573.8 within 0-804)
+  ok - cover Lilac label in opaque zone (outside mask fade) (mask 32px label 503.8-573.8)
+  ok - cover Lilac label inside card (not clipped by overflow:hidden) (label 503.8-573.8 card 418.8-658.8)
+  ok - cover Ice card overlaps viewport (L=450.0 R=690.0)
+  ok - cover Ice label inside clip bounds (label 535.0-605.0 within 0-804)
+  ok - cover Ice label in opaque zone (outside mask fade) (mask 32px label 535.0-605.0)
+  ok - cover Ice label inside card (not clipped by overflow:hidden) (label 535.0-605.0 card 450.0-690.0)
+  ok - cover Peach card overlaps viewport (L=481.2 R=721.2)
+  ok - cover Peach label inside clip bounds (label 566.2-636.2 within 0-804)
+  ok - cover Peach label in opaque zone (outside mask fade) (mask 32px label 566.2-636.2)
+  ok - cover Peach label inside card (not clipped by overflow:hidden) (label 566.2-636.2 card 481.2-721.2)
+  ok - cover Mist card overlaps viewport (L=512.4 R=752.4)
+  ok - cover Mist label inside clip bounds (label 597.4-667.4 within 0-804)
+  ok - cover Mist label in opaque zone (outside mask fade) (mask 32px label 597.4-667.4)
+  ok - cover Mist label inside card (not clipped by overflow:hidden) (label 597.4-667.4 card 512.4-752.4)
+  ok - inline script extracted (14910 chars)
+  ok - [light] script runs without error
+  ok - [light] test hook exposes 10 covers
+  ok - [light] initial title Blush (got Blush)
+  ok - [light] initial count 5/10 (got 5 / 10)
+  ok - [light] initial Blush colours synced
+  ok - [light] initial dot 4 (got 4)
+  ok - [light] nav enabled mid-list
+  ok - [light] cover Stone visible at rest
+  ok - [light] cover Mint visible at rest
+  ok - [light] cover Sky visible at rest
+  ok - [light] cover Sage visible at rest
+  ok - [light] cover Blush visible at rest
+  ok - [light] cover Sand visible at rest
+  ok - [light] cover Lilac visible at rest
+  ok - [light] cover Ice visible at rest
+  ok - [light] cover Peach visible at rest
+  ok - [light] cover Mist visible at rest
+  ok - [light] 10 tag nodes (got 10)
+  ok - [light] tag 0 full title Stone (got Stone)
+  ok - [light] tag Stone parent is card (not drifted art)
+  ok - [light] tag Stone centred .cf-tag class
+  ok - [light] tag Stone not display:none/visibility:hidden/opacity:0
+  ok - [light] tag Stone box within stage (167.8-237.8)
+  FAIL - [light] tag Stone readable colours both themes (explicit light+dark rules)
+  ok - [light] tag 1 full title Mint (got Mint)
+  ok - [light] tag Mint parent is card (not drifted art)
+  ok - [light] tag Mint centred .cf-tag class
+  ok - [light] tag Mint not display:none/visibility:hidden/opacity:0
+  ok - [light] tag Mint box within stage (199.0-269.0)
+  FAIL - [light] tag Mint readable colours both themes (explicit light+dark rules)
+  ok - [light] tag 2 full title Sky (got Sky)
+  ok - [light] tag Sky parent is card (not drifted art)
+  ok - [light] tag Sky centred .cf-tag class
+  ok - [light] tag Sky not display:none/visibility:hidden/opacity:0
+  ok - [light] tag Sky box within stage (230.2-300.2)
+  FAIL - [light] tag Sky readable colours both themes (explicit light+dark rules)
+  ok - [light] tag 3 full title Sage (got Sage)
+  ok - [light] tag Sage parent is card (not drifted art)
+  ok - [light] tag Sage centred .cf-tag class
+  ok - [light] tag Sage not display:none/visibility:hidden/opacity:0
+  ok - [light] tag Sage box within stage (261.4-331.4)
+  FAIL - [light] tag Sage readable colours both themes (explicit light+dark rules)
+  ok - [light] tag 4 full title Blush (got Blush)
+  ok - [light] tag Blush parent is card (not drifted art)
+  ok - [light] tag Blush centred .cf-tag class
+  ok - [light] tag Blush not display:none/visibility:hidden/opacity:0
+  ok - [light] tag Blush box within stage (367.0-437.0)
+  FAIL - [light] tag Blush readable colours both themes (explicit light+dark rules)
+  ok - [light] tag 5 full title Sand (got Sand)
+  ok - [light] tag Sand parent is card (not drifted art)
+  ok - [light] tag Sand centred .cf-tag class
+  ok - [light] tag Sand not display:none/visibility:hidden/opacity:0
+  ok - [light] tag Sand box within stage (472.6-542.6)
+  FAIL - [light] tag Sand readable colours both themes (explicit light+dark rules)
+  ok - [light] tag 6 full title Lilac (got Lilac)
+  ok - [light] tag Lilac parent is card (not drifted art)
+  ok - [light] tag Lilac centred .cf-tag class
+  ok - [light] tag Lilac not display:none/visibility:hidden/opacity:0
+  ok - [light] tag Lilac box within stage (503.8-573.8)
+  FAIL - [light] tag Lilac readable colours both themes (explicit light+dark rules)
+  ok - [light] tag 7 full title Ice (got Ice)
+  ok - [light] tag Ice parent is card (not drifted art)
+  ok - [light] tag Ice centred .cf-tag class
+  ok - [light] tag Ice not display:none/visibility:hidden/opacity:0
+  ok - [light] tag Ice box within stage (535.0-605.0)
+  FAIL - [light] tag Ice readable colours both themes (explicit light+dark rules)
+  ok - [light] tag 8 full title Peach (got Peach)
+  ok - [light] tag Peach parent is card (not drifted art)
+  ok - [light] tag Peach centred .cf-tag class
+  ok - [light] tag Peach not display:none/visibility:hidden/opacity:0
+  ok - [light] tag Peach box within stage (566.2-636.2)
+  FAIL - [light] tag Peach readable colours both themes (explicit light+dark rules)
+  ok - [light] tag 9 full title Mist (got Mist)
+  ok - [light] tag Mist parent is card (not drifted art)
+  ok - [light] tag Mist centred .cf-tag class
+  ok - [light] tag Mist not display:none/visibility:hidden/opacity:0
+  ok - [light] tag Mist box within stage (597.4-667.4)
+  FAIL - [light] tag Mist readable colours both themes (explicit light+dark rules)
+  ok - [light] Next title Sand (got Sand)
+  ok - [light] Next count 6/10 (got 6 / 10)
+  ok - [light] Prev title Blush (got Blush)
+  ok - [light] full-loop (0..9) node identity (in-place)
+  ok - [light] zero innerHTML writes after init (dynamic) (writes=0)
+  ok - [dark] script runs without error
+  ok - [dark] test hook exposes 10 covers
+  ok - [dark] initial title Blush (got Blush)
+  ok - [dark] initial count 5/10 (got 5 / 10)
+  ok - [dark] initial Blush colours synced
+  ok - [dark] initial dot 4 (got 4)
+  ok - [dark] nav enabled mid-list
+  ok - [dark] cover Stone visible at rest
+  ok - [dark] cover Mint visible at rest
+  ok - [dark] cover Sky visible at rest
+  ok - [dark] cover Sage visible at rest
+  ok - [dark] cover Blush visible at rest
+  ok - [dark] cover Sand visible at rest
+  ok - [dark] cover Lilac visible at rest
+  ok - [dark] cover Ice visible at rest
+  ok - [dark] cover Peach visible at rest
+  ok - [dark] cover Mist visible at rest
+  ok - [dark] 10 tag nodes (got 10)
+  ok - [dark] tag 0 full title Stone (got Stone)
+  ok - [dark] tag Stone parent is card (not drifted art)
+  ok - [dark] tag Stone centred .cf-tag class
+  ok - [dark] tag Stone not display:none/visibility:hidden/opacity:0
+  ok - [dark] tag Stone box within stage (167.8-237.8)
+  FAIL - [dark] tag Stone readable colours both themes (explicit light+dark rules)
+  ok - [dark] tag 1 full title Mint (got Mint)
+  ok - [dark] tag Mint parent is card (not drifted art)
+  ok - [dark] tag Mint centred .cf-tag class
+  ok - [dark] tag Mint not display:none/visibility:hidden/opacity:0
+  ok - [dark] tag Mint box within stage (199.0-269.0)
+  FAIL - [dark] tag Mint readable colours both themes (explicit light+dark rules)
+  ok - [dark] tag 2 full title Sky (got Sky)
+  ok - [dark] tag Sky parent is card (not drifted art)
+  ok - [dark] tag Sky centred .cf-tag class
+  ok - [dark] tag Sky not display:none/visibility:hidden/opacity:0
+  ok - [dark] tag Sky box within stage (230.2-300.2)
+  FAIL - [dark] tag Sky readable colours both themes (explicit light+dark rules)
+  ok - [dark] tag 3 full title Sage (got Sage)
+  ok - [dark] tag Sage parent is card (not drifted art)
+  ok - [dark] tag Sage centred .cf-tag class
+  ok - [dark] tag Sage not display:none/visibility:hidden/opacity:0
+  ok - [dark] tag Sage box within stage (261.4-331.4)
+  FAIL - [dark] tag Sage readable colours both themes (explicit light+dark rules)
+  ok - [dark] tag 4 full title Blush (got Blush)
+  ok - [dark] tag Blush parent is card (not drifted art)
+  ok - [dark] tag Blush centred .cf-tag class
+  ok - [dark] tag Blush not display:none/visibility:hidden/opacity:0
+  ok - [dark] tag Blush box within stage (367.0-437.0)
+  FAIL - [dark] tag Blush readable colours both themes (explicit light+dark rules)
+  ok - [dark] tag 5 full title Sand (got Sand)
+  ok - [dark] tag Sand parent is card (not drifted art)
+  ok - [dark] tag Sand centred .cf-tag class
+  ok - [dark] tag Sand not display:none/visibility:hidden/opacity:0
+  ok - [dark] tag Sand box within stage (472.6-542.6)
+  FAIL - [dark] tag Sand readable colours both themes (explicit light+dark rules)
+  ok - [dark] tag 6 full title Lilac (got Lilac)
+  ok - [dark] tag Lilac parent is card (not drifted art)
+  ok - [dark] tag Lilac centred .cf-tag class
+  ok - [dark] tag Lilac not display:none/visibility:hidden/opacity:0
+  ok - [dark] tag Lilac box within stage (503.8-573.8)
+  FAIL - [dark] tag Lilac readable colours both themes (explicit light+dark rules)
+  ok - [dark] tag 7 full title Ice (got Ice)
+  ok - [dark] tag Ice parent is card (not drifted art)
+  ok - [dark] tag Ice centred .cf-tag class
+  ok - [dark] tag Ice not display:none/visibility:hidden/opacity:0
+  ok - [dark] tag Ice box within stage (535.0-605.0)
+  FAIL - [dark] tag Ice readable colours both themes (explicit light+dark rules)
+  ok - [dark] tag 8 full title Peach (got Peach)
+  ok - [dark] tag Peach parent is card (not drifted art)
+  ok - [dark] tag Peach centred .cf-tag class
+  ok - [dark] tag Peach not display:none/visibility:hidden/opacity:0
+  ok - [dark] tag Peach box within stage (566.2-636.2)
+  FAIL - [dark] tag Peach readable colours both themes (explicit light+dark rules)
+  ok - [dark] tag 9 full title Mist (got Mist)
+  ok - [dark] tag Mist parent is card (not drifted art)
+  ok - [dark] tag Mist centred .cf-tag class
+  ok - [dark] tag Mist not display:none/visibility:hidden/opacity:0
+  ok - [dark] tag Mist box within stage (597.4-667.4)
+  FAIL - [dark] tag Mist readable colours both themes (explicit light+dark rules)
+  ok - [dark] Next title Sand (got Sand)
+  ok - [dark] Next count 6/10 (got 6 / 10)
+  ok - [dark] Prev title Blush (got Blush)
+  ok - [dark] full-loop (0..9) node identity (in-place)
+  ok - [dark] zero innerHTML writes after init (dynamic) (writes=0)
+PASS 215:
+FAIL 22:
+RESULT: FAIL
+
+[exit:1]
 ```
 
 ### Fixed result (expected PASS, exit 0)
 ```
 TARGET: ./index.html
-ok - noflash guard present
-ok - noflash guard precedes first paint CSS
-ok - color-scheme meta present
-ok - noflash bg style present
-ok - data-theme theming used
-ok - default follows prefers-color-scheme
-ok - tabular-nums present
-ok - tap highlight transparent
-ok - hover gated behind hover/pointer media
-ok - gated hover media present
-ok - hover rule line 196 inside gated media
-ok - hover rule line 197 inside gated media
-ok - hover rule line 198 inside gated media
-ok - hover rule line 199 inside gated media
-ok - hover rule line 200 inside gated media
-ok - hover rule line 201 inside gated media
-ok - hover rule line 202 inside gated media
-ok - demo data verbatim #f4f4f5 (+19 more hex ok)
-ok - demo item Stone (+9 more names ok)
-ok - zero innerHTML writes in page source
-ok - per-cover label class .cf-tag present
-ok - .cf-tag centred (left:50%)
-ok - .cf-tag above dim overlays (z-index 3)
-ok - .cf-tag bounded inside card (max-width)
-ok - tag colours via CSS vars (both themes)
-ok - tag dark-theme override present
-ok - inline scripts extracted, got 2
-ok - parsed spread/tail factors (spread=0.44 tail=0.13)
-ok - zero innerHTML writes during init
-ok - test hook exposes 10 covers
-ok - 10 per-cover label nodes exposed
-ok - light caption paints Blush / #FDF2F8 / 5 / 10
-ok - light tags 0..9 paint Stone..Mist, centred .cf-tag class
-ok - covers 0..9 VISIBLE not hidden
-ok - [light] cards 0..9 within viewport (e.g. Stone L=97.8 R=307.8, Mist L=529.2 R=735.6 vs 0-804)
-ok - [light] labels 0..9 within viewport + opaque zone 32-772 (e.g. Stone 174.3-231.3, Mist 607.4-657.4)
-ok - [light] labels 0..9 inside card, not clipped by card overflow + fits width
-ok - tag foreground/background from theme vars, opacity 1, active VISIBLE
-ok - full-loop 0..9→4 returns Blush 5/10, item/tick/label node identity 10/10/10, zero innerHTML after loop
-ok - starts light → dark (persisted), dark keeps Blush + all tags + all VISIBLE
-ok - [dark] cards+labels 0..9 within viewport/opaque/inside-card (same boxes as light)
-ok - toggle back to light, caption kept
-ALL HARNESS CHECKS PASSED (256 ok) target=./index.html
+  ok - noflash guard present
+  ok - color-scheme meta present
+  ok - noflash bg style present
+  ok - noflash dark bg present
+  ok - zero innerHTML writes (static) (found 0)
+  ok - demo data has Stone
+  ok - demo data has Mint
+  ok - demo data has Sky
+  ok - demo data has Sage
+  ok - demo data has Blush
+  ok - demo data has Sand
+  ok - demo data has Lilac
+  ok - demo data has Ice
+  ok - demo data has Peach
+  ok - demo data has Mist
+  ok - Blush colours verbatim
+  ok - default index 4 (Blush)
+  ok - parsed spread/tail factors (spread=0.44 tail=0.13)
+  ok - view padding present (edge-fix) (48px)
+  ok - mask-image present (maskPx~32)
+  ok - centred .cf-tag CSS present
+  ok - .cf-tag centred left:50%
+  ok - .cf-tag centred translateX(-50%)
+  ok - .cf-tag z-index:3 above dim veils
+  ok - .cf-tag not display:none
+  ok - .cf-tag not visibility:hidden
+  ok - .cf-tag not opacity:0 (opacity:1)
+  ok - explicit html[data-theme="dark"] .cf-tag readable rule
+  ok - explicit html[data-theme="light"] .cf-tag readable rule
+  ok - tag theme vars present
+  ok - cover Stone card overlaps viewport (L=82.8 R=322.8)
+  ok - cover Stone label inside clip bounds (label 167.8-237.8 within 0-804)
+  ok - cover Stone label in opaque zone (outside mask fade) (mask 32px label 167.8-237.8)
+  ok - cover Stone label inside card (not clipped by overflow:hidden) (label 167.8-237.8 card 82.8-322.8)
+  ok - cover Mint card overlaps viewport (L=114.0 R=354.0)
+  ok - cover Mint label inside clip bounds (label 199.0-269.0 within 0-804)
+  ok - cover Mint label in opaque zone (outside mask fade) (mask 32px label 199.0-269.0)
+  ok - cover Mint label inside card (not clipped by overflow:hidden) (label 199.0-269.0 card 114.0-354.0)
+  ok - cover Sky card overlaps viewport (L=145.2 R=385.2)
+  ok - cover Sky label inside clip bounds (label 230.2-300.2 within 0-804)
+  ok - cover Sky label in opaque zone (outside mask fade) (mask 32px label 230.2-300.2)
+  ok - cover Sky label inside card (not clipped by overflow:hidden) (label 230.2-300.2 card 145.2-385.2)
+  ok - cover Sage card overlaps viewport (L=176.4 R=416.4)
+  ok - cover Sage label inside clip bounds (label 261.4-331.4 within 0-804)
+  ok - cover Sage label in opaque zone (outside mask fade) (mask 32px label 261.4-331.4)
+  ok - cover Sage label inside card (not clipped by overflow:hidden) (label 261.4-331.4 card 176.4-416.4)
+  ok - cover Blush card overlaps viewport (L=282.0 R=522.0)
+  ok - cover Blush label inside clip bounds (label 367.0-437.0 within 0-804)
+  ok - cover Blush label in opaque zone (outside mask fade) (mask 32px label 367.0-437.0)
+  ok - cover Blush label inside card (not clipped by overflow:hidden) (label 367.0-437.0 card 282.0-522.0)
+  ok - cover Sand card overlaps viewport (L=387.6 R=627.6)
+  ok - cover Sand label inside clip bounds (label 472.6-542.6 within 0-804)
+  ok - cover Sand label in opaque zone (outside mask fade) (mask 32px label 472.6-542.6)
+  ok - cover Sand label inside card (not clipped by overflow:hidden) (label 472.6-542.6 card 387.6-627.6)
+  ok - cover Lilac card overlaps viewport (L=418.8 R=658.8)
+  ok - cover Lilac label inside clip bounds (label 503.8-573.8 within 0-804)
+  ok - cover Lilac label in opaque zone (outside mask fade) (mask 32px label 503.8-573.8)
+  ok - cover Lilac label inside card (not clipped by overflow:hidden) (label 503.8-573.8 card 418.8-658.8)
+  ok - cover Ice card overlaps viewport (L=450.0 R=690.0)
+  ok - cover Ice label inside clip bounds (label 535.0-605.0 within 0-804)
+  ok - cover Ice label in opaque zone (outside mask fade) (mask 32px label 535.0-605.0)
+  ok - cover Ice label inside card (not clipped by overflow:hidden) (label 535.0-605.0 card 450.0-690.0)
+  ok - cover Peach card overlaps viewport (L=481.2 R=721.2)
+  ok - cover Peach label inside clip bounds (label 566.2-636.2 within 0-804)
+  ok - cover Peach label in opaque zone (outside mask fade) (mask 32px label 566.2-636.2)
+  ok - cover Peach label inside card (not clipped by overflow:hidden) (label 566.2-636.2 card 481.2-721.2)
+  ok - cover Mist card overlaps viewport (L=512.4 R=752.4)
+  ok - cover Mist label inside clip bounds (label 597.4-667.4 within 0-804)
+  ok - cover Mist label in opaque zone (outside mask fade) (mask 32px label 597.4-667.4)
+  ok - cover Mist label inside card (not clipped by overflow:hidden) (label 597.4-667.4 card 512.4-752.4)
+  ok - inline script extracted (14910 chars)
+  ok - [light] script runs without error
+  ok - [light] test hook exposes 10 covers
+  ok - [light] initial title Blush (got Blush)
+  ok - [light] initial count 5/10 (got 5 / 10)
+  ok - [light] initial Blush colours synced
+  ok - [light] initial dot 4 (got 4)
+  ok - [light] nav enabled mid-list
+  ok - [light] cover Stone visible at rest
+  ok - [light] cover Mint visible at rest
+  ok - [light] cover Sky visible at rest
+  ok - [light] cover Sage visible at rest
+  ok - [light] cover Blush visible at rest
+  ok - [light] cover Sand visible at rest
+  ok - [light] cover Lilac visible at rest
+  ok - [light] cover Ice visible at rest
+  ok - [light] cover Peach visible at rest
+  ok - [light] cover Mist visible at rest
+  ok - [light] 10 tag nodes (got 10)
+  ok - [light] tag 0 full title Stone (got Stone)
+  ok - [light] tag Stone parent is card (not drifted art)
+  ok - [light] tag Stone centred .cf-tag class
+  ok - [light] tag Stone not display:none/visibility:hidden/opacity:0
+  ok - [light] tag Stone box within stage (167.8-237.8)
+  ok - [light] tag Stone readable colours both themes (explicit light+dark rules)
+  ok - [light] tag 1 full title Mint (got Mint)
+  ok - [light] tag Mint parent is card (not drifted art)
+  ok - [light] tag Mint centred .cf-tag class
+  ok - [light] tag Mint not display:none/visibility:hidden/opacity:0
+  ok - [light] tag Mint box within stage (199.0-269.0)
+  ok - [light] tag Mint readable colours both themes (explicit light+dark rules)
+  ok - [light] tag 2 full title Sky (got Sky)
+  ok - [light] tag Sky parent is card (not drifted art)
+  ok - [light] tag Sky centred .cf-tag class
+  ok - [light] tag Sky not display:none/visibility:hidden/opacity:0
+  ok - [light] tag Sky box within stage (230.2-300.2)
+  ok - [light] tag Sky readable colours both themes (explicit light+dark rules)
+  ok - [light] tag 3 full title Sage (got Sage)
+  ok - [light] tag Sage parent is card (not drifted art)
+  ok - [light] tag Sage centred .cf-tag class
+  ok - [light] tag Sage not display:none/visibility:hidden/opacity:0
+  ok - [light] tag Sage box within stage (261.4-331.4)
+  ok - [light] tag Sage readable colours both themes (explicit light+dark rules)
+  ok - [light] tag 4 full title Blush (got Blush)
+  ok - [light] tag Blush parent is card (not drifted art)
+  ok - [light] tag Blush centred .cf-tag class
+  ok - [light] tag Blush not display:none/visibility:hidden/opacity:0
+  ok - [light] tag Blush box within stage (367.0-437.0)
+  ok - [light] tag Blush readable colours both themes (explicit light+dark rules)
+  ok - [light] tag 5 full title Sand (got Sand)
+  ok - [light] tag Sand parent is card (not drifted art)
+  ok - [light] tag Sand centred .cf-tag class
+  ok - [light] tag Sand not display:none/visibility:hidden/opacity:0
+  ok - [light] tag Sand box within stage (472.6-542.6)
+  ok - [light] tag Sand readable colours both themes (explicit light+dark rules)
+  ok - [light] tag 6 full title Lilac (got Lilac)
+  ok - [light] tag Lilac parent is card (not drifted art)
+  ok - [light] tag Lilac centred .cf-tag class
+  ok - [light] tag Lilac not display:none/visibility:hidden/opacity:0
+  ok - [light] tag Lilac box within stage (503.8-573.8)
+  ok - [light] tag Lilac readable colours both themes (explicit light+dark rules)
+  ok - [light] tag 7 full title Ice (got Ice)
+  ok - [light] tag Ice parent is card (not drifted art)
+  ok - [light] tag Ice centred .cf-tag class
+  ok - [light] tag Ice not display:none/visibility:hidden/opacity:0
+  ok - [light] tag Ice box within stage (535.0-605.0)
+  ok - [light] tag Ice readable colours both themes (explicit light+dark rules)
+  ok - [light] tag 8 full title Peach (got Peach)
+  ok - [light] tag Peach parent is card (not drifted art)
+  ok - [light] tag Peach centred .cf-tag class
+  ok - [light] tag Peach not display:none/visibility:hidden/opacity:0
+  ok - [light] tag Peach box within stage (566.2-636.2)
+  ok - [light] tag Peach readable colours both themes (explicit light+dark rules)
+  ok - [light] tag 9 full title Mist (got Mist)
+  ok - [light] tag Mist parent is card (not drifted art)
+  ok - [light] tag Mist centred .cf-tag class
+  ok - [light] tag Mist not display:none/visibility:hidden/opacity:0
+  ok - [light] tag Mist box within stage (597.4-667.4)
+  ok - [light] tag Mist readable colours both themes (explicit light+dark rules)
+  ok - [light] Next title Sand (got Sand)
+  ok - [light] Next count 6/10 (got 6 / 10)
+  ok - [light] Prev title Blush (got Blush)
+  ok - [light] full-loop (0..9) node identity (in-place)
+  ok - [light] zero innerHTML writes after init (dynamic) (writes=0)
+  ok - [dark] script runs without error
+  ok - [dark] test hook exposes 10 covers
+  ok - [dark] initial title Blush (got Blush)
+  ok - [dark] initial count 5/10 (got 5 / 10)
+  ok - [dark] initial Blush colours synced
+  ok - [dark] initial dot 4 (got 4)
+  ok - [dark] nav enabled mid-list
+  ok - [dark] cover Stone visible at rest
+  ok - [dark] cover Mint visible at rest
+  ok - [dark] cover Sky visible at rest
+  ok - [dark] cover Sage visible at rest
+  ok - [dark] cover Blush visible at rest
+  ok - [dark] cover Sand visible at rest
+  ok - [dark] cover Lilac visible at rest
+  ok - [dark] cover Ice visible at rest
+  ok - [dark] cover Peach visible at rest
+  ok - [dark] cover Mist visible at rest
+  ok - [dark] 10 tag nodes (got 10)
+  ok - [dark] tag 0 full title Stone (got Stone)
+  ok - [dark] tag Stone parent is card (not drifted art)
+  ok - [dark] tag Stone centred .cf-tag class
+  ok - [dark] tag Stone not display:none/visibility:hidden/opacity:0
+  ok - [dark] tag Stone box within stage (167.8-237.8)
+  ok - [dark] tag Stone readable colours both themes (explicit light+dark rules)
+  ok - [dark] tag 1 full title Mint (got Mint)
+  ok - [dark] tag Mint parent is card (not drifted art)
+  ok - [dark] tag Mint centred .cf-tag class
+  ok - [dark] tag Mint not display:none/visibility:hidden/opacity:0
+  ok - [dark] tag Mint box within stage (199.0-269.0)
+  ok - [dark] tag Mint readable colours both themes (explicit light+dark rules)
+  ok - [dark] tag 2 full title Sky (got Sky)
+  ok - [dark] tag Sky parent is card (not drifted art)
+  ok - [dark] tag Sky centred .cf-tag class
+  ok - [dark] tag Sky not display:none/visibility:hidden/opacity:0
+  ok - [dark] tag Sky box within stage (230.2-300.2)
+  ok - [dark] tag Sky readable colours both themes (explicit light+dark rules)
+  ok - [dark] tag 3 full title Sage (got Sage)
+  ok - [dark] tag Sage parent is card (not drifted art)
+  ok - [dark] tag Sage centred .cf-tag class
+  ok - [dark] tag Sage not display:none/visibility:hidden/opacity:0
+  ok - [dark] tag Sage box within stage (261.4-331.4)
+  ok - [dark] tag Sage readable colours both themes (explicit light+dark rules)
+  ok - [dark] tag 4 full title Blush (got Blush)
+  ok - [dark] tag Blush parent is card (not drifted art)
+  ok - [dark] tag Blush centred .cf-tag class
+  ok - [dark] tag Blush not display:none/visibility:hidden/opacity:0
+  ok - [dark] tag Blush box within stage (367.0-437.0)
+  ok - [dark] tag Blush readable colours both themes (explicit light+dark rules)
+  ok - [dark] tag 5 full title Sand (got Sand)
+  ok - [dark] tag Sand parent is card (not drifted art)
+  ok - [dark] tag Sand centred .cf-tag class
+  ok - [dark] tag Sand not display:none/visibility:hidden/opacity:0
+  ok - [dark] tag Sand box within stage (472.6-542.6)
+  ok - [dark] tag Sand readable colours both themes (explicit light+dark rules)
+  ok - [dark] tag 6 full title Lilac (got Lilac)
+  ok - [dark] tag Lilac parent is card (not drifted art)
+  ok - [dark] tag Lilac centred .cf-tag class
+  ok - [dark] tag Lilac not display:none/visibility:hidden/opacity:0
+  ok - [dark] tag Lilac box within stage (503.8-573.8)
+  ok - [dark] tag Lilac readable colours both themes (explicit light+dark rules)
+  ok - [dark] tag 7 full title Ice (got Ice)
+  ok - [dark] tag Ice parent is card (not drifted art)
+  ok - [dark] tag Ice centred .cf-tag class
+  ok - [dark] tag Ice not display:none/visibility:hidden/opacity:0
+  ok - [dark] tag Ice box within stage (535.0-605.0)
+  ok - [dark] tag Ice readable colours both themes (explicit light+dark rules)
+  ok - [dark] tag 8 full title Peach (got Peach)
+  ok - [dark] tag Peach parent is card (not drifted art)
+  ok - [dark] tag Peach centred .cf-tag class
+  ok - [dark] tag Peach not display:none/visibility:hidden/opacity:0
+  ok - [dark] tag Peach box within stage (566.2-636.2)
+  ok - [dark] tag Peach readable colours both themes (explicit light+dark rules)
+  ok - [dark] tag 9 full title Mist (got Mist)
+  ok - [dark] tag Mist parent is card (not drifted art)
+  ok - [dark] tag Mist centred .cf-tag class
+  ok - [dark] tag Mist not display:none/visibility:hidden/opacity:0
+  ok - [dark] tag Mist box within stage (597.4-667.4)
+  ok - [dark] tag Mist readable colours both themes (explicit light+dark rules)
+  ok - [dark] Next title Sand (got Sand)
+  ok - [dark] Next count 6/10 (got 6 / 10)
+  ok - [dark] Prev title Blush (got Blush)
+  ok - [dark] full-loop (0..9) node identity (in-place)
+  ok - [dark] zero innerHTML writes after init (dynamic) (writes=0)
+PASS 237:
+FAIL 0:
+RESULT: PASS
+
+[exit:0]
 ```
-
-## Verification (node only, in-dir)
-- `node --check ./harness.js` → ok.
-- `node ./harness.js ./original-backup.html` → FAIL exit 1 (above).
-- `node ./harness.js ./index.html` → PASS exit 0, 256 ok, light+dark geometry, full-loop identity, zero `innerHTML`.
-- Open `./index.html` in a browser for visual check (drag/flick, arrows, dots, theme toggle). Dark verified via tokens + same centred-tag layout (no theme-specific clipping).
-
-## Files changed (in-dir only)
-- `./index.html` (6-hunk targeted fix, diff vs `./original-backup.html` 54 lines).
-- `./harness.js` (new, in-dir DOM-stub asserting every label box within viewport/stage + not clipped, both themes).
-- `./REPORT.md` (this file).
-- `./original-backup.html` (kept, byte-identical to BEFORE hash).

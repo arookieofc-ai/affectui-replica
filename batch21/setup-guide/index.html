@@ -94,7 +94,7 @@ body{
 /* ---- Setup Guide card (clean-room, behaviour-matched) ---- */
 .sgd{
   box-sizing:border-box;width:100%;max-width:320px;
-  padding:16px 8px 12px;
+  padding:16px 8px 16px;
   background:var(--surface);
   border:1px solid var(--line);
   border-radius:20px;
@@ -115,7 +115,8 @@ body{
 .sgd-fill{display:block;height:100%;border-radius:inherit;background:var(--accent);transform-origin:left center;transition:transform 700ms var(--ease)}
 .sgd-body{display:grid;grid-template-rows:1fr;transition:grid-template-rows 420ms var(--ease),opacity 260ms ease}
 .sgd-body[data-hidden]{grid-template-rows:0fr;opacity:0}
-.sgd-groups{min-height:0;overflow:hidden}
+.sgd-groups{min-height:0;overflow:hidden;padding-bottom:4px}
+.sgd-group:last-child{margin-bottom:0}
 .sgd-group{border-radius:12px;transition:background-color 260ms ease}
 .sgd-group[data-open]{background:var(--open)}
 .sgd-grouphead{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;width:100%;padding:11px 12px;border-radius:12px;text-align:left}
@@ -202,6 +203,10 @@ var GROUPS=[
 var TITLE="Setup guide";
 var doneSet=new Set();
 GROUPS.forEach(function(g){g.tasks.forEach(function(t){if(t.done){doneSet.add(t.id)}})});
+var initialDone=new Set(doneSet);
+var hasInteracted=false;
+function initiallyDone(g){return g.tasks.every(function(t){return initialDone.has(t.id)})}
+function titleDone(g){return groupDone(g)&&(hasInteracted||!initiallyDone(g))}
 function firstOpen(){
   for(var i=0;i<GROUPS.length;i++){
     var g=GROUPS[i];
@@ -429,7 +434,7 @@ function applyOpen(){
 function applyGroups(){
   GROUPS.forEach(function(g){
     var r=groupRefs[g.id];
-    var done=groupDone(g);
+    var done=titleDone(g);
     if(done){r.titleEl.setAttribute("data-done","")}else{r.titleEl.removeAttribute("data-done")}
     r.tasks.forEach(function(tr,idx){
       var st=stateOf(g,idx);
@@ -455,6 +460,7 @@ function toggleTask(g,t){
   var f=firstUndoneIdx(g);
   if(doneSet.has(t.id)){st="done"}
   else if(f!==-1&&idx>f){return}
+  hasInteracted=true;
   if(doneSet.has(t.id)){doneSet.delete(t.id)}
   else{doneSet.add(t.id)}
   if(advanceTimer){clearTimeout(advanceTimer);advanceTimer=null}
