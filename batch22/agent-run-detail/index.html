@@ -269,14 +269,17 @@ state.filter=f;
 var map={all:['fAll'],thinking:['fThink'],tools:['fTools'],fail:['fFail']};
 var btns={all:document.getElementById('fAll'),thinking:document.getElementById('fThink'),tools:document.getElementById('fTools'),fail:document.getElementById('fFail')};
 for(var k in btns){btns[k].setAttribute('aria-pressed',k===f?'true':'false');}
+var visible=0;
 for(var i=0;i<STEPS.length;i++){
 var s=STEPS[i];var show=true;
 if(f==='thinking')show=(s.kind==='thinking');
 else if(f==='tools')show=(s.kind==='tool');
 else if(f==='fail')show=(s.state==='failed');
 var n=stepNodes[i];
-if(show)n.classList.remove('dim');else n.classList.add('dim');
+if(show){n.classList.remove('dim');n.style.display='';n.removeAttribute('hidden');visible++;}
+else{n.classList.add('dim');n.style.display='none';n.setAttribute('hidden','');}
 }
+colTimeline.textContent='Timeline · '+visible+' step'+(visible===1?'':'s');
 }
 function select(idx,expand){
 state.selected=idx;
@@ -335,6 +338,7 @@ badge.className='status '+s2.state;
 var ic=row.children[0];
 ic.className='ticon '+s2.state;
 }
+applyFilter(state.filter);
 select(state.active,false);
 }
 function setTheme(t){
@@ -375,6 +379,7 @@ var badge=row.children[1].children[0].children[1];
 badge.textContent=STEPS[j].state;badge.className='status '+STEPS[j].state;
 var ic=row.children[0];ic.className='ticon '+STEPS[j].state;
 }
+applyFilter(state.filter);
 select(6,false);
 state.paused=false;pauseBtn.textContent='⏸ Pause';
 });

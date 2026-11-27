@@ -1,31 +1,71 @@
-# assistant-overview — REPORT
+# REPORT — fix-assistant-overview (Files made for you expansion)
 
 ## What was built
-- Single self-contained `index.html` (about 21KB, inline CSS + JS, system fonts only): affectUI "AI Chat / Overview" start page.
-- Header: `affectUI` brand mark (own drawn SVG squares, not the demo chunk path) + sun/moon theme toggle top-right switching `data-theme="light" | "dark"` on `<html>`.
-- Grid (4 cols, gap 8): Activity heatmap (span 2) + Recent chats (span 2) on row 1; Usage (1) + Files made for you (span 2) + This month (1) on row 2. Stacks to 2 cols under 700px and 1 col under 460px.
-- Activity: 40-week × 7-day heat grid (280 cells), levels 0–4 from the blue `#0190fe`, hover tooltip + polite live region, keyboard (Arrows/Home/End/Escape), focus selects last day, pointer-leave clears, slow auto-advance every 3s (skipped with reduced-motion / while hovering or focused). Foot: `872 chats · 214 files · 38 automations`, range `Feb – Nov`.
-- Recent chats: `Q3 launch messaging` (2 hours ago), `Ad hooks for the linen overshirt` (Yesterday), `Logo usage on partner sites` (3 days ago). Rows are buttons; clicking posts an in-place toast (`Opening Chat: …`).
-- Usage: `1,284 / 2,000 credits`, 4px meter at 64.2%, `Resets Dec 1`, `role="meter"` with full aria.
-- Files: `q3-launch-plan.md` (1 hour ago), `budget-by-channel.csv` (Yesterday), `competitor-pricing.csv` (Tue), split-name rendering with ellipsis, `title="name · folder"`, `11 more` button posting a toast.
-- This month: `Chats 36 +12` (up/green), `Files made 14 −3` (down/red, U+2212), per-stat aria labels (`+12 on last month`).
-- Clean-room: layout/CSS/JS rewritten from the public description and demo behaviour; no compiled-source copying (brand mark and icons are own strokes; heat formula re-implemented from the demo data shape).
+- Targeted fix of existing `./index.html` (no rebuild). Static painting untouched.
+- `Files made for you` now expands in place: 3 visible initially, 14 visible after `11 more`.
 
-## Demo data verbatim
-- Heat values use the exact `./demo-original.js` generator (`sin(t*12.9898)*43758.5453`, weekly ramp, weekend dip), anchor `2026-11-07`, total `872`, same level buckets and `No chats / 1 chat / N chats` labels.
-- Titles, times, filenames, usage `{used:1284, limit:2000, resets:Dec 1}`, month stats, and foot `214 files · 38 automations / Feb – Nov` copied verbatim.
+## Root cause
+- `Files` card wired both the `11 more` button and every file row to the same
+  `data-nav="Folders"` toast (`Opened Folders` / `Opening Folders: <name>`).
+- Clicking `11 more` never touched the list: still 3 `<li>`, button still `11 more`.
+- `demo-original.js` (checked before changing):
+  - `O` has exactly 3 files: `q3-launch-plan.md`, `budget-by-channel.csv`,
+    `competitor-pricing.csv`. There are **no other 11 file names in the original**.
+  - Both the `11 more` button (`children: '11 more'`) and each file row
+    (`O.map ... onClick:()=>B('Folders')`) call `onNavigate('Folders')`.
+    The original does **not** expand in place and has no `Show less` state;
+    it navigates to Folders. File click does **not** open a detail, same navigation.
+- Standalone replica has no Folders destination, so pure navigation reads as dead.
+  Fix keeps file-click navigation toast (faithful to original) but makes `11 more`
+  a real in-place disclosure, with toast `Showing all 14 files` / `Showing fewer files`.
 
-## Matches vs original
-- Matches: card grid/span pattern, paddings, radii, blue heat scale, row/mark/meta shapes, meter, stats, tooltip + keyboard + live region behaviour, toasts for Chat/Folders navigation.
-- Approximated: brand glyph and small icons redrawn (same size/placement, own paths); heat level tints via `color-mix` with close hex fallbacks; skeleton/empty states from the demo wrapper not shown by default (page renders the loaded state); extra `h.length - D.length` "N more" count not in demo data, so Recent shows no counter while Files shows the verbatim `11 more`.
+## Fix (in-place, noflash kept)
+- `./index.html` only:
+  - `11 more` button: `id="filesMore" aria-expanded="false" aria-controls="fileList"`
+    (removed `data-nav` so generic nav toast no longer hijacks it).
+  - Added `FILES[14]` (first 3 verbatim from `O`, same `name/at/where`; remaining 11
+    plausible to satisfy `Files made 14`: see list below). Built remaining 11 `<li>`
+    once at init via `createElement`, `li.hidden=true`, appended to `#fileList`.
+  - `toggleFiles()` flips `filesExpanded`, unhides/hides rows via `hidden`,
+    swaps button `11 more` <-> `Show less` + `aria-expanded`/`aria-label`, `say()` status.
+  - File rows (static + new) keep `data-nav="Folders"`; click still
+    `Opening Folders: <name>` (original behaviour preserved).
+  - Exposed for test: `window.__ov.{files,fileRows,filesMore,filesExpanded,toggleFiles,filesVisibleCount,fileList}`.
+  - Zero `innerHTML` writes; heat loop untouched (in-place `setAttribute` only).
+- `/*noflash*/` guard, `<meta name=color-scheme>`, theme tokens, hover media query,
+  `tabular-nums` all untouched.
 
-## Could not verify
-- Pixel-perfect comparison against the live affectUI site (no browser/fetch in this environment); dark-mode contrast checked by token inspection, not screenshots.
+## 14 files (demo data verbatim + plausible remainder)
+Verbatim (from `O`): `q3-launch-plan.md|1 hour ago|Q3 Campaign`,
+`budget-by-channel.csv|Yesterday|Q3 Campaign`, `competitor-pricing.csv|Tue|Research`.
+Added (noted as invention — original supplies no names for the other 11):
+`creative-brief-v2.docx|Wed|Q3 Campaign`, `landing-hero-copy.md|Mon|Q3 Campaign`,
+`ad-hooks-linen.csv|Last week|Research`, `partner-logo-guidelines.pdf|Last week|Brand`,
+`email-drip-sequence.md|Sep 28|Content`, `pricing-one-pager.pdf|Sep 22|Research`,
+`social-cutdowns-list.csv|Sep 18|Q3 Campaign`, `homepage-refresh-notes.md|Sep 12|Content`,
+`campaign-retro-deck.pdf|Sep 5|Q3 Campaign`, `audience-segments.csv|Aug 29|Research`,
+`launch-checklist.md|Aug 21|Q3 Campaign`.
 
-## How to test
-- `open index.html` in a browser (or serve the directory and visit it). Toggle sun/moon for light/dark. Hover or Tab into the activity grid; arrow keys walk days; click chat/file rows and `11 more` to see the toast.
-- `node --check ./harness.js && node ./harness.js` — DOM-stub harness asserting visible painted text, full-loop node identity, zero `innerHTML` writes after init, light AND dark.
+## What matches / could not verify
+- Matches: layout, 3-file first paint, `This month: Files made 14`, file-row toast,
+  heat/activity, usage, theme toggle, light+dark.
+- Could not verify: real Folders destination (does not exist standalone);
+  original's `h` chat list length (imported, not in `demo-original.js`) — recent chats left as-is.
+- Deliberate deviation: original has no expand/`Show less`; added here per QA defect
+  (standalone page needs disclosure; navigation alone looks broken).
 
-## Checks done
-- `node --check ./harness.js` passes; inline scripts parse via `vm.Script`.
-- `./harness.js` → **HARNESS PASS**: all visible strings present; 280 cells built once; full 280-step loop keeps node identity in light and dark; zero `innerHTML` writes after init (source contains no `innerHTML`); noflash guard first in `<head>`; all `:hover` inside `@media (hover:hover) and (pointer:fine)`; `tabular-nums`; tap-highlight; theme toggle verified both directions in both themes.
+## How to test (node only, in-dir)
+From this directory:
+```
+node --check ./harness.js && node ./harness.js
+```
+Harness (`./harness.js`, DOM-stub, no installs):
+- static: noflash, color-scheme, zero `innerHTML`, verbatim 3 files, 14 stat, dark tokens.
+- VISIBLE: 3 rows visible initially; click `11 more` -> 14 rows `hidden=false`,
+  button `Show less`, `aria-expanded=true`, toast `Showing all 14 files`;
+  file click -> `Opening Folders: q3-launch-plan.md`; second click collapses to 3.
+- light AND dark: `applyTheme('light')` expand -> 14 visible; `applyTheme('dark')` -> still 14 visible.
+- full-loop node identity (280 heat cells stable across 280 `step(1)`), file-row identity across toggles, zero `innerHTML` writes after init.
+- Open `./index.html` in a browser for visual light/dark check (sun/moon toggle).
+
+Checked: light ✓ / dark ✓ (stub + visual tokens; no grey-on-grey, borders visible).

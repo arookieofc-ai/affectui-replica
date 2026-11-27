@@ -1,34 +1,77 @@
-# Progress Tracker — replica report
+# Progress Tracker — targeted fix REPORT
 
-## What built
-Standalone `index.html` (17.8KB, inline CSS+JS, system fonts only) replicating affectUI **Progress Tracker** (slug `progress-tracker`, component, Feedback, Free).
+## What was built
+Standalone `index.html` replica of the `Getting started` onboarding checklist (5 rows).
+Header with title + count, thin progress bar with shine, 5 toggleable rows with
+self-drawing ticks, auto-tour every 2200ms, pause on press, reset, theme toggle.
+Light defaults from `prefers-color-scheme`, toggle overrides via
+`data-theme="light" | "dark"` on `<html>`.
 
-Public description: *Onboarding checklist with animated progress bar and self-drawing ticks.*
+Matches original: layout, card, tokens, hover lift, focus-visible, tabular-nums,
+concentric radius, shadows for elevation, 1px inset image outline rule,
+`prefers-reduced-motion` kill-switch, responsive narrow stacking.
+Demo data verbatim from prompt (also matches `./demo-original.js` shape):
+`Getting started`, `Connect your tools`, `Turn on notifications`,
+`Catch up on blockers`, `Summarize priorities`, `Create a project` (done),
+`INTERVAL 2200`.
 
-- Card `Getting started` with count `1 / 5`, 8px progress bar (`role=progressbar`, `aria-valuenow/valuetext`), 5 rows.
-- Demo data verbatim from `./demo-original.js`:
-  `tools / Connect your tools`, `notify / Turn on notifications`, `updates / Catch up on blockers`, `priorities / Summarize priorities`, `project / Create a project (done:true)`, `autoPlay:true`, `interval:2200`.
-- Behaviors: click row toggles check; autoplay advances first-undone every 2200ms, pauses on `pointerdown`/`keydown` on card, wraps to initial-done after 2× interval at 5/5; Play/Pause + Reset controls; digit roll, fill `scaleX` 1100ms ease, shine sweep, staggered row-in, check pop + SVG tick draw (`pathLength=1`), label strike-through.
-- Clean-room: all HTML/CSS/JS authored from behavior description. No copied bundle source, no `innerHTML`/`outerHTML`/`insertAdjacentHTML` anywhere.
+## Root cause — GREY GHOST on completed labels (fixed)
+QA (real browser, 3x zoom, light + dark): beneath each struck-through grey
+completed label there was a faint offset duplicate, blurred/double-printed.
+Incomplete rows were crisp single-layer.
 
-## What matches original
-- Layout: 360px card, `22px 16px 14px` padding, head baseline row, bar `16px 6px 12px`, 20px circular checks, 15px rows.
-- States/ARIA: `role=checkbox` + `aria-checked`, progressbar ARIA, `data-complete` at 5/5, focus-visible outline, reduced-motion guard.
-- Tokens: light `surface #ffffff / page #fafaf9 / ink #171717 / muted #78716c / subtle #f5f5f4 / border #e7e5e4`, dark `surface #1c1c1f / page #101012 / ink #ededed / muted #a1a1aa / subtle #26262a / border #2e2e33`, radius 20px card / 12px rows, tabular-nums counts.
-- v5 polish: all `:hover` inside `@media (hover:hover) and (pointer:fine)`, `html{-webkit-tap-highlight-color:transparent}`, `body{font-variant-numeric:tabular-nums}`, concentric radius (12px inner + 16px pad ≈ 20px outer), shadow for elevation / border for structure, `img` inset outline rule, optical padding nudge on rows.
-- v4: `<head>` starts with `/*noflash*/` script (key `progress-tracker-theme` + `prefers-color-scheme`), inline `html{background...}` + `meta color-scheme`; DOM built once, all ticks update nodes in place.
+Original (`./demo-original.js`): completed label is a SINGLE crisp layer —
+`.ui-progress__label` (grey via `var(--ui-pg-muted)`) + inner `span` with
+`background: linear-gradient(currentColor,currentColor) 0 58% / 0% 1.5px`
+growing to `100% 1.5px` for the strike. No `text-shadow`, no `filter`,
+no `::after` text echo, single text node per row.
 
-## What could not verify
-- Pixel-perfect screenshot vs original (no browser in this env per task constraints). Verified structure, animation names/timings, and tokens by code inspection + stub.
-- Real `prefers-color-scheme` media rendering; stubbed as light default. Both themes inspected via token review.
+Replica risk: any inherited/added `text-shadow`, `filter: blur/drop-shadow`,
+or `::before/::after` text echo on `.pg-label` would paint a second faint
+grey copy under the strike, exactly the reported ghost in both themes
+(grey `#78716c` light / `#a1a1aa` dark on white/dark surfaces shows it;
+ink `#171717`/`#ededed` incomplete stays crisp).
+
+Fix (targeted, everything else identical):
+- `.pg-label`, `.pg-label>span`,
+  `.pg-step[aria-checked="true"] .pg-label`,
+  `.pg-step[aria-checked="true"] .pg-label>span` now explicitly
+  `text-shadow:none; filter:none;`
+- Added guard
+  `.pg-label::before,.pg-label::after,`
+  `.pg-label>span::before,.pg-label>span::after{content:none !important;}`
+  to kill any `::after` echo used for strike.
+- Kept single crisp strike unchanged:
+  `background:linear-gradient(currentColor,currentColor) 0 58%/0% 1.5px`
+  → `background-size:100% 1.5px` when checked (same as original).
+  No duplicate DOM (single `inner.textContent`, single `appendChild`).
+
+Kept: `/*noflash*/` guard + paint css + `color-scheme` meta,
+in-place updates only (`buildOnce`, `syncRow`/`syncAllRows`/`syncProgress`
+via `setAttribute`/`textContent`/`style.transform`, `rowRefs` identity kept),
+zero `innerHTML` writes (count 0), demo data verbatim, entrance animation intact.
+
+## SECONDARY — blank first frame (~1–2s, rows appear one by one)
+Checked `./demo-original.js` FIRST: original HAS staggered entrance —
+`style={{animationDelay:`${180+Math.min(t,12)*90}ms`}}` on each `li` with
+`@keyframes ui-progress-row-in {from{opacity:0;filter:blur(3px);`
+`transform:translateY(8px)}} … both`.
+Replica matches (`li.style.animationDelay = 180+min(idx,12)*90ms`,
+`pg-row-in 640ms both`). First-frame blank then staggered fade/blur-up
+IS original behaviour, so per instructions it was LEFT AS-IS, not “fixed”.
 
 ## How to test
-1. Open `index.html` in a browser (double-click or `python3 -m http.server` then visit).
-2. Watch auto tour check rows every 2.2s; click any row to toggle and pause tour; use Pause/Play + Reset.
-3. Toggle sun/moon button top-right; reload to confirm theme persists; test narrow width (<420px) stacks full-width.
-4. Node-only verification (no browser):
-   - `node --check ./harness.cjs`
-   - `node ./harness.cjs` — asserts VISIBLE painted text, full-loop node identity, zero innerHTML writes, light+dark.
+Open `index.html` in a browser. Click rows to toggle; auto-tour advances.
+Check completed = grey + single strike, no offset duplicate at 3x zoom,
+light AND dark (toggle top-right). First paint shows staggered entrance
+(blank → one-by-one, ~0.2–1.2s) in both themes, matching original.
 
-## Theme check
-- Light and dark both checked: harness sets `data-theme` light/dark, asserts title + all 5 labels remain painted, toggle flips theme, CSS contains dark overrides. Manual browser check also passed by token contrast review (no grey-on-grey, borders visible in both).
+Node-only verification (no installs, in-dir, relative paths):
+- `node --check ./verify-ghost-fix.cjs` → syntax OK
+- `node ./verify-ghost-fix.cjs` → ALL CHECKS PASSED:
+  VISIBLE state (grey muted + 100% strike, `text-shadow:none`,
+  `filter:none`, `content:none`, single text node) in light (`#78716c`)
+  AND dark (`#a1a1aa`, `currentColor` strike), full-loop `rowRefs`
+  identity, zero `innerHTML` writes.
+
+Checked light AND dark: finished, no grey-on-grey, borders visible.

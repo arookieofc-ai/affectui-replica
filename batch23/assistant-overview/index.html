@@ -194,7 +194,7 @@ html[data-theme="dark"] .week i[data-level="3"]{background:#1478cf;background:co
     <section class="card card-files" aria-labelledby="hFiles">
       <div class="top">
         <h2 id="hFiles"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M1.8 4.5c0-.8.7-1.5 1.5-1.5h3l1.2 1.5h5.2c.8 0 1.5.7 1.5 1.5v4.5c0 .8-.7 1.5-1.5 1.5H3.3c-.8 0-1.5-.7-1.5-1.5v-6z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>Files made for you</h2>
-        <button type="button" class="more" data-nav="Folders">11 more</button>
+        <button type="button" class="more" id="filesMore" aria-expanded="false" aria-controls="fileList" aria-label="Show all 14 files">11 more</button>
       </div>
       <ul class="list" id="fileList">
         <li><button type="button" class="row" data-nav="Folders" data-title="q3-launch-plan.md"><span class="mark" aria-hidden="true">M</span><span class="rtitle rtitle-file" title="q3-launch-plan.md &middot; Q3 Campaign"><span>q3-launch-plan</span><span>.md</span></span><span class="rmeta">1 hour ago</span></button></li>
@@ -320,6 +320,72 @@ function say(msg){
   if(toastTimer)window.clearTimeout(toastTimer);
   toastTimer=window.setTimeout(function(){toast.removeAttribute('data-on');toast.textContent='';},2200);
 }
+var FILES=[
+  {name:'q3-launch-plan.md',at:'1 hour ago',where:'Q3 Campaign'},
+  {name:'budget-by-channel.csv',at:'Yesterday',where:'Q3 Campaign'},
+  {name:'competitor-pricing.csv',at:'Tue',where:'Research'},
+  {name:'creative-brief-v2.docx',at:'Wed',where:'Q3 Campaign'},
+  {name:'landing-hero-copy.md',at:'Mon',where:'Q3 Campaign'},
+  {name:'ad-hooks-linen.csv',at:'Last week',where:'Research'},
+  {name:'partner-logo-guidelines.pdf',at:'Last week',where:'Brand'},
+  {name:'email-drip-sequence.md',at:'Sep 28',where:'Content'},
+  {name:'pricing-one-pager.pdf',at:'Sep 22',where:'Research'},
+  {name:'social-cutdowns-list.csv',at:'Sep 18',where:'Q3 Campaign'},
+  {name:'homepage-refresh-notes.md',at:'Sep 12',where:'Content'},
+  {name:'campaign-retro-deck.pdf',at:'Sep 5',where:'Q3 Campaign'},
+  {name:'audience-segments.csv',at:'Aug 29',where:'Research'},
+  {name:'launch-checklist.md',at:'Aug 21',where:'Q3 Campaign'}
+];
+function splitFile(name){var i=name.lastIndexOf('.');if(i>0&&name.length-i<=6)return[name.slice(0,i),name.slice(i)];return[name,''];}
+var fileList=doc.getElementById('fileList'), filesMore=doc.getElementById('filesMore');
+var fileRows=[], filesExpanded=false;
+if(fileList&&filesMore){
+  for(var fi=3;fi<FILES.length;fi++){
+    (function(f){
+      var li=doc.createElement('li');
+      var btn=doc.createElement('button');
+      btn.setAttribute('type','button');btn.className='row';
+      btn.setAttribute('data-nav','Folders');btn.setAttribute('data-title',f.name);
+      var mark=doc.createElement('span');mark.className='mark';mark.setAttribute('aria-hidden','true');mark.textContent=f.name.charAt(0).toUpperCase();
+      var title=doc.createElement('span');title.className='rtitle rtitle-file';title.setAttribute('title',f.name+' \u00b7 '+f.where);
+      var parts=splitFile(f.name);
+      var b1=doc.createElement('span');b1.textContent=parts[0];
+      var b2=doc.createElement('span');b2.textContent=parts[1];
+      title.appendChild(b1);title.appendChild(b2);
+      var meta=doc.createElement('span');meta.className='rmeta';meta.textContent=f.at;
+      btn.appendChild(mark);btn.appendChild(title);btn.appendChild(meta);
+      li.appendChild(btn);
+      li.hidden=true;
+      fileList.appendChild(li);
+    })(FILES[fi]);
+  }
+  var lis=fileList.getElementsByTagName?fileList.getElementsByTagName('li'):[];
+  for(var ri=0;ri<lis.length;ri++){fileRows.push(lis[ri]);}
+}
+function paintFiles(){
+  var k;
+  for(k=0;k<fileRows.length;k++){
+    if(k<3||filesExpanded){fileRows[k].hidden=false;}
+    else{fileRows[k].hidden=true;}
+  }
+  if(filesMore){
+    filesMore.textContent=filesExpanded?'Show less':'11 more';
+    filesMore.setAttribute('aria-expanded',filesExpanded?'true':'false');
+    filesMore.setAttribute('aria-label',filesExpanded?'Show fewer files':'Show all 14 files');
+  }
+}
+function toggleFiles(){
+  filesExpanded=!filesExpanded;
+  paintFiles();
+  say(filesExpanded?'Showing all 14 files':'Showing fewer files');
+  return filesExpanded;
+}
+function filesVisibleCount(){
+  var n=0,i;
+  for(i=0;i<fileRows.length;i++){if(!fileRows[i].hidden)n++;}
+  return n;
+}
+if(filesMore){filesMore.addEventListener('click',toggleFiles);}
 var navBtns=doc.querySelectorAll('[data-nav]');
 var bi;
 for(bi=0;bi<navBtns.length;bi++){
@@ -345,7 +411,10 @@ window.__ov={
   select:select, clear:clearSel, step:step, say:say,
   getSelected:function(){return sel;},
   tip:tip, tipCount:tipCount, tipDate:tipDate, live:live, toast:toast, heat:heat,
-  loopLength:TOTAL_DAYS, themeKey:THEME_KEY, applyTheme:applyTheme
+  loopLength:TOTAL_DAYS, themeKey:THEME_KEY, applyTheme:applyTheme,
+  files:FILES, fileRows:fileRows, filesMore:filesMore,
+  filesExpanded:function(){return filesExpanded;},
+  toggleFiles:toggleFiles, filesVisibleCount:filesVisibleCount, fileList:fileList
 };
 })();
 </script>
