@@ -46,7 +46,9 @@ body{margin:0;background:var(--page);color:var(--muted);font-family:system-ui,-a
 .theme-btn{flex:none;width:30px;height:30px;border-radius:999px;border:1px solid var(--border);background:var(--surface);color:var(--ink);display:inline-grid;place-items:center;cursor:pointer;font-size:14px;line-height:1;padding:0 0 1px 0}
 .theme-btn:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
-.chart{position:relative;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--surface);box-shadow:var(--shadow);padding:16px;overflow:auto}
+.chart{position:relative;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--surface);box-shadow:var(--shadow);padding:16px;overflow:visible;min-width:0}
+.hint{margin-top:12px;display:flex;justify-content:center}
+.hint-pill{display:inline-block;max-width:100%;padding:6px 14px;border-radius:999px;background:var(--ink);color:var(--page);font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .roots{display:flex;justify-content:center}
 .branch{display:flex;flex-direction:column;align-items:center;min-width:0}
 .kids{display:flex;gap:12px;margin-top:34px;justify-content:center;align-items:flex-start;flex-wrap:wrap}
@@ -95,8 +97,9 @@ body{margin:0;background:var(--page);color:var(--muted);font-family:system-ui,-a
 .port{fill:var(--node);stroke:color-mix(in srgb,var(--ink) 22%,transparent);stroke-width:1.5}
 .pop{position:absolute;z-index:20;width:284px;max-width:calc(100% - 16px);background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--pop-shadow);padding:12px 12px 14px;color:var(--muted)}
 .pop-head{display:flex;align-items:center;gap:9px;margin-bottom:8px}
-.pop-name{font-size:13px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.pop-sub{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pop-text{display:grid;flex:1;min-width:0}
+.pop-name{display:block;font-size:13px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pop-sub{display:flex;align-items:center;gap:4px;min-width:0;font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ask{border:1px solid var(--border);border-radius:8px;padding:8px;margin:8px 0;background:var(--subtle)}
 .ask-from{font-size:12px;font-weight:600;color:var(--ink)}
 .ask-text{font-size:12px;color:var(--ink);margin:4px 0 8px}
@@ -152,6 +155,7 @@ body{margin:0;background:var(--page);color:var(--muted);font-family:system-ui,-a
 <div class="pop" id="pop" role="dialog" aria-label="Details" hidden></div>
 <span class="sr" id="live" role="status" aria-live="polite"></span>
 </div>
+<div class="hint" id="hint"><span class="hint-pill" id="hintPill">Click a card for details · Hover highlights the chain · Arrow keys move · Esc closes</span></div>
 </div>
 <script>
 (function(){
@@ -333,7 +337,7 @@ if(activeId) chart.setAttribute("data-active",""); else chart.removeAttribute("d
 function clearPop(){ while(pop.firstChild) pop.removeChild(pop.firstChild); pop.removeAttribute("data-for"); }
 function openPop(id,fromPointer){
 openId=id; var node=byId.get(id); if(!node) return;
-clearPop(); pop.setAttribute("data-for",id); pop.removeAttribute("hidden");
+clearPop(); pop.setAttribute("data-for",id); pop.setAttribute("aria-label",node.name+" – details"); pop.removeAttribute("hidden");
 var head=el("span","pop-head");
 if(node.kind==="person"){ var av=el("span","lead"); var ad=el("span","avatar"); ad.appendChild(txt(initials(node.name))); av.appendChild(ad); head.appendChild(av); }
 else head.appendChild(makeMark(id,colorOf.get(id),effStatus(id)==="working"));

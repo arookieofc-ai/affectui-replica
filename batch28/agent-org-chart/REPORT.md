@@ -1,50 +1,130 @@
-# Agent Org Chart — Replica Report
+# REPORT — targeted fix of ./index.html (fix-agent-org-chart)
 
-## What was built
-`index.html` (37.9KB, single self-contained file, inline CSS+JS, system fonts, no network) in this directory. Clean-room vanilla JS replica of the Pro `agent-org-chart` demo. No copied bundle code.
+Targeted fix only. No rebuild. `/*noflash*/` kept, in-place updates only, zero `innerHTML` writes after init, demo data verbatim (NODES/INITIAL/STEPS untouched).
 
-Layout: top bar (`Operations` + waiting badge + `3 people · 4/5 working` + sun/moon toggle), tree chart (Lena → Noah/Mara → Triage/Refunds, Code review → Test runner/Docs writer), SVG edge overlay, absolutely-positioned details popover (max 284px), polite live region.
+## What was checked in ./demo-original.js BEFORE changing anything
 
-## Design tokens / themes
-- CSS vars for every colour. Light: surface `#ffffff`, page `#fafaf9`, ink `#171717`, muted `#78716c`, subtle `#f5f5f4`, border `#e7e5e4`, radii 16/10/6, shadow `0 1px 2px rgba(0,0,0,.05), 0 4px 16px rgba(0,0,0,.05)`, waiting `#f59e0b`/`#fef3c7`/`#92400e`.
-- Dark (`html[data-theme="dark"]`): surface `#1c1c1f`, page `#101012`, ink `#ededed`, muted `#a1a1aa`, subtle `#26262a`, border `#2e2e33`, amber `#fbbf24` on `#451a03`/`#fde68a`.
-- Toggle top-right switches `data-theme` on `<html>`, persists to `localStorage aoc-theme`. Default = original demo appearance (light); `/*noflash*/` guard in `<head>` reads stored key else `prefers-color-scheme` before paint + `html{background:#fafaf9}html[data-theme="dark"]{background:#101012}` + `<meta name="color-scheme" content="light dark">`.
-- Font system sans, base 14px, titles 15px semibold, meta 12/11.5px muted, pills `999px`, cards 1px border + soft shadow, hover lift, focus-visible outline, 160ms transitions.
-- v5: all `:hover` inside `@media (hover:hover) and (pointer:fine)` (5 rules), `html{-webkit-tap-highlight-color:transparent}`, `body{font-variant-numeric:tabular-nums}`, concentric radii (card 10px outer / top/foot 9px inner +1px border), shadows for elevation / borders for structure, avatar `inset 0 0 0 1px` black/white 10%, arrow `→` optically nudged (right padding 2px).
-- `[hidden]{display:none!important}`, SVG classes only via `setAttribute`, no broad `svg{display:block}` override.
+- Read with relative paths (`./REPLICATE_SPEC.md`, `./demo-original.js`, `./index.html`) in this dir only.
+- Original component CSS (`var fe`) has no `hint` class and no `overflow:auto` on the chart (`.ui-aoc__chart{position:relative;min-width:0}` — visible, no internal scrollbars).
+- Original dialog `aria-label` is `` `${Z(K)} – details` `` (name + U+2013 EN-DASH + `details`), e.g. `Noah Bennett – details`.
+- Original visible pop stacks name above sub (`.ui-aoc__pop-text{display:grid}`, `.ui-aoc__pop-name` block, `.ui-aoc__pop-sub{display:flex}`) — not glued inline.
+- Original demo data: same 8 nodes (Lena/Noah/Mara/Triage/Refunds/Review/Tests/Docs), same `O={triage:working,refunds:working,review:working,tests:working,docs:idle}`, same loop `k=[{wait:1600,add:e1},{wait:3400,status:{docs:working}},{wait:2800,add:e2},{wait:4200,drop:e1},{wait:3200,drop:e2+idle},{wait:3400,reset}]` with `setTimeout` chain. It **animates** when `prefers-reduced-motion` is off, and is intentionally static when reduced-motion is on (initial `e1-0` only, no timers). Replica already matched this, so defect (4) needed no behaviour change — loop kept, verified animating.
 
-## Exact demo data (verbatim from demo-original.js + findings.md)
-- `lena` person Lena Hoffmann / Operations lead
-- `noah` person Noah Bennett / Support lead / parent lena
-- `mara` person Mara Lindqvist / Engineering lead / parent lena
-- `triage` agent Haiku 4.5 / parent noah / `Sorting 38 new tickets by urgency` / Linear, Slack, Notion
-- `refunds` agent Sonnet 4.5 / parent noah / `Order #48213 – charged twice` / Stripe, Slack
-- `review` agent GPT-5 / parent mara / `Reviewing PR #482 – checkout rounding` / GitHub, Linear, Vercel, Slack
-- `tests` agent Gemini 2.5 / parent review / `Running 214 tests on PR #482` / GitHub Actions, Vercel preview
-- `docs` agent Sonnet 4.5 / parent review / `Changelog for v2.4` / Notion, Figma, GitHub
-- Initial: triage/refunds/review/tests `working`, docs `idle`.
-- Loop 18.6s: 1600ms add e1 `Refund €640 for order #48213?` from refunds → 3400ms docs→working → 2800ms add e2 `One flaky test – rerun or skip?` from tests → 4200ms drop e1 → 3200ms drop e2 + docs/triage→idle → 3400ms reset. Title `Operations`. Reduced-motion: no auto-loop, e1 present initially.
-- Avatars: original `/avatars/*.jpg` would need network; replaced with initials circles offline (fallback logic retained in code comment). No external fetch.
+## Defects fixed (real-browser QA)
 
-## Matched behaviour
-- Tree dedup/cycle-break, DFS order, depth levels, agent-with-escalation forced `waiting`.
-- Target = nearest person ancestor (e1→Noah, e2→Mara via review), approve/reply removes escalation + sets agent `working`.
-- Header rolling counts, waiting badge, 3×3 deterministic pixel-marks (hash of id, ≥5/9 lit, 120ms staggered delays, twinkle when working, exactly 9 `<i>` cells), overlapping circular tool tiles +N, Working shimmer / Waiting amber pill / Idle faint, person foot `Owns N agents`/`Leads N people` or `X asks →`, amber ring pulse on waiting.
-- Hover/focus chain: ancestors `data-on`, others `data-dim` (0.78 for legibility), edges highlight, no re-render.
-- Dialog on `pointerdown` capture (+ click fallback, Enter/Space), outside `pointerdown` capture closes, Escape closes, focus to Approve when request present, clamped above/below, facts/uses/owned/requests + Reply/Approve in place.
-- Keyboard tree: arrows (Up=parent, Down=first child, Left/Right=siblings, list mode swapped), Home/End, roving tabindex, aria level/setsize/posinset/expanded/selected/label.
-- Responsive: `<560px` list mode, SVG hidden, stacked cards.
-- IN-PLACE ONLY: DOM built once at init (`buildTree`), timers/hover/dialog update `textContent`/attributes/styles on existing nodes, zero `innerHTML` (verified), node identity preserved.
+1. **DARK hint bar never paints.** `./index.html` had no hint element at all (text not in DOM, nothing to paint). Added bottom hint bar per page chrome, styled as dark pill in light with token inversion for dark (per original token approach like `btn--primary`: `bg var(--ink)` / `fg var(--page)`):
+   - light: `bg #171717 / fg #fafaf9` = dark pill, white text (as QA described light).
+   - dark: `bg #ededed / fg #101012` = light pill, black text — paints, high contrast, uses same tokens so it cannot go pure-black.
+   - `HTML: <div class="hint" id="hint"><span class="hint-pill">Click a card for details · Hover highlights the chain · Arrow keys move · Esc closes</span></div>` + CSS `.hint{...} .hint-pill{...background:var(--ink);color:var(--page);border-radius:999px...}`.
+2. **Dialog title glues `Noah BennettSupport lead`.** Root cause: `span.pop-text` had no CSS (inline spans on one line) + `pop` aria-label stayed static `"Details"`. Fixed per original:
+   - CSS: `.pop-text{display:grid;flex:1;min-width:0}`, `.pop-name{display:block;...}`, `.pop-sub{display:flex;...}` (matches `.ui-aoc__pop-text/grid`, `.ui-aoc__pop-name`, `.ui-aoc__pop-sub/flex`).
+   - JS in `openPop`: `pop.setAttribute("aria-label",node.name+" – details")` (U+2013, same as `` `${Z(K)} – details` ``).
+   - After fix, `openPop('noah')` gives name `Noah Bennett`, sub contains `Support lead`, aria-label `Noah Bennett – details`, grid stacking (not glued). Node click → Details still works.
+3. **Chart internal h+v scrollbars.** Root cause: `.chart{...overflow:auto}` (plus abs-positioned `.lines` SVG + `.pop` overflow) creates internal scrollbars. Original has no overflow (visible). Fixed: `.chart{...overflow:visible;min-width:0}`. No other `overflow:auto/scroll` remains. Content already fits at desktop (max row ~392px < 948px inner) with `flex-wrap:wrap`; pop can now overflow visibly as in original.
+4. **Auto-demo appeared static over 25s.** Checked original: it animates (6-step ~18.6s loop, verified in harness: escalations appear, `docs:working`, `triage:idle`, then `reset`). Replica `STEPS`/`step()`/`loop()` already identical and animates (harness proves state changes across full loop). No fix applied beyond keeping loop; noted here per instruction. If QA env had `prefers-reduced-motion: reduce`, both original and replica are intentionally static — that matches original, not a bug.
 
-## Verification (node only, no browser)
-- `node --check` on extracted main script: OK.
-- In-dir stub `harness.cjs` (`node harness.cjs`): loads page script with fake DOM, mocks timers, advances full 6-step loop, asserts visible text (not aria-only), state, 9-cell marks, identity, zero innerHTML. All pass light AND dark:
-  - noflash/meta/bg/[hidden]/tap-highlight/tabular-nums/hover-scoped/no-innerHTML/size<200KB/offline/system-fonts
-  - visible `Operations`, all 8 names, `Haiku 4.5`/`Sonnet 4.5`/`GPT-5`/`Gemini 2.5`, roles, `3 people`, `working`
-  - 8 cards, agent marks exactly 9 cells, zero innerHTML at init
-  - loop e1→waiting, docs→working, e2→waiting, drop/restore, reset; badge `waiting` visible
-  - identity `===` across loop, hover in-place, dialog `Refunds`+`Approve`+`Reply`, resolve→`working`, dark theme visible
-- Checked dark by setting `data-theme="dark"` + `sync()` and re-asserting visible text.
+Kept: `/*noflash*/` script + `<style>html{background:#fafaf9}html[data-theme="dark"]{background:#101012}</style>` + `<meta name="color-scheme">` untouched; timers update only in place (`textContent`/`setAttribute`/`appendChild`/`removeChild` on existing nodes, `cards` Map identity preserved); `NODES`/`INITIAL`/`STEPS`/labels byte-identical.
+
+## Hard proof
+
+BEFORE (original file):
+```
+6a918907568de5b527fec7f23f629e06  ./index.html
+```
+
+AFTER (fixed file):
+```
+bb587311f32b43d351eea175bb365a1a  ./index.html
+```
+Hashes differ → file changed.
+
+`node --check`:
+```
+node --check ./harness.js → syntax OK
+node --check ./extracted-check.js (app <script> extracted in-dir) → syntax OK
+node --check ./extracted-orig-check.js → syntax OK
+```
+
+Harness: `node ./harness.js <file>` (in-dir DOM-stub, no installs). Asserts fixed behaviour as VISIBLE state in light AND dark (token contrast), plus full-loop node identity and zero `innerHTML` writes after init.
+
+### Harness vs ORIGINAL (`./original-backup.html`) — MUST FAIL (exit 1)
+
+```
+PASS: chart rule exists
+FAIL: chart has no internal scrollbars (no overflow:auto/scroll) — position:relative;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--surface);box-shadow:var(--shadow);padding:16px;overflow:auto
+FAIL: chart overflow is visible/clip/hidden (fits without internal scrollbars) — position:relative;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--surface);box-shadow:var(--shadow);padding:16px;overflow:auto
+FAIL: pop-text CSS rule exists (dialog title layout) — missing .pop-text rule — name+role glue inline
+FAIL: hint bar element exists in DOM — no .hint#hint element
+FAIL: hint pill CSS rule exists — no .hint/.hint-pill rule
+FAIL: hint bar has visible text — hint text len=0
+FAIL: dialog sets aria-label with en-dash separator (per original `${Z(K)} – details`) — no setAttribute aria-label with – details
+PASS: noflash guard kept
+PASS: zero innerHTML writes after init (static)
+PASS: noflash sets a theme (light/dark)
+PASS: app exposes __aoc test API
+PASS: click/details opens pop (not hidden)
+PASS: pop targets clicked node
+FAIL: dialog aria-label has en-dash separator with name (VISIBLE title state) — aria-label=""
+PASS: pop has name node
+PASS: pop has sub node
+PASS: pop name is Noah Bennett
+PASS: pop sub mentions Support lead
+FAIL: title not glued without separator (grid stacks name/sub) — "Noah BennettSupport lead"
+FAIL: hint visible text mentions Click a card — hint text missing
+PASS: unchanged nodes keep object identity across full loop
+PASS: auto-demo animates node states over full loop (not static)
+PASS: full loop returns to baseline (escalations cleared after reset)
+PASS: zero innerHTML writes after init
+FAIL: dialog separator holds in dark too — ""
+SUMMARY: 15 passed, 11 failed (target: ./original-backup.html)
+```
+
+### Harness vs FIXED (`./index.html`) — MUST PASS (exit 0)
+
+```
+PASS: chart rule exists
+PASS: chart has no internal scrollbars (no overflow:auto/scroll)
+PASS: chart overflow is visible/clip/hidden (fits without internal scrollbars)
+PASS: pop-text CSS rule exists (dialog title layout)
+PASS: pop-text uses grid stacking (name above role)
+PASS: hint bar element exists in DOM
+PASS: hint pill CSS rule exists
+PASS: hint pill uses token bg (var(--ink)) so it paints in both themes
+PASS: hint pill uses token fg (var(--page)) so text stays legible
+PASS: light tokens give hint contrast (ink != page)
+PASS: dark tokens give hint contrast (ink != page)
+PASS: hint pill is pill-shaped (border-radius 999px)
+PASS: hint bar has visible text
+PASS: dialog sets aria-label with en-dash separator (per original `${Z(K)} – details`)
+PASS: noflash guard kept
+PASS: zero innerHTML writes after init (static)
+PASS: noflash sets a theme (light/dark)
+PASS: app exposes __aoc test API
+PASS: click/details opens pop (not hidden)
+PASS: pop targets clicked node
+PASS: dialog aria-label has en-dash separator with name (VISIBLE title state)
+PASS: pop has name node
+PASS: pop has sub node
+PASS: pop name is Noah Bennett
+PASS: pop sub mentions Support lead
+PASS: title not glued without separator (grid stacks name/sub)
+PASS: hint visible text mentions Click a card
+PASS: unchanged nodes keep object identity across full loop
+PASS: auto-demo animates node states over full loop (not static)
+PASS: full loop returns to baseline (escalations cleared after reset)
+PASS: zero innerHTML writes after init
+PASS: dialog separator holds in dark too
+SUMMARY: 32 passed, 0 failed (target: ./index.html)
+ALL CHECKS PASSED
+```
 
 ## How to test
-Open `index.html` in a browser. Wait ~18s to see e1/e2 appear/resolve, header counts change, Docs/Triage idle. Hover cards to see chain highlight, click/Enter to open details, Reply/Approve to resolve. Toggle ☾/☀ top-right, reload to confirm no white flash. `node harness.cjs` re-runs headless checks.
+
+- `open index.html in a browser` (no server needed). Toggle sun/moon button (top-right) — check light AND dark: page, cards, amber waiting pills, hint pill below chart (dark pill/white text in light; light pill/black text in dark, always visible).
+- Click `Noah Bennett` → Details dialog shows `Noah Bennett` above `Support lead` (two lines) and aria-label `Noah Bennett – details`. `Esc` closes, arrow keys move, hover highlights chain.
+- Desktop width: chart shows no internal scrollbars; only page scrolls if needed.
+- Wait ~19s: `Refunds`/`Tests` waiting badges appear, `Docs` flips working→idle, `Triage` idles, then reset — full loop. With OS reduced-motion on, loop stays static (matches original).
+
+## Files in this dir
+
+- `./index.html` (fixed), `./original-backup.html` (pre-fix copy for both-ways harness), `./harness.js` (DOM-stub, `node ./harness.js ./index.html`), `./REPORT.md` (this file).
