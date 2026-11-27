@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!--noflash--><script>(function(){try{var k="lead-sourcing-theme";var t=null;try{t=localStorage.getItem(k)}catch(e){}if(!t){try{t=matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}catch(e){t="light"}}document.documentElement.setAttribute("data-theme",t==="dark"?"dark":"light")}catch(e){}})();</script>
+<meta name="color-scheme" content="light dark">
+<style>html{background:#fafaf9}html[data-theme="dark"]{background:#101012}</style>
+<title>Lead Sourcing — affectUI replica</title>
+<style>
+:root{color-scheme:light dark}
+html{-webkit-tap-highlight-color:transparent}
+html[data-theme="light"]{
+--surface:#ffffff;--page:#fafaf9;--ink:#171717;--ink2:#1c1917;--muted:#78716c;
+--subtle:#f5f5f4;--border:#e7e5e4;--tile-fill:#ffffff;--tile-stroke:#e4e7ec;
+--mark:#171717;--gray-stop:#e4e7ec;--sliver:#eaecef;--drop-op:.06;
+--amber-bg:#fef3c7;--amber-tx:#92400e;--amber-bd:#f59e0b;
+--blue:#2563eb;--green:#059669;--red:#dc2626;
+--shadow:0 1px 2px rgba(0,0,0,.05),0 4px 16px rgba(0,0,0,.05);
+--r-lg:16px;--r:10px;--r-sm:6px;
+--img-line:rgba(0,0,0,.10);
+}
+html[data-theme="dark"]{
+--surface:#1c1c1f;--page:#101012;--ink:#ededed;--ink2:#ededed;--muted:#a1a1aa;
+--subtle:#26262a;--border:#2e2e33;--tile-fill:#232326;--tile-stroke:rgba(255,255,255,.08);
+--mark:#ededed;--gray-stop:#3a3a3f;--sliver:#1a1a1c;--drop-op:.4;
+--amber-bg:#451a03;--amber-tx:#fde68a;--amber-bd:#fbbf24;
+--blue:#60a5fa;--green:#34d399;--red:#f87171;
+--shadow:0 1px 2px rgba(0,0,0,.4),0 8px 28px rgba(0,0,0,.45);
+--img-line:rgba(255,255,255,.10);
+}
+*{box-sizing:border-box}
+body{
+margin:0;background:var(--page);color:var(--ink2);
+font:14px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+font-variant-numeric:tabular-nums;
+}
+.wrap{max-width:980px;margin:0 auto;padding:20px 16px 40px}
+/* header: project name + working count + agent count */
+.topbar{display:flex;align-items:center;gap:10px;padding:6px 2px 14px}
+.brand{font-size:16px;font-weight:650;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.count-pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);
+background:var(--surface);border:1px solid var(--border);border-radius:999px;padding:3px 10px;white-space:nowrap}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--green);flex:none}
+.dot.pulse{animation:tw 1.6s ease-in-out infinite}
+@keyframes tw{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.35);opacity:.65}}
+@media (prefers-reduced-motion:reduce){.dot.pulse{animation:none}}
+.spacer{flex:1}
+.iconbtn{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--border);
+background:var(--surface);color:var(--ink2);border-radius:999px;padding:7px 12px 7px 10px;
+font:inherit;font-size:13px;cursor:pointer;transition:transform 160ms ease,box-shadow 160ms ease,border-color 160ms ease}
+.iconbtn .glyph{flex:none;width:16px;height:16px;display:inline-block;margin-right:-2px}
+.iconbtn:focus-visible,.tilebtn:focus-visible,.btn:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+/* context: token counts, thin 3px bar, right label */
+.ctx{display:flex;align-items:center;gap:12px;margin:0 2px 12px}
+.ctx-track{flex:1;height:3px;border-radius:999px;background:var(--subtle);border:1px solid var(--border);overflow:hidden}
+.ctx-fill{display:block;height:100%;width:22%;background:linear-gradient(90deg,#ffb5bc,#ffc5ab,#d5bbef,#b5c0ff);border-radius:999px}
+.ctx-label{font-size:12px;color:var(--muted);white-space:nowrap}
+/* grid */
+.grid{display:grid;grid-template-columns:minmax(0,7fr) minmax(0,5fr);gap:12px}
+@media (max-width:720px){.grid{grid-template-columns:minmax(0,1fr)}}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow);
+padding:16px;transition:transform 170ms ease,box-shadow 170ms ease}
+.card h2{font-size:15px;margin:0 0 2px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.colhead{min-height:22px;font-size:12px;color:var(--muted);margin:0 2px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.meta{font-size:12px;color:var(--muted);margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.badge{display:inline-block;font-size:12px;font-weight:650;border-radius:999px;padding:2px 10px;
+background:var(--subtle);border:1px solid var(--border);color:var(--muted)}
+.badge.free{color:var(--green);border-color:var(--border)}
+.statusrow{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 0}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;border-radius:999px;padding:3px 10px;
+border:1px solid var(--border);background:var(--subtle);color:var(--muted);white-space:nowrap;max-width:100%;
+overflow:hidden;text-overflow:ellipsis}
+.pill.working{color:var(--blue);border-color:var(--blue);background:color-mix(in srgb,var(--surface) 80%,var(--blue))}
+.pill.waiting{background:var(--amber-bg);color:var(--amber-tx);border-color:var(--amber-bd)}
+.pill.idle{color:var(--muted)}
+/* illustration frame: outer 16 = inner 10 + 6 pad feel; inset outline for content image */
+.art-frame{margin-top:12px;background:var(--subtle);border:1px solid var(--border);border-radius:10px;
+padding:10px;box-shadow:inset 0 0 0 1px var(--img-line)}
+.art-frame svg{display:block;width:100%;height:auto;border-radius:6px}
+.art-cap{font-size:12px;color:var(--muted);margin:8px 2px 0}
+/* circular tool icons */
+.tools{display:flex;gap:8px;margin-top:10px}
+.tool{width:30px;height:30px;border-radius:50%;flex:none;display:inline-flex;align-items:center;justify-content:center;
+background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow);
+font-size:12px;font-weight:700;color:var(--muted)}
+.tool svg{width:16px;height:16px;display:block}
+/* sub-agent small cards (no model line) */
+.subs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.sub{background:var(--subtle);border:1px solid var(--border);border-radius:10px;padding:8px 10px 10px;min-width:0}
+.sub b{display:block;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sub span{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+/* 3x3 pixel marks */
+.pmark{display:inline-grid;grid-template-columns:repeat(3,5px);grid-auto-rows:5px;gap:1px;flex:none;opacity:.92}
+.pmark i{width:5px;height:5px;border-radius:1px;background:var(--muted)}
+.agentrow{display:flex;align-items:center;gap:8px;padding:7px 0;border-top:1px solid var(--border);min-width:0}
+.agentrow:first-of-type{border-top:0}
+.agentrow .nm{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.agentrow .st{margin-left:auto;font-size:12px;color:var(--muted);white-space:nowrap}
+/* buttons + details (keep bottom padding when expanded so text never sits under a button) */
+.btnrow{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.btn{border:1px solid var(--border);background:var(--surface);color:var(--ink2);border-radius:999px;
+padding:8px 14px 8px 12px;font:inherit;font-size:13px;font-weight:600;cursor:pointer;
+transition:transform 160ms ease,box-shadow 160ms ease,border-color 160ms ease}
+.btn.primary{background:var(--ink2);color:var(--page);border-color:var(--ink2)}
+.btn .glyph{display:inline-block;width:14px;height:14px;margin-right:6px;vertical-align:-2px;margin-left:-2px}
+.details{margin:10px 0 0;padding:0 0 8px;font-size:13px;color:var(--muted)}
+.details[hidden]{display:none}
+.tilebtn{cursor:pointer}
+.tilebtn:focus-visible{outline:2px solid var(--blue);outline-offset:3px}
+footer{margin-top:14px;font-size:12px;color:var(--muted)}
+code{font:inherit;background:var(--subtle);border:1px solid var(--border);border-radius:6px;padding:0 5px}
+@media (hover: hover) and (pointer: fine){
+.card:hover{transform:translateY(-1px)}
+.btn:hover{transform:translateY(-1px);box-shadow:var(--shadow);border-color:var(--muted)}
+.iconbtn:hover{transform:translateY(-1px);box-shadow:var(--shadow)}
+.tool:hover{border-color:var(--muted)}
+}
+@media (prefers-reduced-motion:reduce){.card,.btn,.iconbtn{transition:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="topbar">
+<span class="brand" id="projectName">Lead Sourcing</span>
+<span class="count-pill"><span class="dot pulse" id="workDot" aria-hidden="true"></span><span id="workCount">2 working</span></span>
+<span class="count-pill"><span id="agentCount">5 agents</span></span>
+<span class="spacer"></span>
+<button class="iconbtn" id="themeBtn" type="button" aria-label="Toggle dark mode"><span class="glyph" id="themeGlyph" aria-hidden="true">◐</span><span id="themeLabel">Theme</span></button>
+</header>
+
+<div class="ctx" aria-label="Context usage">
+<div class="ctx-track" role="progressbar" aria-valuemin="0" aria-valuemax="200" aria-valuenow="44" id="ctxBar"><span class="ctx-fill" id="ctxFill"></span></div>
+<span class="ctx-label" id="ctxLabel">44k / 200k</span>
+</div>
+
+<main class="grid">
+<section class="card" aria-labelledby="illTitle">
+<p class="colhead">Card illustration · Free</p>
+<h2 id="illTitle">Lead Sourcing</h2>
+<p class="meta" id="illSub">A ChatGPT tile connected to Gmail and Grok, surrounded by empty tiles</p>
+<div class="statusrow">
+<span class="pill working" id="statusPill">● sourcing</span>
+<span class="pill" id="timerPill">shine 0.0s / 3.6s</span>
+<span class="badge free">Free</span>
+</div>
+<div class="art-frame">
+<svg id="art" viewBox="0 0 320 240" role="img" aria-label="A ChatGPT tile connected to Gmail and Grok, surrounded by empty tiles">
+<defs>
+<linearGradient id="g-blob" x1="0%" y1="0%" x2="100%" y2="0%">
+<stop offset="0%" stop-color="#FFA0AB" stop-opacity="0.6"></stop>
+<stop offset="33%" stop-color="#FFB89E" stop-opacity="0.6"></stop>
+<stop offset="66%" stop-color="#C8A8E5" stop-opacity="0.6"></stop>
+<stop offset="100%" stop-color="#A8B5FF" stop-opacity="0.6"></stop>
+</linearGradient>
+<linearGradient id="g-edge" x1="0%" y1="0%" x2="100%" y2="0%">
+<stop offset="0%" stop-color="#E4E7EC"></stop>
+<stop offset="18%" stop-color="#FFB5BC"></stop>
+<stop offset="40%" stop-color="#FFC5AB"></stop>
+<stop offset="60%" stop-color="#D5BBEF"></stop>
+<stop offset="82%" stop-color="#B5C0FF"></stop>
+<stop offset="100%" stop-color="#E4E7EC"></stop>
+</linearGradient>
+<linearGradient id="g-shine" gradientUnits="userSpaceOnUse" x1="-195" y1="120" x2="195" y2="120">
+<stop offset="0%" stop-color="#E4E7EC"></stop>
+<stop offset="43%" stop-color="#E4E7EC"></stop>
+<stop offset="46%" stop-color="#FF6B5C"></stop>
+<stop offset="48%" stop-color="#FFB89E"></stop>
+<stop offset="50%" stop-color="#C8A8E5"></stop>
+<stop offset="52%" stop-color="#A8B5FF"></stop>
+<stop offset="56%" stop-color="#E4E7EC"></stop>
+<stop offset="100%" stop-color="#E4E7EC"></stop>
+</linearGradient>
+<linearGradient id="g-ends" gradientUnits="userSpaceOnUse" x1="25" y1="120" x2="295" y2="120">
+<stop offset="0%" stop-color="#000000"></stop>
+<stop offset="22%" stop-color="#FFFFFF"></stop>
+<stop offset="78%" stop-color="#FFFFFF"></stop>
+<stop offset="100%" stop-color="#000000"></stop>
+</linearGradient>
+<mask id="m-ends" maskUnits="userSpaceOnUse" x="20" y="115" width="280" height="10">
+<rect x="20" y="115" width="280" height="10" fill="url(#g-ends)"></rect>
+</mask>
+<radialGradient id="f-tl" gradientUnits="userSpaceOnUse" cx="117" cy="77" r="78">
+<stop offset="0%" stop-color="#FFFFFF"></stop><stop offset="38%" stop-color="#FFFFFF"></stop><stop offset="100%" stop-color="#000000"></stop>
+</radialGradient>
+<mask id="m-tl" maskUnits="userSpaceOnUse" x="51" y="11" width="82" height="88"><rect x="51" y="11" width="82" height="88" fill="url(#f-tl)"></rect></mask>
+<radialGradient id="f-tr" gradientUnits="userSpaceOnUse" cx="203" cy="77" r="78">
+<stop offset="0%" stop-color="#FFFFFF"></stop><stop offset="38%" stop-color="#FFFFFF"></stop><stop offset="100%" stop-color="#000000"></stop>
+</radialGradient>
+<mask id="m-tr" maskUnits="userSpaceOnUse" x="187" y="11" width="82" height="88"><rect x="187" y="11" width="82" height="88" fill="url(#f-tr)"></rect></mask>
+<radialGradient id="f-bl" gradientUnits="userSpaceOnUse" cx="117" cy="163" r="78">
+<stop offset="0%" stop-color="#FFFFFF"></stop><stop offset="38%" stop-color="#FFFFFF"></stop><stop offset="100%" stop-color="#000000"></stop>
+</radialGradient>
+<mask id="m-bl" maskUnits="userSpaceOnUse" x="51" y="147" width="82" height="88"><rect x="51" y="147" width="82" height="88" fill="url(#f-bl)"></rect></mask>
+<radialGradient id="f-br" gradientUnits="userSpaceOnUse" cx="203" cy="163" r="78">
+<stop offset="0%" stop-color="#FFFFFF"></stop><stop offset="38%" stop-color="#FFFFFF"></stop><stop offset="100%" stop-color="#000000"></stop>
+</radialGradient>
+<mask id="m-br" maskUnits="userSpaceOnUse" x="187" y="147" width="82" height="88"><rect x="187" y="147" width="82" height="88" fill="url(#f-br)"></rect></mask>
+<filter id="f-blur" x="-100%" y="-300%" width="300%" height="700%"><feGaussianBlur stdDeviation="10"></feGaussianBlur></filter>
+</defs>
+<ellipse cx="160" cy="152" rx="22" ry="8" fill="url(#g-blob)" filter="url(#f-blur)"></ellipse>
+<line x1="25" y1="120" x2="295" y2="120" stroke="url(#g-shine)" stroke-width="1.5" mask="url(#m-ends)"></line>
+<g mask="url(#m-tl)"><rect x="67" y="27" width="50" height="50" rx="10" fill="var(--tile-fill)" stroke="var(--tile-stroke)" stroke-width="0.5"></rect></g>
+<g mask="url(#m-tr)"><rect x="203" y="27" width="50" height="50" rx="10" fill="var(--tile-fill)" stroke="var(--tile-stroke)" stroke-width="0.5"></rect></g>
+<g mask="url(#m-bl)"><rect x="67" y="163" width="50" height="50" rx="10" fill="var(--tile-fill)" stroke="var(--tile-stroke)" stroke-width="0.5"></rect></g>
+<g mask="url(#m-br)"><rect x="203" y="163" width="50" height="50" rx="10" fill="var(--tile-fill)" stroke="var(--tile-stroke)" stroke-width="0.5"></rect></g>
+<g>
+<rect x="45" y="95" width="50" height="50" rx="10" fill="var(--tile-fill)" stroke="var(--tile-stroke)" stroke-width="0.5"></rect>
+<g transform="translate(58,110.45)" aria-hidden="true">
+<rect x="0" y="0" width="5" height="30" fill="#FC413D"></rect>
+<rect x="19" y="0" width="5" height="30" fill="#3186FF"></rect>
+<path d="M5 0 L12 8 L19 0 L19 5 L12 13 L5 5 Z" fill="#FC413D"></path>
+<rect x="5" y="8" width="14" height="20" fill="#fff" opacity="0"></rect>
+<text x="12" y="22" text-anchor="middle" font-size="13" font-weight="800" fill="var(--mark)">M</text>
+</g>
+<text x="70" y="156" text-anchor="middle" font-size="10" fill="var(--muted)">Gmail</text>
+</g>
+<g>
+<rect x="225" y="95" width="50" height="50" rx="10" fill="var(--tile-fill)" stroke="var(--tile-stroke)" stroke-width="0.5"></rect>
+<text x="250" y="125" text-anchor="middle" font-size="20" font-weight="800" fill="var(--mark)">𝕏</text>
+<text x="250" y="156" text-anchor="middle" font-size="10" fill="var(--muted)">Grok</text>
+</g>
+<g>
+<rect class="tilebtn" id="coreTile" x="128" y="88" width="64" height="64" rx="14" fill="var(--tile-fill)" stroke="var(--tile-stroke)" stroke-width="0.5" tabindex="0" role="button" aria-label="ChatGPT tile: activate for details"></rect>
+<path d="M128 138 A14 14 0 0 0 142 152 L178 152 A14 14 0 0 0 192 138" fill="none" stroke="url(#g-edge)" stroke-width="0.5"></path>
+<text x="160" y="128" text-anchor="middle" font-size="22" font-weight="700" fill="var(--mark)">✳</text>
+<text x="160" y="163" text-anchor="middle" font-size="10" fill="var(--muted)">ChatGPT</text>
+</g>
+</svg>
+</div>
+<p class="art-cap" id="artCap">Shine runs along the connection every 3.6s. Left: Gmail. Centre: ChatGPT. Right: Grok.</p>
+<div class="btnrow">
+<button class="btn primary" id="runBtn" type="button"><span class="glyph">▶</span><span id="runLabel">Pause sourcing</span></button>
+<button class="btn" id="shineBtn" type="button"><span class="glyph">✦</span><span id="shineLabel">Pause shine</span></button>
+<button class="btn" id="moreBtn" type="button" aria-expanded="false"><span class="glyph">▾</span><span>Details</span></button>
+</div>
+<p class="details" id="details" hidden>Lead Sourcing connects the ChatGPT tile to Gmail and Grok tiles. Empty tiles fade at the corners. The 1.5px connection line carries a colour shine (coral → peach → lilac → periwinkle) masked to fade at both ends, with a soft pastel glow underneath. Click the centre tile or press Enter to toggle these details.</p>
+</section>
+
+<section class="card" aria-labelledby="sideTitle">
+<p class="colhead">Agents · tools</p>
+<h2 id="sideTitle">Sourcing run</h2>
+<p class="meta" id="sideSub">gmail-reader · grok-search · chatgpt-draft</p>
+<div class="statusrow"><span class="pill waiting" id="statePill">waiting: enriching leads</span><span class="pill" id="leadPill">128 leads</span></div>
+<div style="margin-top:12px">
+<div class="agentrow"><span class="pmark" data-seed="chatgpt" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="nm">chatgpt-drafter</span><span class="st" id="st0">working</span></div>
+<div class="agentrow"><span class="pmark" data-seed="gmail" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="nm">gmail-reader</span><span class="st" id="st1">working</span></div>
+<div class="agentrow"><span class="pmark" data-seed="grok" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="nm">grok-search</span><span class="st" id="st2">waiting</span></div>
+</div>
+<div class="tools" aria-label="Tools">
+<span class="tool" title="Gmail">M</span><span class="tool" title="Grok">𝕏</span><span class="tool" title="ChatGPT">✳</span>
+</div>
+<div class="subs">
+<div class="sub"><b>enrich</b><span>waiting · 42 left</span></div>
+<div class="sub"><b>dedupe</b><span>idle · done</span></div>
+</div>
+<div class="btnrow"><button class="btn" id="stepBtn" type="button"><span class="glyph">⏭</span><span>Advance step</span></button></div>
+<p class="details" id="stepNote" hidden>Step advanced. Statuses rotate in place: working → waiting → idle. Counts and tokens update without rebuilding any card.</p>
+</section>
+</main>
+<footer>Replica notes: geometry, stops and tile rects use the demo chunk verbatim (see REPORT.md). Open <code>index.html</code> in a browser to test. Toggle the theme — both light and dark are finished.</footer>
+</div>
+<script>
+(function(){
+"use strict";
+var root=document.documentElement;
+var KEY="lead-sourcing-theme";
+function cur(){return root.getAttribute("data-theme")==="dark"?"dark":"light"}
+function paintToggle(){
+var d=cur();
+var g=document.getElementById("themeGlyph");
+var l=document.getElementById("themeLabel");
+if(g){g.textContent=d==="dark"?"☾":"◐"}
+if(l){l.textContent=d==="dark"?"Dark":"Light"}
+}
+var themeBtn=document.getElementById("themeBtn");
+if(themeBtn){themeBtn.addEventListener("click",function(){
+var n=cur()==="dark"?"light":"dark";
+root.setAttribute("data-theme",n);
+try{localStorage.setItem(KEY,n)}catch(e){}
+paintToggle();
+});}
+paintToggle();
+/* deterministic 3x3 pixel-marks */
+function hash(s){var h=0;for(var i=0;i<s.length;i++){h=(h*31+s.charCodeAt(i))|0}return h>>>0}
+var palette=["#FF6B5C","#FFB89E","#C8A8E5","#A8B5FF","#60D673","#3C90FF","#FEB10C","#FC413D"];
+function paintMarks(){
+var els=document.querySelectorAll(".pmark");
+for(var k=0;k<els.length;k++){
+var seed=els[k].getAttribute("data-seed")||("a"+k);
+var h=hash(seed);
+var cells=els[k].children;
+for(var j=0;j<cells.length;j++){cells[j].style.background=palette[(h>>(j*2))%palette.length]}
+}
+}
+paintMarks();
+/* ---- in-place live loop (shine + counters). Nodes cached once; only text/attrs/styles mutate. ---- */
+var shine=document.getElementById("g-shine");
+var timerPill=document.getElementById("timerPill");
+var statusPill=document.getElementById("statusPill");
+var leadPill=document.getElementById("leadPill");
+var ctxLabel=document.getElementById("ctxLabel");
+var ctxFill=document.getElementById("ctxFill");
+var ctxBar=document.getElementById("ctxBar");
+var workCount=document.getElementById("workCount");
+var statePill=document.getElementById("statePill");
+var st0=document.getElementById("st0"),st1=document.getElementById("st1"),st2=document.getElementById("st2");
+var reduce=false;
+try{reduce=window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches}catch(e){}
+var S={t:0,running:true,shine:true,leads:128,used:44,step:0};
+var DUR=3.6;
+function shinePos(t){
+var ph=(t%DUR)/DUR;
+var k=ph<0.3?ph/0.3:1;
+return{x1:-195+320*k,x2:195+320*k,ph:ph};
+}
+function tick(dt){
+S.t+=dt;
+if(S.shine&&shine&&!reduce){
+var p=shinePos(S.t);
+shine.setAttribute("x1",p.x1.toFixed(1));
+shine.setAttribute("x2",p.x2.toFixed(1));
+if(timerPill){timerPill.textContent="shine "+(p.ph*DUR).toFixed(1)+"s / 3.6s"}
+}else if(timerPill&&reduce){
+timerPill.textContent="shine off (reduced motion)";
+}
+if(S.running){
+if(Math.floor(S.t*2)!==Math.floor((S.t-dt)*2)){
+S.leads+=1;S.used=Math.min(199,S.used+(S.step%3===0?1:0));
+if(leadPill){leadPill.textContent=S.leads+" leads"}
+if(ctxLabel){ctxLabel.textContent=S.used+"k / 200k"}
+if(ctxFill){ctxFill.style.width=(S.used/200*100).toFixed(1)+"%"}
+if(ctxBar){ctxBar.setAttribute("aria-valuenow",String(S.used))}
+var w=2-(S.step%2);
+if(workCount){workCount.textContent=w+" working"}
+var states=["working","waiting","idle"];
+if(st0){st0.textContent=states[(S.step)%3]}
+if(st1){st1.textContent=states[(S.step+1)%3]}
+if(st2){st2.textContent=states[(S.step+2)%3]}
+if(statusPill){statusPill.textContent=S.running?"● sourcing":"○ paused"}
+if(statePill){statePill.textContent=["waiting: enriching leads","working: drafting outreach","idle: queue drained"][S.step%3]}
+}
+}
+}
+var last=0,rafId=0;
+function frame(ts){
+var dt=Math.min(0.1,(ts-last)/1000||0.016);last=ts;tick(dt);
+if(S.running||S.shine){rafId=requestAnimationFrame(frame)}else{rafId=0}
+}
+function kick(){if(!rafId){last=performance.now();rafId=requestAnimationFrame(frame)}}
+try{kick()}catch(e){setInterval(function(){tick(0.05)},50)}
+/* buttons: mutate in place only */
+var runBtn=document.getElementById("runBtn"),runLabel=document.getElementById("runLabel");
+if(runBtn){runBtn.addEventListener("click",function(){
+S.running=!S.running;
+if(runLabel){runLabel.textContent=S.running?"Pause sourcing":"Resume sourcing"}
+if(statusPill){statusPill.textContent=S.running?"● sourcing":"○ paused";statusPill.className=S.running?"pill working":"pill idle"}
+kick();
+});}
+var shineBtn=document.getElementById("shineBtn"),shineLabel=document.getElementById("shineLabel");
+if(shineBtn){shineBtn.addEventListener("click",function(){
+S.shine=!S.shine;
+if(shineLabel){shineLabel.textContent=S.shine?"Pause shine":"Play shine"}
+kick();
+});}
+var moreBtn=document.getElementById("moreBtn"),details=document.getElementById("details");
+function toggleDetails(){
+if(!details||!moreBtn){return}
+var open=details.hasAttribute("hidden");
+if(open){details.removeAttribute("hidden")}else{details.setAttribute("hidden","")}
+moreBtn.setAttribute("aria-expanded",open?"true":"false");
+}
+if(moreBtn){moreBtn.addEventListener("click",toggleDetails)}
+var core=document.getElementById("coreTile");
+if(core){
+core.addEventListener("click",toggleDetails);
+core.addEventListener("keydown",function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();toggleDetails()}});
+}
+var stepBtn=document.getElementById("stepBtn"),stepNote=document.getElementById("stepNote");
+if(stepBtn){stepBtn.addEventListener("click",function(){
+S.step+=1;tick(0);
+if(stepNote){stepNote.removeAttribute("hidden")}
+});}
+/* expose for harness */
+try{window.__leadSourcing={state:S,tick:tick,els:{shine:shine,timerPill:timerPill,statusPill:statusPill,leadPill:leadPill,ctxLabel:ctxLabel,workCount:workCount}}}catch(e){}
+})();
+</script>
+</body>
+</html>
