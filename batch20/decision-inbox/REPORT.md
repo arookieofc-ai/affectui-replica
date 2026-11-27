@@ -1,67 +1,69 @@
-# Decision Inbox — replica report
+# Decision Inbox — targeted fix REPORT
 
-## What was built
-- `index.html` (16KB, self-contained, no external deps): standalone interactive
-  replica of affectUI "Decision Inbox" (Feedback, Free).
-- Public description: "Open decisions with two quick answers each, folding away once answered."
-- Gray tray + white card, header with alert/check icon and live count, two
-  decision rows each with title, detail, and two answer buttons
-  (primary dark / secondary bordered). Answering swaps the buttons for a green
-  "done" status line, then the row folds away (grid-rows + opacity transition).
-  Folded titles collapse to one-line ellipsis and reopen on click.
-  When all are answered the header flips to "All caught up" and an empty note
-  appears; after ~3.2s the inbox loops back to the full set.
-- Demo data used verbatim from `demo-original.js`:
-  - `Roll out the new onboarding to everyone?` / `Test won with +8% activation · 2 weeks of data` / `Roll out` / `Keep testing`
-  - `Renew Figma for the design team?` / `12 seats · $1,800 per year · renews in 5 days` / `Renew` / `Change seats`
-  - Empty text: `Nothing waiting on you – new decisions show up here.`
-  - Counts via `Intl.NumberFormat("en")`: `2 need your input` / `1 needs your input` / `All caught up`.
-- Clean-room: all HTML/CSS/JS written from the public description and observed
-  behaviour. No compiled source copied; own class names (`di__*`) and own CSS.
-- In-place updates only: DOM is built once with `createElement`; all state
-  changes mutate `textContent`, `hidden`, attributes (`data-open`,
-  `data-answered`, `data-gone`, `data-clear`, `inert`) on existing nodes.
-  Both answer buttons and the done-status node are pre-created and toggled —
-  no node creation after init, no `innerHTML` anywhere (also asserted).
-- v5 polish: all `:hover` inside `@media (hover:hover) and (pointer:fine)`,
-  `html{-webkit-tap-highlight-color:transparent}`,
-  `body{font-variant-numeric:tabular-nums}`, concentric tray/card radius
-  (`calc(radius-lg + 6px)`), shadow-for-elevation + border-for-structure,
-  folded-button focus ring, asymmetric icon-button padding nudge.
-- v4: `<head>` starts with the `/*noflash*/` theme guard + inline
-  `html{background}` paint style + `<meta name="color-scheme">`.
-- Theme toggle (top-right, ☾/☀) flips `data-theme="light"|"dark"` on `<html>`,
-  persists to `localStorage ("decision-inbox-theme")`, defaults to
-  `prefers-color-scheme`. Both themes use the same token set; dark checked
-  for contrast (amber/green adjusted, buttons inverted like the original).
+## What this page is
+Standalone replica of the affectUI decision-inbox item (`index.html`, inline CSS + JS, no deps).
+Two decision rows (rollout / renewal) with open/folded states, answer buttons that fold the row
+away after ~1100ms, auto-open of the next folded row, header count `2 need your input` -> `1 needs…`
+-> `All caught up`, empty-state text, full-loop reset after ~3200ms, light/dark theme toggle.
 
-## What matches the original
-- Header pattern, count wording, tray/card geometry, row dividers, folded
-  single-line titles, detail styling, two-button actions, done status with
-  check icon, 1100ms fold-away + auto-open-next, 3200ms full-loop reset,
-  empty message, expand/collapse easing, reduced-motion guard.
+## Defect (from real-browser QA)
+In the EXPANDED state each row's title painted TWICE: the bold title had an identical light-grey
+copy of the same title text directly beneath it, in both themes and both rows (verified zoomed).
+Interactions otherwise worked (Roll out collapses the row after ~5s total cycle, count 2->1).
 
-## What could not be verified
-- No browser was launched (per task constraints); pixel-perfect rendering,
-  real CSS grid-row animation smoothness, and OS dark-mode default were not
-  eyeballed — only DOM/CSS static checks + stub execution. The exact original
-  alert/check SVG path geometry was re-drawn in the same spirit from the
-  behaviour description rather than traced.
+## Root cause
+Checked `./demo-original.js` first: the original does NOT behave this way. It conditionally renders
+exactly one title node per state — `<p class="ui-di__title">` when open, `<button class="…--folded">`
+when folded — plus the real detail (`ui-di__detail`) and actions inside the collapsible body.
+The expanded row shows the title ONCE. So the duplication is a replica-only bug, worth fixing.
 
-## How to test
-1. Open `index.html` in a browser (double-click or `python3 -m http.server`).
-2. Click `Roll out` / `Keep testing` etc.; rows fold away, header counts down,
-   then everything loops back after a few seconds.
-3. Click a folded (grey, one-line) title to reopen it. Tab + Enter works.
-4. Toggle ☾/☀ top-right; reload to confirm persistence; test with OS dark mode.
-5. Node-only verification (no browser):
-   - `python3 -c "import re;h=open('index.html').read();m=re.findall(r'<script(?![^>]*src)[^>]*>([\s\S]*?)</script>',h);open('/tmp/di-check.js','w').write(m[-1])" && node --check /tmp/di-check.js && node --check harness.js && node harness.js`
-   - (`node --check` cannot run on `.html` directly, so the inline script is
-     extracted first — the check above asserts the page's actual shipped JS.)
-   - Harness asserts: visible painted text, full-loop node identity, zero
-     `innerHTML` writes after init, light AND dark themes (56 checks).
+Replica keeps both title nodes alive for in-place updates (good for node identity) and toggles them
+with the `hidden` property (`paintRow`: open -> `titleOpen.hidden=false, titleFolded.hidden=true`).
+But the stylesheet had NO `[hidden]` rule, while two rules set explicit `display` that beats the
+UA `[hidden]{display:none}` default:
 
-## Verification
-- `node --check` on extracted inline JS: PASS; `node --check harness.js`: PASS.
-- `node harness.js`: ALL 56 CHECKS PASSED.
-- Light AND dark mode confirmed via toggle + persisted key + dark token scan.
+- `.di__title{display:block;…}` — keeps the folded `<button>` (faint grey `#b5b5b5`/`#6b6b70`) painted
+  even when `hidden=true`, directly under the bold open `<p>`. Exactly the reported "light-grey copy".
+- `.di__done{display:inline-flex;…}` — same latent bug for the answered badge (would leak an empty
+  badge next to the buttons).
+
+No `::before`/`::after` content echo and no double-render in JS — the second copy is purely the
+`hidden`-vs-`display` CSS specificity conflict.
+
+## Fix (targeted, everything else identical)
+One line added right after the `/* ---- component ---- */` marker in `index.html`:
+
+```css
+.di [hidden]{display:none !important}
+```
+
+Scoped to `.di` so page chrome is untouched. `hidden=true` nodes now never paint in either theme,
+so the expanded row shows exactly the open `<p>` title plus its genuine detail + actions; the folded
+state shows exactly the folded button. No JS changes, no node/structure changes, demo data verbatim,
+`/*noflash*/` guard kept, still zero `innerHTML` writes after init, still in-place updates only.
+
+## Verification (node only, in-dir)
+- `node --check` on the extracted main script: OK (also `node --check verify-fix.js`: OK).
+- `node verify-fix.js` (in-dir DOM-stub harness, no installs/downloads): ALL CHECKS PASSED —
+  - `/*noflash*/` present; zero `innerHTML` in source and zero `innerHTML` writes after init
+    and across a full loop (setter counter on the stub).
+  - Fix rule present; no title/detail `::before`/`::after` content echo.
+  - Demo data verbatim vs `./demo-original.js` (both titles, details, all four button labels).
+  - VISIBLE state (= `!hidden`, which is exactly what paints given the fix rule): each EXPANDED
+    row shows exactly one title (the open `<p>` with verbatim text, body `data-open` set) in
+    LIGHT and in DARK; folded state shows exactly the folded button; both detail nodes kept
+    with verbatim text.
+  - Interactions: count 2 -> 1 after answering the first row, row goes `gone` after the
+    ~1100ms timer; full loop (answer second row, run collapse + ~3200ms reset timers) restores
+    count 2 with both rows expanded single-title.
+  - Full-loop node identity: `row/item/titleOpen/titleFolded/body/btnP/btnS/done` are the same
+    objects before and after the loop (in-place updates only, no rebuild).
+
+## What matches / could not verify
+- Matches: tray + white card layout, header count wording, title/detail/actions, fold/collapse
+  timing shape, empty state, theme tokens in both modes, hover only under
+  `@media (hover:hover) and (pointer:fine)`, tabular-nums, tap-highlight guard.
+- Could not verify: pixel-exact colours/spacing vs the live site (no browser here); reduced-motion
+  and narrow-viewport behaviour are code-correct but only stub-tested. Open `index.html` in a real
+  browser and zoom the expanded rows in light + dark to confirm the single-title paint; click
+  `Roll out` and watch count 2->1 and the row fold away.

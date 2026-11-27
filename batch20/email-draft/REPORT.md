@@ -1,49 +1,41 @@
-# Email Draft — Replica Report
+# Email Draft — targeted chip fix (REPORT)
 
-## What was built
-Standalone `index.html` (inline CSS + JS, no external deps, ~29KB) replicating the affectUI `email-draft` card.
+## What this page is
+Standalone replica of the `EmailDraft` demo (`SUB-1182`, Renewal agent): record header, recipient picker, attachment chip, editable body with tone pills, Send/Discard with receipt + Undo, Ready/Sent/Discarded badge. Demo data verbatim (`Jonas Weber`, `Lena Hart`, `Finance team`, `Renewal-quote.pdf`, `Review quote`, tones Friendly/Short/Formal).
 
-Layout from top to bottom:
-- Tray record: `SUB-1182` + `Renews in 5 days` status pill + `$8,900` right-aligned, second line `Northwind Logistics`.
-- Email card: `to` + recipient chip (`Jonas Weber (jonas@northwind.io)` + chevron) with dropdown menu, attachment `Renewal-quote.pdf` with remove / `Attach Renewal-quote.pdf` restore on the right; body text + `Review quote` link; tone group `Friendly / Short / Formal` + pencil edit button; `Discard` + `Send email` buttons.
-- Receipt states: `Sent to <name> with <file>` / `Draft discarded` + `Undo`.
-- Footer: `Renewal agent` + badge (`Ready for review` / `Sent` / `Discarded`) + hint `⌘ Enter to send`.
+## Targeted defects (from real-browser QA) — all in attachment chip, both themes
+1. File icon painted as plain black slanted block (nearly invisible in dark).
+2. Filename showed `Renew…` though DOM held `Renewal-quote.pdf` and there was room.
+3. Remove button painted as empty box / thin bar — × glyph missing.
 
-## Demo data (verbatim from demo-original.js)
-- Contacts: Jonas Weber <jonas@northwind.io>, Lena Hart <lena@northwind.io>, Finance team <billing@northwind.io>.
-- Tones: Friendly (`Hi {first}, a heads-up that your Growth plan renews on October 9 for $8,900 a year…`), Short (`Hi {first}, your Growth plan renews on October 9 ($8,900/year)…`), Formal (`Dear {full}, this is a reminder…`).
-- Reference `SUB-1182`, account `Northwind Logistics`, amount `$8,900`, status `Renews in 5 days`, agent `Renewal agent`, attachment `Renewal-quote.pdf`, link `Review quote → #`.
+## Original behaviour check (`demo-original.js`)
+- Checked before changing: original does **not** behave this way. Original renders a proper stroked file (paperclip) icon, the full `Renewal-quote.pdf` name (ellipsis only on real overflow), and a visible × remove button.
+- Original mechanism: global ` .ui-ed svg { fill:none; stroke:currentColor; … }` + ` .ui-ed__file-name { min-width:0; overflow:hidden; text-overflow:ellipsis }` (no restrictive max-width) + file/attach as direct flex items of ` .ui-ed__meta` (both `min-width:0`). Icon helper `d()` emits bare `<svg viewBox><path d=…>` and relies on that CSS. Paths: clip `m15.5 7.5-6.4 …l6-6`, × `M7 7l10 10M17 7 7 17` — same as replica JS, so JS needed no change.
 
-## Behaviour matches
-- Recipient dropdown (toggle, outside pointerdown closes, Escape closes), avatar initials (first alphanumeric per word, 2 chars), tick on selected; switching recipient rewrites old full/first name inside edited custom text (same RegExp logic as original).
-- Tone switching clears custom edits; editing (click text / Enter-Space / pencil) sets custom text, textarea autoresizes, `input` updates in place, `Esc`/blur ends editing, `Cmd/Ctrl+Enter` sends.
-- Attachment remove/restore; Send → `sending` (card dimmed, spinner + `Sending`, buttons disabled) → `sent` after 900ms; Discard → `discarded`; Undo → `draft`.
-- Link click stops propagation (plus preventDefault to avoid `#` jump in standalone).
-- Narrow ≤480px hides email address + hint; reduced-motion disables animations.
+## Root causes in `./index.html`
+1. **Missing SVG presentation rule.** Replica had only `.ed-recip svg` sized; no global `.ed svg` rule. `svgEl()` creates bare SVG+path with no fill/stroke attrs, so browser defaults apply: `fill:#000; stroke:none`. Filling the open paperclip path yields a solid slanted blob; filling the open × path yields near-nothing (thin bar/empty box). In dark (`--surface:#1c1c1f`) the black blob vanishes into the card.
+2. **Introduced `.ed-side` wrapper with no CSS.** Original puts file/attach directly in `.ui-ed__meta` (flex, `min-width:0`). Replica wraps both in `<div class="ed-side">` with zero styles: default `display:block; min-width:auto`. As a flex item of `.ed-meta` it refuses to shrink, squeezing the inner `inline-flex` file to a few px, so `.ed-fname` (ellipsis) collapses to `Renew…` despite room. Also missing `white-space:nowrap`/`flex` on `.ed-fname` and `flex:none` on the clip svg made it worse.
 
-## Clean-room / in-place updates
-- Written from scratch; no copied compiled source. Own class names (`ed-*`).
-- DOM built once at init. All ticks update existing nodes via `textContent`, attributes, `style.display`, classes. No `innerHTML` anywhere in component script (asserted by harness + grep). Menu items, file/attach, text/textarea, card/receipt pairs are pre-built and toggled, never rebuilt.
+## Fixes (in-place, everything else identical)
+- Added global icon rule (before `.ed-recip` so specifics still win):
+  `.ed svg{width:15px;height:15px;flex:none;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}`
+  plus `.ed-fremove svg{width:13px;height:13px}` matching original `13px` remove icon. Icons now inherit `var(--muted)` → `currentColor`, visible in light (`#78716c` on `#ffffff`) and dark (`#a1a1aa` on `#1c1c1f`).
+- Added shrink-safe layout:
+  `.ed-side{display:flex;align-items:center;min-width:0;flex:0 1 auto}`
+  `.ed-file{…flex:0 1 auto;max-width:100%;…}` + `.ed-file>svg{flex:none}`
+  `.ed-fname{min-width:0;flex:0 1 auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}` (no restrictive max-width; `title` + `aria-label` still carry full name).
+- No JS changes; no data changes; `/*noflash*/` guard, in-place updates, zero `innerHTML` preserved.
 
-## v5 polish
-- All `:hover` inside `@media (hover: hover) and (pointer: fine)`; `html{-webkit-tap-highlight-color:transparent}`; `body{font-variant-numeric:tabular-nums}`; concentric radii (tray 20px = card 16px + 4px padding); shadows for elevation, borders only for structure/inputs; icon buttons optically nudged (asymmetric padding).
+## Verification (node only, in-dir)
+- `node --check verify-chip.cjs` → ok; extracted inline scripts also `node --check` clean; `innerHTML` count in `index.html` = 0.
+- `node verify-chip.cjs` (DOM-stub harness, no deps) → ALL PASS:
+  - static: noflash, color-scheme, `stroke:currentColor`+`fill:none`, 13px ×, muted colors differ from surfaces in both themes, clip/× paths byte-match original, `.ed-side` flex+`min-width:0`, `.ed-fname` nowrap+ellipsis with no restrictive max-width;
+  - live stub: `fname.textContent/title === "Renewal-quote.pdf"`, remove `aria-label` full, file visible, inline SVGs present with correct `d`, in **light AND dark** (`data-theme` toggled);
+  - full loop (`pickTone`, `pickRecipient`, edit, remove/re-attach, `send→sent→undo→discard→undo`): every captured node (`file/fname/fremove/attach/text/textBody/card/receipt/badge/send/tonesWrap`) keeps object identity; `innerHTML` writes = 0.
 
-## Dark mode
-- Tokens via CSS vars; `html[data-theme]` toggle (☾/☀ top-right), default from `prefers-color-scheme`, persisted as `email-draft-theme`. Dark: surface `#1c1c1f`, page `#101012`, ink `#ededed`, muted `#a1a1aa`, subtle `#26262a`, border `#2e2e33`; amber waiting adjusted (`#fbbf24` on `#451a03`, text `#fde68a`).
-- Checked: light tokens + dark tokens present in CSS; toggle flips `data-theme`; harness asserts both apply.
+## How to test in a browser
+Open `index.html` → chip shows paperclip + `Renewal-quote.pdf` + ×; click × → `Attach Renewal-quote.pdf` CTA; click it → chip returns. Toggle ☾/☀ (top-right): icon (muted) and × stay legible, never black block / empty box; name stays full unless the viewport is narrowed to force real ellipsis (hover shows full `title`).
 
-## Verification (node only, no browser)
-- `node --check harness.js` — pass.
-- `node --check .check-component.js` (extracted inline component script) — pass.
-- `node harness.js` — HARNESS PASSED, covering:
-  - VISIBLE painted text (all key strings found in visible tree walk skipping `display:none`),
-  - full-loop node identity (tones → edit → recipient rename → attach remove/restore → send → sent → undo → discard → undo → menu; `els` registry same object, card/badge still attached),
-  - zero `innerHTML` writes after init (setter trap count = 0 + static grep),
-  - light AND dark theme tokens + toggle.
-
-## How to test
-- `open index.html in a browser` (double-click or `python3 -m http.server` then visit). Click recipient to switch, try tones, click body text to edit, `Cmd+Enter` to send, Discard/Undo, theme button top-right, narrow window for responsive.
-- Re-run checks: `node --check harness.js && node harness.js` in this directory.
-
-## Not verified in browser
-- Pixel-perfect spacing vs original screenshot, popover overflow on very narrow trays, real focus-ring rendering, and smooth height animation (ResizeObserver path) were not visually compared; no browser was launched per task constraints.
+## What was not changed / not verified
+- No full-browser screenshot; harness is a DOM stub + CSS-text assertions, not layout pixels.
+- Narrow-viewport (`≤480px`) and `prefers-reduced-motion` paths untouched; receipt/tones/menu logic untouched except exercised for identity.

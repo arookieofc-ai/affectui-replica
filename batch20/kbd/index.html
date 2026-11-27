@@ -407,6 +407,7 @@ var statusP = document.getElementById("status");
 var tourLabel = document.getElementById("tourLabel");
 var tourBtn = document.getElementById("tourBtn");
 var tourBtnText = document.getElementById("tourBtnText");
+var tourBtnIcon = tourBtn.querySelector ? tourBtn.querySelector(".tri") : null;
 var osMac = document.getElementById("osMac");
 var osWin = document.getElementById("osWin");
 var footKbdBox = document.getElementById("footKbd");
@@ -482,8 +483,9 @@ function setPlatform(p, silent){
   if (!silent) announce(SHORTCUTS[activeIdx].action + " — " + rowRefs[activeIdx].chip.sr.textContent);
 }
 function paintActive(prev){
+  var cur = activeIdx;
   for (var i = 0; i < rowRefs.length; i++){
-    var on = i === activeIdx;
+    var on = i === cur;
     if (on) rowRefs[i].li.classList.add("is-active");
     else rowRefs[i].li.classList.remove("is-active");
     if (dotRefs[i]){
@@ -491,14 +493,14 @@ function paintActive(prev){
       else dotRefs[i].classList.remove("is-on");
     }
   }
-  var item = SHORTCUTS[activeIdx];
-  var spoken = rowRefs[activeIdx].chip.sr.textContent;
+  var item = SHORTCUTS[cur];
+  var spoken = rowRefs[cur].chip.sr.textContent;
   while (statusP.firstChild) statusP.removeChild(statusP.firstChild);
   statusP.appendChild(document.createTextNode("Highlighting "));
   var st = document.createElement("strong");
   st.textContent = item.action + " · " + spoken;
   statusP.appendChild(st);
-  tourLabel.textContent = "Touring " + (activeIdx + 1) + " of " + SHORTCUTS.length;
+  tourLabel.textContent = "Touring " + (cur + 1) + " of " + SHORTCUTS.length;
 }
 function announce(msg){
   while (statusP.firstChild) statusP.removeChild(statusP.firstChild);
@@ -516,6 +518,7 @@ function setTouring(on){
   touring = on;
   tourBtn.setAttribute("aria-pressed", on ? "true" : "false");
   tourBtnText.textContent = on ? "Pause" : "Play";
+  if (tourBtnIcon) tourBtnIcon.textContent = on ? "❚❚" : "▶";
   if (on){
     if (!tourTimer){
       try{ tourTimer = setInterval(tick, 2000); }catch(e){ tourTimer = 1; }

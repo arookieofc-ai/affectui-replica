@@ -1,58 +1,55 @@
-# Tooltip replica — REPORT
+# fix-tooltip — REPORT
 
-## What was built
-`index.html` (19.7 KB, self-contained, system fonts, no network): a faithful
-clean-room replica of the Tooltip demo — a "Run" card with a truncating title
-button plus 4 tool buttons (Search runs / Filter / Pin run / Share) and a reply
-block ("Summarised 14 support tickets …") with 4 action buttons (Copy,
-Good answer, Regenerate, More). One shared `.ui-tip` label (dark `#171717` in
-light mode, light `#fafafa` in dark mode, shortcut chip, 240 px wrap, 3 px
-drift-in per side, instant/no-animation in the skip-delay window).
+## What was built / fixed
+Targeted fix of existing `./index.html` (no rebuild). The page is the standalone
+Tooltip — Run replica (card with title, Search/Filter/Pin/Share tools, reply text,
+Copy/Good/Regenerate/More actions, theme toggle, single `.ui-tip` node updated in place).
 
-## Matched data / behaviour (verbatim from `demo-original.js`)
-- All strings verbatim: title `Summarise last week's support tickets and draft
-  replies for the billing team`, reply text, all 9 tooltip contents, shortcuts
-  `⌘K F P ⇧⌘S ⌘C ⌘R`, sides (`bottom`+`start` title, `bottom` header tools,
-  `top` reply actions), Good-answer pressed default `true`, Pin default `false`.
-- Timings exact: hover delay 500 ms, pointer-leave grace 120 ms, warm
-  skip-delay window 300 ms, Copied revert 1600 ms; Search tooltip open on load
-  (controlled default, closes on first user dismiss).
-- Semantics: single-open enforcement, per-trigger Escape/pointerdown
-  suppression (cleared on leave/blur), focus-visible shows at once, touch
-  hover ignored, click dismisses, `aria-describedby` wiring, side-flip +
-  8 px clamp + RTL-aware positioning with offset 6, empty `title=""` to kill
-  native tooltips.
+## Original behaviour (./demo-original.js) — checked before changing
+- `function C()` holds `const [b,x] = useState(true)` for the Search tooltip.
+- Search tooltip is controlled: `open: b || void 0, onOpenChange: e => !e && x(false)` —
+  i.e. a default-open one-shot tour highlight that permanently disarms on first close.
+- Same file suppresses it in embedded contexts:
+  `useLayoutEffect(() => { ref.current?.closest('.card__preview') && x(false) }, [])`.
+  Effect user-facing initial state in docs/preview contexts is **NO tooltip visible**;
+  the standalone classic route is the only place the tour-step paints on load.
+- The replica has no `.card__preview` ancestor but unconditionally reproduced the
+  tour-step open, outside its intended one-shot context. Real-browser QA is therefore
+  correct to call it a defect for this page: the replica painted `Search runs ⌘K`
+  with zero hover/focus input and latched it.
 
-## Structure / polish rules
-- `/*noflash*/` guard is the first thing in `<head>` (before any CSS) +
-  `meta color-scheme` + `html{background}` paint rule; default theme light
-  (the original demo's appearance); visible sun/moon toggle persists to
-  `localStorage` key `affectui-tooltip-theme`.
-- In-place updates only: DOM built once, timers/events mutate
-  `textContent`/`hidden`/attributes/`style` on existing nodes; zero
-  `innerHTML` writes in page JS. No 3×3 pixel-marks: this component has no
-  agent identities. No token bar: this demo has no token context.
-- All `:hover` rules inside `@media (hover:hover) and (pointer:fine)`;
-  `html{-webkit-tap-highlight-color:transparent}`;
-  `body{font-variant-numeric:tabular-nums}`; concentric radii
-  (card 16 / controls 10–999 / tip 8); shadows for elevation, borders only for
-  structure; `[hidden]{display:none !important}`; icon SVGs static in markup,
-  JS never assigns SVG `.className`.
+## Root cause (replica defect)
+`index.html` init did:
+`var searchArmed = true … var searchBtn = …; if (searchBtn && searchArmed) doShow(searchBtn, false);`
+- Paints `Search runs ⌘K` (`side=bottom`) on page load in both themes, over the
+  divider/summary area, with no hover/focus.
+- Latches: since the pointer never entered the trigger, no `pointerleave` ever fires;
+  moving the mouse to blank page area does nothing. Only `Esc` (or hovering another
+  trigger, which steals the singleton) dismisses it. Matches QA:
+  survives 25 s elsewhere, 5 s over blank area, `Esc` only; Filter hover otherwise correct.
 
-## Verification (node only, no browser)
-- `node --check tip-extract.js` (script extracted from `index.html`): passes.
-- `node harness-verify.js` (in-dir DOM stub + fake timers): **46/46 pass** —
-  initial visible `Search runs ⌘K`, grace 119→120 ms, warm instant with
-  `data-instant`, cold 499→500 ms without it, Escape/focus/blur/touch-no-op,
-  Copy→Copied→1600 ms revert with in-place tooltip update, pressed toggles,
-  light→dark→light toggle, node identity held for all anchors across the full
-  loop, zero `innerHTML` writes. Light AND dark both checked.
+## Fix (2 lines, everything else identical)
+- Deleted the init auto-show block (`var searchBtn… / if…doShow(searchBtn,false)`).
+- Set `searchArmed = false` initially (dead latch can never re-arm).
+- No other changes: `/*noflash*/` guard kept, DOM built once at init, in-place
+  `textContent/hidden/style/attrs` updates only, zero `innerHTML`, demo strings verbatim,
+  hover/focus/warm/Esc/Copy/Pin/Good/theme logic untouched.
 
-## How to test
-Open `index.html` in a browser: hover any control (~500 ms) or Tab to it;
-move between labels quickly for instant display; `Esc` dismisses; click Copy
-to see the 1600 ms `Copied` state; toggle ☾/☀ top-right for dark mode.
+## Verification (node only, in-dir)
+- `node --check ./.tmp-main.js` (extracted inline script from `./index.html`) → OK.
+- `node ./verify-fix.js` (DOM-stub harness, relative `./index.html`) → ALL PASSED:
+  - light + dark: initial VISIBLE state is clean (`tip.hidden === true`, `open === false`,
+    empty text — no tooltip painted until real hover/focus).
+  - hover Filter shows `Filter` + `F` after 500 ms delay; leave hides it.
+  - on-demand Search hover still works (`Search runs` + `⌘K`).
+  - full-loop node identity preserved (tip/text/keys/triggers keep `===`).
+  - zero `innerHTML` writes after init (static grep + runtime setter count).
 
-## Not verified
-Pixel-perfect match to the original site (no browser available here);
-`prefers-reduced-motion` / coarse-pointer branches only code-reviewed.
+## How to test (browser)
+Open `index.html` in light theme with no input: no tooltip should paint.
+Hover Filter ~500 ms → `Filter F`; leave → hides. Same in dark (toggle ☾/☀).
+`Esc` dismisses any open tip. Copy confirms 1600 ms.
+
+## Light AND dark
+Checked both via harness (`data-theme` light/dark stubs) and token review
+(`--tip-bg/ink/muted/key` swap in `html[data-theme="dark"]`).

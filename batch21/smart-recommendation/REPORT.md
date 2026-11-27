@@ -1,65 +1,37 @@
-# Smart Recommendation — replica report
+# Smart recommendation — targeted fix REPORT
 
-## What was built
-ONE self-contained `index.html` (21.9 KB, no network, no external assets, system fonts) replicating the
-`Smart recommendation` suggestion card from `demo-original.js` as clean-room code (own HTML/CSS/JS, same
-class hooks `ui-sr` intentionally renamed to `sr-*` with identical layout/behaviour; no verbatim copy).
+## Defect (real-browser QA)
+- LIGHT theme only: primary button `Accept incremental sync` painted as dark-grey text on a near-black background — unreadable at normal zoom.
+- DARK theme was fine: white background with black text, perfectly clear.
 
-Page chrome: top bar with `Smart recommendation · 3 options · demo` + visible sun/moon theme toggle
-(top-right) switching `data-theme="light"|"dark"` on `<html>`, persisted to `localStorage("sr-theme")`.
-`<head>` starts with the `/*noflash*/` guard script, then `html{background}` paint guard, then
-`<meta name="color-scheme" content="light dark">`. Default theme is the original demo appearance (light);
-stored value or `prefers-color-scheme` overrides it.
+## Root cause
+- Checked `./demo-original.js` first: the original is **not** broken. Light primary is a dark gradient (`linear-gradient(#323137, #201e25)`) with `color: #fff !important`; dark primary is a light gradient (`linear-gradient(#f4f4f5, #e4e4e7)`) with `color: #121213 !important`.
+- The replica dropped the `!important` on the light rule (`.sr-btn-primary { … color:#fff; }`), while keeping the generic reset `.ui-sr button { margin:0; font:inherit; color:inherit; … }`.
+- Specificity: `.ui-sr button` = (0,1,1) beats `.sr-btn-primary` = (0,1,0), so in light theme the button inherited the near-black ink (`#171717`) onto the near-black gradient (`#201e25`) → contrast ≈ 1.09, unreadable.
+- Dark theme survived only by accident: `html[data-theme="dark"] .sr-btn-primary` = (0,2,1) beats the reset, so dark kept `color:#121213` on the light gradient (contrast ≈ 14.8). That is why QA saw LIGHT-only breakage.
 
-## Matched data (verbatim from demo-original.js, nothing invented)
-- Title: `Smart recommendation` (default prop).
-- Options (id/label/signal/reason, exact strings incl. en-dash and apostrophe):
-  1. `incremental` / `Incremental sync` / signal 3 (`Strong signal`) / `Only 4% of rows changed since
-     yesterday – switching to [strong]Incremental sync[/strong] saves about 40 minutes.`
-  2. `full` / `Full refresh` / signal 1 (`Weak signal`) / `A [strong]Full refresh[/strong] rebuilds every
-     table. Safest after schema changes, but takes about 50 minutes.`
-  3. `skip` / `Skip tonight` / signal 0 (`No signal`) / `[strong]Skip tonight[/strong] keeps yesterday's
-     data. Fine if nobody needs fresh numbers tomorrow morning.`
-- Signal labels: `No signal`, `Weak signal`, `Good signal`, `Strong signal`.
-- Accept labels via decap (lowercase first letter when `Upper+lower`): `Accept incremental sync`,
-  `Accept full refresh`, `Accept skip tonight`.
-- Pill `Alternative` shown only when selection ≠ index 0; tag `Recommended` on option 0 in menu;
-  trigger `Alternatives`; done status `<Label> accepted` + `Undo`; chevron `m4.5 6.25 3.5 3.5 3.5-3.5`,
-  check `m3.5 8.5 3 3 6-7`, spark-card icon paths as in original.
-- Behaviour: head toggles open (`aria-expanded`, `data-open`, `inert`); alternatives menu opens above,
-  `role=menu`/`menuitemradio`/`aria-checked`, flip to left on overflow, outside `pointerdown` + `Escape`
-  closes; selecting sets index, closes menu, re-opens body; Accept sets accepted → done+Undo, hides
-  Alternatives; Undo clears. This component has no timers/auto-loop in the original, so none were added.
+## Fix (targeted, everything else identical)
+- `./index.html`, light rule: `color:#fff;` → `color:#fff !important;` (matches original exactly).
+- `./index.html`, dark rule: `color:#121213;` → `color:#121213 !important;` (matches original exactly; computed dark appearance unchanged).
+- No other CSS/JS/HTML touched. `/*noflash*/` guard, in-place updates, zero `innerHTML` writes, and verbatim demo data (`Incremental sync` / `Full refresh` / `Skip tonight` + reason copy) all preserved.
 
-## v5 polish / hard-won rules applied
-- All `:hover` inside `@media (hover:hover) and (pointer:fine)` (harness asserts no un-gated `:hover`).
-- `html{-webkit-tap-highlight-color:transparent}`; `body{font-variant-numeric:tabular-nums}`.
-- Concentric radii: tray `radius-lg+6`, card `radius-lg`, head/menu `radius-lg−4`, option `radius-sm+1`.
-- Shadows for elevation, borders for structure; tokens via CSS vars for every colour, both themes.
-- `[hidden]{display:none!important}` present; no broad `.x svg{display:block}` hide-collapser
-  (svgs use `svg{display:block}` scoped to their wrappers).
-- SVG nodes via `createElementNS` + `setAttribute` only (harness counts 0 `.className` writes on SVG).
-- Menu opens on `pointerdown`/`mousedown` capture with click-suppression flag so stub `click()` and real
-  pointer+click both work; outside-close on window `pointerdown`/`mousedown` capture + `Escape`;
-  hover/focus never re-renders.
-- In-place updates only: DOM built once at init with `createElement`; updates mutate
-  `textContent`/`hidden`/attributes/`data-*` on existing nodes; zero `innerHTML`/`outerHTML` anywhere
-  (static grep + runtime write counter).
+## What matches the original now
+- Light: dark button (`#323137→#201e25`) + white text → contrast 16.49.
+- Dark: light button (`#f4f4f5→#e4e4e7`) + near-black text → contrast 14.76.
+- Hover states unchanged (light hover `#3b3a41→#26242b`, dark hover `#ffffff→#ececef`).
 
-## Verification (node only, in-dir files only, no installs, no browser)
-- `node --check extracted-check.js` (main script extracted from `index.html`): PASS.
-- `node verify.cjs` (in-dir DOM stub, no JSDOM): loads the page script, asserts VISIBLE text only
-  (hidden/collapsed/aria-only text excluded), walks the full interaction loop
-  (initial → open menu → select Full refresh → Accept → Undo → collapse/expand → Skip → back to
-  Incremental → Accept → Undo → Escape/outside-close), asserts node identity (`section/card/head/
-  reason/signal/accept` identical objects across the loop) and `innerHTMLWrites===0` after init.
-  Result: `ALL CHECKS PASSED (light+dark)` — 50 assertions, dark theme re-checked by flipping
-  `data-theme` and re-asserting visible accept/signal text in both themes.
-- No agent identities in this component, so no pixel-marks (correctly omitted: exactly-9-cells rule
-  applies only when agent identities exist).
-- Could not verify: pixel-perfect rendering vs the original site in a real browser (no browser
-  available); layout values were matched from the compiled CSS by eye.
+## Verification (node only, in-dir)
+- `node --check verify-fix.cjs` → OK; `node --check` on extracted inline script → OK.
+- `node verify-fix.cjs` (DOM-stub harness, `./index.html` only) → ALL CHECKS PASSED:
+  - `/*noflash*/` guard + bg style + `color-scheme` meta present.
+  - Zero `innerHTML` in file; runtime `innerHTML` setter writes = 0.
+  - Light AND dark VISIBLE primary text = `"Accept incremental sync"`.
+  - Contrast light 16.49 (≥7), dark 14.76 (≥7); broken-mode 1.09 documented.
+  - Full loop node identity: Accept→Undo reuses the SAME button object; option switches and collapse/expand keep reason/body/signal/actions objects; theme toggle does not rebuild nodes.
+  - Demo data verbatim fragments asserted.
+
+## What could not be verified
+- Real-browser pixel rendering (no browser here); contrast is computed from the exact hex stops shared with the original, and the cascade fix was proven by specificity + `!important` parity, not screenshots.
 
 ## How to test
-Open `index.html` in a browser. Toggle the sun/moon button (both themes stay legible). Click the card
-header to collapse/expand; open `Alternatives`, pick each option, `Accept`, then `Undo`.
+- Open `./index.html` in a browser, toggle the sun/moon button: light shows a dark `Accept incremental sync` button with white text; dark shows a white button with black text. Click `Alternatives`, `Accept`, `Undo`.
