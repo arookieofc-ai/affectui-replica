@@ -1,26 +1,143 @@
-# Settings / Privacy — replica report
+# TARGETED FIX — Emails initial-state contradiction (settings-privacy)
 
-## What was built
-Single self-contained `index.html` (inline CSS/JS, no external deps, ~43KB) replicating the affectUI **Settings / Privacy** page from `./demo-original.js` demo data verbatim.
+## Defect (real-browser QA)
+Emails section loaded showing BOTH a green `Subscribed` badge AND a `Subscribe` button — same state painted two opposite ways, in both light and dark. Clicking Subscribe flipped to `Unsubscribe` + toast `Subscribed to product updates`, proving initial paint inconsistent.
 
-Sections:
-- Page head: `Privacy` + `Decide what you share and where you're signed in.`
-- `Data and cookies` card: `Ad measurement`, `Product analytics`, `Improve models with my chats`, `Cookies on this browser` + `Manage cookies`/`Done` expander (`Necessary`/`Always on`, `Preferences`, `Analytics`). Toasts match original (`Ad measurement on/off`, `Product analytics on/off`, `Your chats can help train models` / `Your chats stay out of training`, `Preference cookies allowed/blocked`, `Analytics cookies allowed/blocked`).
-- `Emails` card: `Product updates` with `Subscribe`/`Unsubscribe` + `Subscribed` badge and the two note strings verbatim.
-- `Active sessions`: `Chrome on macOS` (`Vienna, Austria · Signed in with Google · 82.214.130.34`, `This device`), `Safari on iPhone` (`Vienna, Austria · Active 3 hours ago`), `Desktop app on Windows` (`Berlin, Germany · Active 6 days ago`); per-row `Sign out` + `Sign out others` header button. Toasts `… signed out` / `Signed out everywhere else`.
-- `Shared chats` with tabs `In the workspace (2)` / `Public links (1)`; rows `Q4 pricing review with Finance` (`Shared 2 days ago`, `14 views`), `Onboarding checklist for new hires` (`Shared last week`, `31 views`), `How we write release notes` (`Shared 3 weeks ago`, `208 views`); `Copy link`→`Copied` (1.6s revert, clipboard `https://app.workspace.ai/share/<id>`), `Stop sharing` removes row + `Stopped sharing “…”`; empty states `No shared chats` / `No public links` with original copy + `Open chats`.
-- `Danger zone`: `Export my data` → `Requested` + `We're putting it together – the link arrives by email within an hour` + `Export started – check your email`; `Delete all chats` → `Cancel` / `Delete for good` confirm (autofocus, Escape closes) → clears shares + `All chats deleted`.
+## Root cause
+`./demo-original.js` initial state is `updates:!1` (= `false` = not subscribed). Original renders:
+- `updates=true` => badge `Subscribed` + button `Unsubscribe`
+- `updates=false` => NO badge + button `Subscribe`
 
-## What matches the original
-Layout, card styles, tokens, typography, spacing, switch/button/tab/badge/toast visuals, responsive narrow stacking, keyboard (switches/tabs/buttons focusable, tabs arrow-key, Escape closes cookies/delete confirm), copy adapted clean-room (own SVG icons, no copied source).
+Replica JS matched this (`privacy.updates=false`, `paintEmail()` toggles `hidden` + `textContent` correctly). But CSS broke it:
+```css
+.badge{ display:inline-flex; ... }
+```
+with NO `[hidden]` rule. Real browsers: author `display:inline-flex` overrides UA `[hidden]{display:none}`, so `<span class="badge" id="emailBadge" hidden>Subscribed</span>` stayed VISIBLE alongside `Subscribe`. Hence contradiction in both themes.
 
-## What could not be verified
-Pixel-exact original screenshots/styles were not available in this directory; loading skeletons, backend navigation (`onNavigate`), and real clipboard/OS share URLs were stubbed. Icons are clean-room approximations.
+Checked `./demo-original.js` first: it does NOT behave this way (it conditionally renders badge only when subscribed), so fix is warranted — not noting as-is.
 
-## How to test
-Open `index.html` in a browser (double-click or any static server). Toggle theme with the sun/moon button top-right; try switches, `Manage cookies`, `Subscribe`, `Sign out` / `Sign out others`, tabs, `Copy link`, `Stop sharing`, `Export`, `Delete all chats`. No network needed.
+## Fix (1 line, in-place, targeted)
+In `./index.html`, before `.badge{`, added:
+```css
+[hidden]{display:none!important}
+```
+- Keeps `/*noflash*/` guard untouched (line 4 still first in `<head>`).
+- In-place updates only: `paintEmail()` still only toggles `hidden` attr + `textContent`, no `innerHTML` (verified zero `innerHTML`/`outerHTML`/`insertAdjacentHTML` in file).
+- Demo data verbatim: `diff` shows only the 1 CSS line added, no JS/data changes.
+- Also fixes other `hidden` users (`cookiesPanel`, `sharedEmpty`, etc.) same root cause, no side effects.
 
-## Checks performed (node only, no browser)
-- `node --check` on extracted inline script (syntax).
-- In-dir DOM-stub harness `./harness.js`: asserts visible painted text, full-loop node identity, zero `innerHTML` writes after init, and light + dark themes. Run: `node ./harness.js`.
-- Verified light AND dark: `data-theme` toggles, dark tokens present, contrast legible, no white first paint via `/*noflash*/` guard.
+Diff:
+```
+--- ./original-backup.html
++++ ./index.html
+@@ -168,6 +168,7 @@
++[hidden]{display:none!important}
+ .badge{
+```
+
+## Proof — md5 BEFORE/AFTER (must differ)
+```
+7585930fb389a0b460f3fc381f9bef5b  ./original-backup.html  (BEFORE = original)
+cb54d64cab15e22b09f25eeb3af8b634  ./index.html  (AFTER = fixed)
+```
+Verified via `md5sum ./index.html ./original-backup.html` in-dir. Hashes differ.
+
+## Proof — harness FAIL on original, PASS on fixed
+Harness: `./harness.cjs` (node only, in-dir DOM-stub). Computes VISIBLE state as real browser does: `visible = !(has hidden attr && css has [hidden]{display:none})`. Asserts visible initial (light+dark), toggle both ways, full-loop node identity, zero innerHTML, noflash.
+
+### ORIGINAL (`node ./harness.cjs ./original-backup.html` → exit 1 FAIL)
+```
+Harness target: ./original-backup.html
+  OK: noflash guard present
+  OK: color-scheme meta present
+  css [hidden]{display:none} rule: false
+  OK: badge uses display:inline-flex (bug precondition documented)
+  OK: zero innerHTML writes in inline scripts
+  OK: zero outerHTML writes
+  OK: zero insertAdjacentHTML
+  OK: demo-original initial updates=false (not subscribed)
+  OK: demo has Subscribed badge + Subscribe/Unsubscribe buttons
+  initial badge tag: <span class="badge" id="emailBadge" hidden>
+  initial btn text: 'Subscribe'
+  OK: initial badge carries hidden attribute
+  OK: initial button text is Subscribe (got 'Subscribe')
+  OK: replica privacy.updates initial false
+  OK: paintEmail extracted from file (in-place updates only)
+  OK: paintEmail toggles hidden attr in place
+  OK: paintEmail updates button text in place
+  OK: paintEmail uses zero innerHTML
+  after initial paint: hidden=true btn='Subscribe' visible=true
+  FAIL: [light] badge NOT visible when not subscribed (initial consistent)
+  OK: [light] button Subscribe when not subscribed
+  OK: dark theme rule present
+  FAIL: [dark] badge NOT visible when not subscribed (initial consistent)
+  OK: [dark] button Subscribe when not subscribed
+  after subscribe: hidden=false btn='Unsubscribe' visible=true
+  OK: badge VISIBLE when subscribed
+  OK: button Unsubscribe when subscribed
+  OK: toast 'Subscribed to product updates' present
+  OK: [light+dark] subscribed visible consistent
+  after unsubscribe: hidden=true btn='Subscribe' visible=true
+  FAIL: badge hidden again after Unsubscribe
+  OK: button back to Subscribe after full loop
+  OK: toast 'Unsubscribed' present
+  OK: node identity: emailBtn same object across full loop
+  OK: node identity: emailBadge same object across full loop
+  OK: node identity: emailNote same object across full loop
+  OK: zero innerHTML writes after init (stub counter=0)
+RESULT FAIL (3 failures)
+```
+
+### FIXED (`node ./harness.cjs ./index.html` → exit 0 PASS)
+```
+Harness target: ./index.html
+  OK: noflash guard present
+  OK: color-scheme meta present
+  css [hidden]{display:none} rule: true
+  OK: badge uses display:inline-flex (bug precondition documented)
+  OK: zero innerHTML writes in inline scripts
+  OK: zero outerHTML writes
+  OK: zero insertAdjacentHTML
+  OK: demo-original initial updates=false (not subscribed)
+  OK: demo has Subscribed badge + Subscribe/Unsubscribe buttons
+  initial badge tag: <span class="badge" id="emailBadge" hidden>
+  initial btn text: 'Subscribe'
+  OK: initial badge carries hidden attribute
+  OK: initial button text is Subscribe (got 'Subscribe')
+  OK: replica privacy.updates initial false
+  OK: paintEmail extracted from file (in-place updates only)
+  OK: paintEmail toggles hidden attr in place
+  OK: paintEmail updates button text in place
+  OK: paintEmail uses zero innerHTML
+  after initial paint: hidden=true btn='Subscribe' visible=false
+  OK: [light] badge NOT visible when not subscribed (initial consistent)
+  OK: [light] button Subscribe when not subscribed
+  OK: dark theme rule present
+  OK: [dark] badge NOT visible when not subscribed (initial consistent)
+  OK: [dark] button Subscribe when not subscribed
+  after subscribe: hidden=false btn='Unsubscribe' visible=true
+  OK: badge VISIBLE when subscribed
+  OK: button Unsubscribe when subscribed
+  OK: toast 'Subscribed to product updates' present
+  OK: [light+dark] subscribed visible consistent
+  after unsubscribe: hidden=true btn='Subscribe' visible=false
+  OK: badge hidden again after Unsubscribe
+  OK: button back to Subscribe after full loop
+  OK: toast 'Unsubscribed' present
+  OK: node identity: emailBtn same object across full loop
+  OK: node identity: emailBadge same object across full loop
+  OK: node identity: emailNote same object across full loop
+  OK: zero innerHTML writes after init (stub counter=0)
+RESULT PASS
+```
+
+## Verification (node only, no installs)
+- `node --check ./harness.cjs` → syntax OK
+- inline scripts syntax via `vm.Script` → `script[0] syntax OK`, `script[1] syntax OK`
+- Light AND dark: harness asserts badge hidden + Subscribe in both themes; dark rule `html[data-theme="dark"]` present; toggle verified both ways.
+- Node identity across full subscribe→unsubscribe loop: same objects.
+- Zero innerHTML writes after init: static grep + stub counter 0.
+
+## What matches / could not verify
+- Matches original: initial not-subscribed (no badge + Subscribe), subscribed (badge + Unsubscribe), toasts, demo data verbatim.
+- Could not verify in real browser (node stub only emulates CSS `display` override), but rule `[hidden]{display:none!important}` is standard fix for this exact override. Open `./index.html` in browser to confirm: Emails shows only Subscribe initially, no badge, in light/dark; click toggles both ways.
