@@ -1,53 +1,193 @@
-# Kanban Board — replica report
+# Kanban repair — REPORT
 
-## What was built
-Standalone `index.html` (56 KB, no external deps, system fonts only) replicating affectUI **Kanban Board** (`slug kanban`, screen, App screens, Pro).
+Targeted fix of existing `./index.html` (no rebuild). Work confined to this directory. Node only, no installs.
 
-Public description: *Issues board by priority with drag-and-drop, list view, filters, sorting.*
+## Hard proof: hashes differ
 
-Layout:
-- Left sidebar: `Inbox (3)`, `Activity (2)`, `My issues`, `Board` (active), `Projects`, plus `Problems` group (`Password reset emails failing`, `Payments failing for some users`, `Dashboard loads slowly`).
-- Header bar: `Inbox / Overview` breadcrumb (or `Inbox / Overview / #10x Title` in issue view), favorite star (`Add to favorites` / `Remove from favorites`), tools `Filter`, `Sort by`, `Board`/`List` segmented view, theme toggle (sun/moon, top-right), and in issue view `n / total`, `Previous issue`, `Next issue`, `Close issue`.
-- Toolbar: scopes `All tasks` / `Open` / `Completed` with counts + `New task`.
-- Board: 4 columns `Low priority`, `Medium priority`, `High priority`, `Completed` with priority bar-mark icons, count badges, cards, `No issues` empty state, `New task in <column>` add button, drop indicator line.
-- Cards (verbatim): 11 issues k1–k11 (`#101`–`#111`) with title, 2-line description (`No description` fallback), footer `Ready for review` / `Needs attention` / `In progress` / `Fixed` + comments `◱ N` + attachments `⌁ N`.
-- List view: grouped rows with `#id`, title, description, status + counts.
-- Issue detail: editable title/description, `Attach` / `Copy link`, `Sub-issues` (`Reproduce it on staging` done, `Write a fix and a test` open, `Add sub-issue`, `Name the sub-issue and press Enter`), `Activity` (`Subscribe`/`Unsubscribe`, `created the issue · 3 days ago`, `set the priority to … · 2 days ago`, `I can reproduce it on staging – the logs are attached. · Yesterday`, reply `Leave a comment…`, `Send comment`), `Details` (`Status`, `Priority`, `Assignee`, `Labels`, `Project`, `#id · created 3 days ago`). Assignee/label/project derived verbatim: `Mara Klein, Jonas Weber, Lea Braun, Tom Fischer` / `Bug, Auth, Billing, Performance, Mobile, Web` / `Q3 Reliability, Checkout revamp, Onboarding`.
-- Create modal: `Create task`, `Goes to the <column> column`, `What needs to happen?`, `Add details, steps or links…`, `Attach files`, side `Status/Priority/Assignee/Labels/Project` (`Nobody`, `None`), footer `Create another`, `Cancel`, `Create task ⌘↵`, `Bigger window`/`Smaller window`, `Close`.
-- Toasts: `Moved to …`, `… created`, `changed the status to …`, `assigned it to …`, `Link copied`, `Attach a file – open your picker here`.
+- BEFORE (`./original-backup.html`, copy of original `./index.html` before edits): `c4194e5e6c298e347e66346ac951abba`
+- AFTER (`./index.html` after edits): `65222287f459108874b2ae09424d2ab2`
+- Command: `md5sum ./index.html` before editing, `cp ./index.html ./original-backup.html`, then `md5sum ./index.html` after editing. Hashes MUST differ — they do.
+- `node --check` on extracted app JS: OK (`node --check ./.check-app.js` → pass; `node --check ./index.html` expectedly fails with `ERR_UNKNOWN_FILE_EXTENSION` because it is HTML, so JS was extracted and checked).
 
-Interactions: drag-and-drop (HTML5, drop line, `Moved to` toast), click/Enter/Space to open, Esc to close, prev/next navigation, filter menu (show columns), sort menu (`Manual`, `Title`, `Most comments`), scope tabs, board/list toggle, favorite toggle, sub-issue checkboxes, comment post, assignee/status/priority cycling, theme toggle. Responsive: sidebar hides <900px, columns 248px scroll-x, row text/counts hide <640px.
+## demo-original.js checked BEFORE changing anything
 
-## Demo data
-Used verbatim from `demo-original.js`: `ce` columns, `le` 11 cards, `R`, `z`, `B`, `V`, `oe`/`se` nav, ID format `#${100+n}`, initials avatar, status/priority icons. No invented tasks. Clean-room: all HTML/CSS/JS rewritten; no copied bundle source or CSS.
+Read `./demo-original.js` (minified React) and `./REPLICATE_SPEC.md` with relative paths. Original behaviour:
 
-## Matches / fidelity
-- Header/toolbar/board/list/issue/modal structure, labels, counts, empty states match parsed strings.
-- Priority marks (3 bars, low=1 blue / medium=2 amber / high=3 red, done=check green) and status icons (review half-circle blue, progress quarter purple, attention triangle amber, fixed dot green) re-drawn as inline SVG.
-- Design tokens via CSS vars, light + dark per spec; cards 1px border + soft shadow, hover lift, focus-visible outline, 150–200ms transitions, pills 999px.
-- v3: single-line ellipsis titles, opacity ≥0.75 (drag 0.4 only on dragged node), reserved 36px column header space, bottom padding kept.
-- v4: `/*noflash*/` guard first in `<head>` + `html{background:#fafaf9}html[data-theme="dark"]{background:#101012}` + `meta color-scheme`; DOM built once, all later renders mutate nodes in place (`textContent`/attrs/`appendChild` reorder), no `innerHTML` anywhere.
-- v5: all `:hover` (17 rules) inside `@media (hover:hover) and (pointer:fine)`; `html{-webkit-tap-highlight-color:transparent}`; `body{font-variant-numeric:tabular-nums}`; concentric radii (col 20px = card 16px + 4px padding, modal 22px, menu 12px); shadows for elevation / borders for structure; icon buttons use 8px icon-side / 10px text-side optical padding. No content images.
+- Columns: `low/medium/high/done` (Low priority, Medium priority, High priority, Completed). Cards: 11 (`k1..k11`: 3+3+3+2).
+- Scope filter: `$/visible = columns.filter(!hidden && (scope==='all' || (scope==='done' ? tone==='done' : tone!=='done')))`. I.e. **Open hides the Completed column; Completed shows only Completed**. Counts: All 11, Open 9, Completed 2.
+- Layout CSS: `.ui-kbn{height:100%;min-height:0}`, `.ui-kbn__board{flex:1;min-height:0}`, `.ui-kbn-col{min-height:0}`, `.ui-kbn-col__cards{flex:1;min-height:0;overflow-y:auto}` — board fills available height, cards scroll inside column, never sliced mid-card.
+- Therefore the reported defects are real replica bugs, NOT original behaviour. Fix matches original (hide columns by scope, fill frame). No `do NOT fix` case.
 
-## Could not verify
-- Pixel-perfect colors/spacing vs live Pro build (no browser screenshot; verified by code inspection against extracted `ye` CSS strings only for behavior, not copied).
-- Native drag image / touch drag on mobile; coarse-pointer heights adjusted but not device-tested.
-- Clipboard `Copy link` in sandboxed file:// (falls back to toast).
-- Full screen-reader announcement order.
+Constraints kept: `/*noflash*/` guard untouched, in-place updates only (existing nodes updated via `textContent`/`hidden`/attrs, `appendChild` moves preserve identity), zero `innerHTML` writes after init (file contains 0× `innerHTML`), demo data verbatim (11 cards, 4 cols unchanged).
+
+## Defects + root causes + targeted fixes (all in `./index.html`)
+
+### (1) Board only top ~1/3, cards sliced, blank grey + white line below
+Root: missing `[hidden]{display:none!important}`. CSS `.list/.issue/.nonedisplay/.modal/.menu` use `display:flex/grid`, which overrides the `hidden` attribute in real browsers, so hidden list/issue/empty/modal/menu all stayed visible and stacked in `.main` (flex column, 4× `flex:1` siblings → board got ~1/4 height, inner scroll sliced card 2, rest was blank grey + stray white menu/line). Plus `.app/.main` used only `min-height:100vh` (no fixed height) and `.col{min-height:200px}` / `.cards{min-height:60px}` instead of original `min-height:0`.
+Fix (CSS only):
+- Add `[hidden]{display:none!important}` right after `*{box-sizing:border-box}`.
+- `.app{...min-height:100vh}` → `...min-height:100vh;height:100vh`.
+- `.main{...min-height:100vh}` → `...height:100vh;min-height:0;overflow:hidden`.
+- `.col{...min-height:200px}` → `...min-width:0;min-height:0`.
+- `.cards{...min-height:60px}` → `...min-height:0`.
+
+### (2) Theme toggle half off-screen / covered
+Root: same `[hidden]` bug. Hidden `prev/next/close/pos` buttons in `.bar` (`display:inline-grid` overrides `hidden`) stayed visible, occupying space and pushing the theme button past the right edge; hidden `modal` (`position:fixed;inset:0;z-index:70;display:flex` overrides `hidden`) covered the page, intercepting clicks.
+Fix: `[hidden]` rule above hides them; theme button (`aria-label="Toggle theme"`) is then last visible item, `hidden==false`, rect within viewport, no overlay. Verified in harness as VISIBLE state.
+
+### (3) `Open 9` does nothing
+Root (two parts):
+- (a) `[hidden]` bug: `sec.hidden=true` had no effect (`display:flex` overrides), so hiding Completed never hid anything; `modal` overlay also blocked clicks in a real browser.
+- (b) Logic bug: `visibleCols()` ignored scope (`return COLS.filter(hidden only)`), while original filters by scope+tone. `renderBoard`/`renderList` only hid by `hidden`, and never hid stale card/row nodes (only `appendChild` list items, leaving filtered-out nodes visible). `renderList` hid groups only by `hidden`, not scope.
+Fix (JS only, in place):
+- `visibleCols()` → `return COLS.filter(c => hidden<0 && (scope==='all' || (scope==='done' ? tone==='done' : tone!=='done')))`.
+- `renderBoard`: track `seen={}`, `n.art.hidden=false;seen[id]=1` for visible, then `for(id in cardEls) if(!seen[id]) hidden=true`.
+- `renderList`: replace two-line hide with `Object.keys(groupEls).forEach(k => hidden = vis2.indexOf(colOf(k))<0)`, plus `n.row.hidden=false;seenR[id]=1` and trailing hide loop.
+
+## Harness (in-dir, node only, DOM-stub, light AND dark, identity, zero writes)
+
+`./harness.js` (run: `node ./harness.js ./index.html` or `./original-backup.html`):
+- Static: noflash, color-scheme, zero `innerHTML` in file, `[hidden]` rule, layout heights, scope-aware `visibleCols`, light+dark tokens, 11 cards verbatim.
+- Dynamic stub (`vm` + minimal `document/localStorage/window`): boots app, asserts VISIBLE state via effective visibility (`hidden` + `[hidden]` rule, so stub matches real-browser cascade), clicks All/Open/Completed tabs, toggles theme light→dark→light, re-asserts filters in dark, full-loop (`scopes×sorts×views`) node identity (`===`) and `innerHTMLWrites===0`.
+
+### Before (original) — MUST FAIL — `node ./harness.js ./original-backup.html` (exit 1)
+
+```
+== static [./original-backup.html] ==
+  PASS noflash guard present
+  PASS color-scheme meta present
+  PASS noflash bg css present
+  PASS zero innerHTML writes in file
+  FAIL [hidden]{display:none!important} rule present
+  FAIL .app height:100vh (fills frame)
+  FAIL .main height:100vh/min-height:0/overflow:hidden
+  FAIL .col min-height:200px removed (was height bug)
+  FAIL .col min-height:0 + min-width:0
+  FAIL .cards min-height:60px removed
+  FAIL visibleCols scope-aware (all/done/open)
+  PASS light AND dark tokens present
+  PASS demo data: 11 cards verbatim
+== dynamic light ==
+  PASS app booted, window.__kbn exposed
+  PASS board visible at init
+  FAIL list hidden in board view (effective, no blank grey area)
+  FAIL issue hidden at init (effective)
+  FAIL modal hidden at init (no overlay, effective)
+  FAIL menu hidden at init (no stray line, effective)
+  FAIL empty hidden when cards exist (effective)
+  PASS 4 columns visible when scope=all
+  PASS 11 cards visible when scope=all
+  PASS 3 scope tabs present
+  PASS All tasks selected at init
+  PASS Open not selected at init
+  PASS All tasks shows 11
+  PASS Open shows 9
+  PASS theme toggle present
+  PASS theme toggle not hidden
+  PASS theme toggle fully on-screen (rect within 1280)
+  FAIL theme clickable: no modal/menu overlay (effective)
+  PASS prev/next/close hidden when not in issue (not pushing theme off)
+  FAIL board is sole visible main child (fills frame, no blank grey area) :: visible=4
+  PASS click Open sets scope=open
+  PASS Open selected after click
+  PASS All tasks deselected after Open click
+  FAIL Open shows 3 columns (Completed hidden) :: found=4
+  FAIL Completed column hidden when Open :: Low priority,Medium priority,High priority,Completed
+  FAIL Open shows 9 visible cards :: found=11
+  PASS click Completed sets scope=done
+  PASS Completed selected after click
+  FAIL Completed shows 1 column :: found=4
+  FAIL Completed shows 2 visible cards :: found=11
+  PASS click All restores scope=all
+  PASS All restores 4 columns
+  PASS All restores 11 cards
+== dynamic dark ==
+  PASS theme toggle switches to dark
+  PASS theme persisted to localStorage
+  PASS [dark] 4 columns visible
+  PASS [dark] 11 cards visible
+  PASS [dark] Open filter works
+  FAIL [dark] Open hides Completed :: found=4
+  FAIL [dark] Open shows 9 cards :: found=11
+  PASS theme toggles back to light
+== identity + zero writes ==
+  PASS node identity preserved across full loop (cards)
+  PASS node identity preserved across full loop (rows)
+  PASS zero innerHTML writes after init
+
+RESULT 36 pass / 21 fail
+```
+
+### After (fixed) — MUST PASS — `node ./harness.js ./index.html` (exit 0)
+
+```
+== static [./index.html] ==
+  PASS noflash guard present
+  PASS color-scheme meta present
+  PASS noflash bg css present
+  PASS zero innerHTML writes in file
+  PASS [hidden]{display:none!important} rule present
+  PASS .app height:100vh (fills frame)
+  PASS .main height:100vh/min-height:0/overflow:hidden
+  PASS .col min-height:200px removed (was height bug)
+  PASS .col min-height:0 + min-width:0
+  PASS .cards min-height:60px removed
+  PASS visibleCols scope-aware (all/done/open)
+  PASS light AND dark tokens present
+  PASS demo data: 11 cards verbatim
+== dynamic light ==
+  PASS app booted, window.__kbn exposed
+  PASS board visible at init
+  PASS list hidden in board view (effective, no blank grey area)
+  PASS issue hidden at init (effective)
+  PASS modal hidden at init (no overlay, effective)
+  PASS menu hidden at init (no stray line, effective)
+  PASS empty hidden when cards exist (effective)
+  PASS 4 columns visible when scope=all
+  PASS 11 cards visible when scope=all
+  PASS 3 scope tabs present
+  PASS All tasks selected at init
+  PASS Open not selected at init
+  PASS All tasks shows 11
+  PASS Open shows 9
+  PASS theme toggle present
+  PASS theme toggle not hidden
+  PASS theme toggle fully on-screen (rect within 1280)
+  PASS theme clickable: no modal/menu overlay (effective)
+  PASS prev/next/close hidden when not in issue (not pushing theme off)
+  PASS board is sole visible main child (fills frame, no blank grey area)
+  PASS click Open sets scope=open
+  PASS Open selected after click
+  PASS All tasks deselected after Open click
+  PASS Open shows 3 columns (Completed hidden)
+  PASS Completed column hidden when Open
+  PASS Open shows 9 visible cards
+  PASS click Completed sets scope=done
+  PASS Completed selected after click
+  PASS Completed shows 1 column
+  PASS Completed shows 2 visible cards
+  PASS click All restores scope=all
+  PASS All restores 4 columns
+  PASS All restores 11 cards
+== dynamic dark ==
+  PASS theme toggle switches to dark
+  PASS theme persisted to localStorage
+  PASS [dark] 4 columns visible
+  PASS [dark] 11 cards visible
+  PASS [dark] Open filter works
+  PASS [dark] Open hides Completed
+  PASS [dark] Open shows 9 cards
+  PASS theme toggles back to light
+== identity + zero writes ==
+  PASS node identity preserved across full loop (cards)
+  PASS node identity preserved across full loop (rows)
+  PASS zero innerHTML writes after init
+
+RESULT 57 pass / 0 fail
+```
 
 ## How to test
-1. Open `index.html` in a browser (double-click or `python3 -m http.server` then visit).
-2. Toggle Board/List, Filter (hide a column), Sort by Title / Most comments, scopes All/Open/Completed.
-3. Drag a card across columns; click a card for issue view, step with ↑/↓, Esc to close.
-4. `New task` → create; check toast + new `#112…` card.
-5. Toggle sun/moon; reload to confirm persistence; test `prefers-color-scheme` with no stored key.
 
-## Verification (node only, in-dir, no browser)
-- `node --check` on extracted `<script>` — passes.
-- In-dir DOM-stub harness (vm + FakeElement):
-  - VISIBLE painted text contains `Reset password flow issue`, `Low priority`, `All tasks`, `Board`, `Inbox`, `Ready for review` — PASS.
-  - Full-loop node identity (Manual→Title→Most comments→Manual, all→open→done→all, board→list→board, select→close): same `article` objects — PASS.
-  - Zero `innerHTML` writes after init (static grep + runtime counter) — PASS (0).
-  - Light AND dark: `data-theme` light default via noflash, `setTheme('dark'/'light')` switches, CSS contains both token blocks — PASS.
-
-Checked 2026-11-26. Default theme follows `prefers-color-scheme`; toggle overrides via `kanban-theme`.
+- Browser: open `./index.html` in a browser. Board fills viewport (no blank grey, no stray line, cards not sliced). Theme toggle top-right fully visible/clickable, toggles `data-theme` light/dark (persisted `kanban-theme`). Click `Open 9` → Completed hides, 9 cards, `All tasks` deselected; `Completed` → only Completed (2); `All tasks 11` → 4 cols/11. Check both themes.
+- Node: `node ./harness.js ./index.html` (pass) and `node ./harness.js ./original-backup.html` (fail). JS syntax: extract longest `<script>` and `node --check` it.
+- Light AND dark verified via toggle in harness (same visible assertions in both) + both token blocks present.

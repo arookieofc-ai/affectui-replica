@@ -1,36 +1,128 @@
-# Files — Folders / Overview (`files`)
+# Files — Folders / Overview (`files`) — TARGETED FIX
 
-Self-contained replica of the affectUI **Files / Folders overview** screen (slug `files`).
+Single file `index.html` (inline CSS + JS, no external deps, system fonts only).
+This is a targeted fix of the existing file, not a rebuild.
 
-## What was built
-- Single file `index.html` (inline CSS + JS, no external deps, system fonts only).
-- Page header `Files` + sub `See files you recently used in chats and manage files saved in folders. Learn more`.
-- **Folders** section: title + live count, tabs `All / Shared / Private`, sort `A–Z / Z–A`, grid/list toggle, `Search folders...` (172px), `Create folder` (primary). Folder cards show a two-tone folder mark, name (single-line ellipsis) and meta `Shared · 5 files` with a small access icon.
-- **File templates** section: title + live count, tabs `All / Mine / Shared with me`, `Type` multi-filter (`Document / PDF / Spreadsheet`), sort, `Search templates...`, `Add template` (secondary). Template cards show a preview badge (`DOC / PDF / XLS` with per-type tint), name, meta `Document · Alex Morgan` + `· Shared/Private`.
-- Demo data used **verbatim** from `demo-original.js` (no invented names):
-  - Folders: `Q3 Campaign` (Shared, 5), `Brand assets` (Shared, 3), `Hiring` (Private, 4), `Research` (Private, 2) with the same file/file-type/edited values in the data model.
-  - Templates: `Design-Book` DOC Alex Morgan, `Brand-Guidelines` PDF Jonas Weber shared, `Campaign-Budget` XLS Jonas Weber shared, `Weekly-Report` XLS Alex Morgan.
-  - Current user `Alex Morgan` (so `Mine` = 2, `Shared with me` = 2).
-- Behaviours matching the original: case-insensitive trimmed substring search, `localeCompare` name sort, `Untitled folder` / `Untitled folder 2…` and `Untitled` / `Untitled-2…` creation that resets tab/search (and type filter for templates), empty states (`No folders found` / `Nothing matches “q”.` / `There are no shared folders yet.` / `No folders yet…`; `No templates found` / `Try another tab, type or search.` / `No templates yet…`), hidden skeleton markup, folder click toast, keyboard tabs (arrow keys), Escape clears search / closes popover.
-- Clean-room: all markup/CSS/JS written from the behaviour description. Folder artwork and icons are original drawings; no compiled source copied.
+## Defects fixed (from real-browser QA)
 
-## What matches the original
-- Layout: page → two panels; folder grid 4 cols / gap 11px / mt 16px; folder card 56px (48px in list), list = single column; templates wrap with 12px gap; responsive 4→2→1 columns.
-- In-place updates only: DOM is built once at init; filters/sort/search/view/counts/empty-states mutate existing nodes (`textContent`, `hidden`, `appendChild` reorder). No full re-render from any handler.
-- Design tokens via CSS custom properties for every colour; radius-lg 16 / radius 10 / radius-sm 6; shadow tokens; system sans, base 14px, titles 15–16px semibold, meta 12–13px muted; pills fully rounded.
-- v5 polish: all `:hover` gated behind `@media (hover:hover) and (pointer:fine)`; `html{-webkit-tap-highlight-color:transparent}`; `body{font-variant-numeric:tabular-nums}`; concentric radii; shadows for elevation / borders for structure; preview gets inset outline in black/white at 10%; icon-side padding nudged 2px.
+### (1) Four blank grey SKELETON cards above Folders NEVER resolve
+`./demo-original.js` check: the original DOES have a skeleton row, but ONLY as the
+loading state: `n ? skeleton(4x ui-as-folder-card data-skel) : B.length ? grid : empty`.
+It is never an extra row above real cards — when `loading` is false the original
+renders real folder cards, not skeleton + cards.
 
-## What could not be verified
-- Pixel-exact comparison with the production screenshot (no browser in this environment). Verified via node DOM-stub harness instead.
-- Exact file-type label map and file-card internals of the host `component` library; approximated as `DOC→Document, PDF→PDF, XLS→Spreadsheet` from the `groups` data.
-- Real navigation target of folder click (`onNavigate`); approximated with a toast.
+Replica root cause: `<div class="skel-wrap" id="folderSkel" hidden>` was always
+visible in a real browser because author CSS `.skel-wrap{display:grid}` overrides
+the UA `[hidden]{display:none}` rule. JS never touches `folderSkel`, so the 4 grey
+cards sat above the real grid forever (25s+, both themes).
 
-## How to test
-- `open index.html` in a browser (or any static server). No build step.
-- Toggle theme (top-right) → light/dark both finished. Try tabs, Type filter, sort, grid/list, searches (`q3`, `brand`), `Create folder`, `Add template`, Escape, narrow viewport.
-- Node-only verification (no browser):
-  - `node --check ./harness.js`
-  - `node ./harness.js` — DOM-stub harness asserts visible painted text, full-loop node identity, zero writes after init, light + dark.
+Fix: one CSS line `[hidden]{display:none!important}` so `hidden` works. The dead
+row is now correctly hidden (loading=false default, matching the original's
+non-loading state). No div deleted, no data changed, no JS re-render.
 
-## Theme check
-- Light and dark both checked in the harness (theme toggle flips `data-theme`, visible text persists, dark tokens present, noflash guard sets theme before paint).
+### (2) Shared filter desync (count 4 -> 2 but list still shows 4)
+`./demo-original.js` check: `B=A.filter(M All or access===M)`, count=`B.length`,
+key=`M|P|I|R`. Filtering MUST hide non-matching folders; original does not show
+Private folders under Shared.
+
+Replica root cause: same CSS bug. `.folders{display:grid}` and
+`.folder-card{display:flex}` override `[hidden]`, so `updateFolders()` setting
+`rec.node.hidden=true` had no visual effect. Count updated (textContent) but all
+4 cards stayed visible.
+
+Fix: same one-line `[hidden]` fix. Existing `updateFolders()` logic was already
+correct (verified by reading it); with `hidden` honoured, visible rows match the
+count for every filter: All=4, Shared=2 (Q3 Campaign, Brand assets),
+Private=2 (Hiring, Research). Same fix also repairs `.templates` hiding and
+empty states. In-place updates only, node identity preserved.
+
+### SECONDARY: template author names truncate ('Jonas Web…', 'Jo…', 'Al…')
+`./demo-original.js` check: template meta is single-line with ellipsis by design:
+`.ui-as-files-meta{overflow:hidden;min-width:0;white-space:nowrap;text-overflow:ellipsis}`
+plus `.ui-as-files-access{display:inline-flex;flex:none}` with `·` separator.
+The replica already does the same (`.tpl-name` + `.tpl-meta .clip` ellipsis,
+`.tpl-access{flex:none}`). Card width (200px) matches the wrap/gap language of the
+original; no width is specified in `demo-original.js` to prove the replica wrong.
+Per instructions ("fix widths only if the replica's are wrong"), widths were NOT
+changed. Truncation on narrow cards matches the original's single-line ellipsis
+behaviour.
+
+## Change (one line)
+- `index.html`: after `html{-webkit-tap-highlight-color:transparent}` added
+  `[hidden]{display:none!important}` + fix comment.
+- Preserved: `/*noflash*/` guard first in `<head>`, in-place updates only, zero
+  `innerHTML`/`outerHTML`/`insertAdjacentHTML` writes after init, demo data verbatim
+  (Q3 Campaign/Brand assets/Hiring/Research + Design-Book/Brand-Guidelines/
+  Campaign-Budget/Weekly-Report + Alex Morgan/Jonas Weber), all `:hover` inside
+  `@media (hover:hover) and (pointer:fine)`, `tabular-nums`, tokens, light+dark.
+
+## HARD PROOF — md5 BEFORE vs AFTER (must differ)
+```
+ff3e453c9a1c9e039c3da057291d56d3  ./original-backup.html
+0f229caccbad382361189638df19dc2c  ./index.html
+```
+BEFORE (`./index.html` before edit) = `ff3e453c9a1c9e039c3da057291d56d3`
+AFTER (`./index.html` after edit) = `0f229caccbad382361189638df19dc2c`
+They differ (one-line CSS fix, 33894 -> 34042 bytes).
+
+## HARD PROOF — harness FAIL on original, PASS on fixed
+Harness: `./harness-targeted.js` (in-dir DOM-stub, node only, no installs).
+Models real-browser visibility (author `display:grid/flex` overriding `[hidden]`
+unless `[hidden]{display:none!important}` exists), asserts skeleton hidden +
+visible folder rows == count in light AND dark, plus full-loop node identity and
+zero innerHTML writes after init.
+
+BEFORE (original-backup.html) — FAIL as required:
+```
+ok [original-backup.html]: bytes=33894
+ok [original-backup.html]: noflash guard first in head
+ok [original-backup.html]: noflash meta+bg present
+ok [original-backup.html]: v5 hover gated + polish tokens
+ok [original-backup.html]: design tokens present
+ok [original-backup.html]: zero innerHTML writes (static)
+ok [original-backup.html]: app JS syntax valid
+ok [original-backup.html]: hidden-fix rule ABSENT
+ok [original-backup.html]: app init executed
+FAIL [original-backup.html]: defect(1) skeleton row VISIBLE in light (4 grey cards never resolve; hidden is overridden by display:grid)
+```
+
+AFTER (index.html fixed) — PASS:
+```
+ok [index.html]: bytes=34042
+ok [index.html]: noflash guard first in head
+ok [index.html]: noflash meta+bg present
+ok [index.html]: v5 hover gated + polish tokens
+ok [index.html]: design tokens present
+ok [index.html]: zero innerHTML writes (static)
+ok [index.html]: app JS syntax valid
+ok [index.html]: hidden-fix rule PRESENT
+ok [index.html]: app init executed
+ok [index.html]: defect(1) skeleton hidden in light
+ok [index.html]: defect(1) skeleton hidden in dark
+ok [index.html]: defect(2) [light/All] count=4 rows=[Brand assets,Hiring,Q3 Campaign,Research]
+ok [index.html]: defect(2) [light/Shared] count=2 rows=[Brand assets,Q3 Campaign]
+ok [index.html]: defect(2) [light/Private] count=2 rows=[Hiring,Research]
+ok [index.html]: defect(2) [dark/All] count=4 rows=[Brand assets,Hiring,Q3 Campaign,Research]
+ok [index.html]: defect(2) [dark/Shared] count=2 rows=[Brand assets,Q3 Campaign]
+ok [index.html]: defect(2) [dark/Private] count=2 rows=[Hiring,Research]
+ok [index.html]: full-loop node identity preserved (4 folders, 4 templates)
+ok [index.html]: zero innerHTML writes after init
+ok [index.html]: light AND dark verified (toggle light -> dark)
+
+PASS [index.html]: skeleton hidden, filters match count, identity kept, zero writes, light+dark
+```
+
+## Verify with node only (no installs/downloads)
+- `node --check ./harness-targeted.js` -> ok (`HARNESS_TARGETED_CHECK_OK`)
+- `node --check ./harness.js` -> ok (`HARNESS_CHECK_OK`)
+- `node --check` on `.html` is N/A (unknown extension); inline app JS syntax is
+  validated inside the harness via `new vm.Script(appCode)`.
+- `node ./harness-targeted.js ./original-backup.html` -> FAIL (exit 1, above)
+- `node ./harness-targeted.js ./index.html` -> PASS (exit 0, above)
+- Legacy `node ./harness.js` still passes (visible text, identity, light+dark).
+
+## How to test (browser)
+- Open `index.html` (any static server, no build). No skeleton row above Folders.
+- Folders tabs: All=4, Shared=2 (Brand assets, Q3 Campaign), Private=2 (Hiring, Research).
+- Toggle theme top-right: light + dark both finished, no grey-on-grey.
+- Try sort, grid/list, searches (`q3`, `brand`), Create folder, Add template, Escape.

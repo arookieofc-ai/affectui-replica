@@ -1,35 +1,111 @@
-# Settings / Profile — replica report
+# Fix report — Settings Profile / Local time timezone
 
-## What was built
-- Single self-contained `index.html` (inline CSS/JS, no external deps, ~21 KB) replicating affectUI **Settings / Profile** (`settings-profile`).
-- Layout: sticky top bar (`affectUI / Settings / Profile` + theme toggle + mini avatar), left settings nav (Profile active), main column with 5 cards + sticky save bar + toast:
-  1. **Profile picture** — initials avatar (AR), Upload new picture (FileReader preview, PNG/JPG ≤ 2 MB), Remove (restores initials). Avatar has 1px inset outline via `box-shadow: inset 0 0 0 1px var(--img-outline)`.
-  2. **Basic info** — Display name (`Ava Reyes`), Role select (`Product Designer`), Email (`ava.reyes@example.com`).
-  3. **Time** — Timezone select, 12-hour / 24-hour pill toggle, live ticking clock (`Local time: --` + date) updating in place every 1 s.
-  4. **Context default** — Default-context select + right-aligned token label `44k / 200k` with thin 3 px bar (token counts, never percentages).
-  5. **Password** — current / new / confirm, live strength meter (in-place width + label), Show/Hide toggle, Update password with validation.
-- Sticky save bar: `No unsaved changes` pill + `All changes saved.` status, Discard / Save changes enable only when dirty, toast confirmations. Nav items outside Profile show a toast note.
+## Defect
+`Local time` preview ignored the timezone dropdown: `tickClock()` used `Date.getHours()/getMinutes()/getSeconds()/getDay()` (device-local zone) and never read `tzSel`. Switching `America/New_York` -> `Europe/London` only repainted the dirty bar; the clock kept showing device-local time.
 
-## Demo data
-- `./demo-original.js` in this directory is only a loader stub (`DemoStage` + `component`) with no profile fields, used verbatim (no fields to copy).
-- All profile values above are plausible demo data in the expected shape (picture, name, role, email, time, context, password), noted here per spec.
+## Fix (targeted, in-place, `index.html` only)
+- Added `tzName()` parsing IANA zone from `tzSel.value` (`split(" ")[0]`, fallback `UTC`).
+- Rewrote `tickClock(d)` to format **in the selected zone** via `Intl.DateTimeFormat` with `timeZone`:
+  - 12h: `hour:numeric, minute:2-digit, second:2-digit, hour12:true` -> `h:mm:ss AM/PM`
+  - 24h: `hour:2-digit, minute:2-digit, second:2-digit, hour12:false` -> `HH:mm:ss` (`24`->`00` midnight fix)
+  - date: `weekday:short, month:short, day:2-digit` -> `Thu Jan 15`
+  - `try/catch` falls back to original local-time code if `Intl` throws.
+- Immediate update: added `tzS.addEventListener("change", function(){tickClock()});` (existing `paintDirty` listener kept).
+- Kept: `/*noflash*/` guard untouched, 1s `setInterval(tickClock,1000)` untouched, in-place `textContent` updates only, zero `innerHTML` writes, demo timezone option list verbatim.
 
-## What matches the original (from prompt + spec tokens)
-- Card look: 1 px border + soft shadow, radius-lg 16 / radius 10 / radius-sm 6, pills fully rounded, system sans 14 px, titles 15–16 semibold, meta 12–13 muted, gaps 8–12, transitions 150–200 ms.
-- Tokens via CSS custom properties for every colour; dark theme via same tokens; amber kept amber in dark.
-- No-flash guard, tabular-nums, hover gated, tap-highlight transparent, concentric-feel radii, borders-for-structure, optical nudge on icon button padding.
+## Original behaviour check (`./demo-original.js`)
+`./demo-original.js` is a 289-byte stub importing `jsx-runtime`, `DemoStage`, `index-*`, `component-*` with no clock/timezone logic. No original clock behaviour is observable from it, so there was nothing to preserve — noted here instead of “fixing” the stub.
 
-## Could not verify
-- Pixel-exact comparison to the Pro `.tsx` / live affectUI CSS (not fetched, per clean-room rule); only the slug description (picture, name, role, email, time, context, password) was available.
-- Real upload persistence and backend save; FileReader preview + local dirty state only.
+## Proof — hashes differ
+```
+BEFORE: 8394fbd874a44479ccc224e645b4e64b  ./index.html
+AFTER:  7df631ce08c76aa98dcebeae0e3efeaf  ./index.html
+```
+- BEFORE captured via `md5sum ./index.html` before edit, backup kept as `./original-backup.html` (`8394fbd874a44479ccc224e645b4e64b`).
+- AFTER via `md5sum ./index.html` after edit (`7df631ce08c76aa98dcebeae0e3efeaf`). Hashes MUST differ — they do.
 
-## How to test
-- Open `index.html` in a browser (double-click or `python3 -m http.server` then visit the file). Toggle sun/moon top-right for light/dark. Edit name/role/email/timezone/context/format and watch the save bar go dirty; Save/Discard work. Change new password to see the strength meter. Upload a PNG/JPG to preview the avatar.
+## Proof — harness FAILs on original, PASSes on fixed
+Harness: `./harness-clock.cjs` (node only, in-dir DOM stub). Asserts VISIBLE `clockTime`/`clockDate` text for NY vs London on a fixed instant, 12h + 24h, DST summer date, immediate visible change on `change` event, same visible state in light AND dark, full-loop node identity, zero `innerHTML` writes after init, 1s ticker, `/*noflash*/` present. Verified with `node --check` plus stub runs.
 
-## Verification (node only, no browser)
-- `node --check` on extracted inline script: passes (no syntax error).
-- In-dir DOM-stub harness asserts: visible painted text (Profile, Display name, Ava Reyes, Product Designer, Email, Timezone, Time format, Local time, Context default, 44k / 200k, Password, Save changes), full-loop node identity (same `clockTime`/`saveBtn`/etc. objects across ticks), zero `innerHTML` writes after init, light AND dark themes (toggle sets `data-theme` + persists).
-- Checked light AND dark manually via token review (no grey-on-grey, borders visible in both).
+### BEFORE (`node ./harness-clock.cjs ./original-backup.html`, exit 1 — FAIL as required)
+```
+Harness target: ./original-backup.html
+  PASS: noflash guard present
+  PASS: script init ok, __profile exposed
+  INFO 12h NY="8:00:00 PM Thu Jan 15" London="8:00:00 PM Thu Jan 15"
+  INFO expected NY="7:00:00 AM Thu Jan 15" London="12:00:00 PM Thu Jan 15"
+  FAIL: NY vs London differ in 12h (both show 8:00:00 PM)
+  FAIL: NY matches Intl reference: got 8:00:00 PM want 7:00:00 AM
+  FAIL: London matches Intl reference: got 8:00:00 PM want 12:00:00 PM
+  PASS: NY date matches Intl
+  INFO summer NY="8:00:00 PM" London="8:00:00 PM"
+  FAIL: summer DST differ (both 8:00:00 PM)
+  INFO 24h NY="20:00:00" (want 07:00:00) London="20:00:00" (want 12:00:00")
+  FAIL: 24h differ (both 20:00:00)
+  FAIL: 24h match Intl: got NY=20:00:00 want 07:00:00; Lon=20:00:00 want 12:00:00
+  INFO change-event before="8:00:00 PM" after="8:00:00 PM" (direct tickClock call, not via __profile.tick wrapper)
+  PASS: immediate update on tz change (handler ticked via closure)
+  FAIL: visible change on switch (still 8:00:00 PM)
+  INFO light="8:00:00 PM|Thu Jan 15" dark="8:00:00 PM|Thu Jan 15" theme=dark
+  PASS: dark theme applied
+  PASS: light/dark same visible clock
+  PASS: node identity across themes
+  PASS: node identity full loop
+  INFO innerHTMLWritesAfterInit=0
+  PASS: zero innerHTML
+  PASS: 1s ticker
+RESULT: FAIL (./original-backup.html) — 7 failure(s):
+  - NY vs London times differ (12h): got NY=8:00:00 PM Lon=8:00:00 PM
+  - NY time matches Intl reference: got 8:00:00 PM want 7:00:00 AM
+  - London time matches Intl reference: got 8:00:00 PM want 12:00:00 PM
+  - NY vs London differ in summer (DST)
+  - 24h NY vs London differ
+  - 24h match Intl
+  - visible time changes immediately on tz switch
+```
 
-## Clean-room
-- Written from the prompt description + spec tokens only. No verbatim copy from any fetched bundle; `demo-original.js` has no copyable UI code.
+### AFTER (`node ./harness-clock.cjs ./index.html`, exit 0 — PASS)
+```
+Harness target: ./index.html
+  PASS: noflash guard present
+  PASS: script init ok, __profile exposed
+  INFO 12h NY="7:00:00 AM Thu Jan 15" London="12:00:00 PM Thu Jan 15"
+  INFO expected NY="7:00:00 AM Thu Jan 15" London="12:00:00 PM Thu Jan 15"
+  PASS: NY vs London differ in 12h
+  PASS: NY matches Intl reference
+  PASS: London matches Intl reference
+  PASS: NY date matches Intl
+  INFO summer NY="8:00:00 AM" London="1:00:00 PM"
+  PASS: summer DST differ
+  INFO 24h NY="07:00:00" (want 07:00:00) London="12:00:00" (want 12:00:00")
+  PASS: 24h differ
+  PASS: 24h match Intl
+  INFO change-event before="7:00:00 AM" after="12:00:00 PM" (direct tickClock call, not via __profile.tick wrapper)
+  PASS: immediate update on tz change (handler ticked via closure)
+  PASS: visible change on switch
+  INFO light="7:00:00 AM|Thu Jan 15" dark="7:00:00 AM|Thu Jan 15" theme=dark
+  PASS: dark theme applied
+  PASS: light/dark same visible clock
+  PASS: node identity across themes
+  PASS: node identity full loop
+  INFO innerHTMLWritesAfterInit=0
+  PASS: zero innerHTML
+  PASS: 1s ticker
+RESULT: PASS (./index.html)
+```
+
+## Verification checklist
+- `node --check ./demo-original.js` OK, `node --check ./harness-clock.cjs` OK (node only, no installs).
+- `grep -c innerHTML ./index.html` = 0; runtime `innerHTMLWritesAfterInit=0` in both runs.
+- `/*noflash*/` present in both (grep 1 each).
+- Timezone `<select id="tzSel">` options byte-identical before/after (SAME).
+- Light AND dark: harness sets `setTheme("light")` / `setTheme("dark")` and asserts identical VISIBLE clock (`7:00:00 AM|Thu Jan 15`) plus node identity across switch.
+- Node identity: same `clockTime`/`clockDate` objects across 10+ ticks, format switches, theme switches.
+- Ticker: `setInterval(tickClock,1000)` still registered.
+- No files touched outside this directory; no `rm /tmp`; harness + REPORT written here.
+
+## How to test manually
+1. Open `./index.html` in a browser.
+2. In Time section, note `Local time` with `America/New_York` selected, toggle `12-hour`/`24-hour`.
+3. Switch dropdown to `Europe/London` — clock updates immediately (~5h ahead in winter, 5h in summer) without waiting a second.
+4. Click sun/moon toggle — clock value stays correct in both themes.
