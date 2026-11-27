@@ -89,6 +89,11 @@ html[data-theme="dark"] .iac{
 .iac-select>*,.iac-frame>*{opacity:0;transform:scale(.94);transition:opacity 160ms ease,transform 160ms ease}
 .iac-select[data-shown]>*,.iac-select[data-shown] .iac-frame>*{opacity:1;transform:none;transition:opacity 220ms ease var(--d,0ms),transform 260ms cubic-bezier(.22,1,.36,1) var(--d,0ms)}
 .iac-frame{opacity:1!important;transform:none!important;transition:none!important}
+/*resting fix: cards live under .iac-main (never-shown branch) — promote to full opacity/colour when scene is shown*/
+.iac-card{opacity:1}
+.iac-main[data-shown] .iac-card{opacity:1}
+.iac-main[data-shown] .iac-task{color:var(--iac-ink)}
+.iac-main[data-shown] .iac-model{color:var(--iac-text)}
 .iac-select>.iac-cursor{transform:translate(6px,6px);--d:0ms}
 .iac-select[data-shown]>.iac-cursor{transform:none}
 .iac-select>.iac-guide{transform:scaleY(0);transform-origin:50% 0;--d:280ms}
@@ -137,7 +142,7 @@ html[data-theme="dark"] .iac{
 <div class="wrap">
 <div class="iac" id="iac">
 <div class="iac-stage" id="iacStage">
-<div class="iac-main">
+<div class="iac-main" id="iacMain">
 <div class="iac-above">
 <div class="iac-card" id="cardAbove">
 <div class="iac-top">
@@ -185,6 +190,7 @@ var HOLD=1600,DELAY=600,M=180,H=120;
 var SHOW_AT=30,HIDE_AFTER=590+HOLD,NEXT_AFTER=590+HOLD+M+H;
 var stage=document.getElementById("iacStage");
 var main=document.getElementById("cardMain");
+var mainBranch=document.getElementById("iacMain");
 var marks=document.getElementById("iacMarks");
 var select=document.getElementById("iacSelect");
 var tagName=document.getElementById("iacTagName");
@@ -250,7 +256,7 @@ if(sizeVal.textContent!==wtxt)sizeVal.textContent=wtxt;
 var isLast=(idx%g.rows.length)===g.rows.length-1;
 if(isLast){select.setAttribute("data-last","")}else{select.removeAttribute("data-last")}
 if(withFlag!==undefined){
-if(withFlag){select.setAttribute("data-shown","")}else{select.removeAttribute("data-shown")}
+if(withFlag){select.setAttribute("data-shown","");if(mainBranch)mainBranch.setAttribute("data-shown","")}else{select.removeAttribute("data-shown");if(mainBranch)mainBranch.removeAttribute("data-shown")}
 shown=withFlag;
 }
 }
@@ -258,8 +264,8 @@ var timers=[];
 function later(fn,ms){var id=window.setTimeout(fn,ms);timers.push(id);return id}
 function loop(){
 paint(cur);
-later(function(){select.setAttribute("data-shown","");shown=true},SHOW_AT);
-later(function(){select.removeAttribute("data-shown");shown=false},HIDE_AFTER);
+later(function(){select.setAttribute("data-shown","");if(mainBranch)mainBranch.setAttribute("data-shown","");shown=true},SHOW_AT);
+later(function(){select.removeAttribute("data-shown");if(mainBranch)mainBranch.removeAttribute("data-shown");shown=false},HIDE_AFTER);
 later(function(){cur=(cur+1)%geom.rows.length;loop()},NEXT_AFTER);
 }
 var reduce=false;
